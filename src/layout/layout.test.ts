@@ -71,6 +71,34 @@ describe("planBuilding", () => {
     }
   });
 
+  it("commerce floors get a sales floor with a checkout counter and display racks", () => {
+    const shop = makeFixture({ seed: 12, floors: 5, type: "commerce", width: 34, depth: 22 });
+    const splan = planBuilding(shop.request, resolveAssignments(shop.request));
+    const floor = splan.floors.find((f) => f.kind === "retail")!;
+    const sales = floor.rooms.find((r) => r.kind === "sales_floor")!;
+    expect(sales.doors.length).toBeGreaterThan(0);
+    expect(floor.rooms.some((r) => r.kind === "storage")).toBe(true);
+    const inSales = floor.furniture.filter((f) => f.room === sales.id).map((f) => f.kind);
+    expect(inSales).toContain("counter");
+    expect(inSales).toContain("shelf");
+    expect(inSales).toContain("display_rack");
+  });
+
+  it("mall floors line a concourse with shop units, each with its own stock room", () => {
+    const mall = makeFixture({ seed: 12, floors: 5, type: "mall", width: 34, depth: 22 });
+    const mplan = planBuilding(mall.request, resolveAssignments(mall.request));
+    const floor = mplan.floors.find((f) => f.kind === "mall_floor")!;
+    const concourse = floor.rooms.find((r) => r.kind === "concourse")!;
+    const shops = floor.rooms.filter((r) => r.kind === "sales_floor");
+    expect(shops.length).toBeGreaterThanOrEqual(3);
+    for (const shop of shops) {
+      expect(shop.doors.some((d) => d.to === concourse.id)).toBe(true);
+      expect(floor.furniture.some((f) => f.room === shop.id && f.kind === "counter")).toBe(true);
+      const stock = floor.rooms.find((r) => r.unit === shop.unit && r.kind === "storage");
+      expect(stock?.doors.some((d) => d.to === shop.id)).toBe(true);
+    }
+  });
+
   it("a spans-2 assignment leaves the upper floor open", () => {
     const twin = makeFixture({ seed: 3, floors: 8, type: "corpo" });
     const assignments = resolveAssignments(twin.request).filter((a) => a.floor !== 2);

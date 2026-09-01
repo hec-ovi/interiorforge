@@ -123,14 +123,22 @@ export interface StripFill {
   sealed: UvRect[];
 }
 
-export function fillUnitStrip(
-  strip: UvRect, corridorSide: "v0" | "v1", corridorRoom: PlanRoom, kind: FloorKind,
-  rng: Rng, ids: IdGen, unitPrefix: string, uvOutline: readonly Point[],
-): StripFill {
-  if (strip.lu < ROOM.minDim || strip.lv < ROOM.minStripDepth) return { rooms: [], sealed: [] };
+interface StripSlot {
+  rect: UvRect;
+  /** true when the corridor runs out on the slot's high-u side: services go there */
+  deadRight: boolean;
+}
+
+/** Splits a strip into slots of seeded frontage that the corridor actually reaches. Spans
+ *  whose contact is eaten (inline stair shaft) merge into a neighbor or become sealed
+ *  enclaves; spans mostly outside an irregular outline are dropped. */
+function stripSlots(
+  strip: UvRect, corridorRoom: PlanRoom, range: readonly [number, number], rng: Rng,
+  uvOutline: readonly Point[],
+): { slots: StripSlot[]; sealed: UvRect[] } {
+  if (strip.lu < ROOM.minDim || strip.lv < ROOM.minStripDepth) return { slots: [], sealed: [] };
   const corr = corridorRoom.rect;
-  const widths = splitFrontages(strip.lu, FRONTAGE[kind] ?? ROOM.studioFront, rng);
-  // a unit whose corridor contact is eaten by the inline stair shaft merges into its neighbor
+  const widths = splitFrontages(strip.lu, range, rng);
   const contactOf = (u0: number, u1: number) => Math.min(u1, corr.u + corr.lu) - Math.max(u0, corr.u);
   while (widths.length >= 2) {
     const lastStart = strip.u + strip.lu - widths.at(-1)!;
@@ -138,7 +146,6 @@ export function fillUnitStrip(
       widths[widths.length - 2]! += widths.pop()!;
     } else break;
   }
-  // spans mostly outside the outline merge into their neighbor instead of becoming slivers
   for (let i = 0; i < widths.length && widths.length > 1; ) {
     const u0 = strip.u + widths.slice(0, i).reduce((a, b) => a + b, 0);
     if (clipRatio(uSlice(strip, u0, u0 + widths[i]!), uvOutline) < 0.5) {
@@ -147,10 +154,9 @@ export function fillUnitStrip(
       widths.splice(i, 1);
     } else i++;
   }
-  const rooms: PlanRoom[] = [];
+  const slots: StripSlot[] = [];
   const sealed: UvRect[] = [];
   let u = strip.u;
-  let n = 0;
   for (const w of widths) {
     const rect = uSlice(strip, u, u + w);
     u += w;
@@ -159,12 +165,23 @@ export function fillUnitStrip(
       continue;
     }
     if (clipRatio(rect, uvOutline) < 0.5) continue; // mostly outside the outline: stays void
-    // service rooms cluster toward the side with the least corridor contact
     const deadRight = (rect.u + rect.lu) - Math.min(rect.u + rect.lu, corr.u + corr.lu)
       > Math.max(rect.u, corr.u) - rect.u;
-    const unit = `${unitPrefix}-u${n++}`;
-    rooms.push(...fillUnit(rect, corridorSide, deadRight, corridorRoom, kind, rng, ids, unit));
+    slots.push({ rect, deadRight });
   }
+  return { slots, sealed };
+}
+
+export function fillUnitStrip(
+  strip: UvRect, corridorSide: "v0" | "v1", corridorRoom: PlanRoom, kind: FloorKind,
+  rng: Rng, ids: IdGen, unitPrefix: string, uvOutline: readonly Point[],
+): StripFill {
+  const { slots, sealed } = stripSlots(strip, corridorRoom, FRONTAGE[kind] ?? ROOM.studioFront, rng, uvOutline);
+  const rooms: PlanRoom[] = [];
+  slots.forEach((slot, n) => {
+    const unit = `${unitPrefix}-u${n}`;
+    rooms.push(...fillUnit(slot.rect, corridorSide, slot.deadRight, corridorRoom, kind, rng, ids, unit));
+  });
   return { rooms, sealed };
 }
 
@@ -317,16 +334,46 @@ export function fillOfficeStrip(
   return rooms;
 }
 
+// ---- shop units: a sales floor per frontage, stock room at the back ----
+
+/** Mall floors: each frontage on the concourse is one shop. Deep slots keep a stock room
+ *  against the back facade, reached from its own sales floor. */
+export function fillShopStrip(
+  strip: UvRect, corridorSide: "v0" | "v1", corridorRoom: PlanRoom,
+  rng: Rng, ids: IdGen, unitPrefix: string, uvOutline: readonly Point[],
+): StripFill {
+  const { slots, sealed } = stripSlots(strip, corridorRoom, ROOM.shopFront, rng, uvOutline);
+  const ops = sideOps(corridorSide);
+  const rooms: PlanRoom[] = [];
+  slots.forEach((slot, n) => {
+    const unit = `${unitPrefix}-shop${n}`;
+    const withStock = slot.rect.lv >= ROOM.minStripDepth + ROOM.stockDepth;
+    const salesRect = withStock ? ops.near(slot.rect, slot.rect.lv - ROOM.stockDepth) : slot.rect;
+    const sales: PlanRoom = { id: ids.room(), kind: "sales_floor", rect: salesRect, unit, doors: [] };
+    rooms.push(sales);
+    doorBetween(sales, corridorRoom.id, corridorRoom.rect, ids, 2, DOOR.double);
+    if (!withStock) return;
+    const stock: PlanRoom = {
+      id: ids.room(), kind: "storage", rect: ops.far(slot.rect, salesRect.lv), unit, doors: [],
+    };
+    rooms.push(stock);
+    doorBetween(stock, sales.id, sales.rect, ids);
+  });
+  return { rooms, sealed };
+}
+
 // ---- venue floors: hall + back of house ----
 
 const HALL_KIND: Partial<Record<FloorKind, RoomKind>> = {
   lobby: "reception", restaurant: "dining_area", coffee_shop: "dining_area",
-  gym: "gym_floor", terrace: "terrace_open", parking: "parking_area", mechanical: "mechanical_room",
+  retail: "sales_floor", gym: "gym_floor", terrace: "terrace_open",
+  parking: "parking_area", mechanical: "mechanical_room",
 };
 
 const BOH_KINDS: Partial<Record<FloorKind, RoomKind[]>> = {
   restaurant: ["kitchen", "toilets", "storage"],
   coffee_shop: ["storage", "toilets"],
+  retail: ["storage", "toilets"],
   gym: ["locker_room", "locker_room", "storage"],
   lobby: ["storage", "toilets"],
   terrace: ["storage", "toilets"],

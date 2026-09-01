@@ -115,11 +115,20 @@ export function resolveAssignments(request: InteriorRequest): FloorAssignment[] 
   }));
 }
 
+/** Exterior emits the atlas parcel type verbatim on every typed floor, plus lobby, entry,
+ *  basement, bar and executive. Each slug picks its program, so a mixed building gets a real
+ *  restaurant, shop or mall floor whatever its overall type is. */
 const SLUG_KIND: Record<string, FloorKind> = {
-  lobby: "lobby", office: "office", corpo: "corpo_office", corpo_office: "corpo_office",
-  restaurant: "restaurant", coffee: "coffee_shop", coffee_shop: "coffee_shop", cafe: "coffee_shop",
+  lobby: "lobby", entry: "lobby",
+  offices: "office", office: "office", corpo: "corpo_office", corpo_office: "corpo_office",
+  executive: "corpo_office",
+  hospital: "office", clinic: "office", police: "office", military: "office",
+  factory: "mechanical", mechanical: "mechanical",
+  restaurant: "restaurant", bar: "restaurant",
+  coffee: "coffee_shop", coffee_shop: "coffee_shop", cafe: "coffee_shop",
+  commerce: "retail", mall: "mall_floor",
   gym: "gym", hotel: "hotel_rooms", hotel_rooms: "hotel_rooms", residence_studio: "residence_studio",
-  apartment: "apartment", mechanical: "mechanical", basement: "parking", parking: "parking",
+  apartment: "apartment", basement: "parking", parking: "parking",
   terrace: "terrace", roof: "terrace",
 };
 
@@ -134,7 +143,9 @@ function kindFromSlug(slug: string, type: BuildingType, floor: number, rng: Rng)
     case "hotel": return "hotel_rooms";
     case "corpo": return "corpo_office";
     case "factory": return "mechanical";
-    case "commerce": case "mall": case "coffee_shop": return "coffee_shop";
+    case "commerce": return "retail";
+    case "mall": return "mall_floor";
+    case "coffee_shop": return "coffee_shop";
     case "restaurant": return "restaurant";
     default: return "office"; // offices and institutional parcels
   }

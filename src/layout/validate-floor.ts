@@ -1,7 +1,7 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
-import { DOOR } from "./constants.js";
+import { DOOR, SPINE_KINDS } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildNavGrid } from "./navgrid.js";
 import { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
@@ -19,7 +19,7 @@ export function validateAndRepair(
   worldOutline: readonly Point[], uvOutline: readonly Point[], rooms: PlanRoom[],
   furniture: PlanFurniture[], sealed: UvRect[], core: CorePlan, floorIndex: number, ids: IdGen,
 ): WalkGrid {
-  const corridor = rooms.find((r) => r.kind === "corridor" || r.kind === "elevator_lobby");
+  const corridor = rooms.find((r) => SPINE_KINDS.has(r.kind));
   if (!corridor) throw new InteriorError("E_UNREACHABLE_SPACE", "floor has no corridor room", floorIndex);
   const start = uvToWorld(uvRectCenter(corridor.rect), core.frame);
 
@@ -128,8 +128,8 @@ function repairOne(
 
 function publicRank(room: PlanRoom): number {
   switch (room.kind) {
-    case "corridor": case "elevator_lobby": return 0;
-    case "reception": case "dining_area": case "gym_floor": case "parking_area": return 1;
+    case "corridor": case "elevator_lobby": case "concourse": return 0;
+    case "reception": case "dining_area": case "gym_floor": case "parking_area": case "sales_floor": return 1;
     case "living": case "office_open": return 2;
     default: return 3;
   }

@@ -42,7 +42,7 @@
           "id": { "type": "string" },
           "role": {
             "enum": [
-              "receptionist", "security", "vendor", "barista", "waiter", "cook",
+              "receptionist", "security", "vendor", "barista", "waiter", "cook", "clerk",
               "office_worker", "executive", "cleaner", "resident", "trainer", "guest"
             ]
           },
@@ -84,7 +84,7 @@
                 },
                 "animation": {
                   "enum": [
-                    "idle_stand", "idle_sit", "idle_lean", "work_type", "work_serve",
+                    "idle_stand", "idle_sit", "idle_lean", "work_type", "work_serve", "work_stock",
                     "work_cook", "sweep", "patrol_stand", "exercise", "sleep", "use_toilet"
                   ]
                 }

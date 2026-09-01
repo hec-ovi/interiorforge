@@ -79,6 +79,23 @@ export function buildRoles(
         }
         break;
       }
+      // one shop occupies a commerce floor; a mall floor holds one shop per unit. Either
+      // way each sales floor with a checkout is staffed from its own counter.
+      case "retail":
+      case "mall_floor": {
+        for (const shop of floor.rooms.filter((r) => r.kind === "sales_floor")) {
+          const counter = inRoom(ctx, f, shop.id, "counter_spot")[0];
+          if (!counter) continue;
+          const racks = inRoom(ctx, f, shop.id, "work_spot");
+          addRole("clerk", f, counter, [1, Math.max(1, Math.min(3, Math.ceil(racks.length / 2)))], [
+            step(counter, [60, 180], "work_serve"),
+            ...racks.slice(0, 2).map((r) => step(r, [8, 20], "work_stock")),
+            optional(on("toilet")[0], [3, 6], "use_toilet"),
+            step(counter, [90, 240], "work_serve"),
+          ].filter(Boolean) as RoutineStep[]);
+        }
+        break;
+      }
       case "gym": {
         const machines = on("machine_spot").slice(0, 4);
         if (machines.length > 0) {
@@ -161,6 +178,11 @@ function findAnchors(ctx: RoleCtx, floor: number, kind: AnchorKind, roomKind?: s
   return ctx.anchors.filter(
     (a) => a.floor === floor && a.kind === kind && (!roomKind || ctx.roomKind(floor, a.room) === roomKind),
   );
+}
+
+/** Anchors of one room: shop units are staffed per unit, not per floor. */
+function inRoom(ctx: RoleCtx, floor: number, roomId: string, kind: AnchorKind): Anchor[] {
+  return ctx.anchors.filter((a) => a.floor === floor && a.room === roomId && a.kind === kind);
 }
 
 function step(anchor: Anchor, minutes: [number, number], animation: Animation): RoutineStep {

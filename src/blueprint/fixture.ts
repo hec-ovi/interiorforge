@@ -31,8 +31,8 @@ export interface Fixture {
 
 /** Height by floor kind, jittered a little per floor; lobby and special floors run tall. */
 const KIND_HEIGHT: Record<FloorKind, number> = {
-  lobby: 4.0, corpo_office: 3.8, restaurant: 3.6, office: 3.4, gym: 3.4,
-  coffee_shop: 3.2, terrace: 3.0, hotel_rooms: 2.9, apartment: 2.8,
+  lobby: 4.0, mall_floor: 4.0, corpo_office: 3.8, restaurant: 3.6, retail: 3.6,
+  office: 3.4, gym: 3.4, coffee_shop: 3.2, terrace: 3.0, hotel_rooms: 2.9, apartment: 2.8,
   residence_studio: 2.6, mechanical: 2.6, parking: 2.6,
 };
 
@@ -106,6 +106,8 @@ function defaultAssignments(type: BuildingType, floorCount: number, basements: n
   for (let i = 1; i < top; i++) {
     if (type === "residential") out.push({ floor: i, kind: residentialKind(i) });
     else if (type === "hotel") out.push({ floor: i, kind: i === 1 ? "restaurant" : "hotel_rooms" });
+    else if (type === "commerce") out.push({ floor: i, kind: "retail" });
+    else if (type === "mall") out.push({ floor: i, kind: "mall_floor" });
     else if (i === 1 && floorCount > 4) out.push({ floor: i, kind: "restaurant" });
     else if (i === top - 1 && floorCount > 6) out.push({ floor: i, kind: "gym" });
     else out.push({ floor: i, kind: type === "corpo" ? "corpo_office" : "office" });

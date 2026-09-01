@@ -5,9 +5,9 @@ import type { AppState } from "../app-state.js";
 import { svgEl } from "../components/dom.js";
 
 const ROOM_FILL: Record<string, string> = {
-  corridor: "#2c3340", elevator_lobby: "#2c3340", reception: "#3a4358", lounge: "#3a4358",
+  corridor: "#2c3340", elevator_lobby: "#2c3340", concourse: "#2c3340", reception: "#3a4358", lounge: "#3a4358",
   office_open: "#31424a", office_private: "#31424a", meeting: "#38505a", executive_office: "#405a64",
-  dining_area: "#4a4034", kitchen: "#54483a", counter_area: "#54483a", bar: "#4a4034",
+  dining_area: "#4a4034", kitchen: "#54483a", counter_area: "#54483a", bar: "#4a4034", sales_floor: "#4a4450",
   bedroom: "#3d3a52", living: "#44405c", studio_main: "#44405c", bathroom: "#2f4448", toilets: "#2f4448",
   gym_floor: "#354a3b", locker_room: "#3b5242", storage: "#33363c", mechanical_room: "#33363c",
   terrace_open: "#2e3a46", parking_area: "#2b2e34",

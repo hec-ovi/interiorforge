@@ -2,7 +2,7 @@
 
 Purpose: deterministically fills one building shell with interiors per floor and exports NPC routine placeholders and walk paths for that instance.
 
-Status: implemented (0.2). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
+Status: implemented (0.6). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
 
 ## In
 
@@ -10,7 +10,9 @@ One `InteriorRequest`: [schemas/request.schema.json](schemas/request.schema.json
 
 - `seed` uint32 or any string (hashed internally; the exterior seed works directly), `building` (id, atlas parcel type verbatim, atlas tier poor|mid|rich|high_rich), `shellGlb` path, `materialTheme`
 - `blueprint`: consumer view of the canonical exterior blueprint (v0.3: basements as negative indexes, heights to 12 m, per-floor kind slug, extra exterior sections accepted and ignored): [schemas/blueprint.schema.json](schemas/blueprint.schema.json)
-- `assignments` (optional): one floor kind per floor (lobby, office, corpo_office, restaurant, coffee_shop, gym, residence_studio, apartment, hotel_rooms, mechanical, parking, terrace); `spans: 2` for double-height floors. When omitted, derived deterministically from the blueprint floor kind slugs and building type.
+- `assignments` (optional): one floor kind per floor (lobby, office, corpo_office, restaurant, coffee_shop, retail, mall_floor, gym, residence_studio, apartment, hotel_rooms, mechanical, parking, terrace); `spans: 2` for double-height floors. When omitted, derived deterministically from the blueprint floor kind slugs and building type.
+
+Floor kind slugs are read as atlas vocabulary verbatim, so a mixed building gets the right program per floor: `commerce` -> retail (one shop occupying the floor), `mall` -> mall_floor (shop units off a concourse), `restaurant`, `coffee_shop`, `offices`, `corpo`, `hotel`, `residential`, `factory` and the institutional types map to their own programs; `lobby` and `entry` to the lobby, `basement` to parking, `bar` to the restaurant program and `executive` to the corpo office one. Unknown slugs fall back to the building type.
 
 Units meters, building-local space, +Y up, XZ floor plane, CCW polygons.
 

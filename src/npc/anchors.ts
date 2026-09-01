@@ -2,6 +2,7 @@ import type { Point } from "../core/geom.js";
 import { polygonBounds, pointInPolygon } from "../core/geom.js";
 import type { WalkGrid } from "../core/grid.js";
 import type { Anchor, AnchorKind, FloorInterior, Furniture } from "../core/types.js";
+import { SPINE_KINDS } from "../layout/constants.js";
 import type { CorePlan } from "../layout/index.js";
 import { elevatorWaitUv } from "../layout/index.js";
 import { uvToWorld } from "../layout/uv.js";
@@ -23,6 +24,7 @@ const FURNITURE_ANCHORS: Record<string, { kind: AnchorKind; side: "front" | "beh
   bed_single: { kind: "bed", side: "on" },
   toilet: { kind: "toilet", side: "front" },
   gym_machine: { kind: "machine_spot", side: "front" },
+  display_rack: { kind: "work_spot", side: "front" },
   dining_table: { kind: "seat", side: "front" },
   sofa: { kind: "seat", side: "on" },
   bench: { kind: "seat", side: "on" },
@@ -74,10 +76,10 @@ export function floorAnchors(
         angleOf(inward), undefined);
     }
     // idle spots in social rooms, patrol points in public ones
-    if (["living", "lounge", "reception", "office_open", "dining_area", "gym_floor", "studio_main", "terrace_open"].includes(room.kind)) {
+    if (["living", "lounge", "reception", "office_open", "dining_area", "sales_floor", "gym_floor", "studio_main", "terrace_open"].includes(room.kind)) {
       if (pointInPolygon(center, room.polygon)) add("idle_spot", room.id, center, 0);
     }
-    if (room.kind === "corridor" || room.kind === "elevator_lobby") {
+    if (SPINE_KINDS.has(room.kind)) {
       add("patrol_point", room.id, center, 0);
       add("cleaning_spot", room.id, center, 180);
     }

@@ -1,4 +1,5 @@
 import type { InteriorRequest, NpcSupport } from "../core/types.js";
+import { SPINE_KINDS } from "../layout/constants.js";
 import type { BuildingPlan } from "../layout/index.js";
 import { uvRectCenter, uvToWorld } from "../layout/uv.js";
 import { coreAnchors, floorAnchors } from "./anchors.js";
@@ -12,7 +13,7 @@ export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): N
   for (const floor of plan.floors) {
     if (floor.rooms.length === 0) continue;
     const grid = plan.navGrids.get(floor.floor)!;
-    const corridor = floor.rooms.find((r) => r.kind === "corridor" || r.kind === "elevator_lobby")!;
+    const corridor = floor.rooms.find((r) => SPINE_KINDS.has(r.kind))!;
     const uvRooms = plan.uvFloors.get(floor.floor)!.rooms;
     const uvCorridor = uvRooms.find((r) => r.id === corridor.id)!;
     const visited = grid.flood(uvToWorld(uvRectCenter(uvCorridor.rect), plan.core.frame));

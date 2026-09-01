@@ -6,9 +6,13 @@ import type { CorePlan } from "./core-plan.js";
 import type { FloorFrame } from "./plan-types.js";
 import { snapDown, snapUp, toUvPolygon } from "./uv.js";
 
-export const VENUE_KINDS: ReadonlySet<FloorKind> = new Set([
-  "lobby", "restaurant", "coffee_shop", "gym", "terrace", "parking", "mechanical",
+/** Floors laid out as one hall plus back of house. */
+export const HALL_FLOOR_KINDS: ReadonlySet<FloorKind> = new Set([
+  "lobby", "restaurant", "coffee_shop", "gym", "retail", "terrace", "parking", "mechanical",
 ]);
+
+/** Commercial family: hall floors plus mall floors, whose shop units line a concourse. */
+export const VENUE_KINDS: ReadonlySet<FloorKind> = new Set([...HALL_FLOOR_KINDS, "mall_floor"]);
 
 /** Usable u range of a v band: bounds of the outline clipped to that band. Partial-depth
  *  slivers are included; rooms there get clipped polygons. */

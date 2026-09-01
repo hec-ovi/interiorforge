@@ -18,7 +18,7 @@ const SIZES: Record<string, Size3> = {
   desk: [1.6, 0.8, 0.75], office_chair: [0.5, 0.5, 0.9], meeting_table: [2.8, 1.2, 0.75],
   shelf: [1.8, 0.5, 2.0], counter: [2.0, 0.7, 0.9], reception_desk: [2.6, 0.9, 1.1],
   bar_counter: [3.0, 0.65, 1.1], stool: [0.4, 0.4, 0.65], gym_machine: [1.2, 2.0, 1.5],
-  bench: [1.8, 0.4, 0.45], plant: [0.5, 0.5, 1.4],
+  bench: [1.8, 0.4, 0.45], plant: [0.5, 0.5, 1.4], display_rack: [1.4, 0.6, 1.6],
 };
 
 interface Footprint { u: number; v: number; lu: number; lv: number }
@@ -224,6 +224,15 @@ export function furnish(
       case "dining_area":
         p.anyEdge("bar_counter", ["v1", "u1", "u0"]);
         p.grid("dining_table", 1.4, Math.floor(area / 9));
+        break;
+      case "sales_floor":
+        // checkout against a wall (the clerk stands behind it), shelving on the walls,
+        // display racks in aisles across the open floor
+        p.anyEdge("counter", ["v1", "u1", "u0"]);
+        p.anyEdge("shelf");
+        p.anyEdge("shelf");
+        if (area >= 24) p.anyEdge("shelf");
+        p.grid("display_rack", 1.5, Math.max(1, Math.floor(area / 14)));
         break;
       case "gym_floor":
         p.grid("gym_machine", 1.2, Math.floor(area / 12));

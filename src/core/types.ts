@@ -13,6 +13,7 @@ export type Tier = "poor" | "mid" | "rich" | "high_rich";
 
 export type FloorKind =
   | "lobby" | "office" | "corpo_office" | "restaurant" | "coffee_shop" | "gym"
+  | "retail" | "mall_floor"
   | "residence_studio" | "apartment" | "hotel_rooms" | "mechanical" | "parking" | "terrace";
 
 export interface FloorAssignment {
@@ -69,9 +70,9 @@ export interface Blueprint {
 // ---- floor.schema.json ----
 
 export type RoomKind =
-  | "corridor" | "elevator_lobby" | "reception" | "lounge"
+  | "corridor" | "elevator_lobby" | "concourse" | "reception" | "lounge"
   | "office_open" | "office_private" | "meeting" | "executive_office"
-  | "dining_area" | "kitchen" | "counter_area" | "bar"
+  | "dining_area" | "kitchen" | "counter_area" | "bar" | "sales_floor"
   | "bedroom" | "living" | "studio_main" | "bathroom" | "toilets"
   | "gym_floor" | "locker_room" | "storage" | "mechanical_room"
   | "terrace_open" | "parking_area";
@@ -80,7 +81,7 @@ export type FurnitureKind =
   | "desk" | "office_chair" | "meeting_table" | "counter" | "shelf" | "sofa" | "low_table"
   | "bed_single" | "bed_double" | "wardrobe" | "kitchen_block" | "fridge" | "dining_table" | "chair"
   | "toilet" | "sink" | "shower" | "gym_machine" | "bench" | "reception_desk" | "plant"
-  | "bar_counter" | "stool";
+  | "bar_counter" | "stool" | "display_rack";
 
 export interface Door {
   id: string;
@@ -158,11 +159,11 @@ export type AnchorKind =
   | "bed" | "toilet" | "machine_spot" | "elevator_wait" | "stair_entry" | "cleaning_spot";
 
 export type NpcRole =
-  | "receptionist" | "security" | "vendor" | "barista" | "waiter" | "cook"
+  | "receptionist" | "security" | "vendor" | "barista" | "waiter" | "cook" | "clerk"
   | "office_worker" | "executive" | "cleaner" | "resident" | "trainer" | "guest";
 
 export type Animation =
-  | "idle_stand" | "idle_sit" | "idle_lean" | "work_type" | "work_serve"
+  | "idle_stand" | "idle_sit" | "idle_lean" | "work_type" | "work_serve" | "work_stock"
   | "work_cook" | "sweep" | "patrol_stand" | "exercise" | "sleep" | "use_toilet";
 
 export interface Anchor {

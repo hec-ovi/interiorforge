@@ -70,9 +70,9 @@
           "id": { "type": "string" },
           "kind": {
             "enum": [
-              "corridor", "elevator_lobby", "reception", "lounge",
+              "corridor", "elevator_lobby", "concourse", "reception", "lounge",
               "office_open", "office_private", "meeting", "executive_office",
-              "dining_area", "kitchen", "counter_area", "bar",
+              "dining_area", "kitchen", "counter_area", "bar", "sales_floor",
               "bedroom", "living", "studio_main", "bathroom", "toilets",
               "gym_floor", "locker_room", "storage", "mechanical_room",
               "terrace_open", "parking_area"
@@ -111,7 +111,8 @@
             "enum": [
               "desk", "office_chair", "meeting_table", "counter", "shelf", "sofa", "low_table",
               "bed_single", "bed_double", "wardrobe", "kitchen_block", "fridge", "dining_table", "chair",
-              "toilet", "sink", "shower", "gym_machine", "bench", "reception_desk", "plant", "bar_counter", "stool"
+              "toilet", "sink", "shower", "gym_machine", "bench", "reception_desk", "plant", "bar_counter", "stool",
+              "display_rack"
             ]
           },
           "room": { "type": "string" },

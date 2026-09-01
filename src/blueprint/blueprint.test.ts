@@ -84,6 +84,17 @@ describe("resolveAssignments", () => {
     expect(a[3]!.kind).toBe("office");
     expect(resolveAssignments(derived)).toEqual(a);
   });
+
+  it("maps atlas floor slugs to their program on a mixed building", () => {
+    const { request } = makeFixture({ seed: 4, floors: 7 });
+    const mixed = clone(request);
+    delete (mixed as Partial<InteriorRequest>).assignments;
+    const slugs = ["entry", "restaurant", "coffee_shop", "commerce", "mall", "offices", "corpo"];
+    slugs.forEach((slug, i) => { mixed.blueprint.floors[i]!.kind = slug; });
+    expect(resolveAssignments(mixed).map((x) => x.kind)).toEqual([
+      "lobby", "restaurant", "coffee_shop", "retail", "mall_floor", "office", "corpo_office",
+    ]);
+  });
 });
 
 describe("shell", () => {

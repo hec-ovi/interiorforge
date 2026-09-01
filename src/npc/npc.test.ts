@@ -122,6 +122,28 @@ describe("buildNpcSupport", () => {
     expect(unreachable).toBe(0);
   });
 
+  it("staffs one clerk per sales floor, working its counter and its racks", () => {
+    const mall = makeFixture({ seed: 12, floors: 5, type: "mall", width: 34, depth: 22 });
+    const mplan = planBuilding(mall.request, resolveAssignments(mall.request));
+    const mnpc = buildNpcSupport(mplan, mall.request);
+    const floor = mplan.floors.find((f) => f.kind === "mall_floor")!;
+    const shops = floor.rooms.filter((r) => r.kind === "sales_floor");
+    const clerks = mnpc.roles.filter((r) => r.role === "clerk" && r.floor === floor.floor);
+    expect(clerks.length).toBe(shops.length);
+
+    const byId = new Map(mnpc.anchors.map((a) => [a.id, a]));
+    for (const clerk of clerks) {
+      const home = byId.get(clerk.homeAnchor)!;
+      expect(home.kind).toBe("counter_spot");
+      expect(shops.some((s) => s.id === home.room)).toBe(true);
+      expect(clerk.count[0]).toBeGreaterThanOrEqual(1);
+      expect(clerk.count[1]).toBeGreaterThanOrEqual(clerk.count[0]);
+      const steps = mnpc.routines.find((r) => r.role === clerk.id)!.steps;
+      expect(steps.some((s) => s.animation === "work_serve")).toBe(true);
+      expect(steps.every((s) => byId.has(s.anchor))).toBe(true);
+    }
+  });
+
   it("returns null for an unreachable target instead of throwing", () => {
     const entrance = npc.anchors.find((a) => a.kind === "entrance")!;
     expect(findPath(npc, { floor: 0, position: entrance.position }, { floor: 999, position: [0, 0] })).toBeNull();

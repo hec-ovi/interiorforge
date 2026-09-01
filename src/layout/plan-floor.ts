@@ -8,12 +8,12 @@ import type {
 import { CELL, DOOR, ELEVATOR, ROOM } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { stairAccess } from "./core-plan.js";
-import { buildFrame, VENUE_KINDS } from "./frame.js";
+import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
 import {
   attachOutsideDoors, clipRatio, fillCoreBacking, fillOfficeStrip, fillServiceSegment,
-  fillUnitStrip, fillVenue, idGen,
+  fillShopStrip, fillUnitStrip, fillVenue, idGen,
 } from "./rooms.js";
 import type { Frame, UvRect } from "./uv.js";
 import { toWorldPolygon, uvRectToFrameRect, uvToWorld, worldToUv } from "./uv.js";
@@ -57,7 +57,9 @@ export function planFloor(
   }
 
   const floorFrame = buildFrame(core, floor);
-  const isVenue = VENUE_KINDS.has(kind);
+  const isHall = HALL_FLOOR_KINDS.has(kind);
+  const isMall = kind === "mall_floor";
+  const isOffice = kind === "office" || kind === "corpo_office";
 
   // strip segments with no corridor contact (e.g. behind the inline stair) are enclaves:
   // sealed service voids, never rooms
@@ -74,7 +76,7 @@ export function planFloor(
 
   const corridorRoom: PlanRoom = {
     id: `f${floor.index < 0 ? `m${-floor.index}` : floor.index}-corridor`,
-    kind: isVenue ? "elevator_lobby" : "corridor",
+    kind: isMall ? "concourse" : VENUE_KINDS.has(kind) ? "elevator_lobby" : "corridor",
     rect: floorFrame.corridor,
     doors: [],
   };
@@ -83,33 +85,33 @@ export function planFloor(
   const backing = fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
   rooms.push(...backing.rooms);
 
-  // segments too shallow for units or offices carry shared service rooms off the corridor
-  const fillSegment = (seg: UvRect, i: number): void => {
-    if (seg.lv < ROOM.minStripDepth) {
-      const service = fillServiceSegment(seg, corridorRoom, ids, uvOutline);
-      if (service.length > 0) rooms.push(...service);
-      else extraSealed.push(seg);
+  // one strip of the floor: offices, shop units or homes, by floor kind
+  const fillStrip = (seg: UvRect, side: "v0" | "v1", unit: string, corpo = false): void => {
+    if (isOffice) {
+      rooms.push(...fillOfficeStrip(seg, side, corridorRoom, corpo, rng, ids, unit));
       return;
     }
-    if (kind === "office" || kind === "corpo_office") {
-      rooms.push(...fillOfficeStrip(seg, "v0", corridorRoom, false, rng, ids, `f${floor.index}-n${i}`));
-    } else {
-      const north = fillUnitStrip(seg, "v0", corridorRoom, kind, rng, ids, `f${floor.index}-n${i}`, uvOutline);
-      rooms.push(...north.rooms);
-      extraSealed.push(...north.sealed);
-    }
+    const fill = isMall
+      ? fillShopStrip(seg, side, corridorRoom, rng, ids, unit, uvOutline)
+      : fillUnitStrip(seg, side, corridorRoom, kind, rng, ids, unit, uvOutline);
+    rooms.push(...fill.rooms);
+    extraSealed.push(...fill.sealed);
   };
 
-  if (isVenue) {
+  if (isHall) {
     rooms.push(...fillVenue(floorFrame, corridorRoom, kind, rng, ids));
-  } else if (kind === "office" || kind === "corpo_office") {
-    rooms.push(...fillOfficeStrip(floorFrame.south, "v1", corridorRoom, kind === "corpo_office", rng, ids, `f${floor.index}-s`));
-    floorFrame.northSegments.forEach(fillSegment);
   } else {
-    const south = fillUnitStrip(floorFrame.south, "v1", corridorRoom, kind, rng, ids, `f${floor.index}-s`, uvOutline);
-    rooms.push(...south.rooms);
-    extraSealed.push(...south.sealed);
-    floorFrame.northSegments.forEach(fillSegment);
+    fillStrip(floorFrame.south, "v1", `f${floor.index}-s`, kind === "corpo_office");
+    // segments too shallow for units or offices carry shared service rooms off the corridor
+    floorFrame.northSegments.forEach((seg, i) => {
+      if (seg.lv < ROOM.minStripDepth) {
+        const service = fillServiceSegment(seg, corridorRoom, ids, uvOutline);
+        if (service.length > 0) rooms.push(...service);
+        else extraSealed.push(seg);
+        return;
+      }
+      fillStrip(seg, "v0", `f${floor.index}-n${i}`);
+    });
   }
 
   // rooms mostly outside an irregular outline are void: drop them and their doors

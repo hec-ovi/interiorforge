@@ -40,7 +40,7 @@
         "properties": {
           "floor": { "type": "integer" },
           "kind": {
-            "enum": ["lobby", "office", "corpo_office", "restaurant", "coffee_shop", "gym", "residence_studio", "apartment", "hotel_rooms", "mechanical", "parking", "terrace"]
+            "enum": ["lobby", "office", "corpo_office", "restaurant", "coffee_shop", "gym", "retail", "mall_floor", "residence_studio", "apartment", "hotel_rooms", "mechanical", "parking", "terrace"]
           },
           "spans": { "enum": [1, 2], "default": 1 }
         }

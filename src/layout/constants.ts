@@ -52,6 +52,9 @@ export const ROOM = {
   studioFront: [5, 6.5] as const,
   apartmentFront: [7, 9] as const,
   hotelFront: [4, 4.5] as const,
+  shopFront: [7, 11] as const,
+  /** back-of-shop stock band, kept when the strip is deep enough for both */
+  stockDepth: 3,
   bath: { w: 1.7, d: 2.4 },
   kitchen: { w: 2.4, d: 2.7 },
   toilets: { w: 2.4, d: 2.5 },
@@ -62,6 +65,10 @@ export const ROOM = {
   storage: { w: 2, d: 2.5 },
   restaurantKitchenShare: [0.28, 0.38] as const,
 };
+
+/** The walkable spine every floor hangs off: rooms flood from it and it carries the patrol,
+ *  cleaning and core anchors. */
+export const SPINE_KINDS: ReadonlySet<string> = new Set(["corridor", "elevator_lobby", "concourse"]);
 
 /** Two egress stairs beyond either threshold (IBC-derived). */
 export const TWO_STAIRS = { areaOver: 460, floorsOver: 4 };
