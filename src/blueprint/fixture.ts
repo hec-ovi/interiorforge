@@ -7,7 +7,7 @@ import type {
   InteriorRequest, Opening, Tier,
 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
-import { createDocument } from "../glb/io.js";
+import { appendToDocument, createDocument } from "../glb/io.js";
 
 export interface FixtureOptions {
   seed?: number;
@@ -157,11 +157,20 @@ function buildShell(blueprint: Blueprint, theme: string, tier: Tier): Document {
       [p0[0], 0, p0[1]], [p0[0], roofY, p0[1]], [p1[0], roofY, p1[1]], [p1[0], 0, p1[1]],
     ]);
   }
-  for (const floor of blueprint.floors) {
-    mb.addHorizontalPolygon(slab, floor.outline, floor.elevation, "up");
-  }
   mb.addHorizontalPolygon(slab, outline, roofY, "up");
-  return createDocument(mb);
+  const doc = createDocument(mb);
+
+  // one node per separator plane, named by exterior's convention so interior can replace
+  // them with slabs holding real stair and elevator holes
+  for (const floor of blueprint.floors) {
+    const sep = new MeshBuilder();
+    sep.addHorizontalPolygon(slab, floor.outline, floor.elevation, "up");
+    appendToDocument(doc, sep);
+    const added = doc.getRoot().listNodes().filter((n) => n.getName() === `interior:${slab}`).at(-1)!;
+    added.setName(`floor:${floor.index}/slab`);
+    added.getMesh()?.setName(`floor:${floor.index}/slab`);
+  }
+  return doc;
 }
 
 function round2(v: number): number {

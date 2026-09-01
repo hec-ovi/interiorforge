@@ -7,7 +7,7 @@
   "required": ["floor", "kind", "elevation", "height", "core", "rooms", "furniture"],
   "additionalProperties": false,
   "properties": {
-    "floor": { "type": "integer", "minimum": 0 },
+    "floor": { "type": "integer", "description": "negative = basement" },
     "kind": { "type": "string" },
     "elevation": { "type": "number" },
     "height": { "type": "number" },
