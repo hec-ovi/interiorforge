@@ -17,6 +17,8 @@ export interface FixtureOptions {
   basements?: number;
   width?: number;
   depth?: number;
+  /** exact CCW footprint, e.g. a real city parcel; overrides width, depth and rotation */
+  outline?: Point[];
   /** rotates the whole parcel in world space, like real city parcels */
   rotationDeg?: number;
   type?: BuildingType;
@@ -52,7 +54,7 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
     [0, 0], [width, 0], [width, depth - chamfer], [width - chamfer, depth], [0, depth],
   ];
   const rot = ((options.rotationDeg ?? 0) * Math.PI) / 180;
-  const outline: Point[] = flat.map(([x, z]) => [
+  const outline: Point[] = options.outline ?? flat.map(([x, z]) => [
     Math.round((x * Math.cos(rot) - z * Math.sin(rot)) * 100) / 100,
     Math.round((x * Math.sin(rot) + z * Math.cos(rot)) * 100) / 100,
   ]);

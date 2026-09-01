@@ -1,4 +1,5 @@
 import type { Point } from "../core/geom.js";
+import { clipPolygonToRect, polygonArea } from "../core/geom.js";
 import { SNAP } from "./constants.js";
 
 /** Layout runs in uv space: a world frame rotated so u runs along the building's principal
@@ -67,6 +68,20 @@ export function pointInUvRect([u, v]: Point, r: UvRect, margin = 0): boolean {
 export function uvRectToFrameRect(r: UvRect, f: Frame): { x: number; z: number; w: number; d: number } {
   const [cx, cz] = uvToWorld(uvRectCenter(r), f);
   return { x: cx - r.lu / 2, z: cz - r.lv / 2, w: r.lu, d: r.lv };
+}
+
+/** Numerical slack of the coverage test, relative to the rect's own area. Relative, so the
+ *  answer composes: when every probe cell of a band passes, so does any rect inside it, and
+ *  the corridor scan and the core fit check can never disagree. */
+const COVER_EPS = 1e-9;
+
+/** True when the whole rect lies inside the outline. The one geometric truth behind both
+ *  the corridor band scan and the vertical core fit check. */
+export function coversRect(uvOutline: readonly Point[], r: UvRect): boolean {
+  const full = r.lu * r.lv;
+  if (full <= 0) return false;
+  const clipped = clipPolygonToRect(uvOutline, { x: r.u, z: r.v, w: r.lu, d: r.lv });
+  return Math.abs(polygonArea(clipped)) >= full * (1 - COVER_EPS);
 }
 
 export function snap(value: number): number {

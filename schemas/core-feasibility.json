@@ -4,14 +4,15 @@
     "1. frame: rotate so u runs along the longest ground-outline edge (flip 180 if the ground entrance door falls in the upper v half).",
     "2. ideal vFace on the ground outline's uv bounding box, snap = 0.5: vDepth < singleLoadedBelowDepth ? snapDown(vMin + vDepth - elevatorShaft) : snap(vMin + (vDepth + corridorWidth) / 2).",
     "3. vFace SCAN: candidates = ideal, then +-0.5 steps outward (lower side first) up to vFaceScanRange, clamped to [vMin + minStripDepth + corridorWidth, vMax - elevatorShaft]. The core goes to the first candidate whose band fits the mode being tried.",
-    "4. band(vFace) = per floor, the longest contiguous u-run where the strip v in [vFace - corridorWidth, vFace + elevatorShaft] lies fully inside the floor outline, intersected across floors.",
+    "4. band(vFace) = per floor, the longest contiguous u-run where the strip v in [vFace - corridorWidth, vFace + elevatorShaft] lies fully inside the floor outline, intersected across floors. Fully inside is exact (clipped area >= rect area, minus a 1e-9 relative epsilon for float noise); the same test decides whether the placed core rects fit, so the gate and the generator never disagree.",
     "5. stairShaftDepth(hMax) = ceilTo0.5(ceil(ceil(hMax / riser) / (2 * ceil(ceil(hMax / riser) / (2 * maxRisersPerFlight)))) * tread + 2 * landing), hMax = max floor height.",
     "6. twoStairs = groundArea > twoStairsAreaOver OR aboveGroundFloors > twoStairsFloorsOver.",
     "7. minWalkupCoreLength = stairShaftDepth + riserShaft + serviceStub + (twoStairs ? stairShaftDepth : 0) + margin; minCoreLength = minWalkupCoreLength + elevatorShaft.",
-    "8. minCompactCoreLength = stairColumnWidth * (twoStairs ? 2 : 1) + riserShaft + serviceStub + margin + elevatorShaft; compact additionally needs rear depth: min over floors of (uv top - vFace) >= stairShaftDepth + 0.5 (stairs become stairColumnWidth-wide columns running stairShaftDepth into the rear strip).",
+    "8. minCompactCoreLength = stairColumnWidth * (twoStairs ? 2 : 1) + riserShaft + serviceStub + margin + elevatorShaft; compact additionally needs rear depth for its columns: the block rect (u span of step 12 at maxElevators, v in [vFace, vFace + stairShaftDepth]) must lie fully inside every floor outline (stairs become stairColumnWidth-wide columns running stairShaftDepth into the rear strip).",
     "9. crossDepthOk = plate vDepth >= elevatorShaft + corridorWidth + minStripDepth.",
     "10. mode: standard when some candidate band >= minCoreLength; else compact when some candidate satisfies step 8; else walkup when the best band >= minWalkupCoreLength (stair-only, cap aboveGroundFloors at walkupMaxFloors); else none. All modes need crossDepthOk.",
-    "11. maxElevators = floor((band - (mode fixed length minus elevatorShaft)) / elevatorShaft); floor count does not shrink standard or compact feasibility: elevator demand clamps to maxElevators."
+    "11. maxElevators = floor((band - (mode fixed length minus elevatorShaft)) / elevatorShaft); floor count does not shrink standard or compact feasibility: elevator demand clamps to maxElevators.",
+    "12. block span for n cars: len = (compact ? stairColumnWidth : stairShaftDepth) + n * elevatorShaft + riserShaft + serviceStub + (compact and twoStairs ? stairColumnWidth : 0); u0 = snap(bandStart + (band - len) / 2), row cores with twoStairs also clamp u0 <= snapDown(snapDown(bandEnd) - stairShaftDepth - len) so the inline egress stair keeps the far end of the band; finally u0 = max(u0, snapUp(bandStart)). Fewer cars always land inside the maxElevators span."
   ],
   "constants": {
     "snap": 0.5,
@@ -33,9 +34,23 @@
     "twoStairsFloorsOver": 4
   },
   "stairShaftDepthByMaxFloorHeight": {
-    "2.6": 5.0, "2.8": 5.0, "3.0": 5.0, "3.2": 5.5, "3.4": 5.5, "3.6": 5.5,
-    "3.8": 6.0, "4.0": 6.0, "4.2": 6.5, "4.4": 6.5, "4.6": 6.5, "4.8": 5.0,
-    "5.0": 5.0, "6.0": 5.0, "8.0": 6.0, "10.0": 5.5, "12.0": 6.0
+    "2.6": 5.0,
+    "2.8": 5.0,
+    "3.0": 5.0,
+    "3.2": 5.5,
+    "3.4": 5.5,
+    "3.6": 5.5,
+    "3.8": 6.0,
+    "4.0": 6.0,
+    "4.2": 6.5,
+    "4.4": 6.5,
+    "4.6": 6.5,
+    "4.8": 5.0,
+    "5.0": 5.0,
+    "6.0": 5.0,
+    "8.0": 6.0,
+    "10.0": 5.5,
+    "12.0": 6.0
   },
   "note": "heights above ~4.6 split into more flights, so the shaft depth drops again; the formula is authoritative, the table is illustrative."
 }

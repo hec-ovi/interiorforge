@@ -148,6 +148,20 @@ describe("planBuilding", () => {
     expect(tallPlan.core.elevatorCount).toBeLessThanOrEqual(f.maxElevators);
   });
 
+  it("gate and generator agree on an angled city quadrilateral (parcel p65)", () => {
+    // the corridor band ends on a diagonal corner: the band scan and the core fit check must
+    // read that corner the same way, or the gate approves a parcel that cannot generate
+    const parcel = makeFixture({
+      seed: 65, floors: 10,
+      outline: [[639.193, 437.972], [629.148, 471.328], [587.513, 447.088], [588.681, 431.653]],
+    });
+    const f = coreFeasibility(parcel.request.blueprint);
+    expect(f.fits).toBe(true);
+    const pplan = planBuilding(parcel.request, resolveAssignments(parcel.request));
+    expect(pplan.core.elevatorCount).toBeGreaterThan(0);
+    expect(pplan.core.elevatorCount).toBeLessThanOrEqual(f.maxElevators);
+  });
+
   it("tight footprints degrade to a stair-only walkup under the published cap", () => {
     const small = makeFixture({ seed: 3, floors: 4, width: 9, depth: 10, type: "residential" });
     const f = coreFeasibility(small.request.blueprint);

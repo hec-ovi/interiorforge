@@ -1,12 +1,12 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, polygonArea, polygonBounds } from "../core/geom.js";
+import { polygonArea, polygonBounds } from "../core/geom.js";
 import type { FloorAssignment, InteriorRequest } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
 import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, STAIR, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
 import type { Frame, UvRect } from "./uv.js";
-import { makeFrame, snap, snapDown, snapUp, toUvPolygon, worldToUv } from "./uv.js";
+import { coversRect, makeFrame, snap, snapDown, snapUp, toUvPolygon, worldToUv } from "./uv.js";
 
 export interface StairFlights {
   flightsPerFloor: number;
@@ -48,7 +48,6 @@ interface CoreEnvelope {
   vMin: number;
   vMax: number;
   vLen: number;
-  vTopMin: number;
   area: number;
   aboveFloors: number;
   topElevation: number;
@@ -65,11 +64,6 @@ function envelopeOf(floors: InteriorRequest["blueprint"]["floors"]): CoreEnvelop
   const uvFloors = floors.map((f) => toUvPolygon(f.outline, frame));
   const bounds = polygonBounds(uvFloors[floors.findIndex((f) => f.index === 0)]!);
   const vLen = bounds.d;
-  const vTopMin = Math.min(...uvFloors.map((poly) => {
-    const b = polygonBounds(poly);
-    return b.z + b.d;
-  }));
-
   const area = polygonArea(ground.outline);
   const aboveFloors = floors.filter((f) => f.index >= 0).length;
   const twoStairs = area > TWO_STAIRS.areaOver || aboveFloors > TWO_STAIRS.floorsOver;
@@ -89,7 +83,7 @@ function envelopeOf(floors: InteriorRequest["blueprint"]["floors"]): CoreEnvelop
   }
 
   return {
-    frame, uvFloors, vMin, vMax, vLen, vTopMin, area, aboveFloors,
+    frame, uvFloors, vMin, vMax, vLen, area, aboveFloors,
     topElevation: floors.at(-1)!.elevation,
     twoStairs, stairDepth: stairShaftDepth(hMax),
     crossDepthOk: ELEVATOR.shaft + CORRIDOR.width + ROOM.minStripDepth <= vLen,
@@ -128,6 +122,23 @@ interface Placement {
   maxElevators: number;
 }
 
+/** u extent of the core block for a car count. planCore lays the block out here and the
+ *  selector validates it, so the gate and the generator place the same rects. */
+function blockSpan(env: CoreEnvelope, p: Placement, elevatorCount: number): { u0: number; len: number } {
+  const colW = snapUp(STAIR_WIDTH);
+  const stairALen = p.mode === "compact" ? colW : env.stairDepth;
+  const len = stairALen + elevatorCount * ELEVATOR.shaft + RISER_SHAFT.w + CORRIDOR.serviceStub
+    + (p.mode === "compact" && env.twoStairs ? colW : 0);
+  let u0 = snap(p.bandU0 + (p.bandLen - len) / 2);
+  if (p.mode !== "compact" && env.twoStairs) u0 = Math.min(u0, snapDown(inlineStairU(env, p) - len));
+  return { u0: Math.max(u0, snapUp(p.bandU0)), len };
+}
+
+/** Inline egress stair B (row cores): flush against the far end of the corridor band. */
+function inlineStairU(env: CoreEnvelope, p: Placement): number {
+  return snapDown(p.bandU1) - env.stairDepth;
+}
+
 /** The single mode-and-position selector shared by planCore and coreFeasibility. */
 function selectPlacement(env: CoreEnvelope): Placement | null {
   const rowFixed = rowFixedLen(env);
@@ -142,9 +153,14 @@ function selectPlacement(env: CoreEnvelope): Placement | null {
     if (u1 - u0 >= rowFixed + ELEVATOR.shaft) return place("standard", vFace, u0, u1, rowFixed);
   }
   for (const vFace of env.candidates) {
-    if (env.vTopMin - vFace < env.stairDepth + 0.5) continue; // stair columns need rear depth
     const [u0, u1] = bandAt(env, vFace);
-    if (u1 - u0 >= compactFixed + ELEVATOR.shaft) return place("compact", vFace, u0, u1, compactFixed);
+    if (u1 - u0 < compactFixed + ELEVATOR.shaft) continue;
+    const candidate = place("compact", vFace, u0, u1, compactFixed);
+    // stair columns reach past the shaft row into the rear strip: that depth has to be inside
+    // every floor over the whole block, whatever car count the building ends up asking for
+    const span = blockSpan(env, candidate, candidate.maxElevators);
+    const columns: UvRect = { u: span.u0, v: vFace, lu: span.len, lv: env.stairDepth };
+    if (env.uvFloors.every((poly) => coversRect(poly, columns))) return candidate;
   }
   let best: [number, number, number] | null = null;
   for (const vFace of env.candidates) {
@@ -224,19 +240,12 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
     throw new InteriorError("E_FLOOR_TOO_SMALL", `walkup core (band ${placement.bandLen.toFixed(1)}m, standard minimum ${(rowFixedLen(env) + ELEVATOR.shaft).toFixed(1)}m, compact minimum ${(compactFixedLen(env) + ELEVATOR.shaft).toFixed(1)}m) allows at most ${WALKUP.maxFloors} floors, blueprint has ${env.aboveFloors}`);
   }
 
-  const { mode, vFace, bandU0, bandU1 } = placement;
+  const { mode, vFace } = placement;
   const elevatorCount = mode === "walkup" ? 0
     : Math.min(elevatorsFor(request, env.area, env.aboveFloors, env.topElevation), Math.max(1, placement.maxElevators));
 
   const stairColW = snapUp(STAIR_WIDTH);
-  const stairALen = mode === "compact" ? stairColW : stairDepth;
-  const blockLen = stairALen + elevatorCount * ELEVATOR.shaft + RISER_SHAFT.w + CORRIDOR.serviceStub
-    + (mode === "compact" && twoStairs ? stairColW : 0);
-
-  const inlineStairBu = snapDown(bandU1) - stairDepth;
-  let u0 = snap(bandU0 + (bandU1 - bandU0 - blockLen) / 2);
-  if (mode !== "compact" && twoStairs) u0 = Math.min(u0, snapDown(inlineStairBu - blockLen));
-  u0 = Math.max(u0, snapUp(bandU0));
+  const { u0 } = blockSpan(env, placement, elevatorCount);
 
   let u = u0;
   const stairA: UvRect = mode === "compact"
@@ -260,7 +269,7 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
       u += stairColW;
     } else {
       // inline at the far end of the corridor band, egress separation from stair A
-      stairB = { u: inlineStairBu, v: vFace - CORRIDOR.width, lu: stairDepth, lv: CORRIDOR.width };
+      stairB = { u: inlineStairU(env, placement), v: vFace - CORRIDOR.width, lu: stairDepth, lv: CORRIDOR.width };
     }
   }
 
@@ -352,16 +361,24 @@ function elevatorsFor(request: InteriorRequest, area: number, aboveFloors: numbe
   return Math.min(ELEVATOR.maxCars, Math.max(1, cars));
 }
 
+/** Final invariant: every core rect sits inside every floor. The selector already proved it
+ *  with the same predicate on the same band, so a throw here means a layout bug, not a
+ *  parcel the gate approved. */
 function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan): void {
-  const rects: UvRect[] = [plan.stairA, plan.riser, plan.stub, ...plan.elevators.map((e) => e.rect)];
-  if (plan.stairB) rects.push(plan.stairB);
+  const named: [string, UvRect][] = [
+    ["stair-a", plan.stairA], ["riser", plan.riser], ["service stub", plan.stub],
+    ...plan.elevators.map((e) => [e.id, e.rect] as [string, UvRect]),
+    ...(plan.stairB ? [["stair-b", plan.stairB] as [string, UvRect]] : []),
+  ];
   for (const floor of request.blueprint.floors) {
     const uvOutline = toUvPolygon(floor.outline, plan.frame);
-    for (const rect of rects) {
-      const clipped = clipPolygonToRect(uvOutline, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv });
-      const full = rect.lu * rect.lv;
-      if (Math.abs(polygonArea(clipped)) < full - 1e-6) {
-        throw new InteriorError("E_FLOOR_TOO_SMALL", "vertical core does not fit inside this floor outline", floor.index);
+    for (const [id, rect] of named) {
+      if (!coversRect(uvOutline, rect)) {
+        throw new InteriorError(
+          "E_FLOOR_TOO_SMALL",
+          `${plan.mode} core does not fit inside this floor outline: ${id} spans u ${rect.u.toFixed(1)}..${(rect.u + rect.lu).toFixed(1)}m, v ${rect.v.toFixed(1)}..${(rect.v + rect.lv).toFixed(1)}m in the layout frame (${plan.frame.angleDeg} deg)`,
+          floor.index,
+        );
       }
     }
   }

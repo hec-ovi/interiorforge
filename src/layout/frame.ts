@@ -1,10 +1,10 @@
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, polygonArea, polygonBounds } from "../core/geom.js";
+import { clipPolygonToRect, polygonBounds } from "../core/geom.js";
 import type { BlueprintFloor, FloorKind } from "../core/types.js";
 import { CORRIDOR } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import type { FloorFrame } from "./plan-types.js";
-import { snapDown, snapUp, toUvPolygon } from "./uv.js";
+import { coversRect, snapDown, snapUp, toUvPolygon } from "./uv.js";
 
 /** Floors laid out as one hall plus back of house. */
 export const HALL_FLOOR_KINDS: ReadonlySet<FloorKind> = new Set([
@@ -35,9 +35,7 @@ export function fullCoverageU(uvOutline: readonly Point[], v0: number, v1: numbe
   let u = a;
   while (u < b - 1e-9) {
     const w = Math.min(step, b - u);
-    const clipped = clipPolygonToRect(uvOutline, { x: u, z: v0, w, d: depth });
-    const full = Math.abs(polygonArea(clipped)) >= w * depth - 1e-4;
-    if (!full) {
+    if (!coversRect(uvOutline, { u, v: v0, lu: w, lv: depth })) {
       if (u - runStart > best[1] - best[0]) best = [runStart, u];
       runStart = u + w;
     }
