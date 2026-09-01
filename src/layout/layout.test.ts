@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeFixture } from "../blueprint/fixture.js";
 import { resolveAssignments } from "../blueprint/validate.js";
-import { planBuilding } from "./index.js";
+import { coreFeasibility, planBuilding } from "./index.js";
 import { polygonArea, polygonBounds, pointInPolygon, rectsOverlap } from "../core/geom.js";
 
 const fix = makeFixture({ seed: 21, floors: 10, basements: 1 });
@@ -98,5 +98,25 @@ describe("planBuilding", () => {
     expect(() => planBuilding(tiny.request, resolveAssignments(tiny.request))).toThrowError(
       expect.objectContaining({ code: "E_FLOOR_TOO_SMALL" }),
     );
+  });
+
+  it("coreFeasibility mirrors planCore: fits means it plans, unfit means E_FLOOR_TOO_SMALL", () => {
+    const good = coreFeasibility(fix.request.blueprint);
+    expect(good.fits).toBe(true);
+    expect(good.maxElevators).toBeGreaterThanOrEqual(
+      plan.floors.find((f) => f.floor === 0)!.core.elevators.length,
+    );
+    expect(good.bandLength).toBeGreaterThanOrEqual(good.minCoreLength);
+
+    const tiny = makeFixture({ seed: 1, floors: 6, width: 10, depth: 8 });
+    const bad = coreFeasibility(tiny.request.blueprint);
+    expect(bad.fits).toBe(false);
+
+    // a tall tower on a modest plate: elevator demand clamps to the band instead of failing
+    const tall = makeFixture({ seed: 2, floors: 40, width: 26, depth: 20 });
+    const f = coreFeasibility(tall.request.blueprint);
+    expect(f.fits).toBe(true);
+    const tallPlan = planBuilding(tall.request, resolveAssignments(tall.request));
+    expect(tallPlan.core.elevatorCount).toBeLessThanOrEqual(f.maxElevators);
   });
 });

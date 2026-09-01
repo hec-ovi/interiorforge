@@ -1,0 +1,34 @@
+{
+  "description": "Core-feasibility surface for the assembler: given a blueprint's floors, whether the vertical core plus egress fits. The library export coreFeasibility(blueprint) computes this exactly; these constants and the recipe let a consumer pre-check with its own arithmetic. All meters.",
+  "recipe": [
+    "1. frame: rotate so u runs along the longest ground-outline edge (flip 180 if the ground entrance door falls in the upper v half).",
+    "2. vFace = snap(vMin + (vDepth + corridorWidth) / 2) on the ground outline's uv bounding box, snap = 0.5.",
+    "3. band = per floor, the longest contiguous u-run where the strip v in [vFace - corridorWidth, vFace + elevatorShaft] lies fully inside the floor outline; bandLength = the intersection of those runs across all floors.",
+    "4. stairShaftDepth(hMax) = ceilTo0.5(ceil(ceil(hMax / riser) / (2 * ceil(ceil(hMax / riser) / (2 * maxRisersPerFlight)))) * tread + 2 * landing), hMax = max floor height.",
+    "5. twoStairs = groundArea > twoStairsAreaOver OR aboveGroundFloors > twoStairsFloorsOver.",
+    "6. minCoreLength = stairShaftDepth + elevatorShaft + riserShaft + serviceStub + (twoStairs ? stairShaftDepth : 0) + margin.",
+    "7. fits = bandLength >= minCoreLength AND plate vDepth >= elevatorShaft + corridorWidth + minStripDepth.",
+    "8. maxElevators = floor((bandLength - (minCoreLength - elevatorShaft)) / elevatorShaft); floor count does not shrink feasibility further: elevator demand clamps to maxElevators."
+  ],
+  "constants": {
+    "snap": 0.5,
+    "corridorWidth": 2.5,
+    "elevatorShaft": 2.5,
+    "riserShaft": 1.2,
+    "serviceStub": 1.2,
+    "margin": 0.5,
+    "minStripDepth": 3.0,
+    "stairRiser": 0.17,
+    "stairTread": 0.28,
+    "maxRisersPerFlight": 14,
+    "stairLanding": 1.2,
+    "twoStairsAreaOver": 460,
+    "twoStairsFloorsOver": 4
+  },
+  "stairShaftDepthByMaxFloorHeight": {
+    "2.6": 5.0, "2.8": 5.0, "3.0": 5.0, "3.2": 5.5, "3.4": 5.5, "3.6": 5.5,
+    "3.8": 6.0, "4.0": 6.0, "4.2": 6.5, "4.4": 6.5, "4.6": 6.5, "4.8": 5.0,
+    "5.0": 5.0, "6.0": 5.0, "8.0": 6.0, "10.0": 5.5, "12.0": 6.0
+  },
+  "note": "heights above ~4.6 split into more flights, so the shaft depth drops again; the formula is authoritative, the table is illustrative."
+}

@@ -27,6 +27,7 @@ Library surface (TypeScript):
 - `generateInterior(request, { shellDoc? }) -> Promise<InteriorResult>`: deterministic; same request, identical output. `shellDoc` (a parsed GLB document) skips reading `shellGlb` from disk.
 - `findPath(npc, from {floor, position}, to {floor, position}) -> PathLeg[] | null`: obstacle-avoiding route between any two walkable points; each leg is a same-floor point list or a connector ride. Reference implementation over `npc.json`; simulation may reimplement from the schema alone.
 - `makeFixture(options)`: seeded stand-in exterior (shell GLB document plus blueprint) so this box runs with no other layer present.
+- `coreFeasibility(blueprint) -> { fits, bandLength, minCoreLength, maxElevators, crossDepthOk, frameAngleDeg }`: assembler pre-check that a parcel's floors fit the vertical core plus egress, computed with the exact planCore frame, band and constants. Constants and the arithmetic recipe: [schemas/core-feasibility.json](schemas/core-feasibility.json). Elevator demand clamps to the band, so more floors never turn a fitting parcel unfit.
 - CLI: `npm run generate -- --seed N --floors N [--basements N --type T --tier T --out DIR]` writes `building.glb`, `floors/*.json`, `npc.json`. Preview: `npm run preview` (panoptic 3D view plus standalone floor editor with walk-path testing; loads real engine output: shell .glb + blueprint .json + exterior request .json).
 - Shell slab replacement: the shell's `floor:<index>/slab` nodes are removed and re-emitted as room slabs with real stair and elevator holes.
 

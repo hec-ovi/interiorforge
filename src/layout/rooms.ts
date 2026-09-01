@@ -109,11 +109,17 @@ const FRONTAGE: Partial<Record<FloorKind, readonly [number, number]>> = {
   hotel_rooms: ROOM.hotelFront,
 };
 
+export interface StripFill {
+  rooms: PlanRoom[];
+  /** spans that would be unreachable enclaves: walled off as service voids */
+  sealed: UvRect[];
+}
+
 export function fillUnitStrip(
   strip: UvRect, corridorSide: "v0" | "v1", corridorRoom: PlanRoom, kind: FloorKind,
   rng: Rng, ids: IdGen, unitPrefix: string, uvOutline: readonly Point[],
-): PlanRoom[] {
-  if (strip.lu < ROOM.minDim || strip.lv < ROOM.minStripDepth) return [];
+): StripFill {
+  if (strip.lu < ROOM.minDim || strip.lv < ROOM.minStripDepth) return { rooms: [], sealed: [] };
   const corr = corridorRoom.rect;
   const widths = splitFrontages(strip.lu, FRONTAGE[kind] ?? ROOM.studioFront, rng);
   // a unit whose corridor contact is eaten by the inline stair shaft merges into its neighbor
@@ -134,20 +140,24 @@ export function fillUnitStrip(
     } else i++;
   }
   const rooms: PlanRoom[] = [];
+  const sealed: UvRect[] = [];
   let u = strip.u;
   let n = 0;
   for (const w of widths) {
     const rect = uSlice(strip, u, u + w);
     u += w;
-    if (contactOf(rect.u, rect.u + rect.lu) < 1.6) continue; // lone unreachable slice: leave open
-    if (clipRatio(rect, uvOutline) < 0.5) continue; // a lone mostly-outside strip stays open
+    if (contactOf(rect.u, rect.u + rect.lu) < 1.6) {
+      sealed.push(rect); // no corridor contact: an enclave, walled off
+      continue;
+    }
+    if (clipRatio(rect, uvOutline) < 0.5) continue; // mostly outside the outline: stays void
     // service rooms cluster toward the side with the least corridor contact
     const deadRight = (rect.u + rect.lu) - Math.min(rect.u + rect.lu, corr.u + corr.lu)
       > Math.max(rect.u, corr.u) - rect.u;
     const unit = `${unitPrefix}-u${n++}`;
     rooms.push(...fillUnit(rect, corridorSide, deadRight, corridorRoom, kind, rng, ids, unit));
   }
-  return rooms;
+  return { rooms, sealed };
 }
 
 function fillUnit(

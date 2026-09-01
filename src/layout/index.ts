@@ -6,7 +6,8 @@ import { planCore } from "./core-plan.js";
 import type { UvFloorData } from "./plan-floor.js";
 import { planFloor } from "./plan-floor.js";
 
-export type { CorePlan } from "./core-plan.js";
+export type { CorePlan, CoreFeasibility } from "./core-plan.js";
+export { coreFeasibility } from "./core-plan.js";
 export type { PlannedFloor, UvFloorData } from "./plan-floor.js";
 export { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
 

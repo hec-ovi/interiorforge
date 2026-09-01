@@ -1,8 +1,11 @@
 import type { Document } from "@gltf-transform/core";
+import { clipPolygonToRect } from "../core/geom.js";
 import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { appendToDocument } from "../glb/io.js";
 import type { BuildingPlan } from "../layout/index.js";
+import type { PlanRoom } from "../layout/plan-types.js";
+import { toWorldPolygon } from "../layout/uv.js";
 import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorShaftWalls } from "./core-geo.js";
 import { emitFurniture } from "./furniture-geo.js";
 import { MaterialKeys } from "./materials.js";
@@ -57,8 +60,16 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
       stairEntryHole(core, "a", floor.elevation),
       ...(core.stairB ? [stairEntryHole(core, "b", floor.elevation)] : []),
     ];
-    buildFloorSurfaces(mb, keys, floor, floor.height + (upper?.height ?? 0));
-    buildInteriorWalls(mb, keys, uv.rooms, uv.outline, core.frame, floor.elevation, wallTop, floor.height, holes);
+    // sealed voids are walled and slabbed like rooms, minus doors and reachability
+    const sealedAsRooms: PlanRoom[] = uv.sealed.map((rect, s) => ({
+      id: `sealed-${s}`, kind: "mechanical_room", rect, doors: [],
+    }));
+    const sealedPolys = uv.sealed
+      .map((rect) => clipPolygonToRect(uv.outline, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }))
+      .filter((poly) => poly.length >= 3)
+      .map((poly) => toWorldPolygon(poly, core.frame));
+    buildFloorSurfaces(mb, keys, floor, floor.height + (upper?.height ?? 0), sealedPolys);
+    buildInteriorWalls(mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, core.frame, floor.elevation, wallTop, floor.height, holes);
     buildFacadeLining(mb, keys, bpFloor, wallTop);
     emitCoreDividers(mb, keys, core, floor.elevation, wallTop);
     emitElevatorDoors(mb, keys, core, floor.elevation);

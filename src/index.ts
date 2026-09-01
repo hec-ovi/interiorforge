@@ -8,6 +8,7 @@ import type { FloorInterior, InteriorResult } from "./core/types.js";
 
 export { makeFixture, type FixtureOptions } from "./blueprint/fixture.js";
 export { findPath, type PathLeg, type PathQuery } from "./npc/index.js";
+export { coreFeasibility, type CoreFeasibility } from "./layout/index.js";
 export { InteriorError } from "./core/errors.js";
 export type * from "./core/types.js";
 

@@ -33,42 +33,37 @@ export interface CorePlan {
 
 const STAIR_WIDTH = 2 * STAIR.flightWidth + STAIR.flightGap; // two flights side by side
 
-/** Places the vertical core once per building; every floor reuses these rects. */
-export function planCore(request: InteriorRequest, assignments: FloorAssignment[]): CorePlan {
-  const floors = request.blueprint.floors;
+/** Shared geometry envelope behind planCore and coreFeasibility: same frame, same band. */
+interface CoreEnvelope {
+  frame: Frame;
+  vFace: number;
+  bandU0: number;
+  bandU1: number;
+  bandLen: number;
+  stairDepth: number;
+  twoStairs: boolean;
+  area: number;
+  vLen: number;
+  crossDepthOk: boolean;
+}
+
+function coreEnvelope(floors: InteriorRequest["blueprint"]["floors"]): CoreEnvelope {
   const ground = floors.find((f) => f.index === 0)!;
   const frame = principalFrame(ground);
   const uvOutline = toUvPolygon(ground.outline, frame);
   const bounds = polygonBounds(uvOutline);
-  const uLen = bounds.w;
   const vLen = bounds.d;
-  const u0b = bounds.x;
-  const v0b = bounds.z;
+  const corridorW = CORRIDOR.width;
+  const depth = ELEVATOR.shaft;
 
   const area = polygonArea(ground.outline);
   const aboveFloors = floors.filter((f) => f.index >= 0).length;
-  const top = floors.at(-1)!;
-
   const twoStairs = area > TWO_STAIRS.areaOver || aboveFloors > TWO_STAIRS.floorsOver;
-
   const hMax = Math.max(...floors.map((f) => f.height));
   const stairDepth = stairShaftDepth(hMax);
 
-  // demand-driven car count, capped by what the plate fits alongside the stairs
-  const fixedLen = stairDepth + RISER_SHAFT.w + CORRIDOR.serviceStub + (twoStairs ? stairDepth : 0) + 1;
-  const carsThatFit = Math.floor((uLen - fixedLen) / ELEVATOR.shaft);
-  const elevatorCount = Math.min(elevatorsFor(request, area, aboveFloors, top.elevation), Math.max(1, carsThatFit));
-
-  const coreLen = stairDepth + elevatorCount * ELEVATOR.shaft + RISER_SHAFT.w;
-  const blockLen = coreLen + CORRIDOR.serviceStub;
-  const corridorW = CORRIDOR.width;
-  if (blockLen > uLen - 1 || ELEVATOR.shaft + corridorW + ROOM.minStripDepth > vLen) {
-    throw new InteriorError("E_FLOOR_TOO_SMALL", `plate ${uLen.toFixed(1)}x${vLen.toFixed(1)} cannot fit core ${blockLen.toFixed(1)}m + corridor + rooms`);
-  }
-
   // corridor band centered so both strips get equal depth
-  const vFace = snap(v0b + (vLen + corridorW) / 2);
-  const depth = ELEVATOR.shaft;
+  const vFace = snap(bounds.z + (vLen + corridorW) / 2);
 
   // the core must sit in the u-range that is actually inside EVERY floor outline at its
   // band (irregular parcels cut diagonals into the plate)
@@ -80,7 +75,65 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
     bandU0 = Math.max(bandU0, a);
     bandU1 = Math.min(bandU1, b);
   }
-  const bandLen = bandU1 - bandU0;
+  return {
+    frame, vFace, bandU0, bandU1, bandLen: bandU1 - bandU0,
+    stairDepth, twoStairs, area, vLen,
+    crossDepthOk: ELEVATOR.shaft + corridorW + ROOM.minStripDepth <= vLen,
+  };
+}
+
+/** Length the core needs beyond its elevators: stair, riser, stub, egress stair, margin. */
+function fixedCoreLength(env: CoreEnvelope): number {
+  return env.stairDepth + RISER_SHAFT.w + CORRIDOR.serviceStub + (env.twoStairs ? env.stairDepth : 0) + 0.5;
+}
+
+export interface CoreFeasibility {
+  fits: boolean;
+  frameAngleDeg: number;
+  /** longest full-coverage run at the core band, min across floors */
+  bandLength: number;
+  /** stair + one car + riser + stub (+ egress stair) + margin: the band must hold this */
+  minCoreLength: number;
+  maxElevators: number;
+  crossDepthOk: boolean;
+}
+
+/** Assembler pre-check: whether these floors fit the vertical core and egress, using the
+ *  exact planCore frame, band and constants (see schemas/core-feasibility.json). */
+export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFeasibility {
+  const env = coreEnvelope(blueprint.floors);
+  const fixedLen = fixedCoreLength(env);
+  const maxElevators = Math.max(0, Math.floor((env.bandLen - fixedLen) / ELEVATOR.shaft));
+  return {
+    fits: env.crossDepthOk && maxElevators >= 1,
+    frameAngleDeg: env.frame.angleDeg,
+    bandLength: Math.round(env.bandLen * 100) / 100,
+    minCoreLength: Math.round((fixedLen + ELEVATOR.shaft) * 100) / 100,
+    maxElevators,
+    crossDepthOk: env.crossDepthOk,
+  };
+}
+
+/** Places the vertical core once per building; every floor reuses these rects. */
+export function planCore(request: InteriorRequest, assignments: FloorAssignment[]): CorePlan {
+  const floors = request.blueprint.floors;
+  const env = coreEnvelope(floors);
+  const { frame, vFace, bandU0, bandU1, bandLen, stairDepth, twoStairs, area } = env;
+  const aboveFloors = floors.filter((f) => f.index >= 0).length;
+  const top = floors.at(-1)!;
+  const depth = ELEVATOR.shaft;
+
+  if (!env.crossDepthOk) {
+    throw new InteriorError("E_FLOOR_TOO_SMALL", `plate depth ${env.vLen.toFixed(1)}m cannot fit corridor, shafts and rooms`);
+  }
+
+  // demand-driven car count, capped by what the BAND fits alongside stairs and egress
+  const fixedLen = fixedCoreLength(env);
+  const carsThatFit = Math.floor((bandLen - fixedLen) / ELEVATOR.shaft);
+  const elevatorCount = Math.min(elevatorsFor(request, area, aboveFloors, top.elevation), Math.max(1, carsThatFit));
+
+  const coreLen = stairDepth + elevatorCount * ELEVATOR.shaft + RISER_SHAFT.w;
+  const blockLen = coreLen + CORRIDOR.serviceStub;
   if (blockLen + (twoStairs ? stairDepth : 0) > bandLen - 0.5) {
     throw new InteriorError("E_FLOOR_TOO_SMALL", `core band ${bandLen.toFixed(1)}m cannot fit core ${blockLen.toFixed(1)}m plus egress stair`);
   }
@@ -106,7 +159,7 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
   let stairB: UvRect | undefined;
   if (twoStairs) {
     // inline at the far end of the corridor band, egress separation from stair A
-    stairB = { u: stairBu, v: vFace - corridorW, lu: stairDepth, lv: corridorW };
+    stairB = { u: stairBu, v: vFace - CORRIDOR.width, lu: stairDepth, lv: CORRIDOR.width };
   }
 
   const plan: CorePlan = {

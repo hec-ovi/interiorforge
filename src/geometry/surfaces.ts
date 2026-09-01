@@ -1,3 +1,4 @@
+import type { Point } from "../core/geom.js";
 import type { FloorInterior, RoomKind } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import type { CorePlan } from "../layout/core-plan.js";
@@ -15,6 +16,7 @@ const OPEN_CEILING: ReadonlySet<RoomKind> = new Set([
 
 export function buildFloorSurfaces(
   mb: MeshBuilder, keys: MaterialKeys, floor: FloorInterior, ceilingHeight: number,
+  sealedPolys: Point[][] = [],
 ): void {
   for (const room of floor.rooms) {
     mb.addHorizontalPolygon(keys.floorOf(room.kind), room.polygon, floor.elevation, "up");
@@ -22,6 +24,11 @@ export function buildFloorSurfaces(
     if (!OPEN_CEILING.has(room.kind)) {
       mb.addHorizontalPolygon(keys.ceiling(), room.polygon, floor.elevation + ceilingHeight - CEILING_DROP, "down");
     }
+  }
+  // sealed service voids still carry the slab
+  for (const poly of sealedPolys) {
+    mb.addHorizontalPolygon(keys.concrete(), poly, floor.elevation, "up");
+    mb.addHorizontalPolygon(keys.concrete(), poly, floor.elevation - SOFFIT_DEPTH, "down");
   }
 }
 

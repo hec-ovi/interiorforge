@@ -57,6 +57,19 @@ export function planFloor(
   const floorFrame = buildFrame(core, floor);
   const isVenue = VENUE_KINDS.has(kind);
 
+  // strip segments with no corridor contact (e.g. behind the inline stair) are enclaves:
+  // sealed service voids, never rooms
+  const extraSealed: UvRect[] = [];
+  const corridorU = floorFrame.corridor;
+  floorFrame.northSegments = floorFrame.northSegments.filter((seg) => {
+    const contact = Math.min(seg.u + seg.lu, corridorU.u + corridorU.lu) - Math.max(seg.u, corridorU.u);
+    if (contact < 1.6) {
+      extraSealed.push(seg);
+      return false;
+    }
+    return true;
+  });
+
   const corridorRoom: PlanRoom = {
     id: `f${floor.index < 0 ? `m${-floor.index}` : floor.index}-corridor`,
     kind: isVenue ? "elevator_lobby" : "corridor",
@@ -76,9 +89,13 @@ export function planFloor(
       rooms.push(...fillOfficeStrip(seg, "v0", corridorRoom, false, rng, ids, `f${floor.index}-n${i}`));
     });
   } else {
-    rooms.push(...fillUnitStrip(floorFrame.south, "v1", corridorRoom, kind, rng, ids, `f${floor.index}-s`, uvOutline));
+    const south = fillUnitStrip(floorFrame.south, "v1", corridorRoom, kind, rng, ids, `f${floor.index}-s`, uvOutline);
+    rooms.push(...south.rooms);
+    extraSealed.push(...south.sealed);
     floorFrame.northSegments.forEach((seg, i) => {
-      rooms.push(...fillUnitStrip(seg, "v0", corridorRoom, kind, rng, ids, `f${floor.index}-n${i}`, uvOutline));
+      const north = fillUnitStrip(seg, "v0", corridorRoom, kind, rng, ids, `f${floor.index}-n${i}`, uvOutline);
+      rooms.push(...north.rooms);
+      extraSealed.push(...north.sealed);
     });
   }
 
@@ -103,20 +120,21 @@ export function planFloor(
 
   const furniture = furnish(rooms, kind, rng, ids, uvOutline);
 
+  const sealed = [...backing.sealed, ...extraSealed.filter((s) => clipRatio(s, uvOutline) > 0.05)];
   const grid = validateAndRepair(
-    floor.outline, uvOutline, rooms, furniture, backing.sealed, core, floor.index, ids,
+    floor.outline, uvOutline, rooms, furniture, sealed, core, floor.index, ids,
   );
 
   return {
     interior: {
       floor: floor.index, kind, elevation: floor.elevation, height: floor.height,
       coreAngleDeg: frame.angleDeg,
-      core: coreToWorld(core, backing.sealed),
+      core: coreToWorld(core, sealed),
       rooms: rooms.map((r) => roomToWorld(r, uvOutline, frame)),
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
     },
     grid,
-    uv: { outline: uvOutline, rooms, furniture, sealed: backing.sealed },
+    uv: { outline: uvOutline, rooms, furniture, sealed },
   };
 }
 
