@@ -34,30 +34,38 @@ export function idGen(floor: number): IdGen {
   };
 }
 
+/** Shared straight edge of two abutting rects, or null. */
+export function sharedEdge(
+  a: UvRect, b: UvRect,
+): { edge: PlanDoor["edge"]; lo: number; hi: number } | null {
+  const eps = 1e-6;
+  if (Math.abs(a.v + a.lv - b.v) < eps) return { edge: "v1", lo: Math.max(a.u, b.u), hi: Math.min(a.u + a.lu, b.u + b.lu) };
+  if (Math.abs(b.v + b.lv - a.v) < eps) return { edge: "v0", lo: Math.max(a.u, b.u), hi: Math.min(a.u + a.lu, b.u + b.lu) };
+  if (Math.abs(a.u + a.lu - b.u) < eps) return { edge: "u1", lo: Math.max(a.v, b.v), hi: Math.min(a.v + a.lv, b.v + b.lv) };
+  if (Math.abs(b.u + b.lu - a.u) < eps) return { edge: "u0", lo: Math.max(a.v, b.v), hi: Math.min(a.v + a.lv, b.v + b.lv) };
+  return null;
+}
+
 /** Door on the shared edge of two abutting rects, owned by `owner`. Returns null when the
- *  contact interval is too short for even the narrowest leaf. */
+ *  contact interval is too short for even the narrowest leaf. `fraction` shifts the door
+ *  along the interval (repair probes several positions). */
 export function doorBetween(
   owner: PlanRoom, toId: string, toRect: UvRect, ids: IdGen,
-  leaves: 1 | 2 | 3 | 4 = 1, width = DOOR.single,
+  leaves: 1 | 2 | 3 | 4 = 1, width = DOOR.single, fraction = 0.5,
 ): PlanDoor | null {
-  const a = owner.rect;
-  const b = toRect;
-  const eps = 1e-6;
-  let edge: PlanDoor["edge"] | null = null;
-  let lo = 0, hi = 0;
-  if (Math.abs(a.v + a.lv - b.v) < eps) { edge = "v1"; lo = Math.max(a.u, b.u); hi = Math.min(a.u + a.lu, b.u + b.lu); }
-  else if (Math.abs(b.v + b.lv - a.v) < eps) { edge = "v0"; lo = Math.max(a.u, b.u); hi = Math.min(a.u + a.lu, b.u + b.lu); }
-  else if (Math.abs(a.u + a.lu - b.u) < eps) { edge = "u1"; lo = Math.max(a.v, b.v); hi = Math.min(a.v + a.lv, b.v + b.lv); }
-  else if (Math.abs(b.u + b.lu - a.u) < eps) { edge = "u0"; lo = Math.max(a.v, b.v); hi = Math.min(a.v + a.lv, b.v + b.lv); }
-  if (!edge || hi - lo < DOOR.bath + 0.4) return null;
+  const shared = sharedEdge(owner.rect, toRect);
+  if (!shared || shared.hi - shared.lo < DOOR.bath + 0.4) return null;
+  const { edge, lo, hi } = shared;
   let w = width;
   if (hi - lo < w + 0.4) {
     w = hi - lo - 0.4;
     leaves = 1;
   }
-  const door: PlanDoor = { id: ids.door(), to: toId, leaves, width: w, edge, at: snap((lo + hi) / 2) };
+  const span = hi - lo - w - 0.2;
+  const center = lo + w / 2 + 0.1 + span * fraction;
+  const door: PlanDoor = { id: ids.door(), to: toId, leaves, width: w, edge, at: snap(center) };
   // snapping may push the door off-interval on short walls; recenter unclamped then
-  if (door.at - w / 2 < lo + 0.1 || door.at + w / 2 > hi - 0.1) door.at = (lo + hi) / 2;
+  if (door.at - w / 2 < lo + 0.1 || door.at + w / 2 > hi - 0.1) door.at = center;
   owner.doors.push(door);
   return door;
 }
@@ -174,6 +182,13 @@ function fillUnit(
     rooms.push(room);
     return room;
   };
+
+  // strips too shallow for an entry band: one plain room per unit, shared WC on the floor
+  if (rect.lv < 4.6) {
+    const only = mk(kind === "hotel_rooms" ? "bedroom" : "studio_main", rect);
+    doorBetween(only, corridorRoom.id, corridorRoom.rect, ids);
+    return rooms;
+  }
 
   let hall: PlanRoom;
   if (kind === "apartment" && rect.lu >= 6.5) {
@@ -401,6 +416,26 @@ export function fillCoreBacking(
     rooms.push(only);
   }
   return { rooms, sealed: [] };
+}
+
+/** Shallow flanking segments (e.g. beside a single-loaded core row) become shared service
+ *  rooms off the corridor: toilets, plus storage when the run is long enough. */
+export function fillServiceSegment(
+  seg: UvRect, corridorRoom: PlanRoom, ids: IdGen, uvOutline: readonly Point[],
+): PlanRoom[] {
+  if (seg.lv < 2.0 || seg.lu < 2.0 || clipRatio(seg, uvOutline) < 0.5) return [];
+  const rooms: PlanRoom[] = [];
+  const parts = seg.lu >= 5
+    ? [
+        { kind: "toilets" as RoomKind, rect: uSlice(seg, seg.u, snap(seg.u + seg.lu / 2)) },
+        { kind: "storage" as RoomKind, rect: uSlice(seg, snap(seg.u + seg.lu / 2), seg.u + seg.lu) },
+      ]
+    : [{ kind: "toilets" as RoomKind, rect: seg }];
+  for (const part of parts) {
+    const room: PlanRoom = { id: ids.room(), kind: part.kind, rect: part.rect, doors: [] };
+    if (doorBetween(room, corridorRoom.id, corridorRoom.rect, ids)) rooms.push(room);
+  }
+  return rooms;
 }
 
 /** Ground-floor exterior doors: attach each blueprint door opening to the room it lands on. */

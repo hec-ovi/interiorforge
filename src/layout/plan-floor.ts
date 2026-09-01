@@ -5,13 +5,14 @@ import { createRng } from "../core/rng.js";
 import type {
   BlueprintFloor, Door, FloorInterior, FloorKind, InteriorRequest, Room,
 } from "../core/types.js";
-import { CELL, DOOR, ELEVATOR } from "./constants.js";
+import { CELL, DOOR, ELEVATOR, ROOM } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildFrame, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
 import {
-  attachOutsideDoors, clipRatio, fillCoreBacking, fillOfficeStrip, fillUnitStrip, fillVenue, idGen,
+  attachOutsideDoors, clipRatio, fillCoreBacking, fillOfficeStrip, fillServiceSegment,
+  fillUnitStrip, fillVenue, idGen,
 } from "./rooms.js";
 import type { Frame, UvRect } from "./uv.js";
 import { toWorldPolygon, uvRectToFrameRect, uvToWorld, worldToUv } from "./uv.js";
@@ -81,22 +82,33 @@ export function planFloor(
   const backing = fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
   rooms.push(...backing.rooms);
 
+  // segments too shallow for units or offices carry shared service rooms off the corridor
+  const fillSegment = (seg: UvRect, i: number): void => {
+    if (seg.lv < ROOM.minStripDepth) {
+      const service = fillServiceSegment(seg, corridorRoom, ids, uvOutline);
+      if (service.length > 0) rooms.push(...service);
+      else extraSealed.push(seg);
+      return;
+    }
+    if (kind === "office" || kind === "corpo_office") {
+      rooms.push(...fillOfficeStrip(seg, "v0", corridorRoom, false, rng, ids, `f${floor.index}-n${i}`));
+    } else {
+      const north = fillUnitStrip(seg, "v0", corridorRoom, kind, rng, ids, `f${floor.index}-n${i}`, uvOutline);
+      rooms.push(...north.rooms);
+      extraSealed.push(...north.sealed);
+    }
+  };
+
   if (isVenue) {
     rooms.push(...fillVenue(floorFrame, corridorRoom, kind, rng, ids));
   } else if (kind === "office" || kind === "corpo_office") {
     rooms.push(...fillOfficeStrip(floorFrame.south, "v1", corridorRoom, kind === "corpo_office", rng, ids, `f${floor.index}-s`));
-    floorFrame.northSegments.forEach((seg, i) => {
-      rooms.push(...fillOfficeStrip(seg, "v0", corridorRoom, false, rng, ids, `f${floor.index}-n${i}`));
-    });
+    floorFrame.northSegments.forEach(fillSegment);
   } else {
     const south = fillUnitStrip(floorFrame.south, "v1", corridorRoom, kind, rng, ids, `f${floor.index}-s`, uvOutline);
     rooms.push(...south.rooms);
     extraSealed.push(...south.sealed);
-    floorFrame.northSegments.forEach((seg, i) => {
-      const north = fillUnitStrip(seg, "v0", corridorRoom, kind, rng, ids, `f${floor.index}-n${i}`, uvOutline);
-      rooms.push(...north.rooms);
-      extraSealed.push(...north.sealed);
-    });
+    floorFrame.northSegments.forEach(fillSegment);
   }
 
   // rooms mostly outside an irregular outline are void: drop them and their doors

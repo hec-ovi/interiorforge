@@ -37,37 +37,38 @@ export function floorAnchors(
   let n = 0;
   const tag = floor.floor < 0 ? `m${-floor.floor}` : `${floor.floor}`;
   const add = (kind: AnchorKind, room: string, position: Point, facingDeg: number, furniture?: string) => {
-    // validate the exact exported position: rounding may shift the pathfinder's snap cell
-    const exported: Point = [round2(position[0]), round2(position[1])];
-    if (!hasApproach(grid, visited, exported)) return;
+    const snapped = snapToReached(grid, visited, [round2(position[0]), round2(position[1])]);
+    if (!snapped) return;
     anchors.push({
       id: `f${tag}-a${n++}`, floor: floor.floor, room, kind,
-      position: exported, facingDeg, ...(furniture ? { furniture } : {}),
+      position: snapped, facingDeg, ...(furniture ? { furniture } : {}),
     });
   };
 
-  // furniture-driven spots
+  // furniture-driven spots: preferred side first (front of a desk, behind a counter, the
+  // open side of a bed), the opposite side as fallback when that spot is unreachable
   for (const f of floor.furniture) {
     const spec = FURNITURE_ANCHORS[f.kind];
     if (!spec) continue;
     const facing = facingOf(f.rotationDeg);
-    const depth = f.size[1];
-    if (spec.side === "on") {
-      add(spec.kind, f.room, f.position, f.rotationDeg, f.id);
-    } else if (spec.side === "front") {
-      const p: Point = [f.position[0] + facing[0] * (depth / 2 + 0.4), f.position[1] + facing[1] * (depth / 2 + 0.4)];
-      add(spec.kind, f.room, p, (f.rotationDeg + 180) % 360, f.id);
-    } else {
-      const p: Point = [f.position[0] - facing[0] * (depth / 2 + 0.45), f.position[1] - facing[1] * (depth / 2 + 0.45)];
-      add(spec.kind, f.room, p, f.rotationDeg, f.id);
+    const reach = f.size[1] / 2 + 0.4;
+    const front: Point = [f.position[0] + facing[0] * reach, f.position[1] + facing[1] * reach];
+    const back: Point = [f.position[0] - facing[0] * reach, f.position[1] - facing[1] * reach];
+    const candidates: [Point, number][] = spec.side === "behind"
+      ? [[back, f.rotationDeg], [front, (f.rotationDeg + 180) % 360]]
+      : [[front, (f.rotationDeg + 180) % 360], [back, f.rotationDeg]];
+    for (const [p, facingDeg] of candidates) {
+      const before = anchors.length;
+      add(spec.kind, f.room, p, facingDeg, f.id);
+      if (anchors.length > before) break;
     }
   }
 
   for (const room of floor.rooms) {
     const center = roomCenters.get(room.id) ?? fallbackCenter(room.polygon);
-    // entrances at exterior doors
+    // entrance anchors only at street level; balcony doors on upper floors are not entries
     for (const door of room.doors) {
-      if (door.to !== "outside") continue;
+      if (door.to !== "outside" || floor.floor !== 0) continue;
       const inward = inwardOf(door.position, center);
       add("entrance", room.id, [door.position[0] + inward[0] * 0.8, door.position[1] + inward[1] * 0.8],
         angleOf(inward), undefined);
@@ -103,19 +104,19 @@ export function coreAnchors(
   const intoCore = norm360(-core.frame.angleDeg);
   core.elevators.forEach((_, i) => {
     const p = uvToWorld(elevatorWaitUv(core, i), core.frame);
-    const exported: Point = [round2(p[0]), round2(p[1])];
-    if (!hasApproach(grid, visited, exported)) return;
+    const snapped = snapToReached(grid, visited, [round2(p[0]), round2(p[1])]);
+    if (!snapped) return;
     anchors.push({
       id: `f${tag}-c${n++}`, floor: floor.floor, room: corridorRoomId, kind: "elevator_wait",
-      position: exported, facingDeg: intoCore,
+      position: snapped, facingDeg: intoCore,
     });
   });
   for (const stair of floor.core.stairs) {
-    const exported: Point = [round2(stair.entry[0]), round2(stair.entry[1])];
-    if (!hasApproach(grid, visited, exported)) continue;
+    const snapped = snapToReached(grid, visited, [round2(stair.entry[0]), round2(stair.entry[1])]);
+    if (!snapped) continue;
     anchors.push({
       id: `f${tag}-c${n++}`, floor: floor.floor, room: corridorRoomId, kind: "stair_entry",
-      position: exported, facingDeg: intoCore,
+      position: snapped, facingDeg: intoCore,
     });
   }
   return anchors;
@@ -125,23 +126,32 @@ function norm360(deg: number): number {
   return Math.round(((deg % 360) + 360) % 360 * 100) / 100;
 }
 
-/** The pathfinder snaps a query to the FIRST walkable cell in ring order (find-path.ts
- *  nearestWalkable); an anchor is valid only when that exact cell is corridor-reached,
- *  otherwise findPath would land in an isolated pocket. Iteration order mirrors it. */
-function hasApproach(grid: WalkGrid, visited: Uint8Array, p: Point): boolean {
+/** Exported anchors must be pathable by construction: keep the ideal point when its own
+ *  cell is corridor-reached, otherwise snap to the nearest reached cell center nearby.
+ *  Null when nothing reached is close enough (the anchor is dropped). */
+function snapToReached(grid: WalkGrid, visited: Uint8Array, p: Point): Point | null {
   const [c0, r0] = grid.cellAt(p);
-  const reached = (c: number, r: number) => visited[r * grid.cols + c] === 1;
-  if (grid.isWalkable(c0, r0)) return reached(c0, r0);
-  const radius = Math.ceil(APPROACH / grid.cellSize);
+  const reached = (c: number, r: number) => grid.isWalkable(c, r) && visited[r * grid.cols + c] === 1;
+  if (reached(c0, r0)) return p;
+  const radius = Math.ceil(APPROACH / grid.cellSize) + 1;
   for (let ring = 1; ring <= radius; ring++) {
+    let best: Point | null = null;
+    let bestDist = Infinity;
     for (let dr = -ring; dr <= ring; dr++) {
       for (let dc = -ring; dc <= ring; dc++) {
         if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
-        if (grid.isWalkable(c0 + dc, r0 + dr)) return reached(c0 + dc, r0 + dr);
+        if (!reached(c0 + dc, r0 + dr)) continue;
+        const center = grid.center(c0 + dc, r0 + dr);
+        const dist = Math.hypot(center[0] - p[0], center[1] - p[1]);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = [round2(center[0]), round2(center[1])];
+        }
       }
     }
+    if (best) return best;
   }
-  return false;
+  return null;
 }
 
 function inwardOf(doorPos: Point, roomCenter: Point): Point {

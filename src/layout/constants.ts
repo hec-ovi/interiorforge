@@ -65,3 +65,10 @@ export const ROOM = {
 
 /** Two egress stairs beyond either threshold (IBC-derived). */
 export const TWO_STAIRS = { areaOver: 460, floorsOver: 4 };
+
+/** Plates shallower than this get a single-loaded corridor: core row flush to the back
+ *  facade, one deep strip of rooms instead of two shallow ones. */
+export const SINGLE_LOADED_BELOW = 12.5;
+
+/** Stair-only degrade for footprints whose band cannot hold an elevator core. */
+export const WALKUP = { maxFloors: 6 };

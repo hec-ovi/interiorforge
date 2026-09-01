@@ -90,6 +90,20 @@ describe("buildNpcSupport", () => {
     expect(unreachable).toBe(0);
   });
 
+  it("walkup buildings route between floors on stairs alone, entrances stay at street level", () => {
+    const small = makeFixture({ seed: 3, floors: 4, width: 9, depth: 10, type: "residential" });
+    const splan = planBuilding(small.request, resolveAssignments(small.request));
+    const snpc = buildNpcSupport(splan, small.request);
+    expect(snpc.nav.connectors.every((c) => c.kind === "stair")).toBe(true);
+    expect(snpc.anchors.filter((a) => a.kind === "entrance").every((a) => a.floor === 0)).toBe(true);
+    const entrance = snpc.anchors.find((a) => a.kind === "entrance")!;
+    const top = snpc.anchors.filter((a) => a.floor === 3)[0]!;
+    const legs = findPath(snpc, { floor: 0, position: entrance.position }, { floor: 3, position: top.position })!;
+    expect(legs).not.toBeNull();
+    const ride = legs.find((l) => l.kind === "ride") as { connector: string };
+    expect(snpc.nav.connectors.find((c) => c.id === ride.connector)!.kind).toBe("stair");
+  });
+
   it("returns null for an unreachable target instead of throwing", () => {
     const entrance = npc.anchors.find((a) => a.kind === "entrance")!;
     expect(findPath(npc, { floor: 0, position: entrance.position }, { floor: 999, position: [0, 0] })).toBeNull();

@@ -2,7 +2,7 @@ import { InteriorError } from "../core/errors.js";
 import { clipPolygonToRect, polygonArea, polygonBounds } from "../core/geom.js";
 import type { FloorAssignment, InteriorRequest } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
-import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, STAIR, TWO_STAIRS } from "./constants.js";
+import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, STAIR, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
 import type { Frame, UvRect } from "./uv.js";
 import { makeFrame, snap, snapDown, snapUp, toUvPolygon, worldToUv } from "./uv.js";
@@ -62,8 +62,11 @@ function coreEnvelope(floors: InteriorRequest["blueprint"]["floors"]): CoreEnvel
   const hMax = Math.max(...floors.map((f) => f.height));
   const stairDepth = stairShaftDepth(hMax);
 
-  // corridor band centered so both strips get equal depth
-  const vFace = snap(bounds.z + (vLen + corridorW) / 2);
+  // deep plates: corridor band centered, strips both sides. Shallow plates: single-loaded,
+  // core row flush to the back facade so one strip keeps real room depth.
+  const vFace = vLen < SINGLE_LOADED_BELOW
+    ? snapDown(bounds.z + vLen - depth)
+    : snap(bounds.z + (vLen + corridorW) / 2);
 
   // the core must sit in the u-range that is actually inside EVERY floor outline at its
   // band (irregular parcels cut diagonals into the plate)
@@ -88,12 +91,19 @@ function fixedCoreLength(env: CoreEnvelope): number {
 }
 
 export interface CoreFeasibility {
+  /** whether THIS blueprint (its floor count included) generates */
   fits: boolean;
+  /** standard: elevator core. walkup: stair-only core, floors capped at walkupMaxFloors.
+   *  none: not buildable at any floor count. */
+  mode: "standard" | "walkup" | "none";
   frameAngleDeg: number;
   /** longest full-coverage run at the core band, min across floors */
   bandLength: number;
-  /** stair + one car + riser + stub (+ egress stair) + margin: the band must hold this */
+  /** stair + one car + riser + stub (+ egress stair) + margin: standard mode needs this */
   minCoreLength: number;
+  /** the same without the car: walkup mode needs this */
+  minWalkupCoreLength: number;
+  walkupMaxFloors: number;
   maxElevators: number;
   crossDepthOk: boolean;
 }
@@ -104,11 +114,19 @@ export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFe
   const env = coreEnvelope(blueprint.floors);
   const fixedLen = fixedCoreLength(env);
   const maxElevators = Math.max(0, Math.floor((env.bandLen - fixedLen) / ELEVATOR.shaft));
+  const aboveFloors = blueprint.floors.filter((f) => f.index >= 0).length;
+  const mode: CoreFeasibility["mode"] = !env.crossDepthOk ? "none"
+    : maxElevators >= 1 ? "standard"
+    : env.bandLen >= fixedLen ? "walkup"
+    : "none";
   return {
-    fits: env.crossDepthOk && maxElevators >= 1,
+    fits: mode === "standard" || (mode === "walkup" && aboveFloors <= WALKUP.maxFloors),
+    mode,
     frameAngleDeg: env.frame.angleDeg,
     bandLength: Math.round(env.bandLen * 100) / 100,
     minCoreLength: Math.round((fixedLen + ELEVATOR.shaft) * 100) / 100,
+    minWalkupCoreLength: Math.round(fixedLen * 100) / 100,
+    walkupMaxFloors: WALKUP.maxFloors,
     maxElevators,
     crossDepthOk: env.crossDepthOk,
   };
@@ -124,19 +142,26 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
   const depth = ELEVATOR.shaft;
 
   if (!env.crossDepthOk) {
-    throw new InteriorError("E_FLOOR_TOO_SMALL", `plate depth ${env.vLen.toFixed(1)}m cannot fit corridor, shafts and rooms`);
+    throw new InteriorError("E_FLOOR_TOO_SMALL", `plate depth ${env.vLen.toFixed(1)}m is below the ${(ELEVATOR.shaft + CORRIDOR.width + ROOM.minStripDepth).toFixed(1)}m minimum for corridor, shafts and rooms`);
   }
 
-  // demand-driven car count, capped by what the BAND fits alongside stairs and egress
+  // demand-driven car count, capped by what the BAND fits alongside stairs and egress;
+  // a band too tight for any car degrades to a stair-only walkup (capped height)
   const fixedLen = fixedCoreLength(env);
   const carsThatFit = Math.floor((bandLen - fixedLen) / ELEVATOR.shaft);
-  const elevatorCount = Math.min(elevatorsFor(request, area, aboveFloors, top.elevation), Math.max(1, carsThatFit));
-
-  const coreLen = stairDepth + elevatorCount * ELEVATOR.shaft + RISER_SHAFT.w;
-  const blockLen = coreLen + CORRIDOR.serviceStub;
-  if (blockLen + (twoStairs ? stairDepth : 0) > bandLen - 0.5) {
-    throw new InteriorError("E_FLOOR_TOO_SMALL", `core band ${bandLen.toFixed(1)}m cannot fit core ${blockLen.toFixed(1)}m plus egress stair`);
+  let elevatorCount: number;
+  if (carsThatFit >= 1) {
+    elevatorCount = Math.min(elevatorsFor(request, area, aboveFloors, top.elevation), carsThatFit);
+  } else {
+    if (bandLen < fixedLen) {
+      throw new InteriorError("E_FLOOR_TOO_SMALL", `core band ${bandLen.toFixed(1)}m is below the walkup minimum ${fixedLen.toFixed(1)}m (standard minimum ${(fixedLen + ELEVATOR.shaft).toFixed(1)}m; see schemas/core-feasibility.json)`);
+    }
+    if (aboveFloors > WALKUP.maxFloors) {
+      throw new InteriorError("E_FLOOR_TOO_SMALL", `walkup core (band ${bandLen.toFixed(1)}m < standard minimum ${(fixedLen + ELEVATOR.shaft).toFixed(1)}m) allows at most ${WALKUP.maxFloors} floors, blueprint has ${aboveFloors}`);
+    }
+    elevatorCount = 0;
   }
+  const blockLen = stairDepth + elevatorCount * ELEVATOR.shaft + RISER_SHAFT.w + CORRIDOR.serviceStub;
   // centered in the band, but the whole block (stub included) stays clear of stair B
   let u0 = snap(bandU0 + (bandLen - blockLen) / 2);
   const stairBu = snapDown(bandU1) - stairDepth;

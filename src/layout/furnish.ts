@@ -60,9 +60,12 @@ class RoomPlacer {
     return false;
   }
 
-  /** First free edge among the candidates. */
+  /** First free edge among the candidates; walls carrying a door are tried last so big
+   *  pieces keep the entry side clear. */
   anyEdge(kind: FurnitureKind, edges: ("v0" | "v1" | "u0" | "u1")[] = ["v1", "u0", "u1", "v0"]): boolean {
-    for (const e of edges) if (this.alongEdge(kind, e)) return true;
+    const doorEdges = new Set(this.room.doors.map((d) => d.edge));
+    const ordered = [...edges].sort((a, b) => Number(doorEdges.has(a)) - Number(doorEdges.has(b)));
+    for (const e of ordered) if (this.alongEdge(kind, e)) return true;
     return false;
   }
 
@@ -171,15 +174,18 @@ export function furnish(
     const area = room.rect.lu * room.rect.lv;
     switch (room.kind) {
       case "studio_main":
-        p.anyEdge("bed_double");
+        // clipped wedge rooms often have no straight wall for the bed: fall back to open floor
+        if (!p.anyEdge("bed_double")) p.grid("bed_double", 0.6, 1);
         p.anyEdge("kitchen_block");
         p.anyEdge("wardrobe");
         if (area >= 18) { p.anyEdge("sofa"); p.center("low_table"); }
         break;
-      case "bedroom":
-        p.anyEdge(area >= 9 ? "bed_double" : "bed_single");
+      case "bedroom": {
+        const bed = area >= 9 ? "bed_double" as const : "bed_single" as const;
+        if (!p.anyEdge(bed)) p.grid(bed, 0.6, 1);
         p.anyEdge("wardrobe");
         break;
+      }
       case "living":
         if (area >= 10) { p.anyEdge("sofa"); p.center("low_table"); }
         if (area >= 16) { p.grid("dining_table", 1.2, 1); }

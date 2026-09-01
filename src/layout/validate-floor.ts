@@ -1,6 +1,7 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
+import { DOOR } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildNavGrid } from "./navgrid.js";
 import { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
@@ -107,7 +108,19 @@ function repairOne(
     // prefer public rooms so the repair door lands somewhere sensible
     reachedRooms.sort((a, b) => publicRank(a) - publicRank(b));
     for (const target of reachedRooms) {
-      if (doorBetween(room, target.id, target.rect, ids)) return true;
+      // furniture can strand an existing door in a pocket: probe positions away from the
+      // doors this pair already has instead of stacking duplicates on the same spot
+      const existing = [
+        ...room.doors.filter((d) => d.to === target.id),
+        ...target.doors.filter((d) => d.to === room.id),
+      ];
+      if (existing.length >= 3) continue;
+      for (const fraction of [0.5, 0.1, 0.9, 0.3, 0.7]) {
+        const door = doorBetween(room, target.id, target.rect, ids, 1, DOOR.interior, fraction);
+        if (!door) break;
+        if (existing.every((d) => Math.abs(d.at - door.at) > 0.7)) return true;
+        room.doors.pop(); // same spot as an existing door: discard and try the next probe
+      }
     }
   }
   return false;

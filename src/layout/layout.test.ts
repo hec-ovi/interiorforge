@@ -119,4 +119,35 @@ describe("planBuilding", () => {
     const tallPlan = planBuilding(tall.request, resolveAssignments(tall.request));
     expect(tallPlan.core.elevatorCount).toBeLessThanOrEqual(f.maxElevators);
   });
+
+  it("tight footprints degrade to a stair-only walkup under the published cap", () => {
+    const small = makeFixture({ seed: 3, floors: 4, width: 9, depth: 10, type: "residential" });
+    const f = coreFeasibility(small.request.blueprint);
+    expect(f.mode).toBe("walkup");
+    expect(f.fits).toBe(true);
+    const wplan = planBuilding(small.request, resolveAssignments(small.request));
+    const f0 = wplan.floors.find((x) => x.floor === 0)!;
+    expect(f0.core.elevators).toEqual([]);
+    expect(f0.core.stairs.length).toBeGreaterThanOrEqual(1);
+
+    // beyond the walkup cap the gate closes, message and recipe agree on the numbers
+    const tall = makeFixture({ seed: 3, floors: 7, width: 9, depth: 10, type: "residential" });
+    const tf = coreFeasibility(tall.request.blueprint);
+    expect(tf.fits).toBe(false);
+    try {
+      planBuilding(tall.request, resolveAssignments(tall.request));
+      expect.unreachable("must throw");
+    } catch (err) {
+      expect((err as { code: string }).code).toBe("E_FLOOR_TOO_SMALL");
+      expect((err as Error).message).toContain(`${tf.minWalkupCoreLength.toFixed(1)}m`);
+      expect((err as Error).message).toContain(`${tf.bandLength.toFixed(1)}m`);
+    }
+  });
+
+  it("shallow plates go single-loaded so units keep real room depth", () => {
+    const narrow = makeFixture({ seed: 4, floors: 5, width: 30, depth: 10, type: "residential" });
+    const nplan = planBuilding(narrow.request, resolveAssignments(narrow.request));
+    const floor = nplan.floors.find((x) => x.kind === "residence_studio" || x.kind === "apartment")!;
+    expect(floor.furniture.some((f) => f.kind === "bed_double" || f.kind === "bed_single")).toBe(true);
+  });
 });
