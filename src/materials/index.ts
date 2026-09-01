@@ -1,10 +1,9 @@
 import type { Document } from "@gltf-transform/core";
 import { InteriorError } from "../core/errors.js";
 import { applyMaterials } from "./apply.js";
-import { loadTheme, materialsDir } from "./load.js";
 import { MaterialLibrary, type ThemeIndex } from "./theme.js";
 
-export { MaterialLibrary, materialsDir, loadTheme, applyMaterials };
+export { MaterialLibrary, applyMaterials };
 export type { ThemeIndex, MaterialEntry } from "./theme.js";
 
 /** How the finished GLB carries its maps. */
@@ -32,12 +31,16 @@ export interface TextureReport {
 }
 
 /** Textures the document in place. Falls back to keys when the requested mode needs the
- *  materials database and it is not there, so this box still runs standalone. */
-export function textureDocument(doc: Document, theme: string, options: TextureOptions = {}): TextureReport {
+ *  materials database and it is not there, so this box still runs standalone. The disk
+ *  loader is pulled in only when it is actually needed, so a browser (the preview, which
+ *  hands in a preloaded theme) never reaches for node builtins. */
+export async function textureDocument(
+  doc: Document, theme: string, options: TextureOptions = {},
+): Promise<TextureReport> {
   const mode = options.mode ?? "external";
   if (mode === "keys") return { mode: "keys", materials: 0 };
 
-  const onDisk = options.theme ? null : loadTheme(theme, options.dir);
+  const onDisk = options.theme ? null : (await import("./load.js")).loadTheme(theme, options.dir);
   const library = options.theme ? new MaterialLibrary(options.theme) : onDisk?.library;
   if (!library) return { mode: "keys", materials: 0 };
   if (mode === "embed" && !onDisk) {

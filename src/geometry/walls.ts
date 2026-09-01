@@ -1,6 +1,6 @@
 import type { Point } from "../core/geom.js";
 import { clipPolygonToRect } from "../core/geom.js";
-import type { BlueprintFloor } from "../core/types.js";
+import type { BlueprintFloor, RoomKind } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { WALL } from "../layout/constants.js";
 import { doorUvPoint } from "../layout/plan-floor.js";
@@ -46,7 +46,8 @@ export function doorHeadHeight(leaves: number, floorHeight: number): number {
  *  Extraction runs in uv space where rooms are axis-aligned; emission rotates to world. */
 export function buildInteriorWalls(
   mb: MeshBuilder, keys: MaterialKeys, rooms: PlanRoom[], uvOutline: Point[], frame: Frame,
-  elevation: number, wallTop: number, floorHeight: number, ceilingY: number, extraHoles: UvWallHole[],
+  elevation: number, wallTop: number, floorHeight: number, ceilingY: number,
+  program: RoomKind, extraHoles: UvWallHole[],
 ): void {
   const lines = new Map<string, WallLine>();
   const lineFor = (axis: "H" | "V", c: number): WallLine => {
@@ -93,7 +94,7 @@ export function buildInteriorWalls(
 
   const bands: WallBands = {
     y0: elevation, ceilingY,
-    field: keys.wall(), accent: keys.accent(), trim: keys.trim(),
+    field: keys.wall(program), accent: keys.accent(program), trim: keys.trim(),
   };
   for (const line of lines.values()) {
     for (const [a, b] of mergeIntervals(line.intervals)) {
@@ -134,10 +135,11 @@ function emitWallRun(
  *  Works on the world outline directly, any edge angle. */
 export function buildFacadeLining(
   mb: MeshBuilder, keys: MaterialKeys, bpFloor: BlueprintFloor, wallTop: number, ceilingY: number,
+  program: RoomKind,
 ): void {
   const bands: WallBands = {
     y0: bpFloor.elevation, ceilingY,
-    field: keys.wall(), accent: keys.accent(), trim: keys.trim(),
+    field: keys.wall(program), accent: keys.accent(program), trim: keys.trim(),
   };
   const outline = bpFloor.outline;
   const y0 = bpFloor.elevation;

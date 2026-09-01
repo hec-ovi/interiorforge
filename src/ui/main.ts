@@ -1,3 +1,4 @@
+import { polygonArea } from "../core/geom.js";
 import { generateInterior, makeFixture } from "../index.js";
 import { readGlbBytes } from "../glb/io.js";
 import type { InteriorRequest } from "../core/types.js";
@@ -95,17 +96,36 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
     const floor = state.floorData();
     if (state.mode === "floor" && floor) {
       viewer.setFloorSlice({ y0: floor.elevation - 0.3, y1: floor.elevation + floor.height - 0.4 });
+      viewer.setLights(floor.lights);
     } else {
       viewer.setFloorSlice(null);
+      viewer.setLights(null);
     }
   }
   state.on("mode", applySlice);
   state.on("floor", applySlice);
+  state.on("result", applySlice);
+
+  /** Stand in the selected room (or the biggest one on the floor) and look across it. */
+  function standIn(): void {
+    const floor = state.floorData();
+    if (!floor || floor.rooms.length === 0) return;
+    if (state.mode !== "floor") state.setMode("floor");
+    const room = floor.rooms.find((r) => r.id === state.selectedRoom)
+      ?? [...floor.rooms].sort((a, b) => polygonArea(b.polygon) - polygonArea(a.polygon))[0]!;
+    const xs = room.polygon.map((p) => p[0]);
+    const zs = room.polygon.map((p) => p[1]);
+    const at: [number, number] = [
+      (Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2,
+    ];
+    const wide = Math.max(...xs) - Math.min(...xs) >= Math.max(...zs) - Math.min(...zs);
+    viewer.standIn(at, floor.elevation + 1.65, wide ? 90 : 0);
+  }
 
   const side = document.createElement("div");
   side.className = "sidebar";
   side.append(
-    createControls(state, (p) => void regenerate(p), (files) => void loadBuilding(files)),
+    createControls(state, (p) => void regenerate(p), (files) => void loadBuilding(files), standIn),
     createInfoPanel(state),
   );
 

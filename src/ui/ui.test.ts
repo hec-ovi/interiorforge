@@ -5,17 +5,27 @@ import userEvent from "@testing-library/user-event";
 import { mountApp } from "./main.js";
 import type { FloorSlice, Viewer3D } from "./views/viewer3d.js";
 
-function fakeViewer(): Viewer3D & { glb: Uint8Array | null; slice: FloorSlice | null } {
+function fakeViewer(): Viewer3D & {
+  glb: Uint8Array | null; slice: FloorSlice | null; lights: number; eye: number[] | null;
+} {
   const el = document.createElement("div");
   return {
     el,
     glb: null,
     slice: null,
+    lights: 0,
+    eye: null,
     async setGlb(bytes: Uint8Array) {
       this.glb = bytes;
     },
     setFloorSlice(slice: FloorSlice | null) {
       this.slice = slice;
+    },
+    setLights(lights) {
+      this.lights = lights?.length ?? 0;
+    },
+    standIn(at: [number, number], eyeY: number) {
+      this.eye = [at[0], eyeY, at[1]];
     },
   };
 }
@@ -66,6 +76,9 @@ describe("preview ui", () => {
     await user.click(getByRole(root, "button", { name: "floor editor" }));
     expect(viewer.slice).not.toBeNull();
     expect(viewer.slice!.y0).toBeLessThan(state.floorData()!.elevation);
+    // the floor lights itself: the editor instantiates the fixtures it publishes
+    expect(viewer.lights).toBe(state.floorData()!.lights.length);
+    expect(viewer.lights).toBeGreaterThan(0);
 
     const roomShapes = root.querySelectorAll("[data-room]");
     expect(roomShapes.length).toBe(state.floorData()!.rooms.length);
@@ -73,6 +86,14 @@ describe("preview ui", () => {
     expect(state.selectedRoom).not.toBeNull();
     const selected = state.floorData()!.rooms.find((r) => r.id === state.selectedRoom)!;
     await findByText(root, new RegExp(`${selected.id}: ${selected.kind}`));
+  }, 30000);
+
+  it("eye view stands the camera in a room at head height", async () => {
+    const { root, viewer, state, user } = await mountAndGenerate();
+    await user.click(getByRole(root, "button", { name: "eye view" }));
+    expect(state.mode).toBe("floor");
+    expect(viewer.eye).not.toBeNull();
+    expect(viewer.eye![1]).toBeCloseTo(state.floorData()!.elevation + 1.65, 6);
   }, 30000);
 
   it("two plan clicks draw a walk path on the current floor", async () => {

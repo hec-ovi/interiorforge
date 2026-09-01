@@ -10,6 +10,7 @@ const TIERS: Tier[] = ["poor", "mid", "rich", "high_rich"];
 
 export function createControls(
   state: AppState, onGenerate: (params: AppParams) => void, onLoadFiles: (files: File[]) => void,
+  onStandIn: () => void,
 ): HTMLElement {
   const seed = el("input", { type: "number", value: state.params.seed, name: "seed" });
   const floors = el("input", { type: "number", value: state.params.floors, min: 1, max: 80, name: "floors" });
@@ -28,6 +29,7 @@ export function createControls(
 
   const modeBuilding = el("button", { class: "mode active", onclick: () => state.setMode("building") }, ["building"]);
   const modeFloor = el("button", { class: "mode", onclick: () => state.setMode("floor") }, ["floor editor"]);
+  const eyeView = el("button", { class: "mode", name: "eye", onclick: () => onStandIn() }, ["eye view"]);
   const floorSelect = el("select", { name: "floor", onchange: () => state.setFloor(Number(floorSelect.value)) });
 
   state.on("mode", () => {
@@ -61,6 +63,6 @@ export function createControls(
       el("span", { class: "load-hint" }, ["or load a real building (shell .glb + blueprint .json + request .json)"]),
       loadInput,
     ]),
-    el("div", { class: "mode-row" }, [modeBuilding, modeFloor, labeled("floor", floorSelect)]),
+    el("div", { class: "mode-row" }, [modeBuilding, modeFloor, eyeView, labeled("floor", floorSelect)]),
   ]);
 }

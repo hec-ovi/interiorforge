@@ -10,7 +10,7 @@ import type { FloorInterior, InteriorResult } from "./core/types.js";
 export { makeFixture, type FixtureOptions } from "./blueprint/fixture.js";
 export { findPath, type PathLeg, type PathQuery } from "./npc/index.js";
 export { coreFeasibility, type CoreFeasibility } from "./layout/index.js";
-export { materialsDir, type TextureMode, type TextureOptions, type TextureReport } from "./materials/index.js";
+export { type TextureMode, type TextureOptions, type TextureReport } from "./materials/index.js";
 export { InteriorError } from "./core/errors.js";
 export type * from "./core/types.js";
 
@@ -35,7 +35,7 @@ export async function generateInterior(
   const plan = planBuilding(validated, assignments);
   const npc = buildNpcSupport(plan, validated);
   const { doc, stepsByFloor } = buildInterior(plan, validated, shellDoc);
-  const textures = textureDocument(doc, validated.materialTheme, options.textures);
+  const textures = await textureDocument(doc, validated.materialTheme, options.textures);
 
   const floors: FloorInterior[] = plan.floors.map((floor) => ({
     ...floor,

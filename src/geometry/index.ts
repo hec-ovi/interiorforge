@@ -98,8 +98,11 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     const spaceHeight = floor.height + (upper?.height ?? 0);
     const ceilingY = floor.elevation + ceilingClear(spaceHeight);
     buildFloorSurfaces(mb, keys, floor, spaceHeight, sealedPolys);
-    buildInteriorWalls(mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, core.frame, floor.elevation, wallTop, floor.height, ceilingY, holes);
-    buildFacadeLining(mb, keys, bpFloor, wallTop, ceilingY);
+    // the floor's biggest room sets the wall pattern, so a venue floor and an office floor
+    // never wear the same one
+    const program = uv.rooms.reduce((best, r) => (r.rect.lu * r.rect.lv > best.rect.lu * best.rect.lv ? r : best)).kind;
+    buildInteriorWalls(mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, core.frame, floor.elevation, wallTop, floor.height, ceilingY, program, holes);
+    buildFacadeLining(mb, keys, bpFloor, wallTop, ceilingY, program);
     emitAccentWalls(
       mb, keys, uv.rooms, uv.outline, core.frame, floor.elevation, ceilingY,
       createRng(request.seed, "accent", floor.floor),

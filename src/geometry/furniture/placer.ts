@@ -10,7 +10,7 @@ export type Mat = "wood" | "metal" | "fabric" | "glass" | "tile" | "plaster" | "
 
 const KIND: Record<Mat, string> = {
   wood: "wood", metal: "metal", fabric: "fabric", glass: "glass", tile: "tile",
-  plaster: "plaster", screen: "signage", accent: "tile",
+  plaster: "plaster", screen: "ad-screen", accent: "tile",
 };
 
 /** Draws one piece of furniture in its own coordinates: x across the width, z from back to

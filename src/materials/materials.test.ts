@@ -12,7 +12,7 @@ const TIER = "mid";
 /** kinds a fixture building emits: exterior shell plus interior surfaces and furniture */
 const KINDS = [
   "wall", "floor-slab", "plaster", "tile", "wood", "carpet", "rubber", "concrete", "metal",
-  "elevator_door", "fabric", "glass", "light-fixture", "signage", "ceiling",
+  "elevator_door", "fabric", "glass", "light-fixture", "ad-screen", "ceiling",
 ];
 const TILE_SIZE: [number, number] = [3, 2];
 /** 1x1 png, so embedded output carries real image bytes */
@@ -35,8 +35,8 @@ function writeThemeDatabase(kinds: string[] = KINDS): string {
     for (const file of Object.values(maps)) writeFileSync(join(assets, file), PNG);
     entries[key] = {
       key,
-      alignment: kind === "elevator_door" ? "exact" : "tile",
-      ...(kind === "elevator_door" ? {} : { tiling: { worldSize: TILE_SIZE } }),
+      alignment: kind === "elevator_door" || kind === "ad-screen" ? "exact" : "tile",
+      ...(kind === "elevator_door" || kind === "ad-screen" ? {} : { tiling: { worldSize: TILE_SIZE } }),
       physical: { metallicFactor: kind === "metal" ? 1 : 0, roughnessFactor: 0.6 },
       variants: [{
         id: "1",

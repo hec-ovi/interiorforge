@@ -16,7 +16,8 @@ import { join, relative, resolve } from "node:path";
 import { makeFixture } from "./blueprint/fixture.js";
 import type { BuildingType, InteriorRequest, Tier } from "./core/types.js";
 import { writeGlb } from "./glb/io.js";
-import { generateInterior, materialsDir, type TextureOptions } from "./index.js";
+import { generateInterior, type TextureOptions } from "./index.js";
+import { materialsDir } from "./materials/load.js";
 
 function arg(name: string, fallback: string): string {
   const i = process.argv.indexOf(`--${name}`);
