@@ -5,6 +5,7 @@ import { makeFixture } from "../blueprint/fixture.js";
 import { resolveAssignments } from "../blueprint/validate.js";
 import { planBuilding } from "../layout/index.js";
 import { buildNpcSupport, findPath } from "./index.js";
+import { anchorConflicts, ENTRANCE_STANDOFF } from "./keep-out.js";
 
 const fix = makeFixture({ seed: 33, floors: 8, basements: 1 });
 const plan = planBuilding(fix.request, resolveAssignments(fix.request));
@@ -21,6 +22,21 @@ describe("buildNpcSupport", () => {
   it("is deterministic", () => {
     const again = buildNpcSupport(planBuilding(fix.request, resolveAssignments(fix.request)), fix.request);
     expect(JSON.stringify(again)).toBe(JSON.stringify(npc));
+  });
+
+  it("no anchor stands in a doorway, and entrances are approached from inside", () => {
+    for (const floor of plan.floors) {
+      expect(anchorConflicts(floor, npc.anchors), `floor ${floor.floor}`).toEqual([]);
+    }
+    const ground = plan.floors.find((f) => f.floor === 0)!;
+    const entrances = ground.rooms.flatMap((r) => r.doors.filter((d) => d.to === "outside"));
+    expect(entrances.length).toBeGreaterThan(0);
+    for (const anchor of npc.anchors.filter((a) => a.floor === 0)) {
+      for (const door of entrances) {
+        const gap = Math.hypot(anchor.position[0] - door.position[0], anchor.position[1] - door.position[1]);
+        expect(gap, `${anchor.id} crowds ${door.id}`).toBeGreaterThanOrEqual(ENTRANCE_STANDOFF);
+      }
+    }
   });
 
   it("anchors cover entrances, elevators and stairs on every served floor", () => {

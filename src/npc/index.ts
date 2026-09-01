@@ -2,7 +2,9 @@ import type { InteriorRequest, NpcSupport } from "../core/types.js";
 import { SPINE_KINDS } from "../layout/constants.js";
 import type { BuildingPlan } from "../layout/index.js";
 import { uvRectCenter, uvToWorld } from "../layout/uv.js";
+import { InteriorError } from "../core/errors.js";
 import { coreAnchors, floorAnchors } from "./anchors.js";
+import { anchorConflicts } from "./keep-out.js";
 import { buildNav } from "./nav.js";
 import { buildRoles } from "./roles.js";
 
@@ -20,10 +22,19 @@ export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): N
     const roomCenters = new Map(
       uvRooms.map((r) => [r.id, uvToWorld(uvRectCenter(r.rect), plan.core.frame)]),
     );
-    anchors.push(
+    const floorAnchorList = [
       ...floorAnchors(floor, grid, visited, roomCenters),
       ...coreAnchors(floor, grid, visited, corridor.id, plan.core),
-    );
+    ];
+    const blocked = anchorConflicts(floor, floorAnchorList);
+    if (blocked.length > 0) {
+      throw new InteriorError(
+        "E_UNREACHABLE_SPACE",
+        `anchor ${blocked[0]!.anchor} stands in door ${blocked[0]!.door}`,
+        floor.floor,
+      );
+    }
+    anchors.push(...floorAnchorList);
   }
   const { roles, routines } = buildRoles(plan.floors, anchors, request);
   return {

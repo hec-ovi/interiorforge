@@ -3,11 +3,13 @@ import { polygonBounds, pointInPolygon } from "../core/geom.js";
 import type { WalkGrid } from "../core/grid.js";
 import type { Anchor, AnchorKind, FloorInterior, Furniture } from "../core/types.js";
 import { SPINE_KINDS } from "../layout/constants.js";
+import { DoorKeepOut, ENTRANCE_STANDOFF } from "./keep-out.js";
 import type { CorePlan } from "../layout/index.js";
 import { elevatorWaitUv } from "../layout/index.js";
 import { uvToWorld } from "../layout/uv.js";
 
-const APPROACH = 0.9; // an anchor needs a walkable cell within this radius
+/** How far an anchor may be walked out of a doorway or off an unreachable cell. */
+const SEARCH = 2.2;
 
 /** Facing unit vector for a furniture rotation (0 faces +z). */
 export function facingOf(rotationDeg: number): Point {
@@ -40,8 +42,9 @@ export function floorAnchors(
   const anchors: Anchor[] = [];
   let n = 0;
   const tag = floor.floor < 0 ? `m${-floor.floor}` : `${floor.floor}`;
+  const keepOut = new DoorKeepOut(floor);
   const add = (kind: AnchorKind, room: string, position: Point, facingDeg: number, furniture?: string) => {
-    const snapped = snapToReached(grid, visited, [round2(position[0]), round2(position[1])]);
+    const snapped = snapToReached(grid, visited, [round2(position[0]), round2(position[1])], keepOut);
     if (!snapped) return;
     anchors.push({
       id: `f${tag}-a${n++}`, floor: floor.floor, room, kind,
@@ -75,8 +78,10 @@ export function floorAnchors(
     // entrance anchors only at street level; balcony doors on upper floors are not entries
     for (const door of room.doors) {
       if (door.to !== "outside" || floor.floor !== 0) continue;
+      // an entrance anchor stands well inside, never in the opening itself
       const inward = inwardOf(door.position, center);
-      add("entrance", room.id, [door.position[0] + inward[0] * 0.8, door.position[1] + inward[1] * 0.8],
+      const standoff = ENTRANCE_STANDOFF + 0.2;
+      add("entrance", room.id, [door.position[0] + inward[0] * standoff, door.position[1] + inward[1] * standoff],
         angleOf(inward), undefined);
     }
     // idle spots in social rooms, patrol points in public ones
@@ -104,13 +109,14 @@ export function coreAnchors(
   floor: FloorInterior, grid: WalkGrid, visited: Uint8Array, corridorRoomId: string, core: CorePlan,
 ): Anchor[] {
   const anchors: Anchor[] = [];
+  const keepOut = new DoorKeepOut(floor);
   const tag = floor.floor < 0 ? `m${-floor.floor}` : `${floor.floor}`;
   let n = 0;
   // wait anchors face the frame's +v direction (into the shaft doors)
   const intoCore = norm360(-core.frame.angleDeg);
   core.elevators.forEach((_, i) => {
     const p = uvToWorld(elevatorWaitUv(core, i), core.frame);
-    const snapped = snapToReached(grid, visited, [round2(p[0]), round2(p[1])]);
+    const snapped = snapToReached(grid, visited, [round2(p[0]), round2(p[1])], keepOut);
     if (!snapped) return;
     anchors.push({
       id: `f${tag}-c${n++}`, floor: floor.floor, room: corridorRoomId, kind: "elevator_wait",
@@ -118,7 +124,7 @@ export function coreAnchors(
     });
   });
   for (const stair of floor.core.stairs) {
-    const snapped = snapToReached(grid, visited, [round2(stair.entry[0]), round2(stair.entry[1])]);
+    const snapped = snapToReached(grid, visited, [round2(stair.entry[0]), round2(stair.entry[1])], keepOut);
     if (!snapped) continue;
     anchors.push({
       id: `f${tag}-c${n++}`, floor: floor.floor, room: corridorRoomId, kind: "stair_entry",
@@ -132,22 +138,24 @@ function norm360(deg: number): number {
   return Math.round(((deg % 360) + 360) % 360 * 100) / 100;
 }
 
-/** Exported anchors must be pathable by construction: keep the ideal point when its own
- *  cell is corridor-reached, otherwise snap to the nearest reached cell center nearby.
- *  Null when nothing reached is close enough (the anchor is dropped). */
-function snapToReached(grid: WalkGrid, visited: Uint8Array, p: Point): Point | null {
+/** Exported anchors must be pathable by construction and clear of every doorway: keep the
+ *  ideal point when its own cell is corridor-reached and out of the way, otherwise walk out
+ *  to the nearest cell that is both. Null when nothing usable is close enough (the anchor is
+ *  dropped). */
+function snapToReached(grid: WalkGrid, visited: Uint8Array, p: Point, keepOut: DoorKeepOut): Point | null {
   const [c0, r0] = grid.cellAt(p);
-  const reached = (c: number, r: number) => grid.isWalkable(c, r) && visited[r * grid.cols + c] === 1;
-  if (reached(c0, r0)) return p;
-  const radius = Math.ceil(APPROACH / grid.cellSize) + 1;
+  const usable = (c: number, r: number, at: Point) =>
+    grid.isWalkable(c, r) && visited[r * grid.cols + c] === 1 && keepOut.clear(at);
+  if (usable(c0, r0, p)) return p;
+  const radius = Math.ceil(SEARCH / grid.cellSize) + 1;
   for (let ring = 1; ring <= radius; ring++) {
     let best: Point | null = null;
     let bestDist = Infinity;
     for (let dr = -ring; dr <= ring; dr++) {
       for (let dc = -ring; dc <= ring; dc++) {
         if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
-        if (!reached(c0 + dc, r0 + dr)) continue;
         const center = grid.center(c0 + dc, r0 + dr);
+        if (!usable(c0 + dc, r0 + dr, center)) continue;
         const dist = Math.hypot(center[0] - p[0], center[1] - p[1]);
         if (dist < bestDist) {
           bestDist = dist;
