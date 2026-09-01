@@ -67,9 +67,8 @@ export function createViewer3d(): Viewer3D {
     async setGlb(bytes) {
       if (building) scene.remove(building);
       const loader = new GLTFLoader();
-      const gltf = await loader.parseAsync(
-        bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), "",
-      );
+      const copy = new Uint8Array(bytes); // detach from any shared buffer for the loader
+      const gltf = await loader.parseAsync(copy.buffer as ArrayBuffer, "");
       building = gltf.scene;
       scene.add(building);
       const bounds = new THREE.Box3().setFromObject(building);
