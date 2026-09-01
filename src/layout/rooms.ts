@@ -418,10 +418,12 @@ export function fillVenue(
 
 // ---- core stub and backing rooms ----
 
-const BACKING_KINDS: Record<"office" | "residential" | "venue", [RoomKind, RoomKind]> = {
+const BACKING_KINDS: Record<"office" | "residential" | "venue" | "mall", [RoomKind, RoomKind]> = {
   office: ["toilets", "storage"],
   residential: ["storage", "mechanical_room"],
   venue: ["storage", "mechanical_room"],
+  // shop units keep their own stock rooms; the concourse needs public toilets
+  mall: ["toilets", "storage"],
 };
 
 export function fillCoreBacking(
@@ -464,6 +466,7 @@ export function fillCoreBacking(
   const stub: PlanRoom = { id: ids.room(), kind: "corridor", rect: stubRect, doors: [] };
   doorBetween(stub, corridorRoom.id, corridorRoom.rect, ids);
   const family = kind === "office" || kind === "corpo_office" ? "office"
+    : kind === "mall_floor" ? "mall"
     : VENUE_KINDS.has(kind) ? "venue" : "residential";
   const [kindNear, kindFar] = BACKING_KINDS[family];
   const rooms: PlanRoom[] = [stub];
