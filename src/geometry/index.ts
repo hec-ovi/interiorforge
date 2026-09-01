@@ -5,7 +5,7 @@ import { createRng } from "../core/rng.js";
 import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { appendToDocument } from "../glb/io.js";
-import { STAIR, stairSlab } from "../layout/constants.js";
+import { ceilingClear, STAIR, stairSlab } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import type { BuildingPlan } from "../layout/index.js";
 import type { PlanRoom } from "../layout/plan-types.js";
@@ -20,6 +20,7 @@ import {
   stairEntryHole, stepToFrameRect,
 } from "./stairs.js";
 import { buildFloorSurfaces, buildShaftFloors } from "./surfaces.js";
+import { emitAccentWalls } from "./wall-detail.js";
 import { buildFacadeLining, buildInteriorWalls } from "./walls.js";
 
 export interface InteriorGeometry {
@@ -94,9 +95,15 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
       .map((rect) => clipPolygonToRect(uv.outline, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }))
       .filter((poly) => poly.length >= 3)
       .map((poly) => toWorldPolygon(poly, core.frame));
-    buildFloorSurfaces(mb, keys, floor, floor.height + (upper?.height ?? 0), sealedPolys);
-    buildInteriorWalls(mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, core.frame, floor.elevation, wallTop, floor.height, holes);
-    buildFacadeLining(mb, keys, bpFloor, wallTop);
+    const spaceHeight = floor.height + (upper?.height ?? 0);
+    const ceilingY = floor.elevation + ceilingClear(spaceHeight);
+    buildFloorSurfaces(mb, keys, floor, spaceHeight, sealedPolys);
+    buildInteriorWalls(mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, core.frame, floor.elevation, wallTop, floor.height, ceilingY, holes);
+    buildFacadeLining(mb, keys, bpFloor, wallTop, ceilingY);
+    emitAccentWalls(
+      mb, keys, uv.rooms, uv.outline, core.frame, floor.elevation, ceilingY,
+      createRng(request.seed, "accent", floor.floor),
+    );
     emitCoreDividers(mb, keys, core, floor.elevation, wallTop);
     emitElevatorDoors(mb, keys, core, floor.elevation);
     emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation);

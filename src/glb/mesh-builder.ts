@@ -87,8 +87,12 @@ export class MeshBuilder {
 
   /** Oriented wall slab along the segment p0 -> p1, extruded `thickness` to the LEFT of the
    *  direction of travel (the interior side of a CCW polygon edge), from y0 to y1.
-   *  Handles walls at any angle; outward normals on all six faces. */
-  addSlab(material: string, p0: Point, p1: Point, thickness: number, y0: number, y1: number): void {
+   *  Handles walls at any angle; outward normals on all six faces. `caps` drops the top and
+   *  bottom for a band stacked between others, where they would only z-fight. */
+  addSlab(
+    material: string, p0: Point, p1: Point, thickness: number, y0: number, y1: number,
+    caps: "both" | "none" = "both",
+  ): void {
     const dx = p1[0] - p0[0];
     const dz = p1[1] - p0[1];
     const len = Math.hypot(dx, dz) || 1;
@@ -104,6 +108,7 @@ export class MeshBuilder {
     this.addQuad(material, [v(c, y0), v(c, y1), v(d, y1), v(d, y0)]);
     this.addQuad(material, [v(d, y0), v(d, y1), v(a, y1), v(a, y0)]);
     this.addQuad(material, [v(b, y0), v(b, y1), v(c, y1), v(c, y0)]);
+    if (caps === "none") return;
     this.addQuad(material, [v(a, y1), v(d, y1), v(c, y1), v(b, y1)]);
     this.addQuad(material, [v(a, y0), v(b, y0), v(c, y0), v(d, y0)]);
   }
@@ -112,13 +117,14 @@ export class MeshBuilder {
    *  the underside for a box that sits on a floor, where it would only z-fight the slab. */
   addPrism(
     material: string, corners: readonly Point[], y0: number, y1: number, uv: UvMode = "world",
-    caps: "both" | "top" = "both",
+    caps: "both" | "top" | "none" = "both",
   ): void {
     for (let i = 0; i < corners.length; i++) {
       const a = corners[i]!;
       const b = corners[(i + 1) % corners.length]!;
       this.addQuad(material, [[a[0], y0, a[1]], [a[0], y1, a[1]], [b[0], y1, b[1]], [b[0], y0, b[1]]], uv);
     }
+    if (caps === "none") return;
     this.addHorizontalPolygon(material, corners, y1, "up", uv);
     if (caps === "both") this.addHorizontalPolygon(material, corners, y0, "down", uv);
   }

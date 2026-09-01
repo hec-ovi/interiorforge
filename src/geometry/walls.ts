@@ -8,6 +8,9 @@ import type { PlanRoom } from "../layout/plan-types.js";
 import type { Frame, UvRect } from "../layout/uv.js";
 import { uvRectCorners, uvToWorld } from "../layout/uv.js";
 import type { MaterialKeys } from "./materials.js";
+import type { WallBands } from "./wall-detail.js";
+import type { Exposed } from "./wall-detail.js";
+import { layerBands } from "./wall-detail.js";
 
 /** A hole in a wall line: `at` runs along the line in uv, y absolute. */
 export interface WallHole {
@@ -43,7 +46,7 @@ export function doorHeadHeight(leaves: number, floorHeight: number): number {
  *  Extraction runs in uv space where rooms are axis-aligned; emission rotates to world. */
 export function buildInteriorWalls(
   mb: MeshBuilder, keys: MaterialKeys, rooms: PlanRoom[], uvOutline: Point[], frame: Frame,
-  elevation: number, wallTop: number, floorHeight: number, extraHoles: UvWallHole[],
+  elevation: number, wallTop: number, floorHeight: number, ceilingY: number, extraHoles: UvWallHole[],
 ): void {
   const lines = new Map<string, WallLine>();
   const lineFor = (axis: "H" | "V", c: number): WallLine => {
@@ -88,34 +91,40 @@ export function buildInteriorWalls(
     lineFor(extra.axis, extra.c).holes.push(extra.hole);
   }
 
-  const material = keys.wall();
+  const bands: WallBands = {
+    y0: elevation, ceilingY,
+    field: keys.wall(), accent: keys.accent(), trim: keys.trim(),
+  };
   for (const line of lines.values()) {
     for (const [a, b] of mergeIntervals(line.intervals)) {
       const holes = line.holes.filter((h) => h.at > a && h.at < b);
-      emitWallRun(mb, material, frame, line, a, b, elevation, wallTop, holes);
+      emitWallRun(mb, bands, frame, line, a, b, elevation, wallTop, holes);
     }
   }
 }
 
 function emitWallRun(
-  mb: MeshBuilder, material: string, frame: Frame, line: WallLine, a: number, b: number,
+  mb: MeshBuilder, bands: WallBands, frame: Frame, line: WallLine, a: number, b: number,
   y0: number, y1: number, holes: WallHole[],
 ): void {
   const sorted = [...holes].sort((h1, h2) => h1.at - h2.at);
   let cursor = a;
-  const solid = (s: number, e: number, sy0: number, sy1: number) => {
+  const solid = (s: number, e: number, sy0: number, sy1: number, exposed: Exposed = {}) => {
     if (e - s < 1e-3 || sy1 - sy0 < 1e-3) return;
-    const rect: UvRect = line.axis === "H"
-      ? { u: s, v: line.c - WALL / 2, lu: e - s, lv: WALL }
-      : { u: line.c - WALL / 2, v: s, lu: WALL, lv: e - s };
-    mb.addPrism(material, uvRectCorners(rect).map((p) => uvToWorld(p, frame)), sy0, sy1);
+    layerBands(bands, sy0, Math.min(sy1, y1), (material, proud, by0, by1, caps) => {
+      const thickness = WALL + 2 * proud;
+      const rect: UvRect = line.axis === "H"
+        ? { u: s, v: line.c - thickness / 2, lu: e - s, lv: thickness }
+        : { u: line.c - thickness / 2, v: s, lu: thickness, lv: e - s };
+      mb.addPrism(material, uvRectCorners(rect).map((p) => uvToWorld(p, frame)), by0, by1, "world", caps);
+    }, exposed);
   };
   for (const hole of sorted) {
     const h0 = Math.max(a, hole.at - hole.width / 2);
     const h1 = Math.min(b, hole.at + hole.width / 2);
     solid(cursor, h0, y0, y1);
-    if (hole.y0 > y0) solid(h0, h1, y0, hole.y0);
-    if (hole.y1 < y1) solid(h0, h1, hole.y1, y1);
+    if (hole.y0 > y0) solid(h0, h1, y0, hole.y0, { top: true });
+    if (hole.y1 < y1) solid(h0, h1, hole.y1, y1, { bottom: true });
     cursor = h1;
   }
   solid(cursor, b, y0, y1);
@@ -124,9 +133,12 @@ function emitWallRun(
 /** Facade lining: the interior face of the exterior wall, window and door holes included.
  *  Works on the world outline directly, any edge angle. */
 export function buildFacadeLining(
-  mb: MeshBuilder, keys: MaterialKeys, bpFloor: BlueprintFloor, wallTop: number,
+  mb: MeshBuilder, keys: MaterialKeys, bpFloor: BlueprintFloor, wallTop: number, ceilingY: number,
 ): void {
-  const material = keys.wall();
+  const bands: WallBands = {
+    y0: bpFloor.elevation, ceilingY,
+    field: keys.wall(), accent: keys.accent(), trim: keys.trim(),
+  };
   const outline = bpFloor.outline;
   const y0 = bpFloor.elevation;
   for (let e = 0; e < outline.length; e++) {
@@ -142,14 +154,18 @@ export function buildFacadeLining(
       .filter((o) => o.edge === e)
       .sort((o1, o2) => o1.offset - o2.offset);
     let cursor = 0;
-    const piece = (t0: number, t1: number, py0: number, py1: number) => {
+    const piece = (t0: number, t1: number, py0: number, py1: number, exposed: Exposed = {}) => {
       if (t1 - t0 < 1e-3 || py1 - py0 < 1e-3) return;
-      mb.addSlab(material, at(t0), at(t1), LINING_THICKNESS, py0, py1);
+      layerBands(bands, py0, Math.min(py1, wallTop), (material, proud, by0, by1, caps) => {
+        mb.addSlab(material, at(t0), at(t1), LINING_THICKNESS + proud, by0, by1, caps);
+      }, exposed);
     };
     for (const o of openings) {
       piece(cursor, o.offset, y0, wallTop);
-      if (o.sill > 0) piece(o.offset, o.offset + o.width, y0, y0 + o.sill);
-      if (o.sill + o.height < wallTop - y0) piece(o.offset, o.offset + o.width, y0 + o.sill + o.height, wallTop);
+      if (o.sill > 0) piece(o.offset, o.offset + o.width, y0, y0 + o.sill, { top: true });
+      if (o.sill + o.height < wallTop - y0) {
+        piece(o.offset, o.offset + o.width, y0 + o.sill + o.height, wallTop, { bottom: true });
+      }
       cursor = o.offset + o.width;
     }
     piece(cursor, len, y0, wallTop);
