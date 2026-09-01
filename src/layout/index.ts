@@ -2,11 +2,10 @@ import { InteriorError } from "../core/errors.js";
 import type { WalkGrid } from "../core/grid.js";
 import type { FloorAssignment, FloorInterior, InteriorRequest } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
-import { planCore, stairFlights } from "./core-plan.js";
+import { planCore } from "./core-plan.js";
 import { planFloor } from "./plan-floor.js";
 
 export type { CorePlan } from "./core-plan.js";
-export { stairFlights } from "./core-plan.js";
 export type { PlannedFloor } from "./plan-floor.js";
 
 export interface BuildingPlan {
