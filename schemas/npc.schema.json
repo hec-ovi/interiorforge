@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urbe/interior/npc",
+  "title": "NpcSupport",
+  "description": "Everything the simulation layer needs to staff and animate one building instance: anchors (usable positions), roles the instance supports, deterministic routines, and a nav graph for obstacle-avoiding walks between any two points, across floors via stairs and elevators.",
+  "type": "object",
+  "required": ["buildingId", "anchors", "roles", "routines", "nav"],
+  "additionalProperties": false,
+  "properties": {
+    "buildingId": { "type": "string" },
+    "anchors": {
+      "type": "array",
+      "description": "named positions NPCs stand at or use; every routine step targets an anchor",
+      "items": {
+        "type": "object",
+        "required": ["id", "floor", "room", "kind", "position", "facingDeg"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "floor": { "type": "integer", "minimum": 0 },
+          "room": { "type": "string", "description": "room id in that floor's FloorInterior" },
+          "kind": {
+            "enum": [
+              "entrance", "work_spot", "counter_spot", "seat", "idle_spot", "patrol_point",
+              "bed", "toilet", "machine_spot", "elevator_wait", "stair_entry", "cleaning_spot"
+            ]
+          },
+          "position": { "$ref": "#/$defs/point2" },
+          "facingDeg": { "type": "number" },
+          "furniture": { "type": "string", "description": "furniture id being used, when the anchor belongs to one" }
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "description": "staffing this instance supports; simulation decides the actual count within [min, max]",
+      "items": {
+        "type": "object",
+        "required": ["id", "role", "floor", "homeAnchor", "count"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "role": {
+            "enum": [
+              "receptionist", "security", "vendor", "barista", "waiter", "cook",
+              "office_worker", "executive", "cleaner", "resident", "trainer", "guest"
+            ]
+          },
+          "floor": { "type": "integer", "minimum": 0 },
+          "homeAnchor": { "type": "string" },
+          "count": {
+            "type": "array",
+            "prefixItems": [{ "type": "integer", "minimum": 0 }, { "type": "integer", "minimum": 0 }],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    },
+    "routines": {
+      "type": "array",
+      "description": "one loop per role id; steps run in order and repeat. Walking between anchors is implicit: the simulation paths through nav (findPath) whenever consecutive steps sit on different anchors, riding elevators or stairs when floors differ.",
+      "items": {
+        "type": "object",
+        "required": ["role", "steps"],
+        "additionalProperties": false,
+        "properties": {
+          "role": { "type": "string", "description": "role id" },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["anchor", "minutes", "animation"],
+              "additionalProperties": false,
+              "properties": {
+                "anchor": { "type": "string" },
+                "minutes": {
+                  "type": "array",
+                  "prefixItems": [{ "type": "number", "minimum": 0 }, { "type": "number", "minimum": 0 }],
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "description": "[min, max] dwell time; simulation picks within, seeded"
+                },
+                "animation": {
+                  "enum": [
+                    "idle_stand", "idle_sit", "idle_lean", "work_type", "work_serve",
+                    "work_cook", "sweep", "patrol_stand", "exercise", "sleep", "use_toilet"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "nav": {
+      "type": "object",
+      "required": ["cellSize", "floors", "connectors"],
+      "additionalProperties": false,
+      "properties": {
+        "cellSize": { "type": "number", "description": "meters per walkable-grid cell" },
+        "floors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["floor", "origin", "cols", "rows", "walkable"],
+            "additionalProperties": false,
+            "properties": {
+              "floor": { "type": "integer", "minimum": 0 },
+              "origin": { "$ref": "#/$defs/point2", "description": "world XZ of cell (0,0) min corner" },
+              "cols": { "type": "integer", "minimum": 1 },
+              "rows": { "type": "integer", "minimum": 1 },
+              "walkable": {
+                "type": "string",
+                "description": "row-major bitmask, base64; 1 = walkable clear floor (no wall, furniture, shaft)"
+              }
+            }
+          }
+        },
+        "connectors": {
+          "type": "array",
+          "description": "inter-floor links; walking a connector is the only way to change floors",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "floors", "entryByFloor"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "description": "stair or elevator id from the floor core" },
+              "kind": { "enum": ["stair", "elevator"] },
+              "floors": { "type": "array", "items": { "type": "integer" }, "minItems": 2 },
+              "entryByFloor": {
+                "type": "object",
+                "additionalProperties": { "$ref": "#/$defs/point2" },
+                "description": "floor index -> walkable entry position of the connector on that floor"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "point2": {
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }],
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}

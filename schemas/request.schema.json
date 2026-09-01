@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urbe/interior/request",
+  "title": "InteriorRequest",
+  "description": "Full input of the interior generator. Same request always yields identical output.",
+  "type": "object",
+  "required": ["seed", "building", "shellGlb", "blueprint", "assignments", "materialTheme"],
+  "additionalProperties": false,
+  "properties": {
+    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "building": {
+      "type": "object",
+      "required": ["id", "type", "tier"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "enum": ["residential", "hotel", "office", "corpo", "hospital", "police", "factory", "mixed"] },
+        "tier": { "enum": ["poor", "standard", "rich", "lux"] }
+      }
+    },
+    "shellGlb": { "type": "string", "description": "path to the exterior shell GLB" },
+    "blueprint": { "$ref": "urbe/interior/blueprint" },
+    "assignments": {
+      "type": "array",
+      "minItems": 1,
+      "description": "one entry per floor index; a double-height floor (loft, corpo hall) owns two blueprint floors via spans: 2",
+      "items": {
+        "type": "object",
+        "required": ["floor", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "floor": { "type": "integer", "minimum": 0 },
+          "kind": {
+            "enum": ["lobby", "office", "corpo_office", "restaurant", "coffee_shop", "gym", "residence_studio", "apartment", "hotel_rooms", "mechanical", "terrace"]
+          },
+          "spans": { "enum": [1, 2], "default": 1 }
+        }
+      }
+    },
+    "materialTheme": { "type": "string", "description": "theme id resolved by the materials box; interior references materials as kind/theme/tier keys" }
+  }
+}

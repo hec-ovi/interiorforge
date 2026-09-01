@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urbe/interior/floor",
+  "title": "FloorInterior",
+  "description": "Layout of one generated floor: vertical core, rooms, doors, furniture. Coordinates are building-local XZ meters, same space as the blueprint.",
+  "type": "object",
+  "required": ["floor", "kind", "elevation", "height", "core", "rooms", "furniture"],
+  "additionalProperties": false,
+  "properties": {
+    "floor": { "type": "integer", "minimum": 0 },
+    "kind": { "type": "string" },
+    "elevation": { "type": "number" },
+    "height": { "type": "number" },
+    "core": {
+      "type": "object",
+      "required": ["elevators", "stairs", "shafts"],
+      "additionalProperties": false,
+      "properties": {
+        "elevators": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "rect", "doorEdge"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "description": "stable across floors: the shaft is vertically aligned" },
+              "rect": { "$ref": "#/$defs/rect" },
+              "doorEdge": { "enum": [0, 1, 2, 3], "description": "rect edge holding the elevator door" }
+            }
+          }
+        },
+        "stairs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "rect", "style", "entry"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "description": "stable across floors" },
+              "rect": { "$ref": "#/$defs/rect" },
+              "style": { "enum": ["u_return", "straight"] },
+              "entry": { "$ref": "#/$defs/point2", "description": "walk-in point at this floor" },
+              "steps": {
+                "type": "array",
+                "description": "world-space tread rectangles going up from this floor, for walkability checks",
+                "items": { "$ref": "#/$defs/rect3" }
+              }
+            }
+          }
+        },
+        "shafts": {
+          "type": "array",
+          "description": "service risers (AC, wires); holes in the slab, not walkable",
+          "items": { "$ref": "#/$defs/rect" }
+        }
+      }
+    },
+    "rooms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "polygon", "doors"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": {
+            "enum": [
+              "corridor", "elevator_lobby", "reception", "lounge",
+              "office_open", "office_private", "meeting", "executive_office",
+              "dining_area", "kitchen", "counter_area", "bar",
+              "bedroom", "living", "studio_main", "bathroom", "toilets",
+              "gym_floor", "locker_room", "storage", "mechanical_room", "terrace_open"
+            ]
+          },
+          "polygon": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point2" } },
+          "unit": { "type": "string", "description": "groups rooms of one dwelling/venue, e.g. apartment_2" },
+          "doors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "to", "leaves", "width", "position", "angleDeg"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "to": { "type": "string", "description": "room id, or 'outside' (exterior opening), or a core element id" },
+                "leaves": { "enum": [1, 2, 3, 4] },
+                "width": { "type": "number", "exclusiveMinimum": 0 },
+                "position": { "$ref": "#/$defs/point2", "description": "door center on the shared wall" },
+                "angleDeg": { "type": "number", "description": "wall direction at the door, degrees around +Y" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "furniture": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "room", "position", "rotationDeg", "size"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": {
+            "enum": [
+              "desk", "office_chair", "meeting_table", "counter", "shelf", "sofa", "low_table",
+              "bed_single", "bed_double", "wardrobe", "kitchen_block", "fridge", "dining_table", "chair",
+              "toilet", "sink", "shower", "gym_machine", "bench", "reception_desk", "plant", "bar_counter", "stool"
+            ]
+          },
+          "room": { "type": "string" },
+          "position": { "$ref": "#/$defs/point2", "description": "footprint center" },
+          "rotationDeg": { "type": "number" },
+          "size": {
+            "type": "array",
+            "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }],
+            "minItems": 3,
+            "maxItems": 3,
+            "description": "[width, depth, height]"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "point2": {
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "rect": {
+      "type": "object",
+      "required": ["x", "z", "w", "d"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" }, "z": { "type": "number" },
+        "w": { "type": "number", "exclusiveMinimum": 0 },
+        "d": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "description": "axis-aligned rectangle, x/z = min corner"
+    },
+    "rect3": {
+      "type": "object",
+      "required": ["x", "y", "z", "w", "d"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" },
+        "w": { "type": "number" }, "d": { "type": "number" }
+      },
+      "description": "horizontal rectangle at height y"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urbe/interior/blueprint",
+  "title": "Blueprint",
+  "description": "Exterior shell blueprint consumed by the interior generator. Produced by the exterior box (fixture until synced). Units: meters. Building-local space, right-handed, +Y up, floor outlines on the XZ plane, CCW winding.",
+  "type": "object",
+  "required": ["buildingId", "floors"],
+  "additionalProperties": false,
+  "properties": {
+    "buildingId": { "type": "string" },
+    "floors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["index", "elevation", "height", "outline", "openings"],
+        "additionalProperties": false,
+        "properties": {
+          "index": { "type": "integer", "minimum": 0, "description": "0 = ground floor, contiguous" },
+          "elevation": { "type": "number", "description": "Y of this floor's walking surface" },
+          "height": { "type": "number", "minimum": 2.2, "maximum": 6, "description": "floor-to-floor distance" },
+          "outline": {
+            "type": "array",
+            "minItems": 3,
+            "items": { "$ref": "#/$defs/point2" },
+            "description": "CCW simple polygon of the floor plate, [x, z]"
+          },
+          "openings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "kind", "edge", "offset", "width", "height", "sill"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "kind": { "enum": ["door", "window", "balconyDoor", "aperture"] },
+                "edge": { "type": "integer", "minimum": 0, "description": "outline edge index (vertex i to i+1)" },
+                "offset": { "type": "number", "minimum": 0, "description": "meters along the edge to the opening's start" },
+                "width": { "type": "number", "exclusiveMinimum": 0 },
+                "height": { "type": "number", "exclusiveMinimum": 0 },
+                "sill": { "type": "number", "minimum": 0, "description": "bottom of opening above floor surface" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "point2": {
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }],
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}
