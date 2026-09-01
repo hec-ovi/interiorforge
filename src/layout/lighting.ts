@@ -15,7 +15,7 @@ const COVE_DROP = 0.2; // cove line below the ceiling
 const COVE_INSET = 0.1; // cove line off the wall face
 const MIN_RUN = 0.8; // shorter than this and a strip becomes a spot
 const STRIP_MAX = 3.0; // a luminaire is a fixture, not a room-long bar
-const STRIP_FILL = 0.8; // share of its slot a strip covers
+const STRIP_FILL = 0.97; // strips nearly abut, so a row reads as one line of light
 const MAX_PER_ROOM = 10;
 const MIN_COVE_SIDE = 2.0;
 const COVE_SEGMENT = 6.0; // cove segments abut, so a long wall reads as one line
@@ -23,10 +23,10 @@ const COVE_MAX_PER_SIDE = 8;
 
 /** Spread and softness per fixture kind: a line of light washes the surfaces around it,
  *  a downlight throws a cone. */
-const SPREAD: Record<LightFixture["kind"], { beamDeg: number; diffuse: number }> = {
-  strip: { beamDeg: 170, diffuse: 0.75 },
-  cove: { beamDeg: 200, diffuse: 0.95 },
-  spot: { beamDeg: 100, diffuse: 0.25 },
+const SPREAD: Record<LightFixture["kind"], { beamDeg: number; diffuse: number; facing: "down" | "up" }> = {
+  strip: { beamDeg: 170, diffuse: 0.75, facing: "down" },
+  cove: { beamDeg: 200, diffuse: 0.95, facing: "up" },
+  spot: { beamDeg: 100, diffuse: 0.25, facing: "down" },
 };
 
 interface LightStyle {
@@ -41,15 +41,15 @@ interface LightStyle {
   cove: boolean;
 }
 
-const WORK = { fixture: "strip", spacing: 3.0, lumens: 3600, colorTemperatureK: 4000, cove: false } as const;
+const WORK = { fixture: "strip", spacing: 3.0, lumens: 3800, colorTemperatureK: 4000, cove: false } as const;
 const PUBLIC = { fixture: "strip", spacing: 3.2, lumens: 3200, colorTemperatureK: 3500, cove: true } as const;
-const WARM = { fixture: "spot", spacing: 2.6, lumens: 900, colorTemperatureK: 2700, cove: false } as const;
-const SERVICE = { fixture: "spot", spacing: 3.6, lumens: 1100, colorTemperatureK: 4000, cove: false } as const;
+const WARM = { fixture: "spot", spacing: 2.6, lumens: 1100, colorTemperatureK: 2700, cove: false } as const;
+const SERVICE = { fixture: "spot", spacing: 3.6, lumens: 1400, colorTemperatureK: 4000, cove: false } as const;
 const WET = { fixture: "spot", spacing: 2.4, lumens: 1200, colorTemperatureK: 4500, cove: false } as const;
 
 const STYLE: Record<RoomKind, LightStyle> = {
-  corridor: { fixture: "spot", spacing: 3.0, lumens: 1200, colorTemperatureK: 4000, cove: false },
-  elevator_lobby: { fixture: "spot", spacing: 2.8, lumens: 1500, colorTemperatureK: 3800, cove: true },
+  corridor: { fixture: "spot", spacing: 3.0, lumens: 1600, colorTemperatureK: 4000, cove: true },
+  elevator_lobby: { fixture: "spot", spacing: 2.8, lumens: 1800, colorTemperatureK: 3800, cove: true },
   concourse: { ...PUBLIC, spacing: 3.6, lumens: 4000 },
   reception: PUBLIC,
   lounge: { ...PUBLIC, lumens: 2400, colorTemperatureK: 3000 },
@@ -250,6 +250,7 @@ class FloorLighting {
       range: rangeOf(f.lumens, f.kind),
       beamDeg: SPREAD[f.kind].beamDeg,
       diffuse: SPREAD[f.kind].diffuse,
+      facing: SPREAD[f.kind].facing,
     });
   }
 }

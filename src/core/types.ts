@@ -136,6 +136,8 @@ export interface LightFixture {
   beamDeg: number;
   /** how much of the flux leaves as a soft wash rather than a beam, 0..1 */
   diffuse: number;
+  /** where the light goes: a ceiling fixture throws down, a cove washes the ceiling up */
+  facing: "down" | "up";
 }
 
 export interface Rect3 {

@@ -112,7 +112,7 @@ export function createViewer3d(): Viewer3D {
     setLights(lights) {
       fixtures.clear();
       // the fixtures light the room; daylight drops back so what is seen is the interior's own
-      ambient.intensity = lights && lights.length > 0 ? 0.12 : 0.75;
+      ambient.intensity = lights && lights.length > 0 ? 0.18 : 0.75;
       sun.intensity = lights && lights.length > 0 ? 0.15 : 1.4;
       if (!lights) return;
       let budget = MAX_LIGHTS;
@@ -128,9 +128,10 @@ export function createViewer3d(): Viewer3D {
             fixture.range * (1 + fixture.diffuse),
             1.4,
           );
+          // an uplighting cove sits a little above its lip, where its wash starts
           light.position.set(
             fixture.position[0] + Math.cos(rad) * t,
-            fixture.position[1] - 0.05,
+            fixture.position[1] + (fixture.facing === "up" ? 0.09 : -0.05),
             fixture.position[2] + Math.sin(rad) * t,
           );
           fixtures.add(light);
