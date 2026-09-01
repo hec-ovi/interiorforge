@@ -29,8 +29,20 @@ export const STAIR = {
   flightGap: 0.15,
   landing: 1.2,
   maxRisersPerFlight: 14,
-  headroom: 2.03,
+  /** clear width of one flight; the game capsule is 0.7 m wide */
+  clearWidth: 1.0,
+  /** clear height over every tread and landing along the walk line */
+  headroom: 2.1,
+  /** structural thickness under treads and landings */
+  slab: 0.15,
+  minSlab: 0.06,
 };
+
+/** Tread slab for one storey: thin enough that the flight above keeps the headroom. Floors
+ *  are at least 2.2 m (blueprint schema), which the minimum slab still clears. */
+export function stairSlab(storeyHeight: number): number {
+  return Math.max(STAIR.minSlab, Math.min(STAIR.slab, storeyHeight - STAIR.headroom));
+}
 
 export const ELEVATOR = {
   shaft: 2.5, // square shaft per car

@@ -1,8 +1,11 @@
 import type { Document } from "@gltf-transform/core";
+import { InteriorError } from "../core/errors.js";
 import { clipPolygonToRect } from "../core/geom.js";
 import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { appendToDocument } from "../glb/io.js";
+import { STAIR, stairSlab } from "../layout/constants.js";
+import type { CorePlan } from "../layout/core-plan.js";
 import type { BuildingPlan } from "../layout/index.js";
 import type { PlanRoom } from "../layout/plan-types.js";
 import { toWorldPolygon } from "../layout/uv.js";
@@ -10,7 +13,11 @@ import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorSha
 import { emitFurniture } from "./furniture-geo.js";
 import { emitLightFixtures } from "./lights.js";
 import { MaterialKeys } from "./materials.js";
-import { computeStairSteps, emitStairMeshes, entryAtLowEnd, stairEntryHole, stepToFrameRect } from "./stairs.js";
+import type { RunStep, UvStep } from "./stairs.js";
+import {
+  baseLanding, computeStairSteps, emitStairMeshes, entryAtLowEnd, minHeadroom, stairClearWidth,
+  stairEntryHole, stepToFrameRect,
+} from "./stairs.js";
 import { buildFloorSurfaces, buildShaftFloors } from "./surfaces.js";
 import { buildFacadeLining, buildInteriorWalls } from "./walls.js";
 
@@ -28,6 +35,10 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
   const stepsByFloor = new Map<number, Record<string, Rect3[]>>();
   const sorted = [...plan.floors].sort((a, b) => a.floor - b.floor);
   const bpByIndex = new Map(request.blueprint.floors.map((f) => [f.index, f]));
+  const stairIds: ("a" | "b")[] = core.stairB ? ["a", "b"] : ["a"];
+  const lowest = sorted.find((f) => f.rooms.length > 0)!;
+  /** every step of one stair over the whole building, for the fit check */
+  const wholeRun = new Map<string, RunStep[]>();
 
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
@@ -38,15 +49,25 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
 
     // stairs climb to the next floor that has a slab
     const target = sorted.slice(i + 1).find((f) => f.rooms.length > 0);
-    if (floor.rooms.length > 0 && target) {
-      const stairIds: ("a" | "b")[] = core.stairB ? ["a", "b"] : ["a"];
+    if (floor.rooms.length > 0) {
+      const climb = target ? target.elevation - floor.elevation : 0;
+      const slab = stairSlab(climb > 0 ? climb : floor.height);
       for (const which of stairIds) {
         const shaft = which === "a" ? core.stairA : core.stairB!;
-        const steps = computeStairSteps(shaft, entryAtLowEnd(core, which), floor.elevation, target.elevation - floor.elevation);
+        const entryLow = entryAtLowEnd(core, which);
+        const steps: UvStep[] = [];
+        // the lowest served floor stands on its own landing; every floor above stands on the
+        // landing the climb below arrives on
+        if (floor === lowest) steps.push(baseLanding(shaft, entryLow, floor.elevation, climb));
+        if (target) steps.push(...computeStairSteps(shaft, entryLow, floor.elevation, climb));
+        if (steps.length === 0) continue;
+        const id = `stair-${which}`;
+        const frameRects = steps.map((s) => stepToFrameRect(s, core.frame));
         const record = stepsByFloor.get(floor.floor) ?? {};
-        record[`stair-${which}`] = steps.map((s) => stepToFrameRect(s, core.frame));
+        record[id] = frameRects;
         stepsByFloor.set(floor.floor, record);
-        emitStairMeshes(mb, keys, core.frame, steps);
+        wholeRun.set(id, [...(wholeRun.get(id) ?? []), ...steps.map((s) => ({ ...s, slab }))]);
+        emitStairMeshes(mb, keys, core.frame, steps, slab);
       }
     }
 
@@ -78,12 +99,37 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     emitLightFixtures(mb, keys, floor.lights);
   }
 
-  const lowest = sorted.find((f) => f.rooms.length > 0)!;
   buildShaftFloors(mb, keys, core, lowest.elevation);
+  assertStairFit(core, wholeRun);
 
   removeShellSeparators(shellDoc);
   appendToDocument(shellDoc, mb);
   return { doc: shellDoc, stepsByFloor };
+}
+
+/** Stairs have to fit the player: a flight at least STAIR.clearWidth wide and STAIR.headroom
+ *  clear over every tread and landing of the whole run. */
+function assertStairFit(core: CorePlan, wholeRun: Map<string, RunStep[]>): void {
+  const shafts: [string, typeof core.stairA][] = [["stair-a", core.stairA]];
+  if (core.stairB) shafts.push(["stair-b", core.stairB]);
+  for (const [id, shaft] of shafts) {
+    const width = stairClearWidth(shaft);
+    if (width < STAIR.clearWidth - 1e-6) {
+      throw new InteriorError(
+        "E_UNREACHABLE_SPACE",
+        `${id} flight is ${width.toFixed(2)}m clear, below the ${STAIR.clearWidth}m the player needs`,
+      );
+    }
+    const steps = wholeRun.get(id);
+    if (!steps) continue;
+    const clear = minHeadroom(steps);
+    if (clear < STAIR.headroom - 1e-6) {
+      throw new InteriorError(
+        "E_UNREACHABLE_SPACE",
+        `${id} has ${clear.toFixed(2)}m headroom along the walk line, below the ${STAIR.headroom}m minimum`,
+      );
+    }
+  }
 }
 
 /** The shell's separator planes (exterior naming: floor:<index>/slab) get replaced by

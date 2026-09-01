@@ -66,7 +66,6 @@ function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame
   const area = polygonArea(floors[groundIndex]!.outline);
   const aboveFloors = floors.filter((f) => f.index >= 0).length;
   const twoStairs = area > TWO_STAIRS.areaOver || aboveFloors > TWO_STAIRS.floorsOver;
-  const hMax = Math.max(...floors.map((f) => f.height));
 
   const idealVFace = vLen < SINGLE_LOADED_BELOW
     ? snapDown(bounds.z + vLen - ELEVATOR.shaft)
@@ -84,7 +83,7 @@ function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame
   return {
     frame, uvFloors, vMin, vMax, vLen, area, aboveFloors,
     topElevation: floors.at(-1)!.elevation,
-    twoStairs, stairDepth: stairShaftDepth(hMax),
+    twoStairs, stairDepth: stairShaftDepth(floors),
     crossDepthOk: ELEVATOR.shaft + CORRIDOR.width + ROOM.minStripDepth <= vLen,
     idealVFace, candidates,
   };
@@ -391,16 +390,31 @@ function frameAt(angle: number, ground: Ground): Frame {
   return frame;
 }
 
-/** Exact flight split for one floor height: even flight count, comfortable risers. */
-export function stairFlights(floorHeight: number): StairFlights {
-  const totalRisers = Math.ceil(floorHeight / STAIR.riser);
+/** Exact flight split for one climb: even flight count, comfortable risers. */
+export function stairFlights(climb: number): StairFlights {
+  const totalRisers = Math.ceil(climb / STAIR.riser);
   const flightsPerFloor = 2 * Math.ceil(totalRisers / (2 * STAIR.maxRisersPerFlight));
   return { flightsPerFloor, risersPerFlight: Math.ceil(totalRisers / flightsPerFloor) };
 }
 
-function stairShaftDepth(hMax: number): number {
-  const { risersPerFlight } = stairFlights(hMax);
-  return snapUp(risersPerFlight * STAIR.tread + 2 * STAIR.landing);
+/** Every climb the stair may have to take: one storey, or two where an assignment spans.
+ *  Read off the blueprint alone, so the gate and the generator size the same shaft. */
+function climbCandidates(floors: InteriorRequest["blueprint"]["floors"]): number[] {
+  const heights = floors.map((f) => f.height);
+  const out = [...heights];
+  for (let i = 0; i + 1 < heights.length; i++) out.push(heights[i]! + heights[i + 1]!);
+  return out;
+}
+
+/** Deep enough for the longest flight the building will ever need. A short storey uses
+ *  fewer flights, so its flights are LONGER than a tall storey's: the shaft has to take the
+ *  worst climb of this blueprint, not the tallest floor. */
+function stairShaftDepth(floors: InteriorRequest["blueprint"]["floors"]): number {
+  let worst = 0;
+  for (const climb of climbCandidates(floors)) {
+    worst = Math.max(worst, stairFlights(climb).risersPerFlight);
+  }
+  return snapUp(worst * STAIR.tread + 2 * STAIR.landing);
 }
 
 function elevatorsFor(request: InteriorRequest, area: number, aboveFloors: number, topElevation: number): number {

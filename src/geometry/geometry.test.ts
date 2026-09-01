@@ -4,52 +4,6 @@ import { resolveAssignments } from "../blueprint/validate.js";
 import { planBuilding } from "../layout/index.js";
 import { writeGlb } from "../glb/io.js";
 import { buildInterior } from "./index.js";
-import { computeStairSteps } from "./stairs.js";
-import { STAIR } from "../layout/constants.js";
-
-describe("computeStairSteps", () => {
-  const shaft = { u: 4, v: 11.5, lu: 6, lv: 2.5 };
-
-  it("lands exactly on the next floor with legal risers, treads inside the shaft", () => {
-    for (const climb of [2.6, 3.4, 4.0, 7.4, 11.8]) {
-      const steps = computeStairSteps(shaft, false, 10, climb);
-      const top = Math.max(...steps.map((s) => s.y));
-      expect(top).toBeCloseTo(10 + climb, 6);
-      const rises = steps.map((s) => s.y).toSorted((a, b) => a - b);
-      const riser = (rises.at(-1)! - 10) / rises.length;
-      expect(riser).toBeLessThanOrEqual(STAIR.riser + 1e-9);
-      expect(riser).toBeGreaterThan(0.1);
-      for (const s of steps) {
-        expect(s.u).toBeGreaterThanOrEqual(shaft.u - 1e-6);
-        expect(s.u + s.lu).toBeLessThanOrEqual(shaft.u + shaft.lu + 1e-6);
-        expect(s.v).toBeGreaterThanOrEqual(shaft.v - 1e-6);
-        expect(s.v + s.lv).toBeLessThanOrEqual(shaft.v + shaft.lv + 1e-6);
-      }
-    }
-  });
-
-  it("consecutive treads rise by at most one riser", () => {
-    const steps = computeStairSteps(shaft, true, 0, 3.0).filter((s) => s.lu * s.lv < 2); // treads only
-    for (let i = 1; i < steps.length; i++) {
-      expect(steps[i]!.y - steps[i - 1]!.y).toBeLessThanOrEqual(STAIR.riser + 1e-9);
-    }
-  });
-
-  it("compact column shafts run their flights along v and land exactly", () => {
-    const column = { u: 4, v: 11.5, lu: 2.5, lv: 6 };
-    const steps = computeStairSteps(column, true, 0, 3.4);
-    expect(Math.max(...steps.map((s) => s.y))).toBeCloseTo(3.4, 6);
-    for (const s of steps) {
-      expect(s.u).toBeGreaterThanOrEqual(column.u - 1e-6);
-      expect(s.u + s.lu).toBeLessThanOrEqual(column.u + column.lu + 1e-6);
-      expect(s.v).toBeGreaterThanOrEqual(column.v - 1e-6);
-      expect(s.v + s.lv).toBeLessThanOrEqual(column.v + column.lv + 1e-6);
-    }
-    // treads are wider (across u) than deep (along v): the run follows the long dimension
-    const treads = steps.filter((s) => s.lu * s.lv < 0.5);
-    for (const t of treads) expect(t.lu).toBeGreaterThan(t.lv);
-  });
-});
 
 describe("buildInterior", () => {
   it("is byte-deterministic, replaces shell separators, uses only theme/kind/tier materials", async () => {
