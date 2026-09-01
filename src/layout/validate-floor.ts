@@ -1,6 +1,7 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
+import { clearanceConflicts, clearDoorZones } from "./clearance.js";
 import { DOOR, SPINE_KINDS } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildNavGrid } from "./navgrid.js";
@@ -24,12 +25,23 @@ export function validateAndRepair(
   const start = uvToWorld(uvRectCenter(corridor.rect), core.frame);
 
   for (let attempt = 0; ; attempt++) {
+    // repair doors land after furnishing: clear whatever now stands in a doorway, then read
+    // the grid back with that space open
+    clearDoorZones(rooms, furniture);
     const grid = buildNavGrid(worldOutline, uvOutline, rooms, furniture, sealed, core);
     const visited = grid.flood(start);
     const unreached = rooms.filter((room) => !roomReached(grid, visited, room, core));
 
     if (unreached.length === 0) {
       ensureCoreReached(grid, visited, core, floorIndex);
+      const blocked = clearanceConflicts(rooms, furniture);
+      if (blocked.length > 0) {
+        throw new InteriorError(
+          "E_UNREACHABLE_SPACE",
+          `door ${blocked[0]!.door} is blocked by ${blocked[0]!.item}`,
+          floorIndex,
+        );
+      }
       return grid;
     }
     if (attempt >= MAX_REPAIRS) {

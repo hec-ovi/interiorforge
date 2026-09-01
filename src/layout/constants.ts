@@ -20,6 +20,8 @@ export const DOOR = {
   triple: 2.7,
   quad: 3.6,
   clearance: 1.0, // free depth kept on both sides of any door
+  jamb: 0.15, // free width kept beyond each jamb, so a leaf swings past the frame
+  clearHeight: 2.1, // an item entirely above this is out of the way (ceiling fixtures)
 };
 
 export const STAIR = {

@@ -2,8 +2,7 @@ import type { Point } from "../core/geom.js";
 import { pointInPolygon } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
 import type { FloorKind, FurnitureKind } from "../core/types.js";
-import { DOOR } from "./constants.js";
-import { doorUvPoint } from "./plan-floor.js";
+import { doorZonesByRoom } from "./clearance.js";
 import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import type { IdGen } from "./rooms.js";
 import type { UvRect } from "./uv.js";
@@ -142,35 +141,13 @@ function edgeRotation(edge: string): 0 | 90 | 180 | 270 {
   }
 }
 
-/** Door keep-clear channels per room (own doors and doors opening into it). */
-function doorChannelsByRoom(rooms: PlanRoom[]): Map<string, Footprint[]> {
-  const map = new Map<string, Footprint[]>();
-  const add = (roomId: string, fp: Footprint) => {
-    const list = map.get(roomId) ?? [];
-    list.push(fp);
-    map.set(roomId, list);
-  };
-  for (const room of rooms) {
-    for (const door of room.doors) {
-      const [u, v] = doorUvPoint(door, room);
-      const across = DOOR.clearance;
-      const fp: Footprint = door.edge.startsWith("v")
-        ? { u: u - door.width / 2, v: v - across, lu: door.width, lv: 2 * across }
-        : { u: u - across, v: v - door.width / 2, lu: 2 * across, lv: door.width };
-      add(room.id, fp);
-      if (door.to !== "outside") add(door.to, fp);
-    }
-  }
-  return map;
-}
-
 export function furnish(
   rooms: PlanRoom[], floorKind: FloorKind, rng: Rng, ids: IdGen, uvOutline: readonly Point[],
 ): PlanFurniture[] {
   const out: PlanFurniture[] = [];
-  const channels = doorChannelsByRoom(rooms);
+  const zones = doorZonesByRoom(rooms);
   for (const room of rooms) {
-    const p = new RoomPlacer(room, rng, ids, out, channels.get(room.id) ?? [], uvOutline);
+    const p = new RoomPlacer(room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), uvOutline);
     const area = room.rect.lu * room.rect.lv;
     switch (room.kind) {
       case "studio_main":
