@@ -17,7 +17,7 @@
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string" },
-          "floor": { "type": "integer", "minimum": 0 },
+          "floor": { "type": "integer", "description": "negative = basement" },
           "room": { "type": "string", "description": "room id in that floor's FloorInterior" },
           "kind": {
             "enum": [
@@ -46,7 +46,7 @@
               "office_worker", "executive", "cleaner", "resident", "trainer", "guest"
             ]
           },
-          "floor": { "type": "integer", "minimum": 0 },
+          "floor": { "type": "integer", "description": "negative = basement" },
           "homeAnchor": { "type": "string" },
           "count": {
             "type": "array",
@@ -107,7 +107,7 @@
             "required": ["floor", "origin", "cols", "rows", "walkable"],
             "additionalProperties": false,
             "properties": {
-              "floor": { "type": "integer", "minimum": 0 },
+              "floor": { "type": "integer", "description": "negative = basement" },
               "origin": { "$ref": "#/$defs/point2", "description": "world XZ of cell (0,0) min corner" },
               "cols": { "type": "integer", "minimum": 1 },
               "rows": { "type": "integer", "minimum": 1 },

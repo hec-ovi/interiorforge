@@ -23,6 +23,9 @@ const SIZES: Record<string, Size3> = {
 
 interface Footprint { u: number; v: number; lu: number; lv: number }
 
+/** Staff furniture stands off its wall so a vendor or receptionist fits behind it. */
+const STANDOFF: Partial<Record<FurnitureKind, number>> = { bar_counter: 0.9, reception_desk: 0.9, counter: 0.9 };
+
 class RoomPlacer {
   private readonly blocked: Footprint[] = [];
 
@@ -41,7 +44,7 @@ class RoomPlacer {
   alongEdge(kind: FurnitureKind, edge: "v0" | "v1" | "u0" | "u1"): boolean {
     const [su, sv] = [SIZES[kind]![0], SIZES[kind]![1]];
     const r = this.room.rect;
-    const inset = 0.06;
+    const inset = 0.06 + (STANDOFF[kind] ?? 0);
     const alongLen = edge.startsWith("v") ? r.lu : r.lv;
     const itemAlong = edge.startsWith("v") ? su : su; // su is the item's along-wall dimension
     if (itemAlong > alongLen - 0.2) return false;
