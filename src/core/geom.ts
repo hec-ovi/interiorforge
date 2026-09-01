@@ -114,3 +114,57 @@ export function pointAlongEdge(poly: readonly Point[], edge: number, t: number):
 export function distance(a: Point, b: Point): number {
   return Math.hypot(b[0] - a[0], b[1] - a[1]);
 }
+
+/** Sutherland-Hodgman clip of a polygon by an axis-aligned rect.
+ *  Returns the clipped polygon (CCW preserved), or [] when fully outside. */
+export function clipPolygonToRect(poly: readonly Point[], r: Rect): Point[] {
+  type Test = (p: Point) => boolean;
+  type Lerp = (a: Point, b: Point) => Point;
+  const planes: [Test, Lerp][] = [
+    [(p) => p[0] >= r.x, (a, b) => lerpAtX(a, b, r.x)],
+    [(p) => p[0] <= r.x + r.w, (a, b) => lerpAtX(a, b, r.x + r.w)],
+    [(p) => p[1] >= r.z, (a, b) => lerpAtZ(a, b, r.z)],
+    [(p) => p[1] <= r.z + r.d, (a, b) => lerpAtZ(a, b, r.z + r.d)],
+  ];
+  let out: Point[] = [...poly];
+  for (const [inside, cross] of planes) {
+    const input = out;
+    out = [];
+    for (let i = 0; i < input.length; i++) {
+      const cur = input[i]!;
+      const prev = input[(i + input.length - 1) % input.length]!;
+      if (inside(cur)) {
+        if (!inside(prev)) out.push(cross(prev, cur));
+        out.push(cur);
+      } else if (inside(prev)) {
+        out.push(cross(prev, cur));
+      }
+    }
+    if (out.length === 0) return [];
+  }
+  return dedupe(out);
+}
+
+function lerpAtX(a: Point, b: Point, x: number): Point {
+  const t = (x - a[0]) / (b[0] - a[0]);
+  return [x, a[1] + (b[1] - a[1]) * t];
+}
+
+function lerpAtZ(a: Point, b: Point, z: number): Point {
+  const t = (z - a[1]) / (b[1] - a[1]);
+  return [a[0] + (b[0] - a[0]) * t, z];
+}
+
+function dedupe(poly: Point[]): Point[] {
+  const out: Point[] = [];
+  for (const p of poly) {
+    const last = out.at(-1);
+    if (!last || Math.abs(last[0] - p[0]) > 1e-9 || Math.abs(last[1] - p[1]) > 1e-9) out.push(p);
+  }
+  const first = out[0];
+  const last = out.at(-1);
+  if (out.length > 1 && first && last && Math.abs(first[0] - last[0]) < 1e-9 && Math.abs(first[1] - last[1]) < 1e-9) {
+    out.pop();
+  }
+  return out.length >= 3 ? out : [];
+}

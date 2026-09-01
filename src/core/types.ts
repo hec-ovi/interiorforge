@@ -70,7 +70,8 @@ export type RoomKind =
   | "office_open" | "office_private" | "meeting" | "executive_office"
   | "dining_area" | "kitchen" | "counter_area" | "bar"
   | "bedroom" | "living" | "studio_main" | "bathroom" | "toilets"
-  | "gym_floor" | "locker_room" | "storage" | "mechanical_room" | "terrace_open";
+  | "gym_floor" | "locker_room" | "storage" | "mechanical_room"
+  | "terrace_open" | "parking_area";
 
 export type FurnitureKind =
   | "desk" | "office_chair" | "meeting_table" | "counter" | "shelf" | "sofa" | "low_table"

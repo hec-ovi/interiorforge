@@ -57,7 +57,7 @@
     },
     "rooms": {
       "type": "array",
-      "minItems": 1,
+      "description": "empty exactly when this floor is the upper half of a spans-2 assignment",
       "items": {
         "type": "object",
         "required": ["id", "kind", "polygon", "doors"],
@@ -70,7 +70,8 @@
               "office_open", "office_private", "meeting", "executive_office",
               "dining_area", "kitchen", "counter_area", "bar",
               "bedroom", "living", "studio_main", "bathroom", "toilets",
-              "gym_floor", "locker_room", "storage", "mechanical_room", "terrace_open"
+              "gym_floor", "locker_room", "storage", "mechanical_room",
+              "terrace_open", "parking_area"
             ]
           },
           "polygon": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point2" } },

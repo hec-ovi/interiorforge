@@ -1,0 +1,393 @@
+import type { Rng } from "../core/rng.js";
+import type { FloorKind, RoomKind } from "../core/types.js";
+import { CORRIDOR, DOOR, ELEVATOR, ROOM } from "./constants.js";
+import type { CorePlan } from "./core-plan.js";
+import type { FloorFrame, PlanDoor, PlanRoom } from "./plan-types.js";
+import { VENUE_KINDS } from "./frame.js";
+import { snap } from "./uv.js";
+import type { UvRect } from "./uv.js";
+
+export interface IdGen {
+  room(): string;
+  door(): string;
+  furniture(): string;
+}
+
+export function idGen(floor: number): IdGen {
+  let r = 0, d = 0, f = 0;
+  const tag = floor < 0 ? `m${-floor}` : `${floor}`;
+  return {
+    room: () => `f${tag}-r${r++}`,
+    door: () => `f${tag}-d${d++}`,
+    furniture: () => `f${tag}-fur${f++}`,
+  };
+}
+
+/** Door on the shared edge of two abutting rects, owned by `owner`. Returns null when the
+ *  contact interval is too short for even the narrowest leaf. */
+export function doorBetween(
+  owner: PlanRoom, toId: string, toRect: UvRect, ids: IdGen,
+  leaves: 1 | 2 | 3 | 4 = 1, width = DOOR.single,
+): PlanDoor | null {
+  const a = owner.rect;
+  const b = toRect;
+  const eps = 1e-6;
+  let edge: PlanDoor["edge"] | null = null;
+  let lo = 0, hi = 0;
+  if (Math.abs(a.v + a.lv - b.v) < eps) { edge = "v1"; lo = Math.max(a.u, b.u); hi = Math.min(a.u + a.lu, b.u + b.lu); }
+  else if (Math.abs(b.v + b.lv - a.v) < eps) { edge = "v0"; lo = Math.max(a.u, b.u); hi = Math.min(a.u + a.lu, b.u + b.lu); }
+  else if (Math.abs(a.u + a.lu - b.u) < eps) { edge = "u1"; lo = Math.max(a.v, b.v); hi = Math.min(a.v + a.lv, b.v + b.lv); }
+  else if (Math.abs(b.u + b.lu - a.u) < eps) { edge = "u0"; lo = Math.max(a.v, b.v); hi = Math.min(a.v + a.lv, b.v + b.lv); }
+  if (!edge || hi - lo < DOOR.bath + 0.4) return null;
+  let w = width;
+  if (hi - lo < w + 0.4) {
+    w = hi - lo - 0.4;
+    leaves = 1;
+  }
+  const door: PlanDoor = { id: ids.door(), to: toId, leaves, width: w, edge, at: snap((lo + hi) / 2) };
+  // snapping may push the door off-interval on short walls; recenter unclamped then
+  if (door.at - w / 2 < lo + 0.1 || door.at + w / 2 > hi - 0.1) door.at = (lo + hi) / 2;
+  owner.doors.push(door);
+  return door;
+}
+
+interface SideOps {
+  /** band touching the corridor */
+  near(rect: UvRect, depth: number): UvRect;
+  /** remaining band toward the facade */
+  far(rect: UvRect, nearDepth: number): UvRect;
+}
+
+function sideOps(corridorSide: "v0" | "v1"): SideOps {
+  if (corridorSide === "v0") {
+    return {
+      near: (r, depth) => ({ u: r.u, v: r.v, lu: r.lu, lv: depth }),
+      far: (r, nd) => ({ u: r.u, v: r.v + nd, lu: r.lu, lv: r.lv - nd }),
+    };
+  }
+  return {
+    near: (r, depth) => ({ u: r.u, v: r.v + r.lv - depth, lu: r.lu, lv: depth }),
+    far: (r, nd) => ({ u: r.u, v: r.v, lu: r.lu, lv: r.lv - nd }),
+  };
+}
+
+function uSlice(r: UvRect, u0: number, u1: number): UvRect {
+  return { u: u0, v: r.v, lu: u1 - u0, lv: r.lv };
+}
+
+/** Splits a strip length into seeded unit frontages; the tail is absorbed. */
+export function splitFrontages(length: number, range: readonly [number, number], rng: Rng): number[] {
+  const [min, max] = range;
+  if (length < min) return length >= ROOM.minDim * 2 ? [length] : [];
+  const widths: number[] = [];
+  let rem = length;
+  while (rem > 1e-9) {
+    let w = snap(rng.range(min, max));
+    if (rem - w < min) w = rem;
+    widths.push(w);
+    rem -= w;
+  }
+  return widths;
+}
+
+// ---- residential and hotel units ----
+
+const FRONTAGE: Partial<Record<FloorKind, readonly [number, number]>> = {
+  apartment: ROOM.apartmentFront,
+  residence_studio: ROOM.studioFront,
+  hotel_rooms: ROOM.hotelFront,
+};
+
+export function fillUnitStrip(
+  strip: UvRect, corridorSide: "v0" | "v1", corridorRoom: PlanRoom, kind: FloorKind,
+  rng: Rng, ids: IdGen, unitPrefix: string,
+): PlanRoom[] {
+  if (strip.lu < ROOM.minDim || strip.lv < ROOM.minStripDepth) return [];
+  const corr = corridorRoom.rect;
+  const widths = splitFrontages(strip.lu, FRONTAGE[kind] ?? ROOM.studioFront, rng);
+  // a unit whose corridor contact is eaten by the inline stair shaft merges into its neighbor
+  const contactOf = (u0: number, u1: number) => Math.min(u1, corr.u + corr.lu) - Math.max(u0, corr.u);
+  while (widths.length >= 2) {
+    const lastStart = strip.u + strip.lu - widths.at(-1)!;
+    if (contactOf(lastStart, strip.u + strip.lu) < 1.6) {
+      widths[widths.length - 2]! += widths.pop()!;
+    } else break;
+  }
+  const rooms: PlanRoom[] = [];
+  let u = strip.u;
+  let n = 0;
+  for (const w of widths) {
+    const rect = uSlice(strip, u, u + w);
+    u += w;
+    if (contactOf(rect.u, rect.u + rect.lu) < 1.6) continue; // lone unreachable slice: leave open
+    // service rooms cluster toward the side with the least corridor contact
+    const deadRight = (rect.u + rect.lu) - Math.min(rect.u + rect.lu, corr.u + corr.lu)
+      > Math.max(rect.u, corr.u) - rect.u;
+    const unit = `${unitPrefix}-u${n++}`;
+    rooms.push(...fillUnit(rect, corridorSide, deadRight, corridorRoom, kind, rng, ids, unit));
+  }
+  return rooms;
+}
+
+function fillUnit(
+  rect: UvRect, corridorSide: "v0" | "v1", deadRight: boolean, corridorRoom: PlanRoom,
+  kind: FloorKind, rng: Rng, ids: IdGen, unit: string,
+): PlanRoom[] {
+  const ops = sideOps(corridorSide);
+  const bandDepth = Math.min(2.7, rect.lv - 2.3);
+  const bandA = ops.near(rect, bandDepth);
+  const bandB = ops.far(rect, bandDepth);
+  const rooms: PlanRoom[] = [];
+  const mk = (kind: RoomKind, r: UvRect): PlanRoom => {
+    const room: PlanRoom = { id: ids.room(), kind, rect: r, unit, doors: [] };
+    rooms.push(room);
+    return room;
+  };
+
+  let hall: PlanRoom;
+  if (kind === "apartment" && rect.lu >= 6.5) {
+    // entry band: hall keeps the corridor-contact side; services sit toward the dead side
+    const bw = ROOM.bath.w;
+    const kw = ROOM.kitchen.w;
+    const a0 = bandA.u;
+    const a1 = bandA.u + bandA.lu;
+    if (deadRight) {
+      hall = mk("living", uSlice(bandA, a0, a1 - kw - bw));
+      mk("bathroom", uSlice(bandA, a1 - kw - bw, a1 - kw));
+      mk("kitchen", uSlice(bandA, a1 - kw, a1));
+    } else {
+      mk("bathroom", uSlice(bandA, a0, a0 + bw));
+      hall = mk("living", uSlice(bandA, a0 + bw, a1 - kw));
+      mk("kitchen", uSlice(bandA, a1 - kw, a1));
+    }
+    if (rect.lu >= 9.5) {
+      const bedW = snap(Math.min(3.8, (rect.lu - 3.2) / 2));
+      mk("bedroom", uSlice(bandB, bandB.u, bandB.u + bedW));
+      mk("living", uSlice(bandB, bandB.u + bedW, bandB.u + bandB.lu - bedW));
+      mk("bedroom", uSlice(bandB, bandB.u + bandB.lu - bedW, bandB.u + bandB.lu));
+    } else {
+      const bedW = snap(Math.min(3.8, Math.max(3.0, rect.lu - 3.6)));
+      if (deadRight) {
+        mk("bedroom", uSlice(bandB, bandB.u, bandB.u + bedW));
+        mk("living", uSlice(bandB, bandB.u + bedW, bandB.u + bandB.lu));
+      } else {
+        mk("living", uSlice(bandB, bandB.u, bandB.u + bandB.lu - bedW));
+        mk("bedroom", uSlice(bandB, bandB.u + bandB.lu - bedW, bandB.u + bandB.lu));
+      }
+    }
+  } else {
+    // studio and hotel room (and small apartments): entry band with bath, main at the facade
+    const a0 = bandA.u;
+    const a1 = bandA.u + bandA.lu;
+    if (deadRight) {
+      hall = mk("living", uSlice(bandA, a0, a1 - ROOM.bath.w));
+      mk("bathroom", uSlice(bandA, a1 - ROOM.bath.w, a1));
+    } else {
+      mk("bathroom", uSlice(bandA, a0, a0 + ROOM.bath.w));
+      hall = mk("living", uSlice(bandA, a0 + ROOM.bath.w, a1));
+    }
+    mk(kind === "hotel_rooms" ? "bedroom" : "studio_main", bandB);
+  }
+  doorBetween(hall, corridorRoom.id, corridorRoom.rect, ids);
+  connectUnit(rooms, hall, ids);
+  return rooms;
+}
+
+const CONNECT_PREF: Partial<Record<RoomKind, number>> = {
+  living: 0, studio_main: 1, kitchen: 2, bedroom: 3, bathroom: 4,
+};
+
+const CONNECT_DOOR: Partial<Record<RoomKind, [1 | 2, number]>> = {
+  living: [2, 1.6], studio_main: [2, 1.6], kitchen: [2, 1.6],
+  bedroom: [1, DOOR.interior], bathroom: [1, DOOR.bath],
+};
+
+/** Connects every room of a unit to its hall through adjacent rooms, halls and livings first.
+ *  Deterministic; guarantees plan-time connectivity for any band ordering. */
+function connectUnit(rooms: PlanRoom[], hall: PlanRoom, ids: IdGen): void {
+  const connected = new Set([hall.id]);
+  const pending = rooms.filter((r) => r !== hall);
+  while (pending.length > 0) {
+    let advanced = false;
+    pending.sort((a, b) => (CONNECT_PREF[a.kind] ?? 9) - (CONNECT_PREF[b.kind] ?? 9) || a.id.localeCompare(b.id));
+    for (let i = 0; i < pending.length; i++) {
+      const room = pending[i]!;
+      const targets = rooms
+        .filter((r) => connected.has(r.id))
+        .sort((a, b) => (CONNECT_PREF[a.kind] ?? 9) - (CONNECT_PREF[b.kind] ?? 9) || a.id.localeCompare(b.id));
+      const [leaves, width] = CONNECT_DOOR[room.kind] ?? [1, DOOR.interior];
+      const target = targets.find((t) => doorBetween(room, t.id, t.rect, ids, leaves, width));
+      if (target) {
+        connected.add(room.id);
+        pending.splice(i, 1);
+        advanced = true;
+        break;
+      }
+    }
+    if (!advanced) break; // validation will flag and repair what is left
+  }
+}
+
+// ---- office floors ----
+
+export function fillOfficeStrip(
+  strip: UvRect, corridorSide: "v0" | "v1", corridorRoom: PlanRoom, corpo: boolean,
+  rng: Rng, ids: IdGen, unit: string,
+): PlanRoom[] {
+  if (strip.lu < ROOM.minDim || strip.lv < ROOM.minStripDepth) return [];
+  const rooms: PlanRoom[] = [];
+  const mk = (kind: RoomKind, r: UvRect): PlanRoom => {
+    const room: PlanRoom = { id: ids.room(), kind, rect: r, unit, doors: [] };
+    rooms.push(room);
+    return room;
+  };
+  const ops = sideOps(corridorSide);
+  const big = strip.lu >= 12 && strip.lv >= 5;
+
+  let openRect = strip;
+  const carved: PlanRoom[] = [];
+  if (big) {
+    // one end: meeting at the facade half, private office at the corridor half
+    const endW = snap(Math.max(ROOM.meeting.w, ROOM.officePrivate.w));
+    const slice = uSlice(strip, strip.u, strip.u + endW);
+    const nearDepth = Math.min(ROOM.officePrivate.d, slice.lv / 2);
+    carved.push(mk("office_private", ops.near(slice, nearDepth)));
+    carved.push(mk("meeting", ops.far(slice, nearDepth)));
+    let u1Cut = strip.u + strip.lu;
+    if (corpo && strip.lu >= endW + ROOM.executive.w + 6) {
+      const exec = uSlice(strip, u1Cut - snap(ROOM.executive.w), u1Cut);
+      carved.push(mk("executive_office", exec));
+      u1Cut = exec.u;
+    }
+    openRect = uSlice(strip, strip.u + endW, u1Cut);
+  }
+  const open = mk("office_open", openRect);
+  doorBetween(open, corridorRoom.id, corridorRoom.rect, ids, 2, DOOR.double);
+  for (const room of carved) {
+    if (!doorBetween(room, open.id, open.rect, ids, 1, DOOR.single)) {
+      doorBetween(room, corridorRoom.id, corridorRoom.rect, ids, 1, DOOR.single);
+    }
+  }
+  return rooms;
+}
+
+// ---- venue floors: hall + back of house ----
+
+const HALL_KIND: Partial<Record<FloorKind, RoomKind>> = {
+  lobby: "reception", restaurant: "dining_area", coffee_shop: "dining_area",
+  gym: "gym_floor", terrace: "terrace_open", parking: "parking_area", mechanical: "mechanical_room",
+};
+
+const BOH_KINDS: Partial<Record<FloorKind, RoomKind[]>> = {
+  restaurant: ["kitchen", "toilets", "storage"],
+  coffee_shop: ["storage", "toilets"],
+  gym: ["locker_room", "locker_room", "storage"],
+  lobby: ["storage", "toilets"],
+  terrace: ["storage", "toilets"],
+  parking: ["mechanical_room", "storage"],
+  mechanical: ["mechanical_room"],
+};
+
+export function fillVenue(
+  frame: FloorFrame, corridorRoom: PlanRoom, kind: FloorKind, rng: Rng, ids: IdGen,
+): PlanRoom[] {
+  const rooms: PlanRoom[] = [];
+  const hall: PlanRoom = {
+    id: ids.room(), kind: HALL_KIND[kind] ?? "reception", rect: frame.south, doors: [],
+  };
+  rooms.push(hall);
+  doorBetween(hall, corridorRoom.id, corridorRoom.rect, ids, 4, DOOR.quad);
+
+  const boh = [...(BOH_KINDS[kind] ?? [])];
+  // kitchens claim a whole segment; smaller BOH rooms share one
+  for (const segment of frame.northSegments) {
+    if (boh.length === 0) break;
+    if (boh[0] === "kitchen" || boh[0] === "mechanical_room" || segment.lu < 5) {
+      const room: PlanRoom = { id: ids.room(), kind: boh.shift()!, rect: segment, doors: [] };
+      rooms.push(room);
+      doorBetween(room, corridorRoom.id, corridorRoom.rect, ids, room.kind === "kitchen" ? 2 : 1,
+        room.kind === "kitchen" ? DOOR.double : DOOR.single);
+    } else {
+      const take = boh.splice(0, Math.min(2, boh.length));
+      const mid = snap(segment.u + segment.lu / 2);
+      const parts = take.length === 2
+        ? [uSlice(segment, segment.u, mid), uSlice(segment, mid, segment.u + segment.lu)]
+        : [segment];
+      for (let i = 0; i < take.length; i++) {
+        const room: PlanRoom = { id: ids.room(), kind: take[i]!, rect: parts[i]!, doors: [] };
+        rooms.push(room);
+        doorBetween(room, corridorRoom.id, corridorRoom.rect, ids);
+      }
+    }
+  }
+  return rooms;
+}
+
+// ---- core stub and backing rooms ----
+
+const BACKING_KINDS: Record<"office" | "residential" | "venue", [RoomKind, RoomKind]> = {
+  office: ["toilets", "storage"],
+  residential: ["storage", "mechanical_room"],
+  venue: ["storage", "mechanical_room"],
+};
+
+export function fillCoreBacking(
+  core: CorePlan, frame: FloorFrame, kind: FloorKind, ids: IdGen, corridorRoom: PlanRoom,
+): { rooms: PlanRoom[]; sealed: UvRect[] } {
+  const block = frame.coreBlock;
+  const backDepth = block.lv - ELEVATOR.shaft;
+  const stubRect: UvRect = { u: core.stub.u, v: block.v, lu: core.stub.lu, lv: block.lv };
+  const backing: UvRect = {
+    u: block.u, v: block.v + ELEVATOR.shaft, lu: core.stub.u - block.u, lv: backDepth,
+  };
+  if (backDepth < 1.6) {
+    return { rooms: [], sealed: [{ u: block.u, v: block.v + ELEVATOR.shaft, lu: block.lu, lv: backDepth }] };
+  }
+  const stub: PlanRoom = { id: ids.room(), kind: "corridor", rect: stubRect, doors: [] };
+  doorBetween(stub, corridorRoom.id, corridorRoom.rect, ids);
+  const family = kind === "office" || kind === "corpo_office" ? "office"
+    : VENUE_KINDS.has(kind) ? "venue" : "residential";
+  const [kindNear, kindFar] = BACKING_KINDS[family];
+  const rooms: PlanRoom[] = [stub];
+  if (backing.lu >= 6) {
+    const mid = snap(backing.u + backing.lu / 2);
+    const far: PlanRoom = { id: ids.room(), kind: kindFar, rect: uSlice(backing, backing.u, mid), doors: [] };
+    const near: PlanRoom = { id: ids.room(), kind: kindNear, rect: uSlice(backing, mid, backing.u + backing.lu), doors: [] };
+    doorBetween(near, stub.id, stub.rect, ids);
+    doorBetween(far, near.id, near.rect, ids);
+    rooms.push(near, far);
+  } else if (backing.lu >= ROOM.minDim) {
+    const only: PlanRoom = { id: ids.room(), kind: kindNear, rect: backing, doors: [] };
+    doorBetween(only, stub.id, stub.rect, ids);
+    rooms.push(only);
+  }
+  return { rooms, sealed: [] };
+}
+
+/** Ground-floor exterior doors: attach each blueprint door opening to the room it lands on. */
+export function attachOutsideDoors(
+  rooms: PlanRoom[], uvDoorPoints: { at: [number, number]; width: number; leaves: 1 | 2 | 3 | 4 }[],
+  ids: IdGen,
+): void {
+  for (const opening of uvDoorPoints) {
+    const [u, v] = opening.at;
+    let best: { room: PlanRoom; edge: PlanDoor["edge"]; dist: number } | null = null;
+    for (const room of rooms) {
+      const r = room.rect;
+      if (u < r.u - 0.3 || u > r.u + r.lu + 0.3 || v < r.v - 0.3 || v > r.v + r.lv + 0.3) continue;
+      const edges: [PlanDoor["edge"], number][] = [
+        ["v0", Math.abs(v - r.v)], ["v1", Math.abs(v - (r.v + r.lv))],
+        ["u0", Math.abs(u - r.u)], ["u1", Math.abs(u - (r.u + r.lu))],
+      ];
+      for (const [edge, dist] of edges) {
+        if (!best || dist < best.dist) best = { room, edge, dist };
+      }
+    }
+    if (best && best.dist < 1.0) {
+      best.room.doors.push({
+        id: ids.door(), to: "outside", leaves: opening.leaves, width: opening.width,
+        edge: best.edge, at: best.edge.startsWith("v") ? u : v,
+      });
+    }
+  }
+}

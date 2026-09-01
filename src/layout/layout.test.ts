@@ -1,0 +1,90 @@
+import { describe, expect, it } from "vitest";
+import { makeFixture } from "../blueprint/fixture.js";
+import { resolveAssignments } from "../blueprint/validate.js";
+import { planBuilding } from "./index.js";
+import { polygonArea, polygonBounds, pointInPolygon, rectsOverlap } from "../core/geom.js";
+
+const fix = makeFixture({ seed: 21, floors: 10, basements: 1 });
+const plan = planBuilding(fix.request, resolveAssignments(fix.request));
+
+describe("planBuilding", () => {
+  it("is deterministic", () => {
+    const again = planBuilding(fix.request, resolveAssignments(fix.request));
+    expect(JSON.stringify(again.floors)).toBe(JSON.stringify(plan.floors));
+  });
+
+  it("plans every blueprint floor, basements included", () => {
+    expect(plan.floors.map((f) => f.floor)).toEqual([-1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it("keeps the vertical core identical on every floor", () => {
+    const signatures = new Set(
+      plan.floors.map((f) => JSON.stringify([f.core.elevators, f.core.stairs.map((s) => s.rect)])),
+    );
+    expect(signatures.size).toBe(1);
+    expect(plan.core.stairB).toBeTruthy(); // 10 stories: two egress stairs
+  });
+
+  it("rooms are CCW polygons with positive area and no pairwise overlap", () => {
+    for (const floor of plan.floors) {
+      const boxes = floor.rooms.map((r) => {
+        expect(polygonArea(r.polygon)).toBeGreaterThan(0);
+        const b = polygonBounds(r.polygon);
+        return { x: b.x + 0.05, z: b.z + 0.05, w: b.w - 0.1, d: b.d - 0.1 };
+      });
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          expect(rectsOverlap(boxes[i]!, boxes[j]!)).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("every room holds reached walkable cells (validated floors flood from the corridor)", () => {
+    for (const floor of plan.floors) {
+      const grid = plan.navGrids.get(floor.floor)!;
+      expect(grid).toBeTruthy();
+      if (floor.rooms.length > 0) expect(grid.walkableCount()).toBeGreaterThan(100);
+    }
+  });
+
+  it("furniture sits inside its room", () => {
+    for (const floor of plan.floors) {
+      const rooms = new Map(floor.rooms.map((r) => [r.id, r]));
+      for (const f of floor.furniture) {
+        expect(pointInPolygon(f.position, rooms.get(f.room)!.polygon)).toBe(true);
+      }
+    }
+  });
+
+  it("residential floors split into units with bath, entry and main room off the corridor", () => {
+    const res = makeFixture({ seed: 5, floors: 7, type: "residential", width: 28, depth: 18 });
+    const rplan = planBuilding(res.request, resolveAssignments(res.request));
+    const floor = rplan.floors.find((f) => f.kind === "residence_studio" || f.kind === "apartment")!;
+    const units = new Set(floor.rooms.map((r) => r.unit).filter(Boolean));
+    expect(units.size).toBeGreaterThanOrEqual(3);
+    for (const unit of units) {
+      const rooms = floor.rooms.filter((r) => r.unit === unit);
+      expect(rooms.some((r) => r.kind === "bathroom")).toBe(true);
+      const entry = rooms.find((r) => r.doors.some((d) => d.to.endsWith("-corridor")));
+      expect(entry).toBeTruthy();
+    }
+  });
+
+  it("a spans-2 assignment leaves the upper floor open", () => {
+    const twin = makeFixture({ seed: 3, floors: 8, type: "corpo" });
+    const assignments = resolveAssignments(twin.request).filter((a) => a.floor !== 2);
+    const merged = assignments.map((a) => (a.floor === 1 ? { ...a, spans: 2 as const } : a));
+    const tplan = planBuilding(twin.request, merged);
+    const upper = tplan.floors.find((f) => f.floor === 2)!;
+    expect(upper.rooms).toEqual([]);
+    expect(upper.core.elevators.length).toBeGreaterThan(0);
+  });
+
+  it("rejects a plate that cannot hold the core", () => {
+    const tiny = makeFixture({ seed: 1, floors: 6, width: 10, depth: 8 });
+    expect(() => planBuilding(tiny.request, resolveAssignments(tiny.request))).toThrowError(
+      expect.objectContaining({ code: "E_FLOOR_TOO_SMALL" }),
+    );
+  });
+});
