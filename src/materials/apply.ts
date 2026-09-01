@@ -41,7 +41,9 @@ function dressMaterial(
   doc: Document, material: Material, entry: MaterialEntry, cache: Map<string, Texture>,
   options: ApplyOptions, transform: KHRTextureTransform,
 ): void {
-  const variant = entry.variants[0]!;
+  // the geometry names a preferred variant in extras; fall back to the canonical one
+  const wanted = (material.getExtras() as { materialVariant?: string }).materialVariant;
+  const variant = (wanted ? entry.variants.find((v) => v.id === wanted) : undefined) ?? entry.variants[0]!;
   const physical = entry.physical ?? {};
   material.setBaseColorFactor([1, 1, 1, 1]);
   material.setMetallicFactor(physical.metallicFactor ?? 0);

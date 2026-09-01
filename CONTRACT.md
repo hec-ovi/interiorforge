@@ -2,7 +2,7 @@
 
 Purpose: deterministically fills one building shell with interiors per floor and exports NPC routine placeholders and walk paths for that instance.
 
-Status: implemented (0.13). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
+Status: implemented (0.14). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
 
 ## In
 
@@ -21,6 +21,7 @@ Units meters, building-local space, +Y up, XZ floor plane, CCW polygons.
 One `InteriorResult` written to an output directory:
 
 - `building.glb`: a finished furnished textured interior. The shell completed with interiors (slabs with core holes, walls, doors, stairs, elevator shafts, shaped furniture), every material named by the canonical key `theme/kind/tier` (lowercase slugs, e.g. `cyberpunk/concrete/poor`) and resolved through ../materials into real maps: basecolor, normal, occlusion, emission where the entry has one, plus its metallic and roughness factors, transmission and IOR for glass. Tiled maps carry a `KHR_texture_transform` scale of 1 / tiling worldSize over world-meter UVs, so nothing stretches; exact-placement materials (elevator doors) get 0..1 UVs over their face instead.
+- Material variant preference: a material may carry `extras.materialVariant` naming the variant of its entry the interior wants (`cyberpunk/plaster/mid` with `hex`, say). The NAME is always the plain key, so a consumer that resolves keys itself is unaffected and simply gets the entry's canonical variant. Walls and ceilings take the pattern class this way (hex fields in venues and lobbies, panel grids in offices and service rooms, two-tone in homes; ceiling panels overhead, lit strip and panel diffusers on fixtures), while floors, wood, tile and concrete keep their photographed sets.
 - Texture modes (`textures.mode` on the result says which one the GLB carries): `external` (default) writes map URIs against a configurable base path, `embed` packs the maps into one self-contained GLB, `keys` leaves the material keys for a consumer that resolves them itself (the engine runtime). With no materials database at the configured path, output falls back to `keys` and says so, so the box still runs standalone.
 - `floors/NNN.json`, one per floor: [schemas/floor.schema.json](schemas/floor.schema.json): vertical core (elevators, stairs with tread geometry, shafts), rooms with polygons and doors (1 to 4 leaves), furniture placements, light fixtures. Irregular parcels rotate the layout frame: `coreAngleDeg` gives the frame rotation, core rects and stair steps are frame-axis-aligned and rotate about their centers; room polygons, door positions, furniture and lights are plain world space.
 - Furniture is real shaped geometry, not blocks: tables on legs, chairs with backs and armrests, bar stools pulled up to counters, counters with panelled fronts and kick recesses, shelving with stock on the boards, crates in back rooms, and seeded small objects (bottles and glasses on a bar, a cup and papers on a desk). Wall pieces (`wall_shelf`, `display_screen`, `wall_art`) carry an `elevation`, the base height above the floor; everything else stands at 0. Seats are placed against the piece they serve and NPC `seat` anchors sit ON them, so a seated NPC lands on the chair.

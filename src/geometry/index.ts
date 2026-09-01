@@ -1,6 +1,7 @@
 import type { Document } from "@gltf-transform/core";
 import { InteriorError } from "../core/errors.js";
 import { clipPolygonToRect } from "../core/geom.js";
+import { createRng } from "../core/rng.js";
 import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { appendToDocument } from "../glb/io.js";
@@ -29,7 +30,10 @@ export interface InteriorGeometry {
 
 /** Completes the shell document with the full interior. Mutates and returns shellDoc. */
 export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shellDoc: Document): InteriorGeometry {
-  const keys = new MaterialKeys(request.materialTheme, request.building.tier);
+  const keys = new MaterialKeys(
+    request.materialTheme, request.building.tier,
+    Math.floor(createRng(request.seed, "materials").next() * 1000),
+  );
   const core = plan.core;
   const mb = new MeshBuilder();
   const stepsByFloor = new Map<number, Record<string, Rect3[]>>();

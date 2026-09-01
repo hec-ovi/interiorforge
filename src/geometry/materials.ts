@@ -20,11 +20,31 @@ const FURNITURE_FAMILY: Partial<Record<FurnitureKind, string>> = {
   gym_machine: "metal", plant: "fabric",
 };
 
-export class MaterialKeys {
-  constructor(private readonly theme: string, private readonly tier: string) {}
+/** Walls and ceilings prefer the pattern class: flat colours, panel grids and hex fields
+ *  read cleanly at any distance, where a photographed plaster goes damp and blotchy up close.
+ *  Floors, wood and concrete keep their photo sets, where real texture earns its place. */
+const WALL_PATTERN: Partial<Record<RoomKind, string>> = {
+  reception: "hex", lounge: "hex", concourse: "hex", elevator_lobby: "hex",
+  dining_area: "hex", bar: "hex", counter_area: "hex", sales_floor: "hex",
+  office_open: "panel", office_private: "panel", meeting: "panel", executive_office: "panel",
+  corridor: "panel", kitchen: "panel", storage: "panel", mechanical_room: "panel",
+  gym_floor: "panel", locker_room: "panel", parking_area: "panel", terrace_open: "panel",
+  bedroom: "two-tone", living: "two-tone", studio_main: "two-tone",
+  bathroom: "two-tone", toilets: "two-tone",
+};
 
-  key(kind: string): string {
-    return `${this.theme}/${kind}/${this.tier}`;
+export class MaterialKeys {
+  constructor(
+    private readonly theme: string,
+    private readonly tier: string,
+    private readonly seed = 0,
+  ) {}
+
+  /** `theme/kind/tier`, plus an optional `#variant` preference the materials database
+   *  resolves; a consumer that ignores the suffix still gets the entry's canonical variant. */
+  key(kind: string, variant?: string): string {
+    const base = `${this.theme}/${kind}/${this.tier}`;
+    return variant ? `${base}#${variant}` : base;
   }
 
   floorOf(room: RoomKind): string {
@@ -35,12 +55,26 @@ export class MaterialKeys {
     return this.key(FURNITURE_FAMILY[kind] ?? "wood");
   }
 
-  wall(): string {
-    return this.key("plaster");
+  wall(room?: RoomKind): string {
+    const pattern = (room && WALL_PATTERN[room]) ?? (this.seed % 2 === 0 ? "panel" : "hex");
+    return this.key("plaster", pattern);
+  }
+
+  /** The accent band and feature wall: a different key, so the two tones read apart under
+   *  any resolver, not only one that honours the variant preference. */
+  accent(room?: RoomKind): string {
+    return room === "bathroom" || room === "toilets" || room === "kitchen"
+      ? this.key("tile", "slab")
+      : this.key("concrete", "panel");
+  }
+
+  /** Baseboards, top trim and reveals. */
+  trim(): string {
+    return this.key("metal");
   }
 
   ceiling(): string {
-    return this.key("plaster");
+    return this.key("ceiling", this.seed % 3 === 0 ? "plain" : "panel");
   }
 
   concrete(): string {
@@ -55,8 +89,8 @@ export class MaterialKeys {
     return this.key("elevator_door");
   }
 
-  /** Emissive housing of a light fixture. */
-  light(): string {
-    return this.key("light-fixture");
+  /** Emissive housing of a light fixture: a lit line or a lit panel. */
+  light(kind: "strip" | "spot" | "cove" = "strip"): string {
+    return this.key("light-fixture", kind === "spot" ? "panel" : "strip");
   }
 }

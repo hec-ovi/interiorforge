@@ -12,7 +12,7 @@ const TIER = "mid";
 /** kinds a fixture building emits: exterior shell plus interior surfaces and furniture */
 const KINDS = [
   "wall", "floor-slab", "plaster", "tile", "wood", "carpet", "rubber", "concrete", "metal",
-  "elevator_door", "fabric", "glass", "light-fixture", "signage",
+  "elevator_door", "fabric", "glass", "light-fixture", "signage", "ceiling",
 ];
 const TILE_SIZE: [number, number] = [3, 2];
 /** 1x1 png, so embedded output carries real image bytes */

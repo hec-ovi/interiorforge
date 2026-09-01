@@ -15,8 +15,8 @@ const SPOT_LENGTH = 0.26;
 /** The emissive housings behind the floor's light fixtures: ceiling strips, corridor spots
  *  and the cove lines of venue rooms, at the exact poses the floor JSON publishes. */
 export function emitLightFixtures(mb: MeshBuilder, keys: MaterialKeys, lights: LightFixture[]): void {
-  const material = keys.light();
   for (const light of lights) {
+    const material = keys.light(light.kind);
     const shape = SHAPE[light.kind];
     const [x, y, z] = light.position;
     const rad = (light.angleDeg * Math.PI) / 180;

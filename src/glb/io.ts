@@ -25,9 +25,11 @@ export function appendToDocument(doc: Document, builder: MeshBuilder): void {
   const buffer = root.listBuffers()[0] ?? doc.createBuffer("buffer");
   const scene = root.getDefaultScene() ?? root.listScenes()[0] ?? doc.createScene("scene");
 
-  for (const key of builder.materials()) {
-    const group = builder.getGroup(key)!;
-    const material = root.listMaterials().find((m) => m.getName() === key) ?? makeMaterial(doc, key);
+  for (const slot of builder.materials()) {
+    const group = builder.getGroup(slot)!;
+    const [key, variant] = splitVariant(slot);
+    const material = root.listMaterials()
+      .find((m) => m.getName() === key && variantOf(m) === variant) ?? makeMaterial(doc, key, variant);
 
     const position = doc
       .createAccessor()
@@ -57,19 +59,33 @@ export function appendToDocument(doc: Document, builder: MeshBuilder): void {
       .setAttribute("TEXCOORD_0", uv)
       .setIndices(indices)
       .setMaterial(material);
-    const mesh = doc.createMesh(`interior:${key}`).addPrimitive(prim);
-    const node = doc.createNode(`interior:${key}`).setMesh(mesh);
+    const mesh = doc.createMesh(`interior:${slot}`).addPrimitive(prim);
+    const node = doc.createNode(`interior:${slot}`).setMesh(mesh);
     scene.addChild(node);
   }
 }
 
-function makeMaterial(doc: Document, key: string): Material {
-  return doc
+/** A material slot is the canonical key plus an optional `#variant` preference. The GLB
+ *  material is NAMED by the key alone; the preference travels in extras, so a consumer that
+ *  resolves keys itself is unaffected and one that reads extras gets the intended variant. */
+export function splitVariant(slot: string): [string, string | undefined] {
+  const cut = slot.indexOf("#");
+  return cut < 0 ? [slot, undefined] : [slot.slice(0, cut), slot.slice(cut + 1)];
+}
+
+function variantOf(material: Material): string | undefined {
+  return (material.getExtras() as { materialVariant?: string }).materialVariant;
+}
+
+function makeMaterial(doc: Document, key: string, variant?: string): Material {
+  const material = doc
     .createMaterial(key)
-    .setBaseColorFactor(placeholderColor(key))
+    .setBaseColorFactor(placeholderColor(variant ? `${key}#${variant}` : key))
     .setMetallicFactor(0)
     .setRoughnessFactor(0.9)
     .setDoubleSided(false);
+  if (variant) material.setExtras({ materialVariant: variant });
+  return material;
 }
 
 /** Deterministic placeholder tint per material key so the preview separates surfaces
