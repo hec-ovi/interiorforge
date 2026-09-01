@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>urbe interior preview</title>
+<style>
+  * { box-sizing: border-box; border-radius: 0; }
+  body { margin: 0; background: #0d0e10; color: #d8dade; font: 13px/1.45 system-ui, sans-serif; }
+  #app { display: grid; grid-template-columns: 260px 1fr 420px; height: 100vh; }
+  .sidebar { padding: 12px; border-right: 1px solid #24262b; overflow-y: auto; }
+  .controls { display: flex; flex-direction: column; gap: 8px; }
+  .field { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .field span { color: #8b8f99; }
+  input, select, button { background: #1a1c21; color: #d8dade; border: 1px solid #33363c; padding: 5px 8px; font: inherit; }
+  button { cursor: pointer; }
+  button.active { background: #2c3340; border-color: #5a6478; }
+  .mode-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .viewer3d { position: relative; }
+  .viewer3d canvas { display: block; width: 100%; height: 100%; }
+  .plan-wrap { border-left: 1px solid #24262b; overflow: hidden; }
+  .plan-wrap[hidden] { display: none; }
+  .plan-svg { width: 100%; height: 100%; }
+  .info-panel { margin-top: 16px; border-top: 1px solid #24262b; padding-top: 10px; }
+  .info-panel h3, .info-panel h4 { margin: 6px 0; }
+  .detail { margin: 3px 0; color: #a7abb5; }
+  .hint { color: #6b6f78; }
+  .path-status { color: #6ae86a; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>
