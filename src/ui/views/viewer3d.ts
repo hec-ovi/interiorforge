@@ -71,8 +71,15 @@ export function createViewer3d(): Viewer3D {
       const gltf = await loader.parseAsync(copy.buffer as ArrayBuffer, "");
       building = gltf.scene;
       scene.add(building);
+      // real parcels live at city coordinates: fit the camera to the building
       const bounds = new THREE.Box3().setFromObject(building);
-      controls.target.copy(bounds.getCenter(new THREE.Vector3()));
+      const center = bounds.getCenter(new THREE.Vector3());
+      const size = bounds.getSize(new THREE.Vector3()).length();
+      controls.target.copy(center);
+      camera.position.set(center.x + size * 0.55, center.y + size * 0.45, center.z + size * 0.55);
+      camera.near = Math.max(0.1, size / 500);
+      camera.far = size * 20;
+      camera.updateProjectionMatrix();
       applyClipping();
       resize();
     },

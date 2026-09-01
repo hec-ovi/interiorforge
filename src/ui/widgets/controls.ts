@@ -2,10 +2,15 @@ import type { BuildingType, Tier } from "../../core/types.js";
 import type { AppParams, AppState } from "../app-state.js";
 import { el, labeled } from "../components/dom.js";
 
-const TYPES: BuildingType[] = ["office", "corpo", "residential", "hotel", "hospital", "police", "factory", "mixed"];
-const TIERS: Tier[] = ["poor", "standard", "rich", "lux"];
+const TYPES: BuildingType[] = [
+  "offices", "corpo", "residential", "hotel", "hospital", "clinic", "police",
+  "military", "factory", "commerce", "mall", "restaurant", "coffee_shop",
+];
+const TIERS: Tier[] = ["poor", "mid", "rich", "high_rich"];
 
-export function createControls(state: AppState, onGenerate: (params: AppParams) => void): HTMLElement {
+export function createControls(
+  state: AppState, onGenerate: (params: AppParams) => void, onLoadFiles: (files: File[]) => void,
+): HTMLElement {
   const seed = el("input", { type: "number", value: state.params.seed, name: "seed" });
   const floors = el("input", { type: "number", value: state.params.floors, min: 1, max: 80, name: "floors" });
   const basements = el("input", { type: "number", value: state.params.basements, min: 0, max: 4, name: "basements" });
@@ -42,9 +47,20 @@ export function createControls(state: AppState, onGenerate: (params: AppParams) 
     generate.textContent = state.busy ? "generating..." : "generate";
   });
 
+  const loadInput = el("input", {
+    type: "file", multiple: true, name: "load",
+    onchange: () => {
+      if (loadInput.files && loadInput.files.length > 0) onLoadFiles(Array.from(loadInput.files));
+    },
+  });
+
   return el("div", { class: "controls" }, [
     labeled("seed", seed), labeled("floors", floors), labeled("basements", basements),
     labeled("type", type), labeled("tier", tier), generate,
+    el("div", { class: "load-row" }, [
+      el("span", { class: "load-hint" }, ["or load a real building (shell .glb + blueprint .json + request .json)"]),
+      loadInput,
+    ]),
     el("div", { class: "mode-row" }, [modeBuilding, modeFloor, labeled("floor", floorSelect)]),
   ]);
 }

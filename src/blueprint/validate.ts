@@ -39,16 +39,16 @@ function validateBlueprint({ blueprint }: InteriorRequest): void {
       const prev = floors[i - 1]!;
       const expected = prev.elevation + prev.height;
       if (Math.abs(floor.elevation - expected) > ELEVATION_TOLERANCE) {
-        throw new InteriorError("E_BLUEPRINT_INVALID", `elevation ${floor.elevation} does not continue floor ${i - 1} (expected ${expected})`, i);
+        throw new InteriorError("E_BLUEPRINT_INVALID", `elevation ${floor.elevation} does not continue floor ${prev.index} (expected ${expected})`, floor.index);
       }
     }
     if (!isCcw(floor.outline)) {
-      throw new InteriorError("E_BLUEPRINT_INVALID", "outline must be CCW with positive area", i);
+      throw new InteriorError("E_BLUEPRINT_INVALID", "outline must be CCW with positive area", floor.index);
     }
     if (polygonArea(floor.outline) < 9) {
-      throw new InteriorError("E_BLUEPRINT_INVALID", "outline area below 9 m2", i);
+      throw new InteriorError("E_BLUEPRINT_INVALID", "outline area below 9 m2", floor.index);
     }
-    validateOpenings(floor.outline, floor.openings, floor.height, i);
+    validateOpenings(floor.outline, floor.openings, floor.height, floor.index);
   });
 }
 
@@ -134,7 +134,9 @@ function kindFromSlug(slug: string, type: BuildingType, floor: number, rng: Rng)
     case "hotel": return "hotel_rooms";
     case "corpo": return "corpo_office";
     case "factory": return "mechanical";
-    default: return "office";
+    case "commerce": case "mall": case "coffee_shop": return "coffee_shop";
+    case "restaurant": return "restaurant";
+    default: return "office"; // offices and institutional parcels
   }
 }
 

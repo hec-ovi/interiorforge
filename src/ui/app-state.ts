@@ -40,7 +40,7 @@ export function createAppState(): AppState {
   };
 
   const state: AppState = {
-    params: { seed: 1, floors: 12, basements: 1, type: "office", tier: "standard" },
+    params: { seed: 1, floors: 12, basements: 1, type: "offices", tier: "mid" },
     result: null,
     mode: "building",
     floorIndex: 0,

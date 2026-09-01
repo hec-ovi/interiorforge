@@ -8,7 +8,7 @@ import { computeStairSteps } from "./stairs.js";
 import { STAIR } from "../layout/constants.js";
 
 describe("computeStairSteps", () => {
-  const shaft = { x: 4, z: 11.5, w: 6, d: 2.5 };
+  const shaft = { u: 4, v: 11.5, lu: 6, lv: 2.5 };
 
   it("lands exactly on the next floor with legal risers, treads inside the shaft", () => {
     for (const climb of [2.6, 3.4, 4.0, 7.4, 11.8]) {
@@ -20,16 +20,16 @@ describe("computeStairSteps", () => {
       expect(riser).toBeLessThanOrEqual(STAIR.riser + 1e-9);
       expect(riser).toBeGreaterThan(0.1);
       for (const s of steps) {
-        expect(s.x).toBeGreaterThanOrEqual(shaft.x - 1e-6);
-        expect(s.x + s.w).toBeLessThanOrEqual(shaft.x + shaft.w + 1e-6);
-        expect(s.z).toBeGreaterThanOrEqual(shaft.z - 1e-6);
-        expect(s.z + s.d).toBeLessThanOrEqual(shaft.z + shaft.d + 1e-6);
+        expect(s.u).toBeGreaterThanOrEqual(shaft.u - 1e-6);
+        expect(s.u + s.lu).toBeLessThanOrEqual(shaft.u + shaft.lu + 1e-6);
+        expect(s.v).toBeGreaterThanOrEqual(shaft.v - 1e-6);
+        expect(s.v + s.lv).toBeLessThanOrEqual(shaft.v + shaft.lv + 1e-6);
       }
     }
   });
 
-  it("consecutive treads rise by at most one riser and overlap or touch in plan", () => {
-    const steps = computeStairSteps(shaft, true, 0, 3.0).filter((s) => s.w * s.d < 2); // treads only
+  it("consecutive treads rise by at most one riser", () => {
+    const steps = computeStairSteps(shaft, true, 0, 3.0).filter((s) => s.lu * s.lv < 2); // treads only
     for (let i = 1; i < steps.length; i++) {
       expect(steps[i]!.y - steps[i - 1]!.y).toBeLessThanOrEqual(STAIR.riser + 1e-9);
     }

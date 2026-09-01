@@ -17,6 +17,8 @@ export interface FixtureOptions {
   basements?: number;
   width?: number;
   depth?: number;
+  /** rotates the whole parcel in world space, like real city parcels */
+  rotationDeg?: number;
   type?: BuildingType;
   tier?: Tier;
   theme?: string;
@@ -40,15 +42,20 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
   const basements = options.basements ?? 0;
   const width = options.width ?? 26;
   const depth = options.depth ?? 20;
-  const type = options.type ?? "office";
-  const tier = options.tier ?? "standard";
+  const type = options.type ?? "offices";
+  const tier = options.tier ?? "mid";
   const theme = options.theme ?? "urbe";
 
   const rng = createRng(seed, "fixture");
   const chamfer = Math.min(width, depth) * rng.range(0.15, 0.3);
-  const outline: Point[] = [
+  const flat: Point[] = [
     [0, 0], [width, 0], [width, depth - chamfer], [width - chamfer, depth], [0, depth],
   ];
+  const rot = ((options.rotationDeg ?? 0) * Math.PI) / 180;
+  const outline: Point[] = flat.map(([x, z]) => [
+    Math.round((x * Math.cos(rot) - z * Math.sin(rot)) * 100) / 100,
+    Math.round((x * Math.sin(rot) + z * Math.cos(rot)) * 100) / 100,
+  ]);
 
   const assignments = defaultAssignments(type, floorCount, basements);
   const kinds = new Map<number, FloorKind>();

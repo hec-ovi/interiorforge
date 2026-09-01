@@ -1,3 +1,5 @@
+import type { Point } from "../core/geom.js";
+import { clipPolygonToRect, polygonArea } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
 import type { FloorKind, RoomKind } from "../core/types.js";
 import { CORRIDOR, DOOR, ELEVATOR, ROOM } from "./constants.js";
@@ -6,6 +8,15 @@ import type { FloorFrame, PlanDoor, PlanRoom } from "./plan-types.js";
 import { VENUE_KINDS } from "./frame.js";
 import { snap } from "./uv.js";
 import type { UvRect } from "./uv.js";
+
+/** Fraction of a uv rect actually inside the floor outline; irregular parcels cut
+ *  diagonals into the plate and rooms must not be created in the void. */
+export function clipRatio(rect: UvRect, uvOutline: readonly Point[]): number {
+  if (rect.lu < 1e-6 || rect.lv < 1e-6) return 0;
+  const clipped = clipPolygonToRect(uvOutline, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv });
+  if (clipped.length < 3) return 0;
+  return Math.abs(polygonArea(clipped)) / (rect.lu * rect.lv);
+}
 
 export interface IdGen {
   room(): string;
@@ -100,7 +111,7 @@ const FRONTAGE: Partial<Record<FloorKind, readonly [number, number]>> = {
 
 export function fillUnitStrip(
   strip: UvRect, corridorSide: "v0" | "v1", corridorRoom: PlanRoom, kind: FloorKind,
-  rng: Rng, ids: IdGen, unitPrefix: string,
+  rng: Rng, ids: IdGen, unitPrefix: string, uvOutline: readonly Point[],
 ): PlanRoom[] {
   if (strip.lu < ROOM.minDim || strip.lv < ROOM.minStripDepth) return [];
   const corr = corridorRoom.rect;
@@ -113,6 +124,15 @@ export function fillUnitStrip(
       widths[widths.length - 2]! += widths.pop()!;
     } else break;
   }
+  // spans mostly outside the outline merge into their neighbor instead of becoming slivers
+  for (let i = 0; i < widths.length && widths.length > 1; ) {
+    const u0 = strip.u + widths.slice(0, i).reduce((a, b) => a + b, 0);
+    if (clipRatio(uSlice(strip, u0, u0 + widths[i]!), uvOutline) < 0.5) {
+      if (i + 1 < widths.length) widths[i + 1]! += widths[i]!;
+      else widths[i - 1]! += widths[i]!;
+      widths.splice(i, 1);
+    } else i++;
+  }
   const rooms: PlanRoom[] = [];
   let u = strip.u;
   let n = 0;
@@ -120,6 +140,7 @@ export function fillUnitStrip(
     const rect = uSlice(strip, u, u + w);
     u += w;
     if (contactOf(rect.u, rect.u + rect.lu) < 1.6) continue; // lone unreachable slice: leave open
+    if (clipRatio(rect, uvOutline) < 0.5) continue; // a lone mostly-outside strip stays open
     // service rooms cluster toward the side with the least corridor contact
     const deadRight = (rect.u + rect.lu) - Math.min(rect.u + rect.lu, corr.u + corr.lu)
       > Math.max(rect.u, corr.u) - rect.u;
@@ -333,15 +354,23 @@ const BACKING_KINDS: Record<"office" | "residential" | "venue", [RoomKind, RoomK
 
 export function fillCoreBacking(
   core: CorePlan, frame: FloorFrame, kind: FloorKind, ids: IdGen, corridorRoom: PlanRoom,
+  uvOutline: readonly Point[],
 ): { rooms: PlanRoom[]; sealed: UvRect[] } {
   const block = frame.coreBlock;
-  const backDepth = block.lv - ELEVATOR.shaft;
-  const stubRect: UvRect = { u: core.stub.u, v: block.v, lu: core.stub.lu, lv: block.lv };
+  // irregular parcels may cut into the area behind the shafts: keep rooms only where the
+  // full band depth is inside, seal the rest
+  const coveredDepth = (u: number, lu: number): number => {
+    let d = 0;
+    while (d + 0.5 <= block.lv && clipRatio({ u, v: block.v, lu, lv: d + 0.5 }, uvOutline) > 0.999) d += 0.5;
+    return d;
+  };
+  const backDepth = Math.min(coveredDepth(block.u, core.stub.u - block.u), coveredDepth(core.stub.u, core.stub.lu)) - ELEVATOR.shaft;
+  const stubRect: UvRect = { u: core.stub.u, v: block.v, lu: core.stub.lu, lv: ELEVATOR.shaft + Math.max(0, backDepth) };
   const backing: UvRect = {
     u: block.u, v: block.v + ELEVATOR.shaft, lu: core.stub.u - block.u, lv: backDepth,
   };
   if (backDepth < 1.6) {
-    return { rooms: [], sealed: [{ u: block.u, v: block.v + ELEVATOR.shaft, lu: block.lu, lv: backDepth }] };
+    return { rooms: [], sealed: [{ u: block.u, v: block.v + ELEVATOR.shaft, lu: block.lu, lv: Math.max(0.5, backDepth) }] };
   }
   const stub: PlanRoom = { id: ids.room(), kind: "corridor", rect: stubRect, doors: [] };
   doorBetween(stub, corridorRoom.id, corridorRoom.rect, ids);
@@ -374,7 +403,8 @@ export function attachOutsideDoors(
     let best: { room: PlanRoom; edge: PlanDoor["edge"]; dist: number } | null = null;
     for (const room of rooms) {
       const r = room.rect;
-      if (u < r.u - 0.3 || u > r.u + r.lu + 0.3 || v < r.v - 0.3 || v > r.v + r.lv + 0.3) continue;
+      // strips snap inward from the true facade, so allow a generous band
+      if (u < r.u - 0.7 || u > r.u + r.lu + 0.7 || v < r.v - 0.7 || v > r.v + r.lv + 0.7) continue;
       const edges: [PlanDoor["edge"], number][] = [
         ["v0", Math.abs(v - r.v)], ["v1", Math.abs(v - (r.v + r.lv))],
         ["u0", Math.abs(u - r.u)], ["u1", Math.abs(u - (r.u + r.lu))],
@@ -383,7 +413,7 @@ export function attachOutsideDoors(
         if (!best || dist < best.dist) best = { room, edge, dist };
       }
     }
-    if (best && best.dist < 1.0) {
+    if (best && best.dist < 1.2) {
       best.room.doors.push({
         id: ids.door(), to: "outside", leaves: opening.leaves, width: opening.width,
         edge: best.edge, at: best.edge.startsWith("v") ? u : v,

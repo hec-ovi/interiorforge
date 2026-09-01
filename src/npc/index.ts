@@ -1,6 +1,6 @@
-import { polygonBounds } from "../core/geom.js";
 import type { InteriorRequest, NpcSupport } from "../core/types.js";
 import type { BuildingPlan } from "../layout/index.js";
+import { uvRectCenter, uvToWorld } from "../layout/uv.js";
 import { coreAnchors, floorAnchors } from "./anchors.js";
 import { buildNav } from "./nav.js";
 import { buildRoles } from "./roles.js";
@@ -13,9 +13,16 @@ export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): N
     if (floor.rooms.length === 0) continue;
     const grid = plan.navGrids.get(floor.floor)!;
     const corridor = floor.rooms.find((r) => r.kind === "corridor" || r.kind === "elevator_lobby")!;
-    const b = polygonBounds(corridor.polygon);
-    const visited = grid.flood([b.x + b.w / 2, b.z + b.d / 2]);
-    anchors.push(...floorAnchors(floor, grid, visited), ...coreAnchors(floor, grid, visited, corridor.id));
+    const uvRooms = plan.uvFloors.get(floor.floor)!.rooms;
+    const uvCorridor = uvRooms.find((r) => r.id === corridor.id)!;
+    const visited = grid.flood(uvToWorld(uvRectCenter(uvCorridor.rect), plan.core.frame));
+    const roomCenters = new Map(
+      uvRooms.map((r) => [r.id, uvToWorld(uvRectCenter(r.rect), plan.core.frame)]),
+    );
+    anchors.push(
+      ...floorAnchors(floor, grid, visited, roomCenters),
+      ...coreAnchors(floor, grid, visited, corridor.id, plan.core),
+    );
   }
   const { roles, routines } = buildRoles(plan.floors, anchors, request);
   return {
@@ -23,6 +30,6 @@ export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): N
     anchors,
     roles,
     routines,
-    nav: buildNav(plan.floors, plan.navGrids),
+    nav: buildNav(plan.floors, plan.navGrids, plan.core),
   };
 }

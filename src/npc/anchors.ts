@@ -2,6 +2,9 @@ import type { Point } from "../core/geom.js";
 import { polygonBounds, pointInPolygon } from "../core/geom.js";
 import type { WalkGrid } from "../core/grid.js";
 import type { Anchor, AnchorKind, FloorInterior, Furniture } from "../core/types.js";
+import type { CorePlan } from "../layout/index.js";
+import { elevatorWaitUv } from "../layout/index.js";
+import { uvToWorld } from "../layout/uv.js";
 
 const APPROACH = 0.9; // an anchor needs a walkable cell within this radius
 
@@ -27,15 +30,19 @@ const FURNITURE_ANCHORS: Record<string, { kind: AnchorKind; side: "front" | "beh
   kitchen_block: { kind: "work_spot", side: "front" },
 };
 
-export function floorAnchors(floor: FloorInterior, grid: WalkGrid, visited: Uint8Array): Anchor[] {
+export function floorAnchors(
+  floor: FloorInterior, grid: WalkGrid, visited: Uint8Array, roomCenters: Map<string, Point>,
+): Anchor[] {
   const anchors: Anchor[] = [];
   let n = 0;
   const tag = floor.floor < 0 ? `m${-floor.floor}` : `${floor.floor}`;
   const add = (kind: AnchorKind, room: string, position: Point, facingDeg: number, furniture?: string) => {
-    if (!hasApproach(grid, visited, position)) return;
+    // validate the exact exported position: rounding may shift the pathfinder's snap cell
+    const exported: Point = [round2(position[0]), round2(position[1])];
+    if (!hasApproach(grid, visited, exported)) return;
     anchors.push({
       id: `f${tag}-a${n++}`, floor: floor.floor, room, kind,
-      position: [round2(position[0]), round2(position[1])], facingDeg, ...(furniture ? { furniture } : {}),
+      position: exported, facingDeg, ...(furniture ? { furniture } : {}),
     });
   };
 
@@ -57,8 +64,7 @@ export function floorAnchors(floor: FloorInterior, grid: WalkGrid, visited: Uint
   }
 
   for (const room of floor.rooms) {
-    const b = polygonBounds(room.polygon);
-    const center: Point = [b.x + b.w / 2, b.z + b.d / 2];
+    const center = roomCenters.get(room.id) ?? fallbackCenter(room.polygon);
     // entrances at exterior doors
     for (const door of room.doors) {
       if (door.to !== "outside") continue;
@@ -75,59 +81,64 @@ export function floorAnchors(floor: FloorInterior, grid: WalkGrid, visited: Uint
       add("cleaning_spot", room.id, center, 180);
     }
     if (room.kind === "reception" || room.kind === "parking_area") {
-      add("patrol_point", room.id, [b.x + 1.5, b.z + 1.5], 45);
+      add("patrol_point", room.id, center, 45);
     }
   }
   return anchors;
 }
 
+function fallbackCenter(polygon: Point[]): Point {
+  const b = polygonBounds(polygon);
+  return [b.x + b.w / 2, b.z + b.d / 2];
+}
+
 /** Elevator waits and stair entries come from the core, one per floor. */
 export function coreAnchors(
-  floor: FloorInterior, grid: WalkGrid, visited: Uint8Array, corridorRoomId: string,
+  floor: FloorInterior, grid: WalkGrid, visited: Uint8Array, corridorRoomId: string, core: CorePlan,
 ): Anchor[] {
   const anchors: Anchor[] = [];
   const tag = floor.floor < 0 ? `m${-floor.floor}` : `${floor.floor}`;
   let n = 0;
-  for (const elevator of floor.core.elevators) {
-    const p = elevatorFront(elevator.rect, elevator.doorEdge);
-    if (!hasApproach(grid, visited, p)) continue;
+  // wait anchors face the frame's +v direction (into the shaft doors)
+  const intoCore = norm360(-core.frame.angleDeg);
+  core.elevators.forEach((_, i) => {
+    const p = uvToWorld(elevatorWaitUv(core, i), core.frame);
+    const exported: Point = [round2(p[0]), round2(p[1])];
+    if (!hasApproach(grid, visited, exported)) return;
     anchors.push({
       id: `f${tag}-c${n++}`, floor: floor.floor, room: corridorRoomId, kind: "elevator_wait",
-      position: [round2(p[0]), round2(p[1])], facingDeg: doorEdgeFacing(elevator.doorEdge),
+      position: exported, facingDeg: intoCore,
     });
-  }
+  });
   for (const stair of floor.core.stairs) {
-    if (!hasApproach(grid, visited, stair.entry)) continue;
+    const exported: Point = [round2(stair.entry[0]), round2(stair.entry[1])];
+    if (!hasApproach(grid, visited, exported)) continue;
     anchors.push({
       id: `f${tag}-c${n++}`, floor: floor.floor, room: corridorRoomId, kind: "stair_entry",
-      position: [round2(stair.entry[0]), round2(stair.entry[1])], facingDeg: 0,
+      position: exported, facingDeg: intoCore,
     });
   }
   return anchors;
 }
 
-export function elevatorFront(rect: { x: number; z: number; w: number; d: number }, doorEdge: number): Point {
-  switch (doorEdge) {
-    case 0: return [rect.x + rect.w / 2, rect.z - 0.8];
-    case 1: return [rect.x + rect.w + 0.8, rect.z + rect.d / 2];
-    case 2: return [rect.x + rect.w / 2, rect.z + rect.d + 0.8];
-    default: return [rect.x - 0.8, rect.z + rect.d / 2];
-  }
+function norm360(deg: number): number {
+  return Math.round(((deg % 360) + 360) % 360 * 100) / 100;
 }
 
-function doorEdgeFacing(doorEdge: number): number {
-  return [0, 270, 180, 90][doorEdge]!;
-}
-
-/** An anchor needs a corridor-reached walkable cell nearby, not just any walkable pocket. */
+/** The pathfinder snaps a query to the FIRST walkable cell in ring order (find-path.ts
+ *  nearestWalkable); an anchor is valid only when that exact cell is corridor-reached,
+ *  otherwise findPath would land in an isolated pocket. Iteration order mirrors it. */
 function hasApproach(grid: WalkGrid, visited: Uint8Array, p: Point): boolean {
   const [c0, r0] = grid.cellAt(p);
+  const reached = (c: number, r: number) => visited[r * grid.cols + c] === 1;
+  if (grid.isWalkable(c0, r0)) return reached(c0, r0);
   const radius = Math.ceil(APPROACH / grid.cellSize);
-  for (let dr = -radius; dr <= radius; dr++) {
-    for (let dc = -radius; dc <= radius; dc++) {
-      const c = c0 + dc;
-      const r = r0 + dr;
-      if (grid.isWalkable(c, r) && visited[r * grid.cols + c] === 1) return true;
+  for (let ring = 1; ring <= radius; ring++) {
+    for (let dr = -ring; dr <= ring; dr++) {
+      for (let dc = -ring; dc <= ring; dc++) {
+        if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
+        if (grid.isWalkable(c0 + dc, r0 + dr)) return reached(c0 + dc, r0 + dr);
+      }
     }
   }
   return false;

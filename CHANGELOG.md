@@ -1,3 +1,5 @@
 # Changelog
 
+0.2: rotated city parcels supported natively: layout runs in a principal-axis frame (longest street edge, entrance-facing), walls and facade lining at true angles, coreAngleDeg on floor JSONs, world-aligned nav grids unchanged for consumers. Atlas vocabulary verbatim on the contract surface (13 parcel types, tiers poor/mid/rich/high_rich, string seeds hashed internally). Preview loads real engine output. Validated end to end on parcel p1640 (19 floors, rotated decagon): all 1579 anchors route from the entrance.
+
 0.1: full deterministic pipeline: validated request in, completed GLB plus per-floor JSONs plus npc.json out. Vertical core with walkable U-return stairs and elevators on every floor, per-kind floor templates with seeded variance, furniture placeholders, wall-aware nav grid with flood-validated reachability, reference pathfinder, browser preview with a standalone floor editor. Consumes exterior blueprint v0.3 (basements, 12 m floors, floor:N/slab node naming); materials referenced as theme/kind/tier keys.

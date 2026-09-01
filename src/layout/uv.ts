@@ -1,10 +1,16 @@
-import type { Point, Rect } from "../core/geom.js";
+import type { Point } from "../core/geom.js";
 import { SNAP } from "./constants.js";
 
-/** Layout runs in uv space: u along the corridor axis, v across it.
- *  axis "x": u = x, v = z. axis "z": u = z, v = x. Pure coordinate swap, no rotation. */
+/** Layout runs in uv space: a world frame rotated so u runs along the building's principal
+ *  axis (its longest ground edge) and v across it. Pure rotation about +Y, no reflection,
+ *  so CCW polygons stay CCW in both directions. */
 
-export type Axis = "x" | "z";
+export interface Frame {
+  /** rotation of the frame's u axis in world, degrees around +Y */
+  angleDeg: number;
+  cos: number;
+  sin: number;
+}
 
 export interface UvRect {
   u: number;
@@ -13,28 +19,54 @@ export interface UvRect {
   lv: number;
 }
 
-export function toUvPoint(p: Point, axis: Axis): Point {
-  return axis === "x" ? [p[0], p[1]] : [p[1], p[0]];
+export function makeFrame(angleDeg: number): Frame {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { angleDeg, cos: Math.cos(rad), sin: Math.sin(rad) };
 }
 
-export function toWorldPoint(p: Point, axis: Axis): Point {
-  return axis === "x" ? [p[0], p[1]] : [p[1], p[0]];
+export function worldToUv([x, z]: Point, f: Frame): Point {
+  return [x * f.cos + z * f.sin, -x * f.sin + z * f.cos];
 }
 
-export function toWorldRect(r: UvRect, axis: Axis): Rect {
-  return axis === "x"
-    ? { x: r.u, z: r.v, w: r.lu, d: r.lv }
-    : { x: r.v, z: r.u, w: r.lv, d: r.lu };
+export function uvToWorld([u, v]: Point, f: Frame): Point {
+  return [u * f.cos - v * f.sin, u * f.sin + v * f.cos];
 }
 
-export function toUvRect(r: Rect, axis: Axis): UvRect {
-  return axis === "x"
-    ? { u: r.x, v: r.z, lu: r.w, lv: r.d }
-    : { u: r.z, v: r.x, lu: r.d, lv: r.w };
+export function toUvPolygon(poly: readonly Point[], f: Frame): Point[] {
+  return poly.map((p) => worldToUv(p, f));
 }
 
-export function toUvPolygon(poly: readonly Point[], axis: Axis): Point[] {
-  return poly.map((p) => toUvPoint(p, axis));
+export function toWorldPolygon(poly: readonly Point[], f: Frame): Point[] {
+  return poly.map((p) => uvToWorld(p, f));
+}
+
+export function uvRectCorners(r: UvRect): Point[] {
+  return [[r.u, r.v], [r.u + r.lu, r.v], [r.u + r.lu, r.v + r.lv], [r.u, r.v + r.lv]];
+}
+
+export function uvRectCenter(r: UvRect): Point {
+  return [r.u + r.lu / 2, r.v + r.lv / 2];
+}
+
+/** World axis-aligned bounding box of a uv rect (for grid iteration). */
+export function uvRectWorldBounds(r: UvRect, f: Frame): { x: number; z: number; w: number; d: number } {
+  const corners = uvRectCorners(r).map((p) => uvToWorld(p, f));
+  const xs = corners.map((c) => c[0]);
+  const zs = corners.map((c) => c[1]);
+  const minX = Math.min(...xs);
+  const minZ = Math.min(...zs);
+  return { x: minX, z: minZ, w: Math.max(...xs) - minX, d: Math.max(...zs) - minZ };
+}
+
+export function pointInUvRect([u, v]: Point, r: UvRect, margin = 0): boolean {
+  return u >= r.u - margin && u <= r.u + r.lu + margin && v >= r.v - margin && v <= r.v + r.lv + margin;
+}
+
+/** Center-based world rect for the schema: axis-aligned in the frame, rotated about its
+ *  own center by the floor's coreAngleDeg. */
+export function uvRectToFrameRect(r: UvRect, f: Frame): { x: number; z: number; w: number; d: number } {
+  const [cx, cz] = uvToWorld(uvRectCenter(r), f);
+  return { x: cx - r.lu / 2, z: cz - r.lv / 2, w: r.lu, d: r.lv };
 }
 
 export function snap(value: number): number {

@@ -3,15 +3,19 @@ import type { WalkGrid } from "../core/grid.js";
 import type { FloorAssignment, FloorInterior, InteriorRequest } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
 import { planCore } from "./core-plan.js";
+import type { UvFloorData } from "./plan-floor.js";
 import { planFloor } from "./plan-floor.js";
 
 export type { CorePlan } from "./core-plan.js";
-export type { PlannedFloor } from "./plan-floor.js";
+export type { PlannedFloor, UvFloorData } from "./plan-floor.js";
+export { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
 
 export interface BuildingPlan {
   floors: FloorInterior[];
   core: CorePlan;
   navGrids: Map<number, WalkGrid>;
+  /** frame-space working data per floor, for the geometry and npc passes */
+  uvFloors: Map<number, UvFloorData>;
   assignments: FloorAssignment[];
 }
 
@@ -24,6 +28,7 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
 
   const floors: FloorInterior[] = [];
   const navGrids = new Map<number, WalkGrid>();
+  const uvFloors = new Map<number, UvFloorData>();
   for (const assignment of sorted) {
     const spans = assignment.spans ?? 1;
     for (let i = 0; i < spans; i++) {
@@ -34,7 +39,8 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
       const planned = planFloor(request, core, bpFloor, assignment.kind, i > 0);
       floors.push(planned.interior);
       navGrids.set(bpFloor.index, planned.grid);
+      uvFloors.set(bpFloor.index, planned.uv);
     }
   }
-  return { floors, core, navGrids, assignments: sorted };
+  return { floors, core, navGrids, uvFloors, assignments: sorted };
 }

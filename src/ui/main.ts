@@ -1,4 +1,6 @@
 import { generateInterior, makeFixture } from "../index.js";
+import { readGlbBytes } from "../glb/io.js";
+import type { InteriorRequest } from "../core/types.js";
 import type { AppParams, AppState } from "./app-state.js";
 import { createAppState } from "./app-state.js";
 import { createPlanView } from "./views/plan-view.js";
@@ -24,6 +26,49 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
     }
   }
 
+  /** Real-building mode: shell .glb plus blueprint .json (plus the exterior request .json
+   *  for type, tier and theme) straight from the engine output directory. */
+  async function loadBuilding(files: File[]): Promise<void> {
+    state.setBusy(true);
+    try {
+      interface ExtRequest {
+        building?: { type?: string; tier?: string };
+        theme?: string;
+      }
+      let shellBytes: Uint8Array | null = null;
+      let blueprint: Record<string, unknown> | null = null;
+      let extRequest: ExtRequest | null = null;
+      for (const file of files) {
+        if (file.name.endsWith(".glb")) {
+          shellBytes = new Uint8Array(await file.arrayBuffer());
+        } else if (file.name.endsWith(".json")) {
+          const parsed = JSON.parse(await file.text()) as Record<string, unknown>;
+          if (Array.isArray(parsed.floors)) blueprint = parsed;
+          else if (parsed.building) extRequest = parsed as ExtRequest;
+        }
+      }
+      if (!shellBytes || !blueprint) throw new Error("need a shell .glb and a blueprint .json");
+      const request = {
+        seed: (blueprint.seed as string | number | undefined) ?? 1,
+        building: {
+          id: (blueprint.buildingId as string | undefined) ?? "loaded",
+          type: extRequest?.building?.type ?? "offices",
+          tier: extRequest?.building?.tier ?? "mid",
+        },
+        shellGlb: "(loaded)",
+        blueprint,
+        materialTheme: extRequest?.theme ?? "urbe",
+      } as unknown as InteriorRequest;
+      const shellDoc = await readGlbBytes(shellBytes);
+      const result = await generateInterior(request, { shellDoc });
+      state.setResult(result);
+      await viewer.setGlb(result.glb);
+      applySlice();
+    } finally {
+      state.setBusy(false);
+    }
+  }
+
   function applySlice(): void {
     const floor = state.floorData();
     if (state.mode === "floor" && floor) {
@@ -37,7 +82,10 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
 
   const side = document.createElement("div");
   side.className = "sidebar";
-  side.append(createControls(state, (p) => void regenerate(p)), createInfoPanel(state));
+  side.append(
+    createControls(state, (p) => void regenerate(p), (files) => void loadBuilding(files)),
+    createInfoPanel(state),
+  );
 
   const planWrap = document.createElement("div");
   planWrap.className = "plan-wrap";

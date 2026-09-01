@@ -95,6 +95,17 @@ export class MeshBuilder {
     this.addQuad(material, [v(a, y0), v(b, y0), v(c, y0), v(d, y0)]);
   }
 
+  /** Vertical prism over a CCW plan polygon: outward side quads plus top and bottom. */
+  addPrism(material: string, corners: readonly Point[], y0: number, y1: number): void {
+    for (let i = 0; i < corners.length; i++) {
+      const a = corners[i]!;
+      const b = corners[(i + 1) % corners.length]!;
+      this.addQuad(material, [[a[0], y0, a[1]], [a[0], y1, a[1]], [b[0], y1, b[1]], [b[0], y0, b[1]]]);
+    }
+    this.addHorizontalPolygon(material, corners, y1, "up");
+    this.addHorizontalPolygon(material, corners, y0, "down");
+  }
+
   isEmpty(): boolean {
     return this.groups.size === 0;
   }

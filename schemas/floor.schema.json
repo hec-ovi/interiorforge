@@ -4,11 +4,15 @@
   "title": "FloorInterior",
   "description": "Layout of one generated floor: vertical core, rooms, doors, furniture. Coordinates are building-local XZ meters, same space as the blueprint.",
   "type": "object",
-  "required": ["floor", "kind", "elevation", "height", "core", "rooms", "furniture"],
+  "required": ["floor", "kind", "elevation", "height", "coreAngleDeg", "core", "rooms", "furniture"],
   "additionalProperties": false,
   "properties": {
     "floor": { "type": "integer", "description": "negative = basement" },
     "kind": { "type": "string" },
+    "coreAngleDeg": {
+      "type": "number",
+      "description": "rotation of the building's layout frame around +Y; every core rect and stair step below is axis-aligned in that frame and rotates about its own center by this angle for world corners. 0 for axis-aligned buildings."
+    },
     "elevation": { "type": "number" },
     "height": { "type": "number" },
     "core": {
@@ -25,7 +29,7 @@
             "properties": {
               "id": { "type": "string", "description": "stable across floors: the shaft is vertically aligned" },
               "rect": { "$ref": "#/$defs/rect" },
-              "doorEdge": { "enum": [0, 1, 2, 3], "description": "rect edge holding the elevator door" }
+              "doorEdge": { "enum": [0, 1, 2, 3], "description": "frame-space rect edge holding the elevator door: 0 = low-v (corridor side), 1 = high-u, 2 = high-v, 3 = low-u" }
             }
           }
         },
@@ -140,7 +144,7 @@
         "w": { "type": "number", "exclusiveMinimum": 0 },
         "d": { "type": "number", "exclusiveMinimum": 0 }
       },
-      "description": "axis-aligned rectangle, x/z = min corner"
+      "description": "rectangle axis-aligned in the layout frame, x/z = min corner; rotate about its center by coreAngleDeg for world corners"
     },
     "rect3": {
       "type": "object",

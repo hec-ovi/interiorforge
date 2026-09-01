@@ -81,6 +81,18 @@ describe("planBuilding", () => {
     expect(upper.core.elevators.length).toBeGreaterThan(0);
   });
 
+  it("plans rotated parcels: frame-aligned core, validated rooms, entrance preserved", () => {
+    const rot = makeFixture({ seed: 21, floors: 8, rotationDeg: 37 });
+    const rplan = planBuilding(rot.request, resolveAssignments(rot.request));
+    const angle = ((rplan.floors[0]!.coreAngleDeg % 180) + 180) % 180;
+    expect(angle).toBeCloseTo(37, 1);
+    const f0 = rplan.floors.find((f) => f.floor === 0)!;
+    expect(f0.rooms.length).toBeGreaterThan(3);
+    expect(f0.rooms.some((r) => r.doors.some((d) => d.to === "outside"))).toBe(true);
+    const again = planBuilding(rot.request, resolveAssignments(rot.request));
+    expect(JSON.stringify(again.floors)).toBe(JSON.stringify(rplan.floors));
+  });
+
   it("rejects a plate that cannot hold the core", () => {
     const tiny = makeFixture({ seed: 1, floors: 6, width: 10, depth: 8 });
     expect(() => planBuilding(tiny.request, resolveAssignments(tiny.request))).toThrowError(

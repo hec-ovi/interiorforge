@@ -7,15 +7,24 @@
   "required": ["seed", "building", "shellGlb", "blueprint", "materialTheme"],
   "additionalProperties": false,
   "properties": {
-    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "seed": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        { "type": "string", "minLength": 1 }
+      ],
+      "description": "string seeds (e.g. the exterior seed) are hashed internally"
+    },
     "building": {
       "type": "object",
       "required": ["id", "type", "tier"],
       "additionalProperties": false,
       "properties": {
         "id": { "type": "string" },
-        "type": { "enum": ["residential", "hotel", "office", "corpo", "hospital", "police", "factory", "mixed"] },
-        "tier": { "enum": ["poor", "standard", "rich", "lux"] }
+        "type": {
+          "enum": ["residential", "hotel", "offices", "corpo", "hospital", "clinic", "police", "military", "factory", "commerce", "mall", "restaurant", "coffee_shop"],
+          "description": "atlas parcel vocabulary, verbatim"
+        },
+        "tier": { "enum": ["poor", "mid", "rich", "high_rich"] }
       }
     },
     "shellGlb": { "type": "string", "description": "path to the exterior shell GLB" },

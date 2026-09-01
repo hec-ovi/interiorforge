@@ -4,10 +4,12 @@ import type { Point, Rect } from "./geom.js";
 
 // ---- request.schema.json ----
 
+/** Atlas parcel vocabulary, adopted verbatim project-wide. */
 export type BuildingType =
-  | "residential" | "hotel" | "office" | "corpo" | "hospital" | "police" | "factory" | "mixed";
+  | "residential" | "hotel" | "offices" | "corpo" | "hospital" | "clinic" | "police"
+  | "military" | "factory" | "commerce" | "mall" | "restaurant" | "coffee_shop";
 
-export type Tier = "poor" | "standard" | "rich" | "lux";
+export type Tier = "poor" | "mid" | "rich" | "high_rich";
 
 export type FloorKind =
   | "lobby" | "office" | "corpo_office" | "restaurant" | "coffee_shop" | "gym"
@@ -20,7 +22,8 @@ export interface FloorAssignment {
 }
 
 export interface InteriorRequest {
-  seed: number;
+  /** uint32, or any string (hashed internally, e.g. the exterior seed) */
+  seed: number | string;
   building: { id: string; type: BuildingType; tier: Tier };
   shellGlb: string;
   blueprint: Blueprint;
@@ -140,6 +143,9 @@ export interface FloorInterior {
   kind: string;
   elevation: number;
   height: number;
+  /** rotation of the building's layout frame; every core rect and stair step is axis-aligned
+   *  in that frame, rotated about its own center by this angle for world corners */
+  coreAngleDeg: number;
   core: FloorCore;
   rooms: Room[];
   furniture: Furniture[];

@@ -72,6 +72,24 @@ describe("buildNpcSupport", () => {
     expect(npc.nav.connectors.find((c) => c.id === ride.connector)!.kind).toBe("elevator");
   });
 
+  it("routes across floors on a rotated parcel", () => {
+    const rot = makeFixture({ seed: 9, floors: 6, rotationDeg: -52 });
+    const rplan = planBuilding(rot.request, resolveAssignments(rot.request));
+    const rnpc = buildNpcSupport(rplan, rot.request);
+    const entrance = rnpc.anchors.find((a) => a.kind === "entrance" && a.floor === 0)!;
+    expect(entrance).toBeTruthy();
+    let unreachable = 0;
+    for (const anchor of rnpc.anchors) {
+      const legs = findPath(
+        rnpc,
+        { floor: entrance.floor, position: entrance.position },
+        { floor: anchor.floor, position: anchor.position },
+      );
+      if (!legs) unreachable++;
+    }
+    expect(unreachable).toBe(0);
+  });
+
   it("returns null for an unreachable target instead of throwing", () => {
     const entrance = npc.anchors.find((a) => a.kind === "entrance")!;
     expect(findPath(npc, { floor: 0, position: entrance.position }, { floor: 999, position: [0, 0] })).toBeNull();

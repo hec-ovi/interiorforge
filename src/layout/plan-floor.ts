@@ -9,25 +9,34 @@ import { CELL, DOOR, ELEVATOR } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildFrame, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
-import { validateAndRepair } from "./validate-floor.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
 import {
-  attachOutsideDoors, fillCoreBacking, fillOfficeStrip, fillUnitStrip, fillVenue, idGen,
+  attachOutsideDoors, clipRatio, fillCoreBacking, fillOfficeStrip, fillUnitStrip, fillVenue, idGen,
 } from "./rooms.js";
-import type { Axis, UvRect } from "./uv.js";
-import { toUvPolygon, toWorldPoint } from "./uv.js";
+import type { Frame, UvRect } from "./uv.js";
+import { toWorldPolygon, uvRectToFrameRect, uvToWorld, worldToUv } from "./uv.js";
+import { validateAndRepair } from "./validate-floor.js";
+
+/** uv-space working data a floor keeps for geometry and npc passes */
+export interface UvFloorData {
+  outline: Point[];
+  rooms: PlanRoom[];
+  furniture: PlanFurniture[];
+  sealed: UvRect[];
+}
 
 export interface PlannedFloor {
   interior: FloorInterior;
   /** wall-aware walkable grid, world space */
   grid: WalkGrid;
+  uv: UvFloorData;
 }
 
 export function planFloor(
   request: InteriorRequest, core: CorePlan, floor: BlueprintFloor, kind: FloorKind, isSpanUpper: boolean,
 ): PlannedFloor {
-  const axis = core.axis;
-  const uvOutline = toUvPolygon(floor.outline, axis);
+  const frame = core.frame;
+  const uvOutline = floor.outline.map((p) => worldToUv(p, frame));
   const ids = idGen(floor.index);
   const rng = createRng(request.seed, "floor", floor.index);
 
@@ -36,39 +45,50 @@ export function planFloor(
     return {
       interior: {
         floor: floor.index, kind, elevation: floor.elevation, height: floor.height,
-        core: coreToWorld(core, floor, []), rooms: [], furniture: [],
+        coreAngleDeg: frame.angleDeg,
+        core: coreToWorld(core, []), rooms: [], furniture: [],
       },
       // upper half of a double-height space: no slab, nothing walkable
       grid: new WalkGrid([b.x, b.z], CELL, Math.ceil(b.w / CELL), Math.ceil(b.d / CELL)),
+      uv: { outline: uvOutline, rooms: [], furniture: [], sealed: [] },
     };
   }
 
-  const frame = buildFrame(core, floor);
+  const floorFrame = buildFrame(core, floor);
   const isVenue = VENUE_KINDS.has(kind);
 
   const corridorRoom: PlanRoom = {
     id: `f${floor.index < 0 ? `m${-floor.index}` : floor.index}-corridor`,
     kind: isVenue ? "elevator_lobby" : "corridor",
-    rect: frame.corridor,
+    rect: floorFrame.corridor,
     doors: [],
   };
-  const rooms: PlanRoom[] = [corridorRoom];
+  let rooms: PlanRoom[] = [corridorRoom];
 
-  const backing = fillCoreBacking(core, frame, kind, ids, corridorRoom);
+  const backing = fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
   rooms.push(...backing.rooms);
 
   if (isVenue) {
-    rooms.push(...fillVenue(frame, corridorRoom, kind, rng, ids));
+    rooms.push(...fillVenue(floorFrame, corridorRoom, kind, rng, ids));
   } else if (kind === "office" || kind === "corpo_office") {
-    rooms.push(...fillOfficeStrip(frame.south, "v1", corridorRoom, kind === "corpo_office", rng, ids, `f${floor.index}-s`));
-    frame.northSegments.forEach((seg, i) => {
+    rooms.push(...fillOfficeStrip(floorFrame.south, "v1", corridorRoom, kind === "corpo_office", rng, ids, `f${floor.index}-s`));
+    floorFrame.northSegments.forEach((seg, i) => {
       rooms.push(...fillOfficeStrip(seg, "v0", corridorRoom, false, rng, ids, `f${floor.index}-n${i}`));
     });
   } else {
-    rooms.push(...fillUnitStrip(frame.south, "v1", corridorRoom, kind, rng, ids, `f${floor.index}-s`));
-    frame.northSegments.forEach((seg, i) => {
-      rooms.push(...fillUnitStrip(seg, "v0", corridorRoom, kind, rng, ids, `f${floor.index}-n${i}`));
+    rooms.push(...fillUnitStrip(floorFrame.south, "v1", corridorRoom, kind, rng, ids, `f${floor.index}-s`, uvOutline));
+    floorFrame.northSegments.forEach((seg, i) => {
+      rooms.push(...fillUnitStrip(seg, "v0", corridorRoom, kind, rng, ids, `f${floor.index}-n${i}`, uvOutline));
     });
+  }
+
+  // rooms mostly outside an irregular outline are void: drop them and their doors
+  const dropped = new Set(
+    rooms.filter((r) => r !== corridorRoom && clipRatio(r.rect, uvOutline) < 0.35).map((r) => r.id),
+  );
+  if (dropped.size > 0) {
+    rooms = rooms.filter((r) => !dropped.has(r.id));
+    for (const r of rooms) r.doors = r.doors.filter((d) => !dropped.has(d.to));
   }
 
   // exterior doors (entrances, balcony doors) land on whichever room faces them
@@ -77,24 +97,26 @@ export function planFloor(
     .map((o) => {
       const world = doorWorldPoint(floor, o.edge, o.offset + o.width / 2);
       const leaves = Math.min(4, Math.max(1, Math.round(o.width / DOOR.single))) as 1 | 2 | 3 | 4;
-      return { at: toUvPolygon([world], axis)[0] as [number, number], width: o.width, leaves };
+      return { at: worldToUv(world, frame) as [number, number], width: o.width, leaves };
     });
   attachOutsideDoors(rooms, exteriorDoors, ids);
 
   const furniture = furnish(rooms, kind, rng, ids, uvOutline);
 
   const grid = validateAndRepair(
-    floor.outline, rooms, furniture, backing.sealed, core, axis, floor.index, ids,
+    floor.outline, uvOutline, rooms, furniture, backing.sealed, core, floor.index, ids,
   );
 
   return {
     interior: {
       floor: floor.index, kind, elevation: floor.elevation, height: floor.height,
-      core: coreToWorld(core, floor, backing.sealed),
-      rooms: rooms.map((r) => roomToWorld(r, uvOutline, axis)),
-      furniture: furniture.map((f) => furnitureToWorld(f, axis)),
+      coreAngleDeg: frame.angleDeg,
+      core: coreToWorld(core, backing.sealed),
+      rooms: rooms.map((r) => roomToWorld(r, uvOutline, frame)),
+      furniture: furniture.map((f) => furnitureToWorld(f, frame)),
     },
     grid,
+    uv: { outline: uvOutline, rooms, furniture, sealed: backing.sealed },
   };
 }
 
@@ -105,57 +127,58 @@ function doorWorldPoint(floor: BlueprintFloor, edge: number, along: number): Poi
   return [p0[0] + ((p1[0] - p0[0]) * along) / len, p0[1] + ((p1[1] - p0[1]) * along) / len];
 }
 
-function coreToWorld(core: CorePlan, floor: BlueprintFloor, sealed: UvRect[]): FloorInterior["core"] {
-  const axis = core.axis;
-  // rect edge indexes: 0 = zMin, 1 = xMax, 2 = zMax, 3 = xMin; core faces the corridor at uv v0
-  const faceEdge = axis === "x" ? 0 : 3;
-  const stairEntryA: Point = [core.stairA ? uvStairAEntryU(core) : 0, core.vFace - 0.6];
+/** Frame-space stair entry points, exported for nav and validation. */
+export function stairEntryUv(core: CorePlan, stair: "a" | "b"): Point {
+  if (stair === "a") {
+    return [core.stairA.u + core.stairA.lu - 0.7, core.vFace - 0.6];
+  }
+  const b = core.stairB!;
+  return [b.u - 0.6, b.v + b.lv / 2];
+}
+
+/** Frame-space elevator wait point in front of a shaft. */
+export function elevatorWaitUv(core: CorePlan, elevatorIndex: number): Point {
+  const rect = core.elevators[elevatorIndex]!.rect;
+  return [rect.u + ELEVATOR.shaft / 2, core.vFace - 0.8];
+}
+
+function coreToWorld(core: CorePlan, sealed: UvRect[]): FloorInterior["core"] {
+  const frame = core.frame;
   const stairs = [{
     id: "stair-a",
-    rect: core.stairA,
+    rect: uvRectToFrameRect(core.stairA, frame),
     style: core.stairStyle,
-    entry: toWorldPoint(stairEntryA, axis),
+    entry: uvToWorld(stairEntryUv(core, "a"), frame),
   }];
   if (core.stairB) {
-    const uv = { u: axis === "x" ? core.stairB.x : core.stairB.z, v: axis === "x" ? core.stairB.z : core.stairB.x };
     stairs.push({
       id: "stair-b",
-      rect: core.stairB,
+      rect: uvRectToFrameRect(core.stairB, frame),
       style: core.stairStyle,
-      entry: toWorldPoint([uv.u - 0.6, core.vFace - 1.25], axis),
+      entry: uvToWorld(stairEntryUv(core, "b"), frame),
     });
   }
   return {
-    elevators: core.elevators.map((e) => ({ id: e.id, rect: e.rect, doorEdge: faceEdge as 0 | 1 | 2 | 3 })),
+    // door edge 0 = the frame's low-v side, always the corridor face
+    elevators: core.elevators.map((e) => ({ id: e.id, rect: uvRectToFrameRect(e.rect, frame), doorEdge: 0 as const })),
     stairs,
-    shafts: [core.riser, ...sealed.map((s) => rectToWorld(s, axis))],
+    shafts: [uvRectToFrameRect(core.riser, frame), ...sealed.map((s) => uvRectToFrameRect(s, frame))],
   };
 }
 
-function uvStairAEntryU(core: CorePlan): number {
-  const uv = core.axis === "x"
-    ? { u: core.stairA.x, lu: core.stairA.w }
-    : { u: core.stairA.z, lu: core.stairA.d };
-  return uv.u + uv.lu - 0.7;
-}
-
-function rectToWorld(r: UvRect, axis: Axis) {
-  return axis === "x" ? { x: r.u, z: r.v, w: r.lu, d: r.lv } : { x: r.v, z: r.u, w: r.lv, d: r.lu };
-}
-
-function roomToWorld(room: PlanRoom, uvOutline: Point[], axis: Axis): Room {
+function roomToWorld(room: PlanRoom, uvOutline: Point[], frame: Frame): Room {
   const clipped = clipPolygonToRect(uvOutline, {
     x: room.rect.u, z: room.rect.v, w: room.rect.lu, d: room.rect.lv,
   });
   const polyUv = clipped.length >= 3 ? clipped : rectPoly(room.rect);
-  let polygon = polyUv.map((p) => toWorldPoint(p, axis));
+  let polygon = toWorldPolygon(polyUv, frame).map(roundPoint);
   if (!isCcw(polygon)) polygon = polygon.reverse();
   return {
     id: room.id,
     kind: room.kind,
     polygon,
     ...(room.unit ? { unit: room.unit } : {}),
-    doors: room.doors.map((d) => doorToWorld(d, room, axis)),
+    doors: room.doors.map((d) => doorToWorld(d, room, frame)),
   };
 }
 
@@ -173,35 +196,34 @@ export function doorUvPoint(door: PlanDoor, room: PlanRoom): Point {
   }
 }
 
-function doorToWorld(door: PlanDoor, room: PlanRoom, axis: Axis): Door {
+function doorToWorld(door: PlanDoor, room: PlanRoom, frame: Frame): Door {
   const alongU = door.edge === "v0" || door.edge === "v1";
   const uvAngle = alongU ? 0 : 90;
-  const angleDeg = axis === "x" ? uvAngle : 90 - uvAngle;
   return {
     id: door.id,
     to: door.to,
     leaves: door.leaves,
     width: door.width,
-    position: toWorldPoint(doorUvPoint(door, room), axis),
-    angleDeg,
+    position: roundPoint(uvToWorld(doorUvPoint(door, room), frame)),
+    angleDeg: norm360(uvAngle + frame.angleDeg),
   };
 }
 
-function furnitureToWorld(f: PlanFurniture, axis: Axis) {
-  const rotationDeg = axis === "x" ? f.rotationDeg : (f.rotationDeg + 90) % 360;
+function furnitureToWorld(f: PlanFurniture, frame: Frame) {
   return {
     id: f.id,
     kind: f.kind,
     room: f.room,
-    position: toWorldPoint(f.at, axis),
-    rotationDeg,
+    position: roundPoint(uvToWorld(f.at, frame)),
+    rotationDeg: norm360(f.rotationDeg + frame.angleDeg),
     size: f.size,
   };
 }
 
-/** Elevator wait point on the corridor side of a shaft, uv space. */
-export function elevatorWaitUv(core: CorePlan, elevatorIndex: number): Point {
-  const rect = core.elevators[elevatorIndex]!.rect;
-  const u = (core.axis === "x" ? rect.x : rect.z) + ELEVATOR.shaft / 2;
-  return [u, core.vFace - 0.8];
+function norm360(deg: number): number {
+  return Math.round(((deg % 360) + 360) % 360 * 100) / 100;
+}
+
+function roundPoint([x, z]: Point): Point {
+  return [Math.round(x * 1000) / 1000, Math.round(z * 1000) / 1000];
 }

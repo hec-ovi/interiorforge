@@ -1,10 +1,15 @@
 import type { Point } from "../core/geom.js";
-import type { BlueprintFloor, FloorInterior } from "../core/types.js";
+import { clipPolygonToRect } from "../core/geom.js";
+import type { BlueprintFloor } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { WALL } from "../layout/constants.js";
+import { doorUvPoint } from "../layout/plan-floor.js";
+import type { PlanRoom } from "../layout/plan-types.js";
+import type { Frame, UvRect } from "../layout/uv.js";
+import { uvRectCorners, uvToWorld } from "../layout/uv.js";
 import type { MaterialKeys } from "./materials.js";
 
-/** A hole in a wall line: `at` runs along the line, y absolute. */
+/** A hole in a wall line: `at` runs along the line in uv, y absolute. */
 export interface WallHole {
   at: number;
   width: number;
@@ -12,8 +17,14 @@ export interface WallHole {
   y1: number;
 }
 
+/** Wall lines live in uv space: "H" runs along u at v = c, "V" along v at u = c. */
+export interface UvWallHole {
+  axis: "H" | "V";
+  c: number;
+  hole: WallHole;
+}
+
 interface WallLine {
-  /** "H" walls run along x at z = c; "V" walls run along z at x = c */
   axis: "H" | "V";
   c: number;
   intervals: [number, number][];
@@ -28,10 +39,11 @@ export function doorHeadHeight(leaves: number, floorHeight: number): number {
   return Math.min(head, floorHeight - 0.3);
 }
 
-/** Interior walls of one floor: the union of room edges off the facade, with door holes. */
+/** Interior walls of one floor: the union of room edges off the facade, with door holes.
+ *  Extraction runs in uv space where rooms are axis-aligned; emission rotates to world. */
 export function buildInteriorWalls(
-  mb: MeshBuilder, keys: MaterialKeys, floor: FloorInterior, outline: Point[],
-  extraHoles: { axis: "H" | "V"; c: number; hole: WallHole }[], wallTop: number,
+  mb: MeshBuilder, keys: MaterialKeys, rooms: PlanRoom[], uvOutline: Point[], frame: Frame,
+  elevation: number, wallTop: number, floorHeight: number, extraHoles: UvWallHole[],
 ): void {
   const lines = new Map<string, WallLine>();
   const lineFor = (axis: "H" | "V", c: number): WallLine => {
@@ -44,27 +56,31 @@ export function buildInteriorWalls(
     return line;
   };
 
-  for (const room of floor.rooms) {
-    const poly = room.polygon;
+  for (const room of rooms) {
+    const clipped = clipPolygonToRect(uvOutline, {
+      x: room.rect.u, z: room.rect.v, w: room.rect.lu, d: room.rect.lv,
+    });
+    const poly = clipped.length >= 3 ? clipped : uvRectCorners(room.rect);
     for (let i = 0; i < poly.length; i++) {
       const a = poly[i]!;
       const b = poly[(i + 1) % poly.length]!;
       const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-      if (onBoundary(mid, outline)) continue;
+      if (onBoundary(mid, uvOutline)) continue;
       if (Math.abs(a[1] - b[1]) < 1e-6) {
         lineFor("H", a[1]).intervals.push([Math.min(a[0], b[0]), Math.max(a[0], b[0])]);
       } else if (Math.abs(a[0] - b[0]) < 1e-6) {
         lineFor("V", a[0]).intervals.push([Math.min(a[1], b[1]), Math.max(a[1], b[1])]);
       }
-      // diagonal interior edges cannot occur: rects clipped only by the facade
+      // other angles only occur on the facade, which the boundary test skipped
     }
     for (const door of room.doors) {
       if (door.to === "outside") continue; // hole handled by the facade lining
-      const head = floor.elevation + doorHeadHeight(door.leaves, floor.height);
-      if (door.angleDeg === 0 || door.angleDeg === 180) {
-        lineFor("H", door.position[1]).holes.push({ at: door.position[0], width: door.width, y0: floor.elevation, y1: head });
+      const [u, v] = doorUvPoint(door, room);
+      const head = elevation + doorHeadHeight(door.leaves, floorHeight);
+      if (door.edge.startsWith("v")) {
+        lineFor("H", v).holes.push({ at: u, width: door.width, y0: elevation, y1: head });
       } else {
-        lineFor("V", door.position[0]).holes.push({ at: door.position[1], width: door.width, y0: floor.elevation, y1: head });
+        lineFor("V", u).holes.push({ at: v, width: door.width, y0: elevation, y1: head });
       }
     }
   }
@@ -76,21 +92,23 @@ export function buildInteriorWalls(
   for (const line of lines.values()) {
     for (const [a, b] of mergeIntervals(line.intervals)) {
       const holes = line.holes.filter((h) => h.at > a && h.at < b);
-      emitWallRun(mb, material, line, a, b, floor.elevation, wallTop, holes);
+      emitWallRun(mb, material, frame, line, a, b, elevation, wallTop, holes);
     }
   }
 }
 
 function emitWallRun(
-  mb: MeshBuilder, material: string, line: WallLine, a: number, b: number,
+  mb: MeshBuilder, material: string, frame: Frame, line: WallLine, a: number, b: number,
   y0: number, y1: number, holes: WallHole[],
 ): void {
   const sorted = [...holes].sort((h1, h2) => h1.at - h2.at);
   let cursor = a;
   const solid = (s: number, e: number, sy0: number, sy1: number) => {
     if (e - s < 1e-3 || sy1 - sy0 < 1e-3) return;
-    if (line.axis === "H") mb.addBox(material, { x: s, z: line.c - WALL / 2, w: e - s, d: WALL }, sy0, sy1);
-    else mb.addBox(material, { x: line.c - WALL / 2, z: s, w: WALL, d: e - s }, sy0, sy1);
+    const rect: UvRect = line.axis === "H"
+      ? { u: s, v: line.c - WALL / 2, lu: e - s, lv: WALL }
+      : { u: line.c - WALL / 2, v: s, lu: WALL, lv: e - s };
+    mb.addPrism(material, uvRectCorners(rect).map((p) => uvToWorld(p, frame)), sy0, sy1);
   };
   for (const hole of sorted) {
     const h0 = Math.max(a, hole.at - hole.width / 2);
@@ -103,7 +121,8 @@ function emitWallRun(
   solid(cursor, b, y0, y1);
 }
 
-/** Facade lining: the interior face of the exterior wall, window and door holes included. */
+/** Facade lining: the interior face of the exterior wall, window and door holes included.
+ *  Works on the world outline directly, any edge angle. */
 export function buildFacadeLining(
   mb: MeshBuilder, keys: MaterialKeys, bpFloor: BlueprintFloor, wallTop: number,
 ): void {

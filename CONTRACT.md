@@ -2,13 +2,13 @@
 
 Purpose: deterministically fills one building shell with interiors per floor and exports NPC routine placeholders and walk paths for that instance.
 
-Status: implemented (0.1). Simulation builds against `schemas/npc.schema.json`.
+Status: implemented (0.2). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
 
 ## In
 
 One `InteriorRequest`: [schemas/request.schema.json](schemas/request.schema.json)
 
-- `seed` uint32, `building` (id, type, tier), `shellGlb` path, `materialTheme`
+- `seed` uint32 or any string (hashed internally; the exterior seed works directly), `building` (id, atlas parcel type verbatim, atlas tier poor|mid|rich|high_rich), `shellGlb` path, `materialTheme`
 - `blueprint`: consumer view of the canonical exterior blueprint (v0.3: basements as negative indexes, heights to 12 m, per-floor kind slug, extra exterior sections accepted and ignored): [schemas/blueprint.schema.json](schemas/blueprint.schema.json)
 - `assignments` (optional): one floor kind per floor (lobby, office, corpo_office, restaurant, coffee_shop, gym, residence_studio, apartment, hotel_rooms, mechanical, parking, terrace); `spans: 2` for double-height floors. When omitted, derived deterministically from the blueprint floor kind slugs and building type.
 
@@ -19,7 +19,7 @@ Units meters, building-local space, +Y up, XZ floor plane, CCW polygons.
 One `InteriorResult` written to an output directory:
 
 - `building.glb`: the shell completed with interiors (slabs with core holes, walls, doors, stairs, elevator shafts, furniture placeholders). Materials are named by the canonical key `theme/kind/tier` (lowercase slugs, e.g. `cyberpunk/concrete/poor`); the materials box resolves them.
-- `floors/NNN.json`, one per floor: [schemas/floor.schema.json](schemas/floor.schema.json): vertical core (elevators, stairs with tread geometry, shafts), rooms with polygons and doors (1 to 4 leaves), furniture placements.
+- `floors/NNN.json`, one per floor: [schemas/floor.schema.json](schemas/floor.schema.json): vertical core (elevators, stairs with tread geometry, shafts), rooms with polygons and doors (1 to 4 leaves), furniture placements. Irregular parcels rotate the layout frame: `coreAngleDeg` gives the frame rotation, core rects and stair steps are frame-axis-aligned and rotate about their centers; room polygons, door positions and furniture are plain world space.
 - `npc.json`: [schemas/npc.schema.json](schemas/npc.schema.json): anchors (usable positions), supported roles with counts, routine loops (anchor, dwell minutes range, animation), nav data: per-floor walkable grid plus stair/elevator connectors.
 
 Library surface (TypeScript):
@@ -27,7 +27,7 @@ Library surface (TypeScript):
 - `generateInterior(request, { shellDoc? }) -> Promise<InteriorResult>`: deterministic; same request, identical output. `shellDoc` (a parsed GLB document) skips reading `shellGlb` from disk.
 - `findPath(npc, from {floor, position}, to {floor, position}) -> PathLeg[] | null`: obstacle-avoiding route between any two walkable points; each leg is a same-floor point list or a connector ride. Reference implementation over `npc.json`; simulation may reimplement from the schema alone.
 - `makeFixture(options)`: seeded stand-in exterior (shell GLB document plus blueprint) so this box runs with no other layer present.
-- CLI: `npm run generate -- --seed N --floors N [--basements N --type T --tier T --out DIR]` writes `building.glb`, `floors/*.json`, `npc.json`. Preview: `npm run preview` (panoptic 3D view plus standalone floor editor with walk-path testing).
+- CLI: `npm run generate -- --seed N --floors N [--basements N --type T --tier T --out DIR]` writes `building.glb`, `floors/*.json`, `npc.json`. Preview: `npm run preview` (panoptic 3D view plus standalone floor editor with walk-path testing; loads real engine output: shell .glb + blueprint .json + exterior request .json).
 - Shell slab replacement: the shell's `floor:<index>/slab` nodes are removed and re-emitted as room slabs with real stair and elevator holes.
 
 ## Errors

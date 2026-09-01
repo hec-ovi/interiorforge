@@ -3,10 +3,11 @@ import type { Point } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildNavGrid } from "./navgrid.js";
+import { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
 import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import { doorBetween, type IdGen } from "./rooms.js";
-import type { Axis, UvRect } from "./uv.js";
-import { toWorldPoint, toWorldRect } from "./uv.js";
+import type { UvRect } from "./uv.js";
+import { pointInUvRect, uvRectCenter, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
 
 const MAX_REPAIRS = 20;
 
@@ -14,19 +15,17 @@ const MAX_REPAIRS = 20;
  *  corridor, and repairs unreached rooms by adding a door to a reached neighbor.
  *  Deterministic; throws E_UNREACHABLE_SPACE when repair cannot fix the floor. */
 export function validateAndRepair(
-  outline: readonly Point[], rooms: PlanRoom[], furniture: PlanFurniture[], sealed: UvRect[],
-  core: CorePlan, axis: Axis, floorIndex: number, ids: IdGen,
+  worldOutline: readonly Point[], uvOutline: readonly Point[], rooms: PlanRoom[],
+  furniture: PlanFurniture[], sealed: UvRect[], core: CorePlan, floorIndex: number, ids: IdGen,
 ): WalkGrid {
   const corridor = rooms.find((r) => r.kind === "corridor" || r.kind === "elevator_lobby");
   if (!corridor) throw new InteriorError("E_UNREACHABLE_SPACE", "floor has no corridor room", floorIndex);
-  const start = toWorldPoint(
-    [corridor.rect.u + corridor.rect.lu / 2, corridor.rect.v + corridor.rect.lv / 2], axis,
-  );
+  const start = uvToWorld(uvRectCenter(corridor.rect), core.frame);
 
   for (let attempt = 0; ; attempt++) {
-    const grid = buildNavGrid(outline, rooms, furniture, sealed, core, axis);
+    const grid = buildNavGrid(worldOutline, uvOutline, rooms, furniture, sealed, core);
     const visited = grid.flood(start);
-    const unreached = rooms.filter((room) => !roomReached(grid, visited, room, axis));
+    const unreached = rooms.filter((room) => !roomReached(grid, visited, room, core));
 
     if (unreached.length === 0) {
       ensureCoreReached(grid, visited, core, floorIndex);
@@ -39,7 +38,7 @@ export function validateAndRepair(
         floorIndex,
       );
     }
-    const fixed = repairOne(unreached, rooms, grid, visited, axis, ids);
+    const fixed = repairOne(unreached, rooms, grid, visited, core, ids);
     if (!fixed) {
       throw new InteriorError(
         "E_UNREACHABLE_SPACE",
@@ -50,43 +49,34 @@ export function validateAndRepair(
   }
 }
 
-function roomReached(grid: WalkGrid, visited: Uint8Array, room: PlanRoom, axis: Axis): boolean {
-  return sampleCells(grid, room.rect, axis, (c, r) => visited[r * grid.cols + c] === 1);
+function roomReached(grid: WalkGrid, visited: Uint8Array, room: PlanRoom, core: CorePlan): boolean {
+  return sampleCells(grid, room.rect, core, (c, r) => visited[r * grid.cols + c] === 1);
 }
 
-/** True when any walkable-and-matching cell whose CENTER lies inside the rect exists. */
+/** True when any walkable-and-matching cell whose center falls inside the uv rect exists. */
 function sampleCells(
-  grid: WalkGrid, rect: UvRect, axis: Axis, match: (c: number, r: number) => boolean,
+  grid: WalkGrid, rect: UvRect, core: CorePlan, match: (c: number, r: number) => boolean,
 ): boolean {
-  const world = toWorldRect(rect, axis);
-  const [c0, r0] = grid.cellAt([world.x, world.z]);
-  const [c1, r1] = grid.cellAt([world.x + world.w, world.z + world.d]);
+  const bbox = uvRectWorldBounds(rect, core.frame);
+  const [c0, r0] = grid.cellAt([bbox.x, bbox.z]);
+  const [c1, r1] = grid.cellAt([bbox.x + bbox.w, bbox.z + bbox.d]);
   for (let r = Math.max(0, r0); r <= Math.min(grid.rows - 1, r1); r++) {
     for (let c = Math.max(0, c0); c <= Math.min(grid.cols - 1, c1); c++) {
-      const [x, z] = grid.center(c, r);
-      if (x < world.x || x > world.x + world.w || z < world.z || z > world.z + world.d) continue;
-      if (grid.isWalkable(c, r) && match(c, r)) return true;
+      if (!grid.isWalkable(c, r)) continue;
+      if (!pointInUvRect(worldToUv(grid.center(c, r), core.frame), rect)) continue;
+      if (match(c, r)) return true;
     }
   }
   return false;
 }
 
 function ensureCoreReached(grid: WalkGrid, visited: Uint8Array, core: CorePlan, floorIndex: number): void {
-  const targets: [string, Point][] = [];
-  const aUv = core.axis === "x"
-    ? { u: core.stairA.x, lu: core.stairA.w }
-    : { u: core.stairA.z, lu: core.stairA.d };
-  targets.push(["stair-a", toWorldPoint([aUv.u + aUv.lu - 0.7, core.vFace - 0.8], core.axis)]);
+  const targets: [string, Point][] = [["stair-a", uvToWorld([stairEntryUv(core, "a")[0], core.vFace - 0.8], core.frame)]];
   if (core.stairB) {
-    const bUv = core.axis === "x"
-      ? { u: core.stairB.x, v: core.stairB.z, lv: core.stairB.d }
-      : { u: core.stairB.z, v: core.stairB.x, lv: core.stairB.w };
-    targets.push(["stair-b", toWorldPoint([bUv.u - 0.8, bUv.v + bUv.lv / 2], core.axis)]);
+    targets.push(["stair-b", uvToWorld(stairEntryUv(core, "b"), core.frame)]);
   }
-  core.elevators.forEach((e, i) => {
-    const u = (core.axis === "x" ? e.rect.x : e.rect.z) + (core.axis === "x" ? e.rect.w : e.rect.d) / 2;
-    targets.push([e.id, toWorldPoint([u, core.vFace - 0.8], core.axis)]);
-    void i;
+  core.elevators.forEach((_, i) => {
+    targets.push([core.elevators[i]!.id, uvToWorld(elevatorWaitUv(core, i), core.frame)]);
   });
   for (const [id, point] of targets) {
     if (!nearReached(grid, visited, point)) {
@@ -110,12 +100,10 @@ function nearReached(grid: WalkGrid, visited: Uint8Array, p: Point): boolean {
 
 function repairOne(
   unreached: PlanRoom[], rooms: PlanRoom[], grid: WalkGrid, visited: Uint8Array,
-  axis: Axis, ids: IdGen,
+  core: CorePlan, ids: IdGen,
 ): boolean {
   for (const room of unreached) {
-    const reachedRooms = rooms.filter(
-      (r) => r !== room && roomReached(grid, visited, r, axis),
-    );
+    const reachedRooms = rooms.filter((r) => r !== room && roomReached(grid, visited, r, core));
     // prefer public rooms so the repair door lands somewhere sensible
     reachedRooms.sort((a, b) => publicRank(a) - publicRank(b));
     for (const target of reachedRooms) {

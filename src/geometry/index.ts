@@ -6,19 +6,20 @@ import type { BuildingPlan } from "../layout/index.js";
 import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorShaftWalls } from "./core-geo.js";
 import { emitFurniture } from "./furniture-geo.js";
 import { MaterialKeys } from "./materials.js";
-import { computeStairSteps, emitStairMeshes, entryAtLowEnd, stairEntryHole } from "./stairs.js";
+import { computeStairSteps, emitStairMeshes, entryAtLowEnd, stairEntryHole, stepToFrameRect } from "./stairs.js";
 import { buildFloorSurfaces, buildShaftFloors } from "./surfaces.js";
 import { buildFacadeLining, buildInteriorWalls } from "./walls.js";
 
 export interface InteriorGeometry {
   doc: Document;
-  /** floor index -> stair id -> world tread and landing tops */
+  /** floor index -> stair id -> frame-space tread and landing tops (see coreAngleDeg) */
   stepsByFloor: Map<number, Record<string, Rect3[]>>;
 }
 
 /** Completes the shell document with the full interior. Mutates and returns shellDoc. */
 export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shellDoc: Document): InteriorGeometry {
   const keys = new MaterialKeys(request.materialTheme, request.building.tier);
+  const core = plan.core;
   const mb = new MeshBuilder();
   const stepsByFloor = new Map<number, Record<string, Rect3[]>>();
   const sorted = [...plan.floors].sort((a, b) => a.floor - b.floor);
@@ -26,6 +27,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
 
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
+    const uv = plan.uvFloors.get(floor.floor)!;
     // the ceiling of a spans-2 floor sits at the top of its open upper half
     const upper = sorted[i + 1]?.rooms.length === 0 ? sorted[i + 1] : undefined;
     const wallTop = floor.elevation + floor.height + (upper?.height ?? 0);
@@ -33,35 +35,38 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     // stairs climb to the next floor that has a slab
     const target = sorted.slice(i + 1).find((f) => f.rooms.length > 0);
     if (floor.rooms.length > 0 && target) {
-      for (const stair of floor.core.stairs) {
-        const steps = computeStairSteps(stair.rect, entryAtLowEnd(stair), floor.elevation, target.elevation - floor.elevation);
+      const stairIds: ("a" | "b")[] = core.stairB ? ["a", "b"] : ["a"];
+      for (const which of stairIds) {
+        const shaft = which === "a" ? core.stairA : core.stairB!;
+        const steps = computeStairSteps(shaft, entryAtLowEnd(core, which), floor.elevation, target.elevation - floor.elevation);
         const record = stepsByFloor.get(floor.floor) ?? {};
-        record[stair.id] = steps;
+        record[`stair-${which}`] = steps.map((s) => stepToFrameRect(s, core.frame));
         stepsByFloor.set(floor.floor, record);
-        emitStairMeshes(mb, keys, steps);
+        emitStairMeshes(mb, keys, core.frame, steps);
       }
     }
 
     if (floor.rooms.length === 0) {
-      emitOpenFloorShaftWalls(mb, keys, floor, floor.elevation + floor.height);
+      emitOpenFloorShaftWalls(mb, keys, core, uv.sealed, floor.elevation, floor.elevation + floor.height);
       continue;
     }
 
     const bpFloor = bpByIndex.get(floor.floor)!;
     const holes = [
-      ...floor.core.elevators.map((e) => elevatorDoorHole(e, floor.elevation)),
-      ...floor.core.stairs.map((s) => stairEntryHole(s, floor.elevation)),
+      ...core.elevators.map((_, idx) => elevatorDoorHole(core, idx, floor.elevation)),
+      stairEntryHole(core, "a", floor.elevation),
+      ...(core.stairB ? [stairEntryHole(core, "b", floor.elevation)] : []),
     ];
     buildFloorSurfaces(mb, keys, floor, floor.height + (upper?.height ?? 0));
-    buildInteriorWalls(mb, keys, floor, bpFloor.outline, holes, wallTop);
+    buildInteriorWalls(mb, keys, uv.rooms, uv.outline, core.frame, floor.elevation, wallTop, floor.height, holes);
     buildFacadeLining(mb, keys, bpFloor, wallTop);
-    emitCoreDividers(mb, keys, floor, wallTop);
-    emitElevatorDoors(mb, keys, floor);
-    emitFurniture(mb, keys, floor);
+    emitCoreDividers(mb, keys, core, floor.elevation, wallTop);
+    emitElevatorDoors(mb, keys, core, floor.elevation);
+    emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation);
   }
 
   const lowest = sorted.find((f) => f.rooms.length > 0)!;
-  buildShaftFloors(mb, keys, lowest);
+  buildShaftFloors(mb, keys, core, lowest.elevation);
 
   removeShellSeparators(shellDoc);
   appendToDocument(shellDoc, mb);

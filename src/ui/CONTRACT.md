@@ -8,7 +8,7 @@ Run: `npm run preview` (Vite dev server).
 
 - `views/viewer3d.ts`: `Viewer3D` interface: `setGlb(bytes)`, `setFloorSlice({y0, y1} | null)`, `el`. `createViewer3d()` implements it with three.js (orbit controls, clipping planes for the floor slice); tests inject a fake.
 - `views/plan-view.ts`: `createPlanView(state)`: SVG floor plan of the selected floor: room polygons (click to select), doors, furniture, anchors, nav path overlay. Two plan clicks run `findPath` on the current floor and draw the route.
-- `widgets/controls.ts`: `createControls(state, onGenerate)`: fixture parameters (seed, floors, basements, type, tier), generate button, mode toggle (building | floor), floor selector.
+- `widgets/controls.ts`: `createControls(state, onGenerate, onLoadFiles)`: fixture parameters (seed, floors, basements, type, tier), generate button, real-building loader (shell .glb + blueprint .json + exterior request .json in one multi-file pick), mode toggle (building | floor), floor selector.
 - `widgets/info-panel.ts`: `createInfoPanel(state)`: details of the selected room (kind, unit, doors, furniture, anchors) and path status.
 - `app-state.ts`: `createAppState()`: params, result, mode, floor index, selection, path; `on(event, cb)` with events `result`, `mode`, `floor`, `selection`, `path`, `busy`.
 - `components/dom.ts`: `el()` element builder, labeled field helpers.

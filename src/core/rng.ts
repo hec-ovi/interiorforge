@@ -35,10 +35,14 @@ function sfc32(a: number, b: number, c: number, d: number): () => number {
   };
 }
 
-/** FNV-1a over the string form of each key, folded into the seed. */
-function hashKeys(seed: number, keys: readonly (string | number)[]): number {
-  let h = 0x811c9dc5 ^ (seed >>> 0);
-  for (const key of keys) {
+/** FNV-1a over the string form of each key, folded into the seed. String seeds hash the
+ *  same way, so exterior's string seeds work directly. */
+function hashKeys(seed: number | string, keys: readonly (string | number)[]): number {
+  let h = 0x811c9dc5;
+  if (typeof seed === "number") h ^= seed >>> 0;
+  let all: readonly (string | number)[] = keys;
+  if (typeof seed === "string") all = [seed, ...keys];
+  for (const key of all) {
     for (const ch of String(key)) {
       h ^= ch.codePointAt(0)!;
       h = Math.imul(h, 0x01000193);
@@ -49,7 +53,7 @@ function hashKeys(seed: number, keys: readonly (string | number)[]): number {
   return h >>> 0;
 }
 
-export function createRng(seed: number, ...streamKeys: (string | number)[]): Rng {
+export function createRng(seed: number | string, ...streamKeys: (string | number)[]): Rng {
   const mix = splitmix32(hashKeys(seed, streamKeys));
   const next = sfc32(mix(), mix(), mix(), mix());
   for (let i = 0; i < 12; i++) next(); // scramble initial correlation

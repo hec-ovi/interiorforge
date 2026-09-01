@@ -1,7 +1,8 @@
-import type { Point } from "../core/geom.js";
-import { rectCorners } from "../core/geom.js";
 import type { FloorInterior, RoomKind } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
+import type { CorePlan } from "../layout/core-plan.js";
+import { uvRectCorners, uvToWorld } from "../layout/uv.js";
+import { coreRects } from "./core-geo.js";
 import type { MaterialKeys } from "./materials.js";
 
 const SOFFIT_DEPTH = 0.15;
@@ -25,13 +26,8 @@ export function buildFloorSurfaces(
 }
 
 /** Closes shaft bottoms at the lowest served floor so no shaft opens into the void. */
-export function buildShaftFloors(mb: MeshBuilder, keys: MaterialKeys, lowest: FloorInterior): void {
-  const plates: Point[][] = [
-    ...lowest.core.elevators.map((e) => rectCorners(e.rect)),
-    ...lowest.core.stairs.map((s) => rectCorners(s.rect)),
-    ...lowest.core.shafts.map((s) => rectCorners(s)),
-  ];
-  for (const poly of plates) {
-    mb.addHorizontalPolygon(keys.concrete(), poly, lowest.elevation, "up");
+export function buildShaftFloors(mb: MeshBuilder, keys: MaterialKeys, core: CorePlan, elevation: number): void {
+  for (const rect of coreRects(core)) {
+    mb.addHorizontalPolygon(keys.concrete(), uvRectCorners(rect).map((p) => uvToWorld(p, core.frame)), elevation, "up");
   }
 }
