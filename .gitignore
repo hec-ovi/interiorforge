@@ -1,0 +1,7 @@
+docs/REQUIREMENTS.md
+docs/FEEDBACK.md
+docs/ISSUES.md
+node_modules/
+dist/
+.env
+docs/FULL-REQUIREMENTS.md
