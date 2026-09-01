@@ -4,7 +4,7 @@
   "title": "FloorInterior",
   "description": "Layout of one generated floor: vertical core, rooms, doors, furniture. Coordinates are building-local XZ meters, same space as the blueprint.",
   "type": "object",
-  "required": ["floor", "kind", "elevation", "height", "coreAngleDeg", "core", "rooms", "furniture"],
+  "required": ["floor", "kind", "elevation", "height", "coreAngleDeg", "core", "rooms", "furniture", "lights"],
   "additionalProperties": false,
   "properties": {
     "floor": { "type": "integer", "description": "negative = basement" },
@@ -127,9 +127,38 @@
           }
         }
       }
+    },
+    "lights": {
+      "type": "array",
+      "description": "light sources of this floor: instantiate one light per entry. The GLB carries the matching emissive housing at the same pose, so a consumer that ignores this list still sees lit fixtures, just no cast light.",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "room", "position", "length", "angleDeg", "intensity", "colorTemperatureK", "range"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": {
+            "enum": ["strip", "spot", "cove"],
+            "description": "strip: linear ceiling fixture. spot: ceiling downlight. cove: emissive line at the wall-ceiling junction"
+          },
+          "room": { "type": "string", "description": "room id, or a core element id (stair-a) for shaft lighting" },
+          "position": { "$ref": "#/$defs/point3", "description": "fixture center, [x, y, z], y absolute like floor elevations" },
+          "length": { "type": "number", "minimum": 0, "description": "run length of a strip or cove; 0 for a spot" },
+          "angleDeg": { "type": "number", "description": "run direction around +Y, degrees; 0 for a spot" },
+          "intensity": { "type": "number", "exclusiveMinimum": 0, "description": "luminous flux, lumens" },
+          "colorTemperatureK": { "type": "number", "exclusiveMinimum": 0 },
+          "range": { "type": "number", "exclusiveMinimum": 0, "description": "useful radius, meters" }
+        }
+      }
     }
   },
   "$defs": {
+    "point3": {
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }],
+      "minItems": 3,
+      "maxItems": 3
+    },
     "point2": {
       "type": "array",
       "prefixItems": [{ "type": "number" }, { "type": "number" }],

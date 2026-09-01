@@ -70,6 +70,19 @@ describe("buildInterior", () => {
     }
   });
 
+  it("carries an emissive housing for every published light fixture", () => {
+    const fix = makeFixture({ seed: 8, floors: 4 });
+    const plan = planBuilding(fix.request, resolveAssignments(fix.request));
+    const { doc } = buildInterior(plan, fix.request, fix.shellDoc);
+    const lights = plan.floors.reduce((n, f) => n + f.lights.length, 0);
+    expect(lights).toBeGreaterThan(0);
+    const housings = doc.getRoot().listMeshes()
+      .filter((m) => m.getName().includes("/light-fixture/"))
+      .reduce((n, m) => n + m.listPrimitives().reduce((v, p) => v + p.getAttribute("POSITION")!.getCount(), 0), 0);
+    // one box per fixture: 6 quads of 4 vertices
+    expect(housings).toBe(lights * 24);
+  });
+
   it("records continuous stair steps for every floor below the top", () => {
     const fix = makeFixture({ seed: 8, floors: 6 });
     const plan = planBuilding(fix.request, resolveAssignments(fix.request));

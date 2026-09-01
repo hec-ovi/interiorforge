@@ -8,6 +8,7 @@ import type { PlanRoom } from "../layout/plan-types.js";
 import { toWorldPolygon } from "../layout/uv.js";
 import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorShaftWalls } from "./core-geo.js";
 import { emitFurniture } from "./furniture-geo.js";
+import { emitLightFixtures } from "./lights.js";
 import { MaterialKeys } from "./materials.js";
 import { computeStairSteps, emitStairMeshes, entryAtLowEnd, stairEntryHole, stepToFrameRect } from "./stairs.js";
 import { buildFloorSurfaces, buildShaftFloors } from "./surfaces.js";
@@ -74,6 +75,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     emitCoreDividers(mb, keys, core, floor.elevation, wallTop);
     emitElevatorDoors(mb, keys, core, floor.elevation);
     emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation);
+    emitLightFixtures(mb, keys, floor.lights);
   }
 
   const lowest = sorted.find((f) => f.rooms.length > 0)!;

@@ -84,6 +84,21 @@ export function createPlanView(state: AppState): HTMLElement {
       }));
     }
 
+    for (const light of floor.lights) {
+      const [x, , z] = light.position;
+      if (light.kind === "spot") {
+        svg.append(svgEl("circle", { cx: x, cy: z, r: 0.18, fill: "none", stroke: "#ffe58a", "stroke-width": 0.08, class: "light" }));
+        continue;
+      }
+      const rad = (light.angleDeg * Math.PI) / 180;
+      const half = light.length / 2;
+      svg.append(svgEl("line", {
+        x1: x - Math.cos(rad) * half, y1: z - Math.sin(rad) * half,
+        x2: x + Math.cos(rad) * half, y2: z + Math.sin(rad) * half,
+        stroke: light.kind === "cove" ? "#8ad8ff" : "#ffe58a", "stroke-width": 0.1, class: "light",
+      }));
+    }
+
     for (const anchor of result.npc.anchors.filter((a) => a.floor === floor.floor)) {
       const dot = svgEl("circle", {
         cx: anchor.position[0], cy: anchor.position[1], r: 0.22,

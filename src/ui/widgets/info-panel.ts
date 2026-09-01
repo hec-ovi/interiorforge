@@ -15,7 +15,7 @@ export function createInfoPanel(state: AppState): HTMLElement {
     }
     container.append(el("h3", {}, [`floor ${floor.floor}: ${floor.kind}`]));
     container.append(el("p", {}, [
-      `${floor.rooms.length} rooms, ${floor.furniture.length} furniture, height ${floor.height.toFixed(2)}m`,
+      `${floor.rooms.length} rooms, ${floor.furniture.length} furniture, ${floor.lights.length} lights, height ${floor.height.toFixed(2)}m`,
     ]));
 
     const room = floor.rooms.find((r) => r.id === state.selectedRoom);
@@ -27,6 +27,7 @@ export function createInfoPanel(state: AppState): HTMLElement {
         `doors: ${room.doors.map((d) => `${d.leaves}-leaf to ${d.to}`).join(", ") || "none"}`,
         `furniture: ${floor.furniture.filter((f) => f.room === room.id).map((f) => f.kind).join(", ") || "none"}`,
         `anchors: ${result.npc.anchors.filter((a) => a.floor === floor.floor && a.room === room.id).map((a) => a.kind).join(", ") || "none"}`,
+        `lights: ${floor.lights.filter((l) => l.room === room.id).map((l) => l.kind).join(", ") || "none"}`,
       ].filter(Boolean);
       for (const line of lines) container.append(el("p", { class: "detail" }, [line]));
     } else {

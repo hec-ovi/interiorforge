@@ -32,12 +32,15 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
   const uvFloors = new Map<number, UvFloorData>();
   for (const assignment of sorted) {
     const spans = assignment.spans ?? 1;
+    // a spans-2 assignment is one space: its ceiling sits above both blueprint floors
+    let spaceHeight = 0;
+    for (let i = 0; i < spans; i++) spaceHeight += byIndex.get(assignment.floor + i)?.height ?? 0;
     for (let i = 0; i < spans; i++) {
       const bpFloor = byIndex.get(assignment.floor + i);
       if (!bpFloor) {
         throw new InteriorError("E_ASSIGNMENT_INVALID", `assignment references missing floor ${assignment.floor + i}`);
       }
-      const planned = planFloor(request, core, bpFloor, assignment.kind, i > 0);
+      const planned = planFloor(request, core, bpFloor, assignment.kind, i > 0, spaceHeight);
       floors.push(planned.interior);
       navGrids.set(bpFloor.index, planned.grid);
       uvFloors.set(bpFloor.index, planned.uv);

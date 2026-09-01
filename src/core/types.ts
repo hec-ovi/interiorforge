@@ -109,6 +109,28 @@ export interface Furniture {
   size: [number, number, number];
 }
 
+export type LightKind = "strip" | "spot" | "cove";
+
+/** One light source of a floor: the engine instantiates it, and the geometry carries the
+ *  matching emissive housing at the same pose. */
+export interface LightFixture {
+  id: string;
+  kind: LightKind;
+  /** room id, or a core element id (stair-a) for shaft lighting */
+  room: string;
+  /** fixture center in building-local meters, [x, y, z] */
+  position: [number, number, number];
+  /** run length of a strip or cove; 0 for a spot */
+  length: number;
+  /** run direction around +Y, degrees; 0 for a spot */
+  angleDeg: number;
+  /** luminous flux, lumens */
+  intensity: number;
+  colorTemperatureK: number;
+  /** useful radius, meters */
+  range: number;
+}
+
 export interface Rect3 {
   x: number;
   y: number;
@@ -150,6 +172,7 @@ export interface FloorInterior {
   core: FloorCore;
   rooms: Room[];
   furniture: Furniture[];
+  lights: LightFixture[];
 }
 
 // ---- npc.schema.json ----

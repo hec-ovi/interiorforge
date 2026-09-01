@@ -5,11 +5,12 @@ import { createRng } from "../core/rng.js";
 import type {
   BlueprintFloor, Door, FloorInterior, FloorKind, InteriorRequest, Room,
 } from "../core/types.js";
-import { CELL, DOOR, ELEVATOR, ROOM } from "./constants.js";
+import { CELL, ceilingClear, DOOR, ELEVATOR, ROOM } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { stairAccess } from "./core-plan.js";
 import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
+import { planLights } from "./lighting.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
 import {
   attachOutsideDoors, clipRatio, fillCoreBacking, fillOfficeStrip, fillServiceSegment,
@@ -35,7 +36,8 @@ export interface PlannedFloor {
 }
 
 export function planFloor(
-  request: InteriorRequest, core: CorePlan, floor: BlueprintFloor, kind: FloorKind, isSpanUpper: boolean,
+  request: InteriorRequest, core: CorePlan, floor: BlueprintFloor, kind: FloorKind,
+  isSpanUpper: boolean, spaceHeight: number,
 ): PlannedFloor {
   const frame = core.frame;
   const uvOutline = floor.outline.map((p) => worldToUv(p, frame));
@@ -48,7 +50,7 @@ export function planFloor(
       interior: {
         floor: floor.index, kind, elevation: floor.elevation, height: floor.height,
         coreAngleDeg: frame.angleDeg,
-        core: coreToWorld(core, []), rooms: [], furniture: [],
+        core: coreToWorld(core, []), rooms: [], furniture: [], lights: [],
       },
       // upper half of a double-height space: no slab, nothing walkable
       grid: new WalkGrid([b.x, b.z], CELL, Math.ceil(b.w / CELL), Math.ceil(b.d / CELL)),
@@ -147,6 +149,7 @@ export function planFloor(
       core: coreToWorld(core, sealed),
       rooms: rooms.map((r) => roomToWorld(r, uvOutline, frame)),
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
+      lights: planLights(rooms, core, uvOutline, floor.elevation + ceilingClear(spaceHeight), ids),
     },
     grid,
     uv: { outline: uvOutline, rooms, furniture, sealed },

@@ -2,7 +2,7 @@
 
 Purpose: deterministically fills one building shell with interiors per floor and exports NPC routine placeholders and walk paths for that instance.
 
-Status: implemented (0.6). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
+Status: implemented (0.7). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
 
 ## In
 
@@ -22,7 +22,8 @@ One `InteriorResult` written to an output directory:
 
 - `building.glb`: a finished furnished textured interior. The shell completed with interiors (slabs with core holes, walls, doors, stairs, elevator shafts, furniture placeholders), every material named by the canonical key `theme/kind/tier` (lowercase slugs, e.g. `cyberpunk/concrete/poor`) and resolved through ../materials into real maps: basecolor, normal, occlusion, emission where the entry has one, plus its metallic and roughness factors, transmission and IOR for glass. Tiled maps carry a `KHR_texture_transform` scale of 1 / tiling worldSize over world-meter UVs, so nothing stretches; exact-placement materials (elevator doors) get 0..1 UVs over their face instead.
 - Texture modes (`textures.mode` on the result says which one the GLB carries): `external` (default) writes map URIs against a configurable base path, `embed` packs the maps into one self-contained GLB, `keys` leaves the material keys for a consumer that resolves them itself (the engine runtime). With no materials database at the configured path, output falls back to `keys` and says so, so the box still runs standalone.
-- `floors/NNN.json`, one per floor: [schemas/floor.schema.json](schemas/floor.schema.json): vertical core (elevators, stairs with tread geometry, shafts), rooms with polygons and doors (1 to 4 leaves), furniture placements. Irregular parcels rotate the layout frame: `coreAngleDeg` gives the frame rotation, core rects and stair steps are frame-axis-aligned and rotate about their centers; room polygons, door positions and furniture are plain world space.
+- `floors/NNN.json`, one per floor: [schemas/floor.schema.json](schemas/floor.schema.json): vertical core (elevators, stairs with tread geometry, shafts), rooms with polygons and doors (1 to 4 leaves), furniture placements, light fixtures. Irregular parcels rotate the layout frame: `coreAngleDeg` gives the frame rotation, core rects and stair steps are frame-axis-aligned and rotate about their centers; room polygons, door positions, furniture and lights are plain world space.
+- Lighting (`lights` on every floor JSON): one entry per light source, `kind` `strip` (linear ceiling fixture), `spot` (downlight) or `cove` (emissive line at the wall-ceiling junction), with `position` `[x, y, z]`, `length` and `angleDeg` for the run, `intensity` in lumens, `colorTemperatureK` and a useful `range` in meters. Every room, corridor and stair shaft carries fixtures, by kind: work light over offices and kitchens, warm spots in homes, strips plus cove lines in venues, downlights along corridors and inside stairwells. The GLB carries the matching emissive housing at each pose (material key `theme/light-fixture/tier`), so a consumer that ignores the list still sees lit fixtures, just no cast light.
 - `npc.json`: [schemas/npc.schema.json](schemas/npc.schema.json): anchors (usable positions), supported roles with counts, routine loops (anchor, dwell minutes range, animation), nav data: per-floor walkable grid plus stair/elevator connectors.
 
 Library surface (TypeScript):

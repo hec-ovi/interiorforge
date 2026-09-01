@@ -44,6 +44,17 @@ export const ELEVATOR = {
 
 export const RISER_SHAFT = { w: 1.2, d: 2.5 }; // AC and wiring vertical run
 
+export const CEILING = {
+  drop: 0.35, // dropped ceiling under the structural soffit: services and light housings
+  minClear: 2.1, // clear height kept under it, whatever the storey
+};
+
+/** Ceiling plane of a space, above its own floor level. Low storeys keep the clear height
+ *  and lose the service void instead. */
+export function ceilingClear(spaceHeight: number): number {
+  return spaceHeight - Math.min(CEILING.drop, Math.max(0, spaceHeight - CEILING.minClear));
+}
+
 export const ROOM = {
   minArea: 4,
   minDim: 1.6,

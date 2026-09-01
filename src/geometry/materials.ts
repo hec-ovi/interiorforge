@@ -54,4 +54,9 @@ export class MaterialKeys {
   elevatorDoor(): string {
     return this.key("elevator_door");
   }
+
+  /** Emissive housing of a light fixture. */
+  light(): string {
+    return this.key("light-fixture");
+  }
 }

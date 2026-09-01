@@ -22,15 +22,17 @@ export interface IdGen {
   room(): string;
   door(): string;
   furniture(): string;
+  light(): string;
 }
 
 export function idGen(floor: number): IdGen {
-  let r = 0, d = 0, f = 0;
+  let r = 0, d = 0, f = 0, l = 0;
   const tag = floor < 0 ? `m${-floor}` : `${floor}`;
   return {
     room: () => `f${tag}-r${r++}`,
     door: () => `f${tag}-d${d++}`,
     furniture: () => `f${tag}-fur${f++}`,
+    light: () => `f${tag}-lt${l++}`,
   };
 }
 
