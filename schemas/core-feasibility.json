@@ -2,6 +2,7 @@
   "description": "Core-feasibility surface for the assembler: given a blueprint's floors, whether the vertical core plus egress fits. The library export coreFeasibility(blueprint) computes this exactly; these constants and the recipe let a consumer pre-check with its own arithmetic. All meters.",
   "recipe": [
     "1. frame: rotate so u runs along the longest ground-outline edge (flip 180 if the ground entrance door falls in the upper v half).",
+    "1b. rotated fallback: when that frame holds no core (steps 9 and 10 give none, or walkup over the cap), try frames every frameSweepStepDeg degrees over a half turn from the principal angle, each with the same entrance flip, and take the best fitting one: standard before compact before walkup, longer band breaking ties, and the first standard found ending the sweep. A parcel whose fitting core rectangle is skewed off its longest edge builds at that angle instead; frameAngleDeg on the result says which frame was used. Parcels the principal frame already serves never enter the sweep, so their layout is unchanged.",
     "2. ideal vFace on the ground outline's uv bounding box, snap = 0.5: vDepth < singleLoadedBelowDepth ? snapDown(vMin + vDepth - elevatorShaft) : snap(vMin + (vDepth + corridorWidth) / 2).",
     "3. vFace SCAN: candidates = ideal, then +-0.5 steps outward (lower side first) up to vFaceScanRange, clamped to [vMin + minStripDepth + corridorWidth, vMax - elevatorShaft]. The core goes to the first candidate whose band fits the mode being tried.",
     "4. band(vFace) = per floor, the longest contiguous u-run where the strip v in [vFace - corridorWidth, vFace + elevatorShaft] lies fully inside the floor outline, intersected across floors. Fully inside is exact (clipped area >= rect area, minus a 1e-9 relative epsilon for float noise); the same test decides whether the placed core rects fit, so the gate and the generator never disagree.",
@@ -24,6 +25,7 @@
     "minStripDepth": 3.0,
     "singleLoadedBelowDepth": 12.5,
     "vFaceScanRange": 8.0,
+    "frameSweepStepDeg": 5,
     "stairColumnWidth": 2.5,
     "walkupMaxFloors": 6,
     "stairRiser": 0.17,

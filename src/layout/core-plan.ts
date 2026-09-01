@@ -58,13 +58,12 @@ interface CoreEnvelope {
   candidates: number[];
 }
 
-function envelopeOf(floors: InteriorRequest["blueprint"]["floors"]): CoreEnvelope {
-  const ground = floors.find((f) => f.index === 0)!;
-  const frame = principalFrame(ground);
+function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame): CoreEnvelope {
   const uvFloors = floors.map((f) => toUvPolygon(f.outline, frame));
-  const bounds = polygonBounds(uvFloors[floors.findIndex((f) => f.index === 0)]!);
+  const groundIndex = floors.findIndex((f) => f.index === 0);
+  const bounds = polygonBounds(uvFloors[groundIndex]!);
   const vLen = bounds.d;
-  const area = polygonArea(ground.outline);
+  const area = polygonArea(floors[groundIndex]!.outline);
   const aboveFloors = floors.filter((f) => f.index >= 0).length;
   const twoStairs = area > TWO_STAIRS.areaOver || aboveFloors > TWO_STAIRS.floorsOver;
   const hMax = Math.max(...floors.map((f) => f.height));
@@ -171,6 +170,57 @@ function selectPlacement(env: CoreEnvelope): Placement | null {
   return null;
 }
 
+const MODE_RANK: Record<CoreMode, number> = { standard: 0, compact: 1, walkup: 2 };
+/** Rotated fallback: how far apart the tried frames are, over a half turn. */
+const SWEEP_STEP_DEG = 5;
+
+/** Frames to try: the principal one first, then a half turn in coarse steps. Parcels whose
+ *  fitting core rectangle is skewed off the longest edge still find it. */
+function frameAngles(base: number): number[] {
+  const out = [base];
+  for (let k = 1; k * SWEEP_STEP_DEG < 180; k++) {
+    const a = (((base + k * SWEEP_STEP_DEG + 90) % 180) + 180) % 180 - 90;
+    out.push(Math.round(a * 100) / 100);
+  }
+  return out;
+}
+
+interface CoreChoice {
+  env: CoreEnvelope;
+  placement: Placement | null;
+}
+
+function withinCap(env: CoreEnvelope, placement: Placement): boolean {
+  return placement.mode !== "walkup" || env.aboveFloors <= WALKUP.maxFloors;
+}
+
+/** The one frame-and-placement decision behind both planCore and coreFeasibility. The
+ *  principal frame wins whenever it holds a core, so nothing that already builds changes;
+ *  only parcels it cannot serve pay for the rotated sweep. */
+function selectEnvelope(floors: InteriorRequest["blueprint"]["floors"]): CoreChoice {
+  const ground = floors.find((f) => f.index === 0)! as Ground;
+  const base = principalAngle(ground.outline);
+  const first = envelopeOf(floors, frameAt(base, ground));
+  const firstPlacement = first.crossDepthOk ? selectPlacement(first) : null;
+  if (firstPlacement && withinCap(first, firstPlacement)) return { env: first, placement: firstPlacement };
+
+  let best: CoreChoice | null = null;
+  let bestRank = Infinity;
+  for (const angle of frameAngles(base).slice(1)) {
+    const env = envelopeOf(floors, frameAt(angle, ground));
+    if (!env.crossDepthOk) continue;
+    const placement = selectPlacement(env);
+    if (!placement || !withinCap(env, placement)) continue;
+    const rank = MODE_RANK[placement.mode] * 1000 - Math.min(999, placement.bandLen);
+    if (rank < bestRank) {
+      bestRank = rank;
+      best = { env, placement };
+    }
+    if (placement.mode === "standard") break;
+  }
+  return best ?? { env: first, placement: firstPlacement };
+}
+
 /** Longest band any corridor position offers; reported when no mode fits. */
 function bestBandLen(env: CoreEnvelope): number {
   let best = 0;
@@ -205,8 +255,7 @@ export interface CoreFeasibility {
 /** Assembler pre-check mirroring planCore exactly: same frame, same vFace scan, same
  *  thresholds (see schemas/core-feasibility.json). */
 export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFeasibility {
-  const env = envelopeOf(blueprint.floors);
-  const placement = env.crossDepthOk ? selectPlacement(env) : null;
+  const { env, placement } = selectEnvelope(blueprint.floors);
   const mode = placement?.mode ?? "none";
   return {
     fits: mode === "standard" || mode === "compact" ||
@@ -226,13 +275,12 @@ export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFe
 /** Places the vertical core once per building; every floor reuses these rects. */
 export function planCore(request: InteriorRequest, assignments: FloorAssignment[]): CorePlan {
   const floors = request.blueprint.floors;
-  const env = envelopeOf(floors);
+  const { env, placement } = selectEnvelope(floors);
   const { frame, twoStairs, stairDepth } = env;
 
   if (!env.crossDepthOk) {
-    throw new InteriorError("E_FLOOR_TOO_SMALL", `plate depth ${env.vLen.toFixed(1)}m is below the ${(ELEVATOR.shaft + CORRIDOR.width + ROOM.minStripDepth).toFixed(1)}m minimum for corridor, shafts and rooms`);
+    throw new InteriorError("E_FLOOR_TOO_SMALL", `plate depth ${env.vLen.toFixed(1)}m is below the ${(ELEVATOR.shaft + CORRIDOR.width + ROOM.minStripDepth).toFixed(1)}m minimum for corridor, shafts and rooms at any frame angle`);
   }
-  const placement = selectPlacement(env);
   if (!placement) {
     throw new InteriorError("E_FLOOR_TOO_SMALL", `no corridor position holds a core: best band ${bestBandLen(env).toFixed(1)}m is below the walkup minimum ${rowFixedLen(env).toFixed(1)}m (standard minimum ${(rowFixedLen(env) + ELEVATOR.shaft).toFixed(1)}m, compact minimum ${(compactFixedLen(env) + ELEVATOR.shaft).toFixed(1)}m; see schemas/core-feasibility.json)`);
   }
@@ -297,10 +345,10 @@ export function stairAccess(
   return { entry: [shaft.u - 0.6, at], axis: "V", c: shaft.u, at };
 }
 
-/** Frame aligned to the longest ground edge, flipped so the street entrance (when the
- *  ground floor has one) lies on the low-v side, where the hall and corridor face. */
-function principalFrame(ground: { outline: [number, number][]; openings: { kind: string; edge: number; offset: number; width: number }[] }): Frame {
-  const outline = ground.outline;
+type Ground = { outline: [number, number][]; openings: { kind: string; edge: number; offset: number; width: number }[] };
+
+/** Direction of the longest ground edge, in (-90, 90]. */
+function principalAngle(outline: [number, number][]): number {
   let best = 0;
   let bestLen = -1;
   for (let i = 0; i < outline.length; i++) {
@@ -317,7 +365,14 @@ function principalFrame(ground: { outline: [number, number][]; openings: { kind:
   let angle = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
   if (angle <= -90) angle += 180;
   if (angle > 90) angle -= 180;
-  let frame = makeFrame(Math.round(angle * 100) / 100);
+  return Math.round(angle * 100) / 100;
+}
+
+/** Layout frame at one angle, flipped so the street entrance (when the ground floor has one)
+ *  lies on the low-v side, where the hall and corridor face. */
+function frameAt(angle: number, ground: Ground): Frame {
+  const outline = ground.outline;
+  let frame = makeFrame(angle);
 
   const door = ground.openings.find((o) => o.kind === "door");
   if (door) {

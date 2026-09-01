@@ -162,6 +162,22 @@ describe("planBuilding", () => {
     expect(pplan.core.elevatorCount).toBeLessThanOrEqual(f.maxElevators);
   });
 
+  it("a skewed plate finds its core on a rotated frame (parcel p64)", () => {
+    // the fitting core rectangle sits off the longest edge: the principal frame alone
+    // reports none, the frame sweep builds it
+    const parcel = makeFixture({
+      seed: 64, floors: 1,
+      outline: [[596.085, 430.022], [599.96, 449.547], [592.347, 451.058], [588.473, 431.533]],
+    });
+    const f = coreFeasibility(parcel.request.blueprint);
+    expect(f.fits).toBe(true);
+    const principal = 78.78; // longest edge of that outline
+    expect(Math.abs(((f.frameAngleDeg % 180) + 180) % 180 - principal)).toBeGreaterThan(0.5);
+    const skewed = planBuilding(parcel.request, resolveAssignments(parcel.request));
+    expect(skewed.floors.find((x) => x.floor === 0)!.rooms.length).toBeGreaterThan(1);
+    expect(skewed.floors[0]!.coreAngleDeg).toBeCloseTo(f.frameAngleDeg, 2);
+  });
+
   it("tight footprints degrade to a stair-only walkup under the published cap", () => {
     const small = makeFixture({ seed: 3, floors: 4, width: 9, depth: 10, type: "residential" });
     const f = coreFeasibility(small.request.blueprint);
