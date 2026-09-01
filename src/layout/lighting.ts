@@ -21,6 +21,14 @@ const MIN_COVE_SIDE = 2.0;
 const COVE_SEGMENT = 6.0; // cove segments abut, so a long wall reads as one line
 const COVE_MAX_PER_SIDE = 8;
 
+/** Spread and softness per fixture kind: a line of light washes the surfaces around it,
+ *  a downlight throws a cone. */
+const SPREAD: Record<LightFixture["kind"], { beamDeg: number; diffuse: number }> = {
+  strip: { beamDeg: 170, diffuse: 0.75 },
+  cove: { beamDeg: 200, diffuse: 0.95 },
+  spot: { beamDeg: 100, diffuse: 0.25 },
+};
+
 interface LightStyle {
   /** ceiling fixture shape: a linear strip or a downlight */
   fixture: "strip" | "spot";
@@ -78,9 +86,11 @@ function round3(v: number): number {
   return Math.round(v * 1000) / 1000;
 }
 
-/** Useful radius: a lumen budget spread over a hemisphere reads about this far. */
-function rangeOf(lumens: number): number {
-  return round3(clamp(Math.sqrt(lumens) / 8, 2, 12));
+/** Useful radius: a lumen budget spread over a hemisphere reads about this far. A cove
+ *  washes further along its wall than its flux alone suggests. */
+function rangeOf(lumens: number, kind: LightFixture["kind"]): number {
+  const reach = Math.sqrt(lumens) / 8;
+  return round3(clamp(kind === "cove" ? reach * 1.6 : reach, 2, 14));
 }
 
 class FloorLighting {
@@ -237,7 +247,9 @@ class FloorLighting {
       angleDeg: round3(((f.angleDeg + this.frame.angleDeg) % 360 + 360) % 360),
       intensity: Math.round(f.lumens),
       colorTemperatureK: f.colorTemperatureK,
-      range: rangeOf(f.lumens),
+      range: rangeOf(f.lumens, f.kind),
+      beamDeg: SPREAD[f.kind].beamDeg,
+      diffuse: SPREAD[f.kind].diffuse,
     });
   }
 }

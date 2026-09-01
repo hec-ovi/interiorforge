@@ -81,7 +81,8 @@ export type FurnitureKind =
   | "desk" | "office_chair" | "meeting_table" | "counter" | "shelf" | "sofa" | "low_table"
   | "bed_single" | "bed_double" | "wardrobe" | "kitchen_block" | "fridge" | "dining_table" | "chair"
   | "toilet" | "sink" | "shower" | "gym_machine" | "bench" | "reception_desk" | "plant"
-  | "bar_counter" | "stool" | "display_rack";
+  | "bar_counter" | "stool" | "display_rack"
+  | "wall_shelf" | "display_screen" | "wall_art" | "crate";
 
 export interface Door {
   id: string;
@@ -107,6 +108,8 @@ export interface Furniture {
   position: Point;
   rotationDeg: number;
   size: [number, number, number];
+  /** base height above the floor; wall pieces hang, everything else stands at 0 */
+  elevation?: number;
 }
 
 export type LightKind = "strip" | "spot" | "cove";
@@ -129,6 +132,10 @@ export interface LightFixture {
   colorTemperatureK: number;
   /** useful radius, meters */
   range: number;
+  /** full spread of the light: a strip and a cove wash wide and soft, a spot throws down */
+  beamDeg: number;
+  /** how much of the flux leaves as a soft wash rather than a beam, 0..1 */
+  diffuse: number;
 }
 
 export interface Rect3 {

@@ -253,6 +253,7 @@ function furnitureToWorld(f: PlanFurniture, frame: Frame) {
     position: roundPoint(uvToWorld(f.at, frame)),
     rotationDeg: norm360(f.rotationDeg + frame.angleDeg),
     size: f.size,
+    ...(f.elevation === undefined ? {} : { elevation: f.elevation }),
   };
 }
 

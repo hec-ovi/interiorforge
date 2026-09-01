@@ -25,10 +25,12 @@ const FURNITURE_ANCHORS: Record<string, { kind: AnchorKind; side: "front" | "beh
   toilet: { kind: "toilet", side: "front" },
   gym_machine: { kind: "machine_spot", side: "front" },
   display_rack: { kind: "work_spot", side: "front" },
-  dining_table: { kind: "seat", side: "front" },
+  // seats are real pieces now: the anchor is on the seat, facing where the seat faces
+  chair: { kind: "seat", side: "on" },
+  stool: { kind: "seat", side: "on" },
+  office_chair: { kind: "seat", side: "on" },
   sofa: { kind: "seat", side: "on" },
   bench: { kind: "seat", side: "on" },
-  meeting_table: { kind: "seat", side: "front" },
   kitchen_block: { kind: "work_spot", side: "front" },
 };
 
@@ -58,7 +60,9 @@ export function floorAnchors(
     const back: Point = [f.position[0] - facing[0] * reach, f.position[1] - facing[1] * reach];
     const candidates: [Point, number][] = spec.side === "behind"
       ? [[back, f.rotationDeg], [front, (f.rotationDeg + 180) % 360]]
-      : [[front, (f.rotationDeg + 180) % 360], [back, f.rotationDeg]];
+      : spec.side === "on"
+        ? [[f.position, f.rotationDeg], [front, (f.rotationDeg + 180) % 360]]
+        : [[front, (f.rotationDeg + 180) % 360], [back, f.rotationDeg]];
     for (const [p, facingDeg] of candidates) {
       const before = anchors.length;
       add(spec.kind, f.room, p, facingDeg, f.id);

@@ -11,6 +11,8 @@ import { pointInUvRect, uvRectCorners, uvRectWorldBounds, uvToWorld, worldToUv }
 
 const WALL_BAND = WALL / 2 + AGENT_RADIUS; // blocked distance either side of a wall line
 const FURNITURE_MARGIN = 0.15;
+/** Pull-in seating is stepped around, not routed around, and a wall piece hangs overhead. */
+const NON_BLOCKING: ReadonlySet<string> = new Set(["chair", "stool", "office_chair"]);
 
 /** World-space walkable grid built from uv-space plan data: walls, shafts and furniture
  *  blocked (eroded by agent radius), door channels carved open. Angle-agnostic: rotated
@@ -46,6 +48,7 @@ export function buildNavGrid(
   }
 
   for (const f of furniture) {
+    if (NON_BLOCKING.has(f.kind) || (f.elevation ?? 0) > 0) continue;
     blockUvRect(grid, frame, furnitureUvRect(f), FURNITURE_MARGIN);
   }
 

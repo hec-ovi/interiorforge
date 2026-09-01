@@ -35,6 +35,8 @@ export interface PlanFurniture {
   rotationDeg: 0 | 90 | 180 | 270;
   /** [along-u, along-v, height] at rotation 0 */
   size: [number, number, number];
+  /** base height above the floor; wall pieces hang, everything else stands at 0 */
+  elevation?: number;
 }
 
 export interface FloorFrame {

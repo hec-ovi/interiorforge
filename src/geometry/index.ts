@@ -10,7 +10,7 @@ import type { BuildingPlan } from "../layout/index.js";
 import type { PlanRoom } from "../layout/plan-types.js";
 import { toWorldPolygon } from "../layout/uv.js";
 import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorShaftWalls } from "./core-geo.js";
-import { emitFurniture } from "./furniture-geo.js";
+import { emitFurniture } from "./furniture/index.js";
 import { emitLightFixtures } from "./lights.js";
 import { MaterialKeys } from "./materials.js";
 import type { RunStep, UvStep } from "./stairs.js";
