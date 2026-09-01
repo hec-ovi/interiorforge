@@ -5,7 +5,7 @@ import { MeshBuilder } from "../glb/mesh-builder.js";
 import { SHELL_WALL } from "../layout/shell.js";
 import type { MaterialKeys } from "./materials.js";
 import type { OpeningHole } from "./shell-fit.js";
-import { openingHole } from "./shell-fit.js";
+import { edgeFrame, edgePoint, openingHole } from "./shell-fit.js";
 import type { Exposed, WallBands } from "./wall-detail.js";
 import { bandMaterial, layerBands } from "./wall-detail.js";
 
@@ -44,12 +44,9 @@ export function buildFacadeLining(
   for (let e = 0; e < outline.length; e++) {
     const p0 = outline[e]!;
     const p1 = outline[(e + 1) % outline.length]!;
-    const len = distance(p0, p1);
-    const dir: Point = [(p1[0] - p0[0]) / len, (p1[1] - p0[1]) / len];
-    const inward: Point = [-dir[1], dir[0]];
-    const at = (t: number, depth: number): Point => [
-      p0[0] + dir[0] * t + inward[0] * depth, p0[1] + dir[1] * t + inward[1] * depth,
-    ];
+    const frame = edgeFrame(outline, e);
+    const len = frame.len;
+    const at = (t: number, depth: number): Point => edgePoint(frame, t, depth);
     const sector = (t0: number, t1: number): Point[] => {
       const rect: Point[] = [at(t0, wallDepth - 0.01), at(t1, wallDepth - 0.01), at(t1, SECTOR_DEPTH), at(t0, SECTOR_DEPTH)];
       const inside = at(len / 2, wallDepth);
@@ -75,7 +72,9 @@ export function buildFacadeLining(
       .sort((o1, o2) => o1.offset - o2.offset);
     let cursor = 0;
     for (const o of openings) {
-      const hole = openingHole(o, bpFloor.height);
+      const hole = openingHole(bpFloor, o, wallDepth);
+      // the corner walls close the whole opening: the lining runs on behind it
+      if (hole.t1 - hole.t0 < 1e-3) continue;
       piece(cursor, hole.t0, y0, wallTop);
       if (hole.y0 > 0) piece(hole.t0, hole.t1, y0, y0 + hole.y0, { top: true });
       if (hole.y1 < wallTop - y0) piece(hole.t0, hole.t1, y0 + hole.y1, wallTop, { bottom: true });

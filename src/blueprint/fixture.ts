@@ -10,7 +10,10 @@ import { MeshBuilder } from "../glb/mesh-builder.js";
 import { appendToDocument, createDocument } from "../glb/io.js";
 
 export interface FixtureOptions {
-  seed?: number;
+  seed?: number | string;
+  /** exact blueprint, e.g. real exterior output; only the shell is fabricated, every other
+   *  footprint option is ignored and assignments derive from the floor kind slugs */
+  blueprint?: Blueprint;
   /** above-ground floor count */
   floors?: number;
   /** basement levels below ground */
@@ -44,13 +47,32 @@ const KIND_HEIGHT: Record<FloorKind, number> = {
 
 export function makeFixture(options: FixtureOptions = {}): Fixture {
   const seed = options.seed ?? 1;
+  const type = options.type ?? "offices";
+  const tier = options.tier ?? "mid";
+  const theme = options.theme ?? "cyberpunk";
+  const { blueprint, assignments } = options.blueprint
+    ? { blueprint: options.blueprint, assignments: undefined }
+    : fabricateBlueprint(options, seed, type);
+  const request: InteriorRequest = {
+    seed,
+    building: { id: blueprint.buildingId, type, tier },
+    shellGlb: "fixtures/shell.glb",
+    blueprint,
+    ...(assignments ? { assignments } : {}),
+    materialTheme: theme,
+  };
+  return { request, shellDoc: buildShell(blueprint, theme, tier) };
+}
+
+/** Seeded blueprint: chamfered rectangle or the given outline, per-kind floor heights,
+ *  entrance plus windows or curtain-wall bays. */
+function fabricateBlueprint(
+  options: FixtureOptions, seed: number | string, type: BuildingType,
+): { blueprint: Blueprint; assignments: FloorAssignment[] } {
   const floorCount = options.floors ?? 12;
   const basements = options.basements ?? 0;
   const width = options.width ?? 26;
   const depth = options.depth ?? 20;
-  const type = options.type ?? "offices";
-  const tier = options.tier ?? "mid";
-  const theme = options.theme ?? "cyberpunk";
   const facadeStyle = options.facadeStyle ?? "panel";
 
   const rng = createRng(seed, "fixture");
@@ -95,16 +117,7 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
   }
 
   const facade = { style: facadeStyle, ...(options.wallDepth !== undefined ? { wallDepth: options.wallDepth } : {}) };
-  const blueprint: Blueprint = { buildingId: `fixture-${type}-${seed}`, facade, floors };
-  const request: InteriorRequest = {
-    seed,
-    building: { id: blueprint.buildingId, type, tier },
-    shellGlb: "fixtures/shell.glb",
-    blueprint,
-    assignments,
-    materialTheme: theme,
-  };
-  return { request, shellDoc: buildShell(blueprint, theme, tier) };
+  return { blueprint: { buildingId: `fixture-${type}-${seed}`, facade, floors }, assignments };
 }
 
 function defaultAssignments(type: BuildingType, floorCount: number, basements: number): FloorAssignment[] {
