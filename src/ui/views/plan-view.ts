@@ -2,7 +2,8 @@ import { polygonBounds } from "../../core/geom.js";
 import type { Point } from "../../core/geom.js";
 import { findPath } from "../../npc/index.js";
 import type { AppState } from "../app-state.js";
-import { svgEl } from "../components/dom.js";
+import { el, svgEl } from "../components/dom.js";
+import { toast } from "../components/toast.js";
 
 const ROOM_FILL: Record<string, string> = {
   corridor: "#2c3340", elevator_lobby: "#2c3340", concourse: "#2c3340", reception: "#3a4358", lounge: "#3a4358",
@@ -19,7 +20,7 @@ const ANCHOR_FILL: Record<string, string> = {
   machine_spot: "#a3e0b7", elevator_wait: "#f0f0f0", stair_entry: "#f0f0f0", cleaning_spot: "#d0d06a",
 };
 
-/** SVG plan of the selected floor. Click a room to select it; click two clear points to
+/** SVG plan of the selected floor. Click a room to select it; shift-click two clear points to
  *  run findPath on this floor and draw the route. */
 export function createPlanView(state: AppState): HTMLElement {
   const container = document.createElement("div");
@@ -31,9 +32,30 @@ export function createPlanView(state: AppState): HTMLElement {
     const floor = state.floorData();
     const result = state.result;
     if (!floor || !result || floor.rooms.length === 0) {
-      container.append("no floor data");
+      container.append(el("div", { class: "plan-header" }, [
+        el("div", { class: "plan-title" }, [
+          el("span", { class: "plan-badge" }, ["2D BLUEPRINT"]),
+          el("span", {}, ["NO FLOOR DATA"]),
+        ]),
+      ]));
       return;
     }
+
+    // Top Header Banner
+    const planHeader = el("div", { class: "plan-header" }, [
+      el("div", { class: "plan-title" }, [
+        el("span", { class: "plan-badge" }, ["2D BLUEPRINT"]),
+        el("span", {}, [`FLOOR ${floor.floor} // ${floor.kind.toUpperCase()}`]),
+      ]),
+      el("div", { class: "plan-hint" }, [
+        el("span", { class: "kbd" }, ["SHIFT"]),
+        " + ",
+        el("span", { class: "kbd" }, ["CLICK"]),
+        " ROUTE PATH",
+      ]),
+    ]);
+    container.append(planHeader);
+
     const allPoints = floor.rooms.flatMap((r) => r.polygon);
     const b = polygonBounds(allPoints);
     const pad = 1.5;
@@ -43,12 +65,14 @@ export function createPlanView(state: AppState): HTMLElement {
     });
     svg.setAttribute("data-floor", String(floor.floor));
 
+    // Room Polygons
     for (const room of floor.rooms) {
+      const isSelected = state.selectedRoom === room.id;
       const poly = svgEl("polygon", {
         points: room.polygon.map(([x, z]) => `${x},${z}`).join(" "),
         fill: ROOM_FILL[room.kind] ?? "#333",
-        stroke: state.selectedRoom === room.id ? "#ffffff" : "#0d0e10",
-        "stroke-width": state.selectedRoom === room.id ? 0.22 : 0.1,
+        stroke: isSelected ? "#00e5a3" : "#0d0e10",
+        "stroke-width": isSelected ? 0.22 : 0.1,
       });
       poly.setAttribute("data-room", room.id);
       poly.addEventListener("click", (ev) => {
@@ -59,6 +83,7 @@ export function createPlanView(state: AppState): HTMLElement {
       svg.append(poly);
     }
 
+    // Doors
     for (const room of floor.rooms) {
       for (const door of room.doors) {
         const along = door.angleDeg === 0 || door.angleDeg === 180 ? [1, 0] : [0, 1];
@@ -74,6 +99,7 @@ export function createPlanView(state: AppState): HTMLElement {
       }
     }
 
+    // Furniture
     for (const f of floor.furniture) {
       const swap = f.rotationDeg === 90 || f.rotationDeg === 270;
       const w = swap ? f.size[1] : f.size[0];
@@ -84,6 +110,7 @@ export function createPlanView(state: AppState): HTMLElement {
       }));
     }
 
+    // Lights
     for (const light of floor.lights) {
       const [x, , z] = light.position;
       if (light.kind === "spot") {
@@ -99,6 +126,7 @@ export function createPlanView(state: AppState): HTMLElement {
       }));
     }
 
+    // Anchors
     for (const anchor of result.npc.anchors.filter((a) => a.floor === floor.floor)) {
       const dot = svgEl("circle", {
         cx: anchor.position[0], cy: anchor.position[1], r: 0.22,
@@ -108,12 +136,21 @@ export function createPlanView(state: AppState): HTMLElement {
       svg.append(dot);
     }
 
+    // Walk Paths
     const walkLegs = state.path?.filter((l) => l.kind === "walk") ?? [];
     for (const leg of walkLegs) {
       if (leg.kind !== "walk" || leg.floor !== floor.floor) continue;
       svg.append(svgEl("polyline", {
         points: leg.points.map(([x, z]) => `${x},${z}`).join(" "),
         fill: "none", stroke: "#6ae86a", "stroke-width": 0.18, class: "path",
+      }));
+    }
+
+    // Temporary marker if start point is picked
+    if (pathStart) {
+      svg.append(svgEl("circle", {
+        cx: pathStart[0], cy: pathStart[1], r: 0.28,
+        fill: "none", stroke: "#00e5a3", "stroke-width": 0.08, class: "path-origin",
       }));
     }
 
@@ -126,6 +163,7 @@ export function createPlanView(state: AppState): HTMLElement {
       const z = vb.y + ((ev.clientY - rect.top) / rect.height) * vb.height;
       handlePick([x, z]);
     });
+
     container.append(svg);
   }
 
@@ -135,6 +173,8 @@ export function createPlanView(state: AppState): HTMLElement {
     if (!pathStart) {
       pathStart = point;
       state.setPath(null);
+      toast.info("Start waypoint selected. Shift-click destination point to calculate route.", "Pathfinding");
+      render();
       return;
     }
     const legs = findPath(
@@ -144,6 +184,13 @@ export function createPlanView(state: AppState): HTMLElement {
     );
     pathStart = null;
     state.setPath(legs);
+    if (legs) {
+      const walk = legs.find((l) => l.kind === "walk");
+      const pts = walk && walk.kind === "walk" ? walk.points.length : 0;
+      toast.success(`Calculated route with ${pts} waypoints on floor ${floor.floor}`, "Path Found");
+    } else {
+      toast.warning("No unobstructed walk path found between the selected coordinates.", "Unreachable");
+    }
   }
 
   for (const event of ["result", "floor", "selection", "path", "mode"] as const) {

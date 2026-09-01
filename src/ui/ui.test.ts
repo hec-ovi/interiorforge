@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getByRole, findByText, waitFor } from "@testing-library/dom";
 import userEvent from "@testing-library/user-event";
 import { mountApp } from "./main.js";
+import { toast } from "./components/toast.js";
 import type { FloorSlice, Viewer3D } from "./views/viewer3d.js";
 
 function fakeViewer(): Viewer3D & {
@@ -123,4 +124,17 @@ describe("preview ui", () => {
     expect(root.querySelector("polyline.path")).not.toBeNull();
     await findByText(root, /path found/);
   }, 30000);
+
+  it("renders and dismisses toast notifications", async () => {
+    document.body.innerHTML = "";
+    toast.info("Test message", "Test Title");
+    const toastElem = document.querySelector(".toast.toast-info");
+    expect(toastElem).not.toBeNull();
+    expect(document.body.textContent).toContain("Test message");
+    expect(document.body.textContent).toContain("Test Title");
+
+    const closeBtn = toastElem!.querySelector<HTMLButtonElement>(".toast-close")!;
+    closeBtn.click();
+    expect(toastElem!.classList.contains("toast-dismissing")).toBe(true);
+  });
 });

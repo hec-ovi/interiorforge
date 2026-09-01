@@ -12,6 +12,26 @@ export function createControls(
   state: AppState, onGenerate: (params: AppParams) => void, onLoadFiles: (files: File[]) => void,
   onStandIn: () => void,
 ): HTMLElement {
+  // Brand Header & Status Indicator
+  const statusBadge = el("div", { class: "status-badge", "data-status": "ready" }, [
+    el("span", { class: "status-dot" }),
+    el("span", { class: "status-text" }, ["READY"]),
+  ]);
+
+  const brandRow = el("div", { class: "brand-row" }, [
+    el("div", { class: "brand" }, [
+      el("span", { class: "brand-prefix" }, ["//"]),
+      el("span", {}, ["INTERIORFORGE"]),
+    ]),
+    statusBadge,
+  ]);
+
+  const header = el("div", { class: "sidebar-header" }, [
+    brandRow,
+    el("span", { class: "brand-tag" }, ["URBE SPATIAL ENGINE v0.17"]),
+  ]);
+
+  // Parametric Generator Inputs
   const seed = el("input", { type: "number", value: state.params.seed, name: "seed" });
   const floors = el("input", { type: "number", value: state.params.floors, min: 1, max: 80, name: "floors" });
   const basements = el("input", { type: "number", value: state.params.basements, min: 0, max: 4, name: "basements" });
@@ -27,6 +47,7 @@ export function createControls(
     }),
   }, ["generate"]);
 
+  // Mode and Navigation Buttons
   const modeBuilding = el("button", { class: "mode active", onclick: () => state.setMode("building") }, ["building"]);
   const modeFloor = el("button", { class: "mode", onclick: () => state.setMode("floor") }, ["floor editor"]);
   const eyeView = el("button", { class: "mode", name: "eye", onclick: () => onStandIn() }, ["eye view"]);
@@ -36,6 +57,7 @@ export function createControls(
     modeBuilding.classList.toggle("active", state.mode === "building");
     modeFloor.classList.toggle("active", state.mode === "floor");
   });
+
   state.on("result", () => {
     floorSelect.replaceChildren(
       ...(state.result?.floors ?? [])
@@ -44,11 +66,16 @@ export function createControls(
     );
     floorSelect.value = String(state.floorIndex);
   });
+
   state.on("busy", () => {
     generate.toggleAttribute("disabled", state.busy);
     generate.textContent = state.busy ? "generating..." : "generate";
+    statusBadge.setAttribute("data-status", state.busy ? "busy" : "ready");
+    const statusText = statusBadge.querySelector(".status-text");
+    if (statusText) statusText.textContent = state.busy ? "COMPUTING" : "READY";
   });
 
+  // Real-building File Loader
   const loadInput = el("input", {
     type: "file", multiple: true, name: "load",
     onchange: () => {
@@ -57,12 +84,25 @@ export function createControls(
   });
 
   return el("div", { class: "controls" }, [
-    labeled("seed", seed), labeled("floors", floors), labeled("basements", basements),
-    labeled("type", type), labeled("tier", tier), generate,
+    header,
+    el("div", { class: "section-title" }, ["GENERATOR PARAMS"]),
+    labeled("seed", seed),
+    labeled("floors", floors),
+    labeled("basements", basements),
+    labeled("type", type),
+    labeled("tier", tier),
+    generate,
+    el("div", { class: "section-title" }, ["SOURCE FILES"]),
     el("div", { class: "load-row" }, [
       el("span", { class: "load-hint" }, ["or load a real building (shell .glb + blueprint .json + request .json)"]),
       loadInput,
     ]),
-    el("div", { class: "mode-row" }, [modeBuilding, modeFloor, eyeView, labeled("floor", floorSelect)]),
+    el("div", { class: "section-title" }, ["VIEW & NAVIGATION"]),
+    el("div", { class: "mode-row" }, [
+      modeBuilding,
+      modeFloor,
+      eyeView,
+      labeled("floor", floorSelect),
+    ]),
   ]);
 }

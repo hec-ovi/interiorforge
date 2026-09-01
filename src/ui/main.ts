@@ -1,3 +1,4 @@
+import "./style.css";
 import { polygonArea } from "../core/geom.js";
 import { generateInterior, makeFixture } from "../index.js";
 import { readGlbBytes } from "../glb/io.js";
@@ -5,6 +6,7 @@ import type { InteriorRequest } from "../core/types.js";
 import type { TextureOptions, ThemeIndex } from "../materials/index.js";
 import type { AppParams, AppState } from "./app-state.js";
 import { createAppState } from "./app-state.js";
+import { toast } from "./components/toast.js";
 import { createPlanView } from "./views/plan-view.js";
 import type { Viewer3D } from "./views/viewer3d.js";
 import { createControls } from "./widgets/controls.js";
@@ -41,6 +43,13 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
       state.setResult(result);
       await viewer.setGlb(result.glb);
       applySlice();
+      toast.success(
+        `Generated ${result.floors.length}F ${params.type} (${params.tier}) · Seed ${params.seed}`,
+        "Interior Generated",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err), "Generation Failed");
+      throw err;
     } finally {
       state.setBusy(false);
     }
@@ -87,6 +96,13 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
       state.setResult(result);
       await viewer.setGlb(result.glb);
       applySlice();
+      toast.success(
+        `Imported ${request.building.id} with ${result.floors.length} floors`,
+        "Model Loaded",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err), "Load Failed");
+      throw err;
     } finally {
       state.setBusy(false);
     }
@@ -120,6 +136,7 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
     ];
     const wide = Math.max(...xs) - Math.min(...xs) >= Math.max(...zs) - Math.min(...zs);
     viewer.standIn(at, floor.elevation + 1.65, wide ? 90 : 0);
+    toast.info(`Camera placed in room ${room.id} (${room.kind}) at eye level (+1.65m)`, "Eye View");
   }
 
   const side = document.createElement("div");
@@ -132,7 +149,9 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
   const planWrap = document.createElement("div");
   planWrap.className = "plan-wrap";
   planWrap.append(createPlanView(state));
-  const showPlan = () => planWrap.toggleAttribute("hidden", state.mode !== "floor");
+  const showPlan = () => {
+    planWrap.toggleAttribute("hidden", state.mode !== "floor");
+  };
   state.on("mode", showPlan);
   showPlan();
 
