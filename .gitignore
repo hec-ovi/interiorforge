@@ -6,3 +6,5 @@ dist/
 .env
 docs/FULL-REQUIREMENTS.md
 out/
+CLAUDE.md
+session
