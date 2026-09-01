@@ -54,7 +54,8 @@ export function buildFrame(core: CorePlan, floor: BlueprintFloor): FloorFrame {
 
   // the corridor is the walkable spine: it only spans full-depth coverage
   const [cu0, cu1] = fullCoverageU(uvOutline, vFace - w, vFace);
-  const stairB = core.stairB;
+  // compact mode keeps both stairs as columns in the core row: nothing sits in the band
+  const stairB = core.mode !== "compact" ? core.stairB : undefined;
   const corridorEnd = stairB ? Math.min(cu1, stairB.u) : cu1;
   const corridor = { u: cu0, v: vFace - w, lu: corridorEnd - cu0, lv: w };
 

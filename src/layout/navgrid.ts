@@ -3,7 +3,8 @@ import { clipPolygonToRect, pointInPolygon, polygonBounds } from "../core/geom.j
 import { WalkGrid } from "../core/grid.js";
 import { AGENT_RADIUS, CELL, WALL } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
-import { doorUvPoint, stairEntryUv } from "./plan-floor.js";
+import { stairAccess } from "./core-plan.js";
+import { doorUvPoint } from "./plan-floor.js";
 import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import type { Frame, UvRect } from "./uv.js";
 import { pointInUvRect, uvRectCorners, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
@@ -89,17 +90,16 @@ export function doorChannelUv(door: PlanRoom["doors"][number], room: PlanRoom): 
     : { u: u - across, v: v - door.width / 2, lu: 2 * across, lv: door.width };
 }
 
-/** Carve rects for the stair shaft doors, uv space. */
+/** Carve rects for the stair shaft doors, uv space, from the shared access definition. */
 export function stairDoorChannelsUv(core: CorePlan): UvRect[] {
-  const out: UvRect[] = [];
   const across = WALL_BAND + 2 * CELL;
-  const [ua] = stairEntryUv(core, "a");
-  out.push({ u: ua - 0.5, v: core.vFace - across, lu: 1.0, lv: 2 * across });
-  if (core.stairB) {
-    const [, vb] = stairEntryUv(core, "b");
-    out.push({ u: core.stairB.u - across, v: vb - 0.5, lu: 2 * across, lv: 1.0 });
-  }
-  return out;
+  const stairs: ("a" | "b")[] = core.stairB ? ["a", "b"] : ["a"];
+  return stairs.map((which) => {
+    const access = stairAccess(core, which);
+    return access.axis === "H"
+      ? { u: access.at - 0.5, v: access.c - across, lu: 1.0, lv: 2 * across }
+      : { u: access.c - across, v: access.at - 0.5, lu: 2 * across, lv: 1.0 };
+  });
 }
 
 function blockUvRect(grid: WalkGrid, frame: Frame, rect: UvRect, margin: number): void {

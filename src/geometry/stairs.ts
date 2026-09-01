@@ -2,7 +2,7 @@ import type { Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { STAIR } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
-import { stairEntryUv } from "../layout/plan-floor.js";
+import { stairAccess } from "../layout/core-plan.js";
 import type { Frame, UvRect } from "../layout/uv.js";
 import { uvRectCorners, uvToWorld } from "../layout/uv.js";
 import type { UvWallHole } from "./walls.js";
@@ -19,11 +19,13 @@ export interface UvStep {
   y: number;
 }
 
-/** U-return flights inside one shaft for one climb, frame space. Flights run along u in
- *  two lanes; each pair meets on a half landing. Any climb height (spans included). */
+/** U-return flights inside one shaft for one climb, frame space. Flights run along the
+ *  shaft's LONG dimension in two lanes; each pair meets on a half landing. Any climb
+ *  height (spans included); row shafts run along u, compact columns along v. */
 export function computeStairSteps(shaft: UvRect, entryLowEnd: boolean, elevation: number, climb: number): UvStep[] {
-  const runLen = shaft.lu;
-  const laneW = shaft.lv / 2;
+  const alongU = shaft.lu >= shaft.lv;
+  const runLen = alongU ? shaft.lu : shaft.lv;
+  const laneW = (alongU ? shaft.lv : shaft.lu) / 2;
 
   const totalRisers = Math.ceil(climb / STAIR.riser);
   const flights = 2 * Math.ceil(totalRisers / (2 * STAIR.maxRisersPerFlight));
@@ -37,7 +39,9 @@ export function computeStairSteps(shaft: UvRect, entryLowEnd: boolean, elevation
     const hi = Math.max(s0, s1);
     const a = entryLowEnd ? lo : runLen - hi;
     const b = entryLowEnd ? hi : runLen - lo;
-    return { u: shaft.u + a, v: shaft.v + lane0 * laneW, lu: b - a, lv: (lane1 - lane0) * laneW, y: yTop };
+    return alongU
+      ? { u: shaft.u + a, v: shaft.v + lane0 * laneW, lu: b - a, lv: (lane1 - lane0) * laneW, y: yTop }
+      : { u: shaft.u + lane0 * laneW, v: shaft.v + a, lu: (lane1 - lane0) * laneW, lv: b - a, y: yTop };
   };
 
   let y = elevation;
@@ -84,20 +88,17 @@ export function stepToFrameRect(s: UvStep, frame: Frame): Rect3 {
   };
 }
 
-/** Entry hole for a stair shaft, uv wall-line format. */
+/** Entry hole for a stair shaft, uv wall-line format, from the shared access definition. */
 export function stairEntryHole(core: CorePlan, stair: "a" | "b", elevation: number): UvWallHole {
-  if (stair === "a") {
-    const [u] = stairEntryUv(core, "a");
-    return { axis: "H", c: core.vFace, hole: { at: u, width: 1.1, y0: elevation, y1: elevation + 2.1 } };
-  }
-  const b = core.stairB!;
-  const [, v] = stairEntryUv(core, "b");
-  return { axis: "V", c: b.u, hole: { at: v, width: 1.1, y0: elevation, y1: elevation + 2.1 } };
+  const access = stairAccess(core, stair);
+  return { axis: access.axis, c: access.c, hole: { at: access.at, width: 1.1, y0: elevation, y1: elevation + 2.1 } };
 }
 
-/** Whether a stair's entry sits at the low-u end of its shaft. */
+/** Whether a stair's entry sits at the low end of its shaft's run dimension. */
 export function entryAtLowEnd(core: CorePlan, stair: "a" | "b"): boolean {
   const shaft = stair === "a" ? core.stairA : core.stairB!;
-  const [u] = stairEntryUv(core, stair);
-  return u < shaft.u + shaft.lu / 2;
+  const { entry } = stairAccess(core, stair);
+  return shaft.lu >= shaft.lv
+    ? entry[0] < shaft.u + shaft.lu / 2
+    : entry[1] < shaft.v + shaft.lv / 2;
 }

@@ -104,6 +104,24 @@ describe("buildNpcSupport", () => {
     expect(snpc.nav.connectors.find((c) => c.id === ride.connector)!.kind).toBe("stair");
   });
 
+  it("compact-core buildings route to every anchor through column stair entries", () => {
+    const square = makeFixture({ seed: 6, floors: 6, width: 16, depth: 16 });
+    const cplan = planBuilding(square.request, resolveAssignments(square.request));
+    const cnpc = buildNpcSupport(cplan, square.request);
+    const entrance = cnpc.anchors.find((a) => a.kind === "entrance" && a.floor === 0)!;
+    expect(entrance).toBeTruthy();
+    let unreachable = 0;
+    for (const anchor of cnpc.anchors) {
+      const legs = findPath(
+        cnpc,
+        { floor: entrance.floor, position: entrance.position },
+        { floor: anchor.floor, position: anchor.position },
+      );
+      if (!legs) unreachable++;
+    }
+    expect(unreachable).toBe(0);
+  });
+
   it("returns null for an unreachable target instead of throwing", () => {
     const entrance = npc.anchors.find((a) => a.kind === "entrance")!;
     expect(findPath(npc, { floor: 0, position: entrance.position }, { floor: 999, position: [0, 0] })).toBeNull();

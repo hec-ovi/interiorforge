@@ -382,6 +382,17 @@ export function fillCoreBacking(
   uvOutline: readonly Point[],
 ): { rooms: PlanRoom[]; sealed: UvRect[] } {
   const block = frame.coreBlock;
+  // compact cores put stair columns in the block: backing rooms live between them, and
+  // the strips behind each column are sealed voids
+  const backStart = core.mode === "compact" ? core.stairA.u + core.stairA.lu : block.u;
+  const columnRears: UvRect[] = [];
+  if (core.mode === "compact") {
+    const cols = [core.stairA, ...(core.stairB ? [core.stairB] : [])];
+    for (const col of cols) {
+      const rearLv = block.lv - col.lv;
+      if (rearLv >= 0.5) columnRears.push({ u: col.u, v: block.v + col.lv, lu: col.lu, lv: rearLv });
+    }
+  }
   // irregular parcels may cut into the area behind the shafts: keep rooms only where the
   // full band depth is inside, seal the rest
   const coveredDepth = (u: number, lu: number): number => {
@@ -389,13 +400,19 @@ export function fillCoreBacking(
     while (d + 0.5 <= block.lv && clipRatio({ u, v: block.v, lu, lv: d + 0.5 }, uvOutline) > 0.999) d += 0.5;
     return d;
   };
-  const backDepth = Math.min(coveredDepth(block.u, core.stub.u - block.u), coveredDepth(core.stub.u, core.stub.lu)) - ELEVATOR.shaft;
+  const backDepth = Math.min(coveredDepth(backStart, core.stub.u - backStart), coveredDepth(core.stub.u, core.stub.lu)) - ELEVATOR.shaft;
   const stubRect: UvRect = { u: core.stub.u, v: block.v, lu: core.stub.lu, lv: ELEVATOR.shaft + Math.max(0, backDepth) };
   const backing: UvRect = {
-    u: block.u, v: block.v + ELEVATOR.shaft, lu: core.stub.u - block.u, lv: backDepth,
+    u: backStart, v: block.v + ELEVATOR.shaft, lu: core.stub.u - backStart, lv: backDepth,
   };
   if (backDepth < 1.6) {
-    return { rooms: [], sealed: [{ u: block.u, v: block.v + ELEVATOR.shaft, lu: block.lu, lv: Math.max(0.5, backDepth) }] };
+    return {
+      rooms: [],
+      sealed: [
+        { u: backStart, v: block.v + ELEVATOR.shaft, lu: core.stub.u + core.stub.lu - backStart, lv: Math.max(0.5, backDepth) },
+        ...columnRears,
+      ],
+    };
   }
   const stub: PlanRoom = { id: ids.room(), kind: "corridor", rect: stubRect, doors: [] };
   doorBetween(stub, corridorRoom.id, corridorRoom.rect, ids);
@@ -415,7 +432,7 @@ export function fillCoreBacking(
     doorBetween(only, stub.id, stub.rect, ids);
     rooms.push(only);
   }
-  return { rooms, sealed: [] };
+  return { rooms, sealed: columnRears };
 }
 
 /** Shallow flanking segments (e.g. beside a single-loaded core row) become shared service

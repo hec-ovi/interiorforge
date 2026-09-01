@@ -144,6 +144,19 @@ describe("planBuilding", () => {
     }
   });
 
+  it("near-miss bands keep elevators via the compact column core", () => {
+    const square = makeFixture({ seed: 6, floors: 6, width: 16, depth: 16 });
+    const f = coreFeasibility(square.request.blueprint);
+    expect(f.mode).toBe("compact");
+    expect(f.fits).toBe(true);
+    const cplan = planBuilding(square.request, resolveAssignments(square.request));
+    const f0 = cplan.floors.find((x) => x.floor === 0)!;
+    expect(f0.core.elevators.length).toBeGreaterThanOrEqual(1);
+    expect(f0.core.stairs.length).toBe(2);
+    // column stairs: deeper than wide in the layout frame
+    for (const stair of f0.core.stairs) expect(stair.rect.d).toBeGreaterThan(stair.rect.w);
+  });
+
   it("shallow plates go single-loaded so units keep real room depth", () => {
     const narrow = makeFixture({ seed: 4, floors: 5, width: 30, depth: 10, type: "residential" });
     const nplan = planBuilding(narrow.request, resolveAssignments(narrow.request));

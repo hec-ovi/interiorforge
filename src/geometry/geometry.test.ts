@@ -34,6 +34,21 @@ describe("computeStairSteps", () => {
       expect(steps[i]!.y - steps[i - 1]!.y).toBeLessThanOrEqual(STAIR.riser + 1e-9);
     }
   });
+
+  it("compact column shafts run their flights along v and land exactly", () => {
+    const column = { u: 4, v: 11.5, lu: 2.5, lv: 6 };
+    const steps = computeStairSteps(column, true, 0, 3.4);
+    expect(Math.max(...steps.map((s) => s.y))).toBeCloseTo(3.4, 6);
+    for (const s of steps) {
+      expect(s.u).toBeGreaterThanOrEqual(column.u - 1e-6);
+      expect(s.u + s.lu).toBeLessThanOrEqual(column.u + column.lu + 1e-6);
+      expect(s.v).toBeGreaterThanOrEqual(column.v - 1e-6);
+      expect(s.v + s.lv).toBeLessThanOrEqual(column.v + column.lv + 1e-6);
+    }
+    // treads are wider (across u) than deep (along v): the run follows the long dimension
+    const treads = steps.filter((s) => s.lu * s.lv < 0.5);
+    for (const t of treads) expect(t.lu).toBeGreaterThan(t.lv);
+  });
 });
 
 describe("buildInterior", () => {

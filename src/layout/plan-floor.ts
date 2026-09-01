@@ -7,6 +7,7 @@ import type {
 } from "../core/types.js";
 import { CELL, DOOR, ELEVATOR, ROOM } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
+import { stairAccess } from "./core-plan.js";
 import { buildFrame, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
@@ -159,11 +160,7 @@ function doorWorldPoint(floor: BlueprintFloor, edge: number, along: number): Poi
 
 /** Frame-space stair entry points, exported for nav and validation. */
 export function stairEntryUv(core: CorePlan, stair: "a" | "b"): Point {
-  if (stair === "a") {
-    return [core.stairA.u + core.stairA.lu - 0.7, core.vFace - 0.6];
-  }
-  const b = core.stairB!;
-  return [b.u - 0.6, b.v + b.lv / 2];
+  return stairAccess(core, stair).entry;
 }
 
 /** Frame-space elevator wait point in front of a shaft. */
