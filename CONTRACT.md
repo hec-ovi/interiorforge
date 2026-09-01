@@ -2,7 +2,7 @@
 
 Purpose: deterministically fills one building shell with interiors per floor and exports NPC routine placeholders and walk paths for that instance.
 
-Status: implemented (0.7). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
+Status: implemented (0.8). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
 
 ## In
 
@@ -51,6 +51,7 @@ Closed set, thrown as `InteriorError { code, floor?, detail }`:
 - Deterministic: same request, same materials database and same texture options give byte-identical JSON and GLB. No LLM calls, no wall-clock, no ambient randomness.
 - Every floor is real and reachable: stairs are continuous walkable geometry from ground to top, every elevator serves every floor it spans, shafts vertically aligned across floors.
 - Every room is reachable from the building entrance through doors; corridors and door widths follow interior architecture minimums (see docs/RESEARCH.md).
+- Partitions land on the piers between the facade's openings: an interior wall line whose end falls inside a window or door slides sideways to the nearest clear position, up to 2 m and never past a room's minimum span. Two walls keep their place instead: one locked to a shaft face (moving it would cut the shaft or open a gap) and one reaching two facades whose window rhythms leave no common pier; those take the position with the fewest crossings.
 - Geometry is watertight for play: no gaps at floor edges, no inverted normals, no coplanar z-fighting faces, no spot where an NPC or player gets stuck.
 - Routines only target anchors that stand on walkable cells; every anchor is reachable from every connector on its floor.
 

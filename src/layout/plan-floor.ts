@@ -11,6 +11,7 @@ import { stairAccess } from "./core-plan.js";
 import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import { planLights } from "./lighting.js";
+import { alignPartitionsToPiers } from "./pier-align.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
 import {
   attachOutsideDoors, clipRatio, fillCoreBacking, fillOfficeStrip, fillServiceSegment,
@@ -124,6 +125,9 @@ export function planFloor(
     rooms = rooms.filter((r) => !dropped.has(r.id));
     for (const r of rooms) r.doors = r.doors.filter((d) => !dropped.has(d.to));
   }
+
+  // partitions must not cut a window: wall lines slide onto the piers between openings
+  alignPartitionsToPiers(rooms, [...backing.sealed, ...extraSealed], floor, core, uvOutline);
 
   // exterior doors (entrances, balcony doors) land on whichever room faces them
   const exteriorDoors = floor.openings
