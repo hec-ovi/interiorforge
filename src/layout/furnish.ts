@@ -5,6 +5,7 @@ import type { FloorKind, FurnitureKind } from "../core/types.js";
 import { doorZonesByRoom } from "./clearance.js";
 import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import type { IdGen } from "./rooms.js";
+import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
 
 type Size3 = [number, number, number];
@@ -46,6 +47,8 @@ class RoomPlacer {
   private readonly blocked: UvRect[] = [];
   /** footprint per placed piece, so a seat may pull up to its own table */
   private readonly rects = new Map<string, UvRect>();
+  /** the room rect with its facade sides pulled in to the lining's inner face */
+  private readonly rect: UvRect;
 
   constructor(
     private readonly room: PlanRoom,
@@ -53,15 +56,16 @@ class RoomPlacer {
     private readonly ids: IdGen,
     private readonly out: PlanFurniture[],
     doorZones: UvRect[],
-    private readonly uvOutline: readonly Point[],
+    private readonly bounds: FloorBounds,
   ) {
     this.blocked.push(...doorZones);
+    this.rect = usableRect(room.rect, (edge) => this.isFacade(edge), bounds.facadeDepth);
   }
 
   /** Item with its back against a room edge; walks the edge from a seeded start. */
   alongEdge(kind: FurnitureKind, edge: Edge): PlanFurniture | null {
     const [su, sv] = [SIZES[kind][0], SIZES[kind][1]];
-    const r = this.room.rect;
+    const r = this.rect;
     const inset = 0.06 + (STANDOFF[kind] ?? 0);
     const alongLen = edge.startsWith("v") ? r.lu : r.lv;
     if (su > alongLen - 0.2) return null;
@@ -98,7 +102,7 @@ class RoomPlacer {
 
   center(kind: FurnitureKind): PlanFurniture | null {
     const [su, sv] = [SIZES[kind][0], SIZES[kind][1]];
-    const r = this.room.rect;
+    const r = this.rect;
     const fp: UvRect = { u: r.u + (r.lu - su) / 2, v: r.v + (r.lv - sv) / 2, lu: su, lv: sv };
     return this.fits(fp, kind) ? this.commit(kind, fp, 0) : null;
   }
@@ -106,7 +110,7 @@ class RoomPlacer {
   /** Regular grid of identical items with aisles, e.g. desks, diner tables, machines. */
   grid(kind: FurnitureKind, aisle: number, max: number): PlanFurniture[] {
     const [su, sv] = [SIZES[kind][0], SIZES[kind][1]];
-    const r = this.room.rect;
+    const r = this.rect;
     const margin = 0.8;
     const limit = Math.min(max, GRID_CAP[kind] ?? max);
     const placed: PlanFurniture[] = [];
@@ -162,15 +166,15 @@ class RoomPlacer {
   }
 
   private fits(fp: UvRect, kind: FurnitureKind, except?: UvRect): boolean {
-    const r = this.room.rect;
+    const r = this.rect;
     if (fp.u < r.u + 0.05 || fp.v < r.v + 0.05 || fp.u + fp.lu > r.u + r.lu - 0.05 || fp.v + fp.lv > r.v + r.lv - 0.05) {
       return false;
     }
-    // rooms at the facade may be outline-clipped; furniture must stay inside the building
+    // rooms at the facade may be outline-clipped; furniture stays behind the facade lining
     const corners: Point[] = [
       [fp.u, fp.v], [fp.u + fp.lu, fp.v], [fp.u + fp.lu, fp.v + fp.lv], [fp.u, fp.v + fp.lv],
     ];
-    if (!corners.every((c) => pointInPolygon(c, this.uvOutline))) return false;
+    if (!corners.every((c) => pointInPolygon(c, this.bounds.inner))) return false;
     const gap = MOUNT[kind] ? 0.05 : SEATS.has(kind) ? 0.06 : 0.15;
     return this.blocked.every(
       (b) => b === except
@@ -200,8 +204,16 @@ class RoomPlacer {
       : edge === "v1" ? [r.u + r.lu / 2, r.v + r.lv]
       : edge === "u0" ? [r.u, r.v + r.lv / 2]
       : [r.u + r.lu, r.v + r.lv / 2];
-    return nearBoundary(mid, this.uvOutline, 0.25);
+    return nearBoundary(mid, this.bounds.outline, 0.25);
   }
+}
+
+function usableRect(r: UvRect, isFacade: (edge: Edge) => boolean, depth: number): UvRect {
+  const v0 = isFacade("v0") ? depth : 0;
+  const v1 = isFacade("v1") ? depth : 0;
+  const u0 = isFacade("u0") ? depth : 0;
+  const u1 = isFacade("u1") ? depth : 0;
+  return { u: r.u + u0, v: r.v + v0, lu: Math.max(0, r.lu - u0 - u1), lv: Math.max(0, r.lv - v0 - v1) };
 }
 
 function footprintOf(item: PlanFurniture): UvRect {
@@ -259,12 +271,12 @@ function edgeRotation(edge: Edge): 0 | 90 | 180 | 270 {
 }
 
 export function furnish(
-  rooms: PlanRoom[], floorKind: FloorKind, rng: Rng, ids: IdGen, uvOutline: readonly Point[],
+  rooms: PlanRoom[], floorKind: FloorKind, rng: Rng, ids: IdGen, bounds: FloorBounds,
 ): PlanFurniture[] {
   const out: PlanFurniture[] = [];
   const zones = doorZonesByRoom(rooms);
   for (const room of rooms) {
-    const p = new RoomPlacer(room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), uvOutline);
+    const p = new RoomPlacer(room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), bounds);
     const area = room.rect.lu * room.rect.lv;
     switch (room.kind) {
       case "studio_main":

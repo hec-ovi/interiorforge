@@ -9,7 +9,7 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 ## Out
 
 - `BuildingPlan`
-  - `floors: FloorInterior[]` (the floor.schema.json shape) sorted by index; a double-height span's upper floor has `rooms: []`.
+  - `floors: FloorInterior[]` (the floor.schema.json shape) sorted by index; a double-height span's upper floor has `rooms: []`. Room polygons tile the outline; the shell wall model (`shell.ts`: wall depth by facade style, lining, bands) says where the room really starts, and the core, furniture, light fixtures and the nav grid keep to that inner plate.
   - `core: CorePlan`: building-wide vertical core in frame (uv) space, identical on every floor. The frame aligns u to the longest ground edge and flips so the street entrance faces the hall side; rotated parcels work natively, `coreAngleDeg` carries the rotation.
   - `navGrids: Map<floorIndex, WalkGrid>`: 0.25 m wall-aware walkable grid per floor, world-axis-aligned regardless of frame rotation (diagonal walls blocked by true distance).
   - `uvFloors: Map<floorIndex, UvFloorData>`: frame-space rooms, furniture and sealed bands for the geometry and npc passes.
@@ -23,7 +23,7 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 ## Invariants
 
 - Same request, identical plan. Per-floor RNG streams: floor N never changes when floor M is edited.
-- Core rects identical across floors; stairs continuous; every floor served by every elevator.
+- Core rects identical across floors, placed on the plate behind the facade lining; stairs continuous; every floor served by every elevator.
 - Every room reachable from the floor's spine (corridor, elevator lobby or mall concourse) through doors; corridor and door widths per docs/RESEARCH.md constants.
 - Rooms plus corridors plus core tile the outline: no interior gap band.
 

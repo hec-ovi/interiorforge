@@ -17,6 +17,13 @@
         "height": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
+    "facade": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "style": { "type": "string", "description": "exterior facade style (curtain-wall, glass, panel, megablock); picks the shell wall depth the interior keeps clear of" }
+      }
+    },
     "floors": {
       "type": "array",
       "minItems": 1,

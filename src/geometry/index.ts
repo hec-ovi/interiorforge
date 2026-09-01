@@ -1,6 +1,7 @@
 import type { Document } from "@gltf-transform/core";
 import { InteriorError } from "../core/errors.js";
-import { clipPolygonToRect } from "../core/geom.js";
+import type { Point } from "../core/geom.js";
+import { clipPolygonToRect, insetPolygon } from "../core/geom.js";
 import { createRng } from "../core/rng.js";
 import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
@@ -9,6 +10,8 @@ import { ceilingClear, STAIR, stairSlab } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import type { BuildingPlan } from "../layout/index.js";
 import type { PlanRoom } from "../layout/plan-types.js";
+import { facadeDepth, SHELL_WALL, shellWallDepth } from "../layout/shell.js";
+import type { UvRect } from "../layout/uv.js";
 import { toWorldPolygon } from "../layout/uv.js";
 import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorShaftWalls } from "./core-geo.js";
 import { emitFurniture } from "./furniture/index.js";
@@ -19,9 +22,11 @@ import {
   baseLanding, computeStairSteps, emitStairMeshes, entryAtLowEnd, minHeadroom, stairClearWidth,
   stairEntryHole, stepToFrameRect,
 } from "./stairs.js";
+import { assertInsideShell } from "./shell-fit.js";
 import { buildFloorSurfaces, buildShaftFloors } from "./surfaces.js";
 import { emitAccentWalls } from "./wall-detail.js";
-import { buildFacadeLining, buildInteriorWalls } from "./walls.js";
+import { buildFacadeLining } from "./lining.js";
+import { buildInteriorWalls } from "./walls.js";
 
 export interface InteriorGeometry {
   doc: Document;
@@ -44,6 +49,8 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
   const lowest = sorted.find((f) => f.rooms.length > 0)!;
   /** every step of one stair over the whole building, for the fit check */
   const wholeRun = new Map<string, RunStep[]>();
+  const style = request.blueprint.facade?.style;
+  const wallDepth = shellWallDepth(style);
 
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
@@ -91,20 +98,24 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     const sealedAsRooms: PlanRoom[] = uv.sealed.map((rect, s) => ({
       id: `sealed-${s}`, kind: "mechanical_room", rect, doors: [],
     }));
-    const sealedPolys = uv.sealed
-      .map((rect) => clipPolygonToRect(uv.outline, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }))
-      .filter((poly) => poly.length >= 3)
-      .map((poly) => toWorldPolygon(poly, core.frame));
+    // slabs reach the lining's outer face; walls end inside the lining; nothing crosses it
+    const slabPlate = insetPolygon(uv.outline, wallDepth);
+    const wallPlate = insetPolygon(uv.outline, wallDepth + SHELL_WALL.lining / 2);
+    const roomPlate = insetPolygon(uv.outline, facadeDepth(style));
+    const cut = (rect: UvRect, plate: Point[]): Point[] =>
+      toWorldPolygon(clipPolygonToRect(plate, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }), core.frame);
+    const roomPlans = uv.rooms.map((r) => ({ kind: r.kind, polygon: cut(r.rect, slabPlate) }));
+    const sealedPolys = uv.sealed.map((rect) => cut(rect, slabPlate));
     const spaceHeight = floor.height + (upper?.height ?? 0);
     const ceilingY = floor.elevation + ceilingClear(spaceHeight);
-    buildFloorSurfaces(mb, keys, floor, spaceHeight, sealedPolys);
+    buildFloorSurfaces(mb, keys, roomPlans.filter((r) => r.polygon.length >= 3), floor.elevation, spaceHeight, sealedPolys.filter((p) => p.length >= 3));
     // the floor's biggest room sets the wall pattern, so a venue floor and an office floor
     // never wear the same one
     const program = uv.rooms.reduce((best, r) => (r.rect.lu * r.rect.lv > best.rect.lu * best.rect.lv ? r : best)).kind;
-    buildInteriorWalls(mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, core.frame, floor.elevation, wallTop, floor.height, ceilingY, program, holes);
-    buildFacadeLining(mb, keys, bpFloor, wallTop, ceilingY, program);
+    buildInteriorWalls(mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, wallPlate, core.frame, floor.elevation, wallTop, floor.height, ceilingY, program, holes);
+    buildFacadeLining(mb, keys, bpFloor, wallDepth, wallTop, ceilingY, program);
     emitAccentWalls(
-      mb, keys, uv.rooms, uv.outline, core.frame, floor.elevation, ceilingY,
+      mb, keys, uv.rooms, roomPlate, core.frame, floor.elevation, ceilingY,
       createRng(request.seed, "accent", floor.floor),
     );
     emitCoreDividers(mb, keys, core, floor.elevation, wallTop);
@@ -115,6 +126,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
 
   buildShaftFloors(mb, keys, core, lowest.elevation);
   assertStairFit(core, wholeRun);
+  assertInsideShell(mb, request.blueprint.floors, wallDepth);
 
   removeShellSeparators(shellDoc);
   appendToDocument(shellDoc, mb);

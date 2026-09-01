@@ -63,6 +63,8 @@ export interface BlueprintFloor {
 export interface Blueprint {
   buildingId: string;
   bounds?: { footprint: Point[]; height: number };
+  /** exterior facade style; sets how deep its wall reaches inside the outline */
+  facade?: { style?: string; [extra: string]: unknown };
   floors: BlueprintFloor[];
   [extra: string]: unknown;
 }

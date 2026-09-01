@@ -3,6 +3,7 @@ import { pointInPolygon } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import type { PlanRoom } from "../layout/plan-types.js";
+import { BAND_PROUD } from "../layout/shell.js";
 import type { Frame, UvRect } from "../layout/uv.js";
 import { uvRectCorners, uvToWorld } from "../layout/uv.js";
 import type { MaterialKeys } from "./materials.js";
@@ -13,7 +14,7 @@ import type { MaterialKeys } from "./materials.js";
 export const BASEBOARD = 0.12;
 export const DADO_TOP = 1.05;
 export const TOP_TRIM = 0.09;
-const PROUD = 0.02; // how far a band stands off the wall face, each side
+const PROUD = BAND_PROUD;
 const FACING = 0.02; // thickness of an accent wall facing
 
 export interface WallBands {
@@ -55,10 +56,20 @@ export function layerBands(
   slice(bands.field, 0, bands.ceilingY, Number.POSITIVE_INFINITY);
 }
 
+/** The band a wall wears at height `y`: what a cap or a reveal face there continues. */
+export function bandMaterial(bands: WallBands, y: number): string {
+  const trimStart = Math.max(bands.y0 + DADO_TOP, bands.ceilingY - TOP_TRIM);
+  if (y < bands.y0 + BASEBOARD) return bands.trim;
+  if (y < bands.y0 + DADO_TOP) return bands.accent;
+  if (y >= trimStart && y < bands.ceilingY) return bands.trim;
+  return bands.field;
+}
+
 /** One wall of each room, seeded, faced in the accent tone: the colour blocking that keeps a
- *  room from reading as four identical planes. Doors and the facade are left alone. */
+ *  room from reading as four identical planes. Doors and the facade are left alone;
+ *  `uvInner` is the plate behind the facade lining. */
 export function emitAccentWalls(
-  mb: MeshBuilder, keys: MaterialKeys, rooms: PlanRoom[], uvOutline: readonly Point[],
+  mb: MeshBuilder, keys: MaterialKeys, rooms: PlanRoom[], uvInner: readonly Point[],
   frame: Frame, y0: number, ceilingY: number, rng: Rng,
 ): void {
   for (const room of rooms) {
@@ -72,7 +83,7 @@ export function emitAccentWalls(
       if (doorEdges.has(edge)) continue;
       const face = facingRect(r, edge);
       const ends = uvRectCorners(face);
-      if (!ends.every((p) => pointInPolygon(p, uvOutline))) continue;
+      if (!ends.every((p) => pointInPolygon(p, uvInner))) continue;
       mb.addPrism(
         keys.accent(room.kind), ends.map((p) => uvToWorld(p, frame)),
         y0 + BASEBOARD, ceilingY - TOP_TRIM,

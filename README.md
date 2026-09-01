@@ -4,7 +4,7 @@ Deterministic interior generator for buildings. Give it a GLB shell and its per-
 
 Same seed and inputs, byte-identical output. No LLM calls, no wall clock, no ambient randomness.
 
-Every floor is real: stairs are continuous walkable geometry from the ground to the top, elevators serve every floor they span, and every room is reachable from the entrance through doors. The geometry is watertight for play, with no gap at a floor edge and no spot where a character gets stuck.
+Every floor is real: stairs are continuous walkable geometry from the ground to the top, elevators serve every floor they span, and every room is reachable from the entrance through doors. The geometry is watertight for play, with no gap at a floor edge and no spot where a character gets stuck, and it stays inside the shell: nothing reaches the exterior wall plane, checked on every vertex before the GLB is written.
 
 ## Run
 
@@ -24,7 +24,7 @@ Without a shell to work from, a fixture shell is fabricated, so the box runs wit
 One `InteriorRequest` (`schemas/request.schema.json`):
 
 - **seed**, **building** (id, type, wealth tier), **shellGlb** path, **materialTheme**
-- **blueprint**: the shell's per-floor description (outlines, elevations, heights, openings, basements as negative indexes)
+- **blueprint**: the shell's per-floor description (outlines, elevations, heights, openings, basements as negative indexes) and its facade style, which sets how deep the shell wall reaches inside the outline
 - **assignments** (optional): one floor kind per floor from lobby, office, corpo office, restaurant, coffee shop, retail, mall floor, gym, studio, apartment, hotel rooms, mechanical, parking, terrace, with `spans: 2` for double-height floors. Omitted, they are derived from the blueprint's own floor labels and the building type, so a mixed-use tower gets a shop floor, a restaurant floor and apartments each with their own program.
 
 Units are meters, building-local, +Y up.

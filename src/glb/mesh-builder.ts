@@ -85,34 +85,6 @@ export class MeshBuilder {
     for (const face of faces) this.addQuad(material, quads[face]);
   }
 
-  /** Oriented wall slab along the segment p0 -> p1, extruded `thickness` to the LEFT of the
-   *  direction of travel (the interior side of a CCW polygon edge), from y0 to y1.
-   *  Handles walls at any angle; outward normals on all six faces. `caps` drops the top and
-   *  bottom for a band stacked between others, where they would only z-fight. */
-  addSlab(
-    material: string, p0: Point, p1: Point, thickness: number, y0: number, y1: number,
-    caps: "both" | "none" = "both",
-  ): void {
-    const dx = p1[0] - p0[0];
-    const dz = p1[1] - p0[1];
-    const len = Math.hypot(dx, dz) || 1;
-    const nx = (-dz / len) * thickness;
-    const nz = (dx / len) * thickness;
-    const a: Point = p0;
-    const b: Point = p1;
-    const c: Point = [p1[0] + nx, p1[1] + nz];
-    const d: Point = [p0[0] + nx, p0[1] + nz];
-    const v = (p: Point, y: number): Vec3 => [p[0], y, p[1]];
-    // right side (faces away from the offset direction), left side, two ends, top, bottom
-    this.addQuad(material, [v(a, y0), v(a, y1), v(b, y1), v(b, y0)]);
-    this.addQuad(material, [v(c, y0), v(c, y1), v(d, y1), v(d, y0)]);
-    this.addQuad(material, [v(d, y0), v(d, y1), v(a, y1), v(a, y0)]);
-    this.addQuad(material, [v(b, y0), v(b, y1), v(c, y1), v(c, y0)]);
-    if (caps === "none") return;
-    this.addQuad(material, [v(a, y1), v(d, y1), v(c, y1), v(b, y1)]);
-    this.addQuad(material, [v(a, y0), v(b, y0), v(c, y0), v(d, y0)]);
-  }
-
   /** Vertical prism over a CCW plan polygon: outward side quads plus its caps. `caps` drops
    *  the underside for a box that sits on a floor, where it would only z-fight the slab. */
   addPrism(

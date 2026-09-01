@@ -1,6 +1,7 @@
 {
   "description": "Core-feasibility surface for the assembler: given a blueprint's floors, whether the vertical core plus egress fits. The library export coreFeasibility(blueprint) computes this exactly; these constants and the recipe let a consumer pre-check with its own arithmetic. All meters.",
   "recipe": [
+    "0. plate: every floor outline inset by facadeDepth = shellWallDepth(facade.style) + lining + 2 * bandProud (the facade lining's inner face); every later step reads these inset plates, so the core never stands inside the shell wall. shellWallDepth by facade style is in constants.facadeDepth; an unknown or missing style reads as panel.",
     "1. frame: rotate so u runs along the longest ground-outline edge (flip 180 if the ground entrance door falls in the upper v half).",
     "1b. rotated fallback: when that frame holds no core (steps 9 and 10 give none, or walkup over the cap), try frames every frameSweepStepDeg degrees over a half turn from the principal angle, each with the same entrance flip, and take the best fitting one: standard before compact before walkup, longer band breaking ties, and the first standard found ending the sweep. A parcel whose fitting core rectangle is skewed off its longest edge builds at that angle instead; frameAngleDeg on the result says which frame was used. Parcels the principal frame already serves never enter the sweep, so their layout is unchanged.",
     "2. ideal vFace on the ground outline's uv bounding box, snap = 0.5: vDepth < singleLoadedBelowDepth ? snapDown(vMin + vDepth - elevatorShaft) : snap(vMin + (vDepth + corridorWidth) / 2).",
@@ -38,7 +39,21 @@
     "stairHeadroom": 2.1,
     "stairSlab": 0.15,
     "stairMinSlab": 0.06,
-    "stairFlightWidth": 1.15
+    "stairFlightWidth": 1.15,
+    "shellWallDepth": {
+      "curtain-wall": 0.15,
+      "glass": 0.15,
+      "panel": 0.3,
+      "megablock": 0.5
+    },
+    "lining": 0.08,
+    "bandProud": 0.02,
+    "facadeDepth": {
+      "curtain-wall": 0.27,
+      "glass": 0.27,
+      "panel": 0.42,
+      "megablock": 0.62
+    }
   },
   "note": "Stair fit: a flight is stairClearWidth clear (half the shaft's short side) and keeps stairHeadroom over every tread and landing of the whole run. The tread slab thins from stairSlab toward stairMinSlab on low storeys so the headroom holds; landings give up depth down to stairFlightWidth before a climb splits into more flights."
 }

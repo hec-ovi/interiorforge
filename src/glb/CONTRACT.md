@@ -8,7 +8,7 @@ Purpose: the only place that touches GLB bytes: builds interior meshes with corr
   - `addQuad(material, [v0, v1, v2, v3], uv?)`: vertices CCW seen from the front; normal derived from winding. `uv` is "world" (default): planar UVs in meters (walls: u along the wall, v up; horizontal: u = x, v = z), or "unit": 0..1 over the face, for exact-placement materials.
   - `addHorizontalPolygon(material, polygon, y, facing, uv?)`: triangulated floor or ceiling surface, `facing` "up" | "down".
   - `addBox(material, rect, y0, y1, faces?)`: axis-aligned box, outward normals; `faces` subset of `top bottom north south east west` (default all six).
-  - `addSlab(material, p0, p1, thickness, y0, y1)`, `addPrism(material, corners, y0, y1, uv?)`: wall slab at any angle, vertical prism over a plan polygon.
+  - `addPrism(material, corners, y0, y1, uv?, caps?)`: vertical prism over a plan polygon at any angle, caps optional.
   - `isEmpty()`, group access for tests.
 - `io.ts`
   - `createDocument(builder) -> Document`: fresh glTF document, one scene, one material per key (name = key, deterministic placeholder color), single-sided.

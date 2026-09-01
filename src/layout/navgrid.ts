@@ -6,6 +6,7 @@ import type { CorePlan } from "./core-plan.js";
 import { stairAccess } from "./core-plan.js";
 import { doorUvPoint } from "./plan-floor.js";
 import type { PlanFurniture, PlanRoom } from "./plan-types.js";
+import type { FloorBounds } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { pointInUvRect, uvRectCorners, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
 
@@ -18,15 +19,17 @@ const NON_BLOCKING: ReadonlySet<string> = new Set(["chair", "stool", "office_cha
  *  blocked (eroded by agent radius), door channels carved open. Angle-agnostic: rotated
  *  frames produce diagonal wall segments, blocked by true distance. */
 export function buildNavGrid(
-  worldOutline: readonly Point[], uvOutline: readonly Point[], rooms: PlanRoom[],
+  worldOutline: readonly Point[], bounds: FloorBounds, rooms: PlanRoom[],
   furniture: PlanFurniture[], sealed: UvRect[], core: CorePlan,
 ): WalkGrid {
   const frame = core.frame;
-  const bounds = polygonBounds(worldOutline);
-  const grid = WalkGrid.forPolygon(worldOutline, CELL, bounds);
+  const uvOutline = bounds.outline;
+  const grid = WalkGrid.forPolygon(worldOutline, CELL, polygonBounds(worldOutline));
 
+  // the facade lining stands inside the outline; walkable space starts behind it
+  const facadeBand = bounds.facadeDepth + AGENT_RADIUS;
   for (let e = 0; e < worldOutline.length; e++) {
-    blockSegment(grid, worldOutline[e]!, worldOutline[(e + 1) % worldOutline.length]!, WALL_BAND);
+    blockSegment(grid, worldOutline[e]!, worldOutline[(e + 1) % worldOutline.length]!, facadeBand);
   }
 
   for (const room of rooms) {
@@ -54,7 +57,8 @@ export function buildNavGrid(
 
   for (const room of rooms) {
     for (const door of room.doors) {
-      openUvRect(grid, frame, doorChannelUv(door, room), worldOutline);
+      const band = door.to === "outside" ? facadeBand : WALL_BAND;
+      openUvRect(grid, frame, doorChannelUv(door, room, band), worldOutline);
     }
   }
   for (const channel of stairDoorChannelsUv(core)) openUvRect(grid, frame, channel, worldOutline);
@@ -85,9 +89,9 @@ export function furnitureUvRect(f: PlanFurniture): UvRect {
   return { u: f.at[0] - lu / 2, v: f.at[1] - lv / 2, lu, lv };
 }
 
-export function doorChannelUv(door: PlanRoom["doors"][number], room: PlanRoom): UvRect {
+export function doorChannelUv(door: PlanRoom["doors"][number], room: PlanRoom, band = WALL_BAND): UvRect {
   const [u, v] = doorUvPoint(door, room);
-  const across = WALL_BAND + 2 * CELL;
+  const across = band + 2 * CELL;
   return door.edge.startsWith("v")
     ? { u: u - door.width / 2, v: v - across, lu: door.width, lv: 2 * across }
     : { u: u - across, v: v - door.width / 2, lu: 2 * across, lv: door.width };

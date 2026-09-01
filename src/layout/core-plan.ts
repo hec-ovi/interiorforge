@@ -1,10 +1,11 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
-import { polygonArea, polygonBounds } from "../core/geom.js";
+import { insetPolygon, polygonArea, polygonBounds } from "../core/geom.js";
 import type { FloorAssignment, InteriorRequest } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
 import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, STAIR, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
+import { facadeDepth } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { coversRect, makeFrame, snap, snapDown, snapUp, toUvPolygon, worldToUv } from "./uv.js";
 
@@ -58,8 +59,13 @@ interface CoreEnvelope {
   candidates: number[];
 }
 
-function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame): CoreEnvelope {
-  const uvFloors = floors.map((f) => toUvPolygon(f.outline, frame));
+/** The plates the core may stand on: every floor outline behind the facade lining. */
+function platesOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame, depth: number): Point[][] {
+  return floors.map((f) => insetPolygon(toUvPolygon(f.outline, frame), depth));
+}
+
+function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame, depth: number): CoreEnvelope {
+  const uvFloors = platesOf(floors, frame, depth);
   const groundIndex = floors.findIndex((f) => f.index === 0);
   const bounds = polygonBounds(uvFloors[groundIndex]!);
   const vLen = bounds.d;
@@ -196,17 +202,19 @@ function withinCap(env: CoreEnvelope, placement: Placement): boolean {
 /** The one frame-and-placement decision behind both planCore and coreFeasibility. The
  *  principal frame wins whenever it holds a core, so nothing that already builds changes;
  *  only parcels it cannot serve pay for the rotated sweep. */
-function selectEnvelope(floors: InteriorRequest["blueprint"]["floors"]): CoreChoice {
+function selectEnvelope(blueprint: InteriorRequest["blueprint"]): CoreChoice {
+  const floors = blueprint.floors;
+  const depth = facadeDepth(blueprint.facade?.style);
   const ground = floors.find((f) => f.index === 0)! as Ground;
   const base = principalAngle(ground.outline);
-  const first = envelopeOf(floors, frameAt(base, ground));
+  const first = envelopeOf(floors, frameAt(base, ground), depth);
   const firstPlacement = first.crossDepthOk ? selectPlacement(first) : null;
   if (firstPlacement && withinCap(first, firstPlacement)) return { env: first, placement: firstPlacement };
 
   let best: CoreChoice | null = null;
   let bestRank = Infinity;
   for (const angle of frameAngles(base).slice(1)) {
-    const env = envelopeOf(floors, frameAt(angle, ground));
+    const env = envelopeOf(floors, frameAt(angle, ground), depth);
     if (!env.crossDepthOk) continue;
     const placement = selectPlacement(env);
     if (!placement || !withinCap(env, placement)) continue;
@@ -254,7 +262,7 @@ export interface CoreFeasibility {
 /** Assembler pre-check mirroring planCore exactly: same frame, same vFace scan, same
  *  thresholds (see schemas/core-feasibility.json). */
 export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFeasibility {
-  const { env, placement } = selectEnvelope(blueprint.floors);
+  const { env, placement } = selectEnvelope(blueprint);
   const mode = placement?.mode ?? "none";
   return {
     fits: mode === "standard" || mode === "compact" ||
@@ -273,8 +281,7 @@ export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFe
 
 /** Places the vertical core once per building; every floor reuses these rects. */
 export function planCore(request: InteriorRequest, assignments: FloorAssignment[]): CorePlan {
-  const floors = request.blueprint.floors;
-  const { env, placement } = selectEnvelope(floors);
+  const { env, placement } = selectEnvelope(request.blueprint);
   const { frame, twoStairs, stairDepth } = env;
 
   if (!env.crossDepthOk) {
@@ -439,10 +446,10 @@ function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan): void
     ...plan.elevators.map((e) => [e.id, e.rect] as [string, UvRect]),
     ...(plan.stairB ? [["stair-b", plan.stairB] as [string, UvRect]] : []),
   ];
-  for (const floor of request.blueprint.floors) {
-    const uvOutline = toUvPolygon(floor.outline, plan.frame);
+  const plates = platesOf(request.blueprint.floors, plan.frame, facadeDepth(request.blueprint.facade?.style));
+  for (const [i, floor] of request.blueprint.floors.entries()) {
     for (const [id, rect] of named) {
-      if (!coversRect(uvOutline, rect)) {
+      if (!coversRect(plates[i]!, rect)) {
         throw new InteriorError(
           "E_FLOOR_TOO_SMALL",
           `${plan.mode} core does not fit inside this floor outline: ${id} spans u ${rect.u.toFixed(1)}..${(rect.u + rect.lu).toFixed(1)}m, v ${rect.v.toFixed(1)}..${(rect.v + rect.lv).toFixed(1)}m in the layout frame (${plan.frame.angleDeg} deg)`,

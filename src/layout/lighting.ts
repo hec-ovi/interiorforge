@@ -1,5 +1,5 @@
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, pointInPolygon, polygonBounds } from "../core/geom.js";
+import { clipPolygonToRect, insetPolygon, pointInPolygon, polygonBounds } from "../core/geom.js";
 import type { LightFixture, RoomKind } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
 import type { PlanRoom } from "./plan-types.js";
@@ -20,6 +20,8 @@ const MAX_PER_ROOM = 10;
 const MIN_COVE_SIDE = 2.0;
 const COVE_SEGMENT = 6.0; // cove segments abut, so a long wall reads as one line
 const COVE_MAX_PER_SIDE = 8;
+/** a fixture's housing plus clearance, kept off the facade lining */
+const FIXTURE_MARGIN = 0.25;
 
 /** Spread and softness per fixture kind: a line of light washes the surfaces around it,
  *  a downlight throws a cone. */
@@ -96,12 +98,16 @@ function rangeOf(lumens: number, kind: LightFixture["kind"]): number {
 class FloorLighting {
   private readonly out: LightFixture[] = [];
 
+  private readonly uvOutline: readonly Point[];
+
   constructor(
     private readonly ids: IdGen,
     private readonly frame: Frame,
-    private readonly uvOutline: readonly Point[],
+    uvInner: readonly Point[],
     private readonly ceilingY: number,
-  ) {}
+  ) {
+    this.uvOutline = insetPolygon(uvInner, FIXTURE_MARGIN);
+  }
 
   fixtures(): LightFixture[] {
     return this.out;
@@ -116,7 +122,8 @@ class FloorLighting {
     if (style.cove) this.cove(room, style);
     // no room stays dark: a clipped plate still gets one downlight where it has floor
     if (this.out.length === before) {
-      this.spotAt(room.id, this.insideCenter(room.rect), style.lumens, style.colorTemperatureK, true);
+      const at = this.insideCenter(room.rect);
+      if (at) this.spotAt(room.id, at, style.lumens, style.colorTemperatureK, true);
     }
   }
 
@@ -222,12 +229,13 @@ class FloorLighting {
     return pointInPolygon(p, this.uvOutline);
   }
 
-  /** A point of the rect that is really inside the outline; irregular plates cut room rects. */
-  private insideCenter(r: UvRect): Point {
+  /** A point of the rect that is really inside the plate; irregular plates cut room rects.
+   *  Null when the room has no floor behind the lining at all. */
+  private insideCenter(r: UvRect): Point | null {
     const c = center(r);
     if (this.inside(c)) return c;
     const clipped = clipPolygonToRect(this.uvOutline, { x: r.u, z: r.v, w: r.lu, d: r.lv });
-    if (clipped.length < 3) return c;
+    if (clipped.length < 3) return null;
     const b = polygonBounds(clipped);
     const mid: Point = [b.x + b.w / 2, b.z + b.d / 2];
     return this.inside(mid) ? mid : clipped[0]!;
@@ -259,11 +267,12 @@ function center(r: UvRect): Point {
   return [r.u + r.lu / 2, r.v + r.lv / 2];
 }
 
-/** Fixtures for one floor: every room by its kind, plus a downlight in each stair shaft. */
+/** Fixtures for one floor: every room by its kind, plus a downlight in each stair shaft.
+ *  `uvInner` is the plate behind the facade lining (layout/shell.ts). */
 export function planLights(
-  rooms: PlanRoom[], core: CorePlan, uvOutline: readonly Point[], ceilingY: number, ids: IdGen,
+  rooms: PlanRoom[], core: CorePlan, uvInner: readonly Point[], ceilingY: number, ids: IdGen,
 ): LightFixture[] {
-  const lighting = new FloorLighting(ids, core.frame, uvOutline, ceilingY);
+  const lighting = new FloorLighting(ids, core.frame, uvInner, ceilingY);
   for (const room of rooms) lighting.room(room);
   lighting.stairwell("stair-a", core.stairA);
   if (core.stairB) lighting.stairwell("stair-b", core.stairB);

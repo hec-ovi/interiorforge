@@ -8,6 +8,7 @@ import { buildNavGrid } from "./navgrid.js";
 import { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
 import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import { doorBetween, type IdGen } from "./rooms.js";
+import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
 import { pointInUvRect, uvRectCenter, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
 
@@ -17,7 +18,7 @@ const MAX_REPAIRS = 20;
  *  corridor, and repairs unreached rooms by adding a door to a reached neighbor.
  *  Deterministic; throws E_UNREACHABLE_SPACE when repair cannot fix the floor. */
 export function validateAndRepair(
-  worldOutline: readonly Point[], uvOutline: readonly Point[], rooms: PlanRoom[],
+  worldOutline: readonly Point[], bounds: FloorBounds, rooms: PlanRoom[],
   furniture: PlanFurniture[], sealed: UvRect[], core: CorePlan, floorIndex: number, ids: IdGen,
 ): WalkGrid {
   const corridor = rooms.find((r) => SPINE_KINDS.has(r.kind));
@@ -28,7 +29,7 @@ export function validateAndRepair(
     // repair doors land after furnishing: clear whatever now stands in a doorway, then read
     // the grid back with that space open
     clearDoorZones(rooms, furniture);
-    const grid = buildNavGrid(worldOutline, uvOutline, rooms, furniture, sealed, core);
+    const grid = buildNavGrid(worldOutline, bounds, rooms, furniture, sealed, core);
     const visited = grid.flood(start);
     const unreached = rooms.filter((room) => !roomReached(grid, visited, room, core));
 

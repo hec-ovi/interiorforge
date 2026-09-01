@@ -24,6 +24,8 @@ export interface FixtureOptions {
   type?: BuildingType;
   tier?: Tier;
   theme?: string;
+  /** exterior facade style; curtain-wall glazes every face in bays that hang slab to slab */
+  facadeStyle?: "curtain-wall" | "glass" | "panel" | "megablock";
 }
 
 export interface Fixture {
@@ -47,6 +49,7 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
   const type = options.type ?? "offices";
   const tier = options.tier ?? "mid";
   const theme = options.theme ?? "cyberpunk";
+  const facadeStyle = options.facadeStyle ?? "panel";
 
   const rng = createRng(seed, "fixture");
   const chamfer = Math.min(width, depth) * rng.range(0.15, 0.3);
@@ -82,12 +85,14 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
       elevation: round2(elevation),
       height,
       outline,
-      openings: i < 0 ? [] : makeOpenings(createRng(seed, "fixture-floor", i), outline, i, kind, height),
+      openings: i < 0 ? [] : facadeStyle === "curtain-wall"
+        ? makeBays(outline, i, height)
+        : makeOpenings(createRng(seed, "fixture-floor", i), outline, i, kind, height),
     });
     elevation += height;
   }
 
-  const blueprint: Blueprint = { buildingId: `fixture-${type}-${seed}`, floors };
+  const blueprint: Blueprint = { buildingId: `fixture-${type}-${seed}`, facade: { style: facadeStyle }, floors };
   const request: InteriorRequest = {
     seed,
     building: { id: blueprint.buildingId, type, tier },
@@ -152,6 +157,26 @@ function makeOpenings(
   return openings;
 }
 
+/** Curtain wall: one glazed bay per face, corner to corner, reaching the slab above over a
+ *  spandrel; the ground front keeps the entrance. */
+function makeBays(outline: Point[], floor: number, floorHeight: number): Opening[] {
+  const spandrel = 0.9;
+  const margin = 0.12;
+  return outline.map((_, edge): Opening => {
+    const len = edgeLength(outline, edge);
+    if (floor === 0 && edge === 0) {
+      return {
+        id: `f${floor}-entrance`, kind: "door", edge, offset: round2(len / 2 - 1.35), width: 2.7,
+        height: Math.min(2.8, floorHeight - 0.4), sill: 0,
+      };
+    }
+    return {
+      id: `f${floor}-bay${edge}`, kind: "window", edge, offset: margin, width: round2(len - 2 * margin),
+      height: round2(floorHeight - spandrel), sill: spandrel,
+    };
+  });
+}
+
 function buildShell(blueprint: Blueprint, theme: string, tier: Tier): Document {
   const mb = new MeshBuilder();
   // exterior's material kinds, so a fixture shell resolves against the same database
@@ -171,6 +196,8 @@ function buildShell(blueprint: Blueprint, theme: string, tier: Tier): Document {
   }
   mb.addHorizontalPolygon(slab, outline, roofY, "up");
   const doc = createDocument(mb);
+  // the skin is the shell's, not the interior's
+  for (const node of doc.getRoot().listNodes()) node.setName(node.getName().replace(/^interior:/, "shell:"));
 
   // one node per separator plane, named by exterior's convention so interior can replace
   // them with slabs holding real stair and elevator holes

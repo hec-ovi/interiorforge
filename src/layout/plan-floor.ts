@@ -17,6 +17,7 @@ import {
   attachOutsideDoors, clipRatio, fillCoreBacking, fillOfficeStrip, fillServiceSegment,
   fillShopStrip, fillUnitStrip, fillVenue, idGen,
 } from "./rooms.js";
+import { floorBounds } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { toWorldPolygon, uvRectToFrameRect, uvToWorld, worldToUv } from "./uv.js";
 import { validateAndRepair } from "./validate-floor.js";
@@ -42,6 +43,7 @@ export function planFloor(
 ): PlannedFloor {
   const frame = core.frame;
   const uvOutline = floor.outline.map((p) => worldToUv(p, frame));
+  const bounds = floorBounds(uvOutline, request.blueprint.facade?.style);
   const ids = idGen(floor.index);
   const rng = createRng(request.seed, "floor", floor.index);
 
@@ -139,11 +141,11 @@ export function planFloor(
     });
   attachOutsideDoors(rooms, exteriorDoors, ids);
 
-  const furniture = furnish(rooms, kind, rng, ids, uvOutline);
+  const furniture = furnish(rooms, kind, rng, ids, bounds);
 
   const sealed = [...backing.sealed, ...extraSealed.filter((s) => clipRatio(s, uvOutline) > 0.05)];
   const grid = validateAndRepair(
-    floor.outline, uvOutline, rooms, furniture, sealed, core, floor.index, ids,
+    floor.outline, bounds, rooms, furniture, sealed, core, floor.index, ids,
   );
 
   return {
@@ -153,7 +155,7 @@ export function planFloor(
       core: coreToWorld(core, sealed),
       rooms: rooms.map((r) => roomToWorld(r, uvOutline, frame)),
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
-      lights: planLights(rooms, core, uvOutline, floor.elevation + ceilingClear(spaceHeight), ids),
+      lights: planLights(rooms, core, bounds.inner, floor.elevation + ceilingClear(spaceHeight), ids),
     },
     grid,
     uv: { outline: uvOutline, rooms, furniture, sealed },
