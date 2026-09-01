@@ -75,7 +75,7 @@ describe("preview ui", () => {
     const clickAt = async (wx: number, wz: number) => {
       const cx = ((wx - vb.x) / vb.width) * 300;
       const cz = ((wz - vb.y) / vb.height) * 300;
-      svg.dispatchEvent(new MouseEvent("click", { clientX: cx, clientY: cz, bubbles: true }));
+      svg.dispatchEvent(new MouseEvent("click", { clientX: cx, clientY: cz, bubbles: true, shiftKey: true }));
       await Promise.resolve();
     };
     // two points inside the corridor band of the fixture floor

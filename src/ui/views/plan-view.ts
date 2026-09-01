@@ -52,6 +52,7 @@ export function createPlanView(state: AppState): HTMLElement {
       });
       poly.setAttribute("data-room", room.id);
       poly.addEventListener("click", (ev) => {
+        if (ev.shiftKey) return; // shift-clicks fall through to path picking on the svg
         ev.stopPropagation();
         state.selectRoom(room.id);
       });
@@ -102,6 +103,7 @@ export function createPlanView(state: AppState): HTMLElement {
     }
 
     svg.addEventListener("click", (ev) => {
+      if (!ev.shiftKey) return;
       const rect = svg.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
       const vb = svg.viewBox.baseVal;

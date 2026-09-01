@@ -38,7 +38,7 @@ export function createInfoPanel(state: AppState): HTMLElement {
       const points = walk && walk.kind === "walk" ? walk.points.length : 0;
       container.append(el("p", { class: "path-status" }, [`path found: ${points} waypoints`]));
     } else {
-      container.append(el("p", { class: "hint" }, ["click two clear points on the plan to test a walk path"]));
+      container.append(el("p", { class: "hint" }, ["shift-click two plan points to test a walk path"]));
     }
   }
 
