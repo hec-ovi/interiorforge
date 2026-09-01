@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import npcSchema from "../../schemas/npc.schema.json" with { type: "json" };
 import { makeFixture } from "../blueprint/fixture.js";
-import { resolveAssignments } from "../blueprint/validate.js";
+import { resolveAssignments, validateRequest } from "../blueprint/validate.js";
+import cityP15 from "./fixtures/city-p15.request.json" with { type: "json" };
 import { planBuilding } from "../layout/index.js";
 import { buildNpcSupport, findPath } from "./index.js";
 import { anchorConflicts, ENTRANCE_STANDOFF } from "./keep-out.js";
@@ -37,6 +38,18 @@ describe("buildNpcSupport", () => {
         expect(gap, `${anchor.id} crowds ${door.id}`).toBeGreaterThanOrEqual(ENTRANCE_STANDOFF);
       }
     }
+  });
+
+  it("city parcel p15: the entrance anchor walked out to a cell on the zone edge stays clear once rounded", () => {
+    // the nearest clear cell centre sat 1.5003 m inside the street door; exported at
+    // centimetre precision it read 1.4990 m and stood in the doorway
+    const request = validateRequest({ ...cityP15, shellGlb: "(fixture)" });
+    const cplan = planBuilding(request, resolveAssignments(request));
+    const cnpc = buildNpcSupport(cplan, request);
+    for (const floor of cplan.floors) {
+      expect(anchorConflicts(floor, cnpc.anchors), `floor ${floor.floor}`).toEqual([]);
+    }
+    expect(cnpc.anchors.some((a) => a.kind === "entrance" && a.floor === 0)).toBe(true);
   });
 
   it("anchors cover entrances, elevators and stairs on every served floor", () => {

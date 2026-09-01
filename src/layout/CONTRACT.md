@@ -9,8 +9,9 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 ## Out
 
 - `BuildingPlan`
-  - `floors: FloorInterior[]` (the floor.schema.json shape) sorted by index; a double-height span's upper floor has `rooms: []`. Room polygons tile the outline; the shell wall model (`shell.ts`: wall depth by facade style, lining, bands) says where the room really starts, and the core, furniture, light fixtures and the nav grid keep to that inner plate.
+  - `floors: FloorInterior[]` (the floor.schema.json shape) sorted by index; a double-height span's upper floor has `rooms: []`. Room polygons tile the outline; the shell wall model (`shell.ts`: wall depth from the blueprint's `facade.wallDepth`, else by facade style; lining; bands) says where the room really starts, and the core, furniture, light fixtures and the nav grid keep to that inner plate.
   - `core: CorePlan`: building-wide vertical core in frame (uv) space, identical on every floor. The frame aligns u to the longest ground edge and flips so the street entrance faces the hall side; rotated parcels work natively, `coreAngleDeg` carries the rotation.
+- `coreFeasibility(blueprint) -> CoreFeasibility`: the root contract's pre-check, computed by the same frame, band scan and placement as `planCore`; when it does not fit, `blocker` names the nearest miss (`cross_depth` on the shallowest floor plate, `band`, `compact_depth`, `walkup_floors`) and the `E_FLOOR_TOO_SMALL` message quotes the same numbers.
   - `navGrids: Map<floorIndex, WalkGrid>`: 0.25 m wall-aware walkable grid per floor, world-axis-aligned regardless of frame rotation (diagonal walls blocked by true distance).
   - `uvFloors: Map<floorIndex, UvFloorData>`: frame-space rooms, furniture and sealed bands for the geometry and npc passes.
 - Pipeline (docs/RESEARCH.md): core first, corridor second (spine, point-access by plate and kind), strip split into units third, rooms from per-kind program tables fourth, furniture fifth, flood-fill validation with deterministic door repair last.

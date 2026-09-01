@@ -9,6 +9,7 @@ Purpose: the only place that touches GLB bytes: builds interior meshes with corr
   - `addHorizontalPolygon(material, polygon, y, facing, uv?)`: triangulated floor or ceiling surface, `facing` "up" | "down".
   - `addBox(material, rect, y0, y1, faces?)`: axis-aligned box, outward normals; `faces` subset of `top bottom north south east west` (default all six).
   - `addPrism(material, corners, y0, y1, uv?, caps?)`: vertical prism over a plan polygon at any angle, caps optional.
+  - `merge(other)`: appends another builder's groups after this one's, material by material, indices rebased.
   - `isEmpty()`, group access for tests.
 - `io.ts`
   - `createDocument(builder) -> Document`: fresh glTF document, one scene, one material per key (name = key, deterministic placeholder color), single-sided.

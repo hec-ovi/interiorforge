@@ -57,13 +57,22 @@ describe("shell fit", () => {
     it(`${name}: every vertex stays behind the shell wall, reveals behind the skin`, async () => {
       const fix = makeFixture(options);
       const result = await generateInterior(fix.request, { shellDoc: fix.shellDoc, textures: { mode: "keys" } });
-      const depth = shellWallDepth(fix.request.blueprint.facade?.style);
+      const depth = shellWallDepth(fix.request.blueprint.facade);
       const worst = await worstDepth(result.glb, fix.request.blueprint);
       expect(worst.wall).toBeGreaterThanOrEqual(depth - 1e-4);
       expect(worst.reveal).toBeGreaterThanOrEqual(SHELL_WALL.skinClear - 1e-4);
       expect(worst.reveal).toBeLessThan(depth);
     });
   }
+
+  it("a blueprint carrying facade.wallDepth is read at that depth, ahead of the style table", async () => {
+    const fix = makeFixture({ seed: 11, floors: 2, facadeStyle: "panel", wallDepth: 0.175 });
+    expect(shellWallDepth(fix.request.blueprint.facade)).toBe(0.175);
+    const result = await generateInterior(fix.request, { shellDoc: fix.shellDoc, textures: { mode: "keys" } });
+    const worst = await worstDepth(result.glb, fix.request.blueprint);
+    expect(worst.wall).toBeGreaterThanOrEqual(0.175 - 1e-4);
+    expect(worst.wall).toBeLessThan(SHELL_WALL.depth.panel!);
+  });
 
   it("a vertex on the wall plane is E_SHELL_BREACH, never shipped", () => {
     const floor: BlueprintFloor = { index: 0, kind: "lobby", elevation: 0, height: 3, outline: [[0, 0], [10, 0], [10, 8], [0, 8]], openings: [] };

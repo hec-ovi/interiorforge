@@ -202,6 +202,36 @@ describe("planBuilding", () => {
     }
   });
 
+  it("coreFeasibility names the condition an unfit plate misses", () => {
+    // band long enough for the compact core, plate too shallow for its stair columns
+    const shallow = coreFeasibility(makeFixture({ seed: 6, floors: 6, width: 14, depth: 10 }).request.blueprint);
+    expect(shallow.mode).toBe("none");
+    expect(shallow.blocker).toBe("compact_depth");
+    expect(shallow.bandLength).toBeGreaterThanOrEqual(shallow.minCompactCoreLength);
+    expect(shallow.compactDepthOk).toBe(false);
+    expect(shallow.plateDepth).toBeLessThan(shallow.minCompactDepth);
+    expect(shallow.crossDepthOk).toBe(true);
+    try {
+      const fix = makeFixture({ seed: 6, floors: 6, width: 14, depth: 10 });
+      planBuilding(fix.request, resolveAssignments(fix.request));
+      expect.unreachable("must throw");
+    } catch (err) {
+      expect((err as { code: string }).code).toBe("E_FLOOR_TOO_SMALL");
+      expect((err as Error).message).toContain(`${shallow.minCompactDepth.toFixed(1)}m`);
+    }
+
+    // a setback tower top too shallow for the core row: the shallowest floor decides
+    const tower = makeFixture({ seed: 2, floors: 6, width: 24, depth: 18 });
+    for (const floor of tower.request.blueprint.floors) {
+      if (floor.index >= 3) floor.outline = floor.outline.map(([x, z]) => [x, z * 0.3] as [number, number]);
+    }
+    const setback = coreFeasibility(tower.request.blueprint);
+    expect(setback.blocker).toBe("cross_depth");
+    expect(setback.plateDepthFloor).toBe(3);
+    expect(setback.plateDepth).toBeLessThan(setback.minCrossDepth);
+    expect(setback.bandLength).toBe(0);
+  });
+
   it("near-miss bands keep elevators via the compact column core", () => {
     const square = makeFixture({ seed: 6, floors: 6, width: 16, depth: 16 });
     const f = coreFeasibility(square.request.blueprint);

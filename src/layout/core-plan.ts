@@ -55,8 +55,21 @@ interface CoreEnvelope {
   twoStairs: boolean;
   stairDepth: number;
   crossDepthOk: boolean;
+  /** shallowest floor plate across the frame, and the floor it belongs to */
+  plateDepth: number;
+  plateDepthFloor: number;
   idealVFace: number;
   candidates: number[];
+}
+
+/** Plate depth every floor needs across the frame: one room strip, the corridor, the shaft
+ *  row. The core is identical on every floor, so the shallowest floor decides. */
+const MIN_CROSS_DEPTH = ELEVATOR.shaft + CORRIDOR.width + ROOM.minStripDepth;
+
+/** Plate depth the compact core needs on a rectangular plate: room strip and corridor in
+ *  front of the corridor face, the stair columns behind it. */
+function minCompactDepth(env: CoreEnvelope): number {
+  return ROOM.minStripDepth + CORRIDOR.width + env.stairDepth;
 }
 
 /** The plates the core may stand on: every floor outline behind the facade lining. */
@@ -86,11 +99,22 @@ function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame
     }
   }
 
+  let plateDepth = Infinity;
+  let plateDepthFloor = 0;
+  uvFloors.forEach((poly, i) => {
+    const d = poly.length < 3 ? 0 : polygonBounds(poly).d;
+    if (d < plateDepth) {
+      plateDepth = d;
+      plateDepthFloor = floors[i]!.index;
+    }
+  });
+
   return {
     frame, uvFloors, vMin, vMax, vLen, area, aboveFloors,
     topElevation: floors.at(-1)!.elevation,
     twoStairs, stairDepth: stairShaftDepth(floors),
-    crossDepthOk: ELEVATOR.shaft + CORRIDOR.width + ROOM.minStripDepth <= vLen,
+    crossDepthOk: MIN_CROSS_DEPTH <= plateDepth,
+    plateDepth, plateDepthFloor,
     idealVFace, candidates,
   };
 }
@@ -143,35 +167,47 @@ function inlineStairU(env: CoreEnvelope, p: Placement): number {
   return snapDown(p.bandU1) - env.stairDepth;
 }
 
+function placeAt(mode: CoreMode, vFace: number, bandU0: number, bandU1: number, fixed: number): Placement {
+  return {
+    mode, vFace, bandU0, bandU1, bandLen: bandU1 - bandU0,
+    maxElevators: mode === "walkup" ? 0 : Math.max(0, Math.floor((bandU1 - bandU0 - fixed) / ELEVATOR.shaft)),
+  };
+}
+
+/** Compact stair columns reach past the shaft row into the rear strip: that depth has to be
+ *  inside every floor over the whole block, whatever car count the building asks for. */
+function compactColumnsFit(env: CoreEnvelope, candidate: Placement): boolean {
+  const span = blockSpan(env, candidate, candidate.maxElevators);
+  const columns: UvRect = { u: span.u0, v: candidate.vFace, lu: span.len, lv: env.stairDepth };
+  return env.uvFloors.every((poly) => coversRect(poly, columns));
+}
+
+/** The compact placement at one corridor position, when its band and column depth hold. */
+function compactAt(env: CoreEnvelope, vFace: number): Placement | null {
+  const fixed = compactFixedLen(env);
+  const [u0, u1] = bandAt(env, vFace);
+  if (u1 - u0 < fixed + ELEVATOR.shaft) return null;
+  const candidate = placeAt("compact", vFace, u0, u1, fixed);
+  return compactColumnsFit(env, candidate) ? candidate : null;
+}
+
 /** The single mode-and-position selector shared by planCore and coreFeasibility. */
 function selectPlacement(env: CoreEnvelope): Placement | null {
   const rowFixed = rowFixedLen(env);
-  const compactFixed = compactFixedLen(env);
-  const place = (mode: CoreMode, vFace: number, bandU0: number, bandU1: number, fixed: number): Placement => ({
-    mode, vFace, bandU0, bandU1, bandLen: bandU1 - bandU0,
-    maxElevators: mode === "walkup" ? 0 : Math.max(0, Math.floor((bandU1 - bandU0 - fixed) / ELEVATOR.shaft)),
-  });
-
   for (const vFace of env.candidates) {
     const [u0, u1] = bandAt(env, vFace);
-    if (u1 - u0 >= rowFixed + ELEVATOR.shaft) return place("standard", vFace, u0, u1, rowFixed);
+    if (u1 - u0 >= rowFixed + ELEVATOR.shaft) return placeAt("standard", vFace, u0, u1, rowFixed);
   }
   for (const vFace of env.candidates) {
-    const [u0, u1] = bandAt(env, vFace);
-    if (u1 - u0 < compactFixed + ELEVATOR.shaft) continue;
-    const candidate = place("compact", vFace, u0, u1, compactFixed);
-    // stair columns reach past the shaft row into the rear strip: that depth has to be inside
-    // every floor over the whole block, whatever car count the building ends up asking for
-    const span = blockSpan(env, candidate, candidate.maxElevators);
-    const columns: UvRect = { u: span.u0, v: vFace, lu: span.len, lv: env.stairDepth };
-    if (env.uvFloors.every((poly) => coversRect(poly, columns))) return candidate;
+    const compact = compactAt(env, vFace);
+    if (compact) return compact;
   }
   let best: [number, number, number] | null = null;
   for (const vFace of env.candidates) {
     const [u0, u1] = bandAt(env, vFace);
     if (!best || u1 - u0 > best[2] - best[1]) best = [vFace, u0, u1];
   }
-  if (best && best[2] - best[1] >= rowFixed) return place("walkup", best[0], best[1], best[2], rowFixed);
+  if (best && best[2] - best[1] >= rowFixed) return placeAt("walkup", best[0], best[1], best[2], rowFixed);
   return null;
 }
 
@@ -204,7 +240,7 @@ function withinCap(env: CoreEnvelope, placement: Placement): boolean {
  *  only parcels it cannot serve pay for the rotated sweep. */
 function selectEnvelope(blueprint: InteriorRequest["blueprint"]): CoreChoice {
   const floors = blueprint.floors;
-  const depth = facadeDepth(blueprint.facade?.style);
+  const depth = facadeDepth(blueprint.facade);
   const ground = floors.find((f) => f.index === 0)! as Ground;
   const base = principalAngle(ground.outline);
   const first = envelopeOf(floors, frameAt(base, ground), depth);
@@ -238,44 +274,102 @@ function bestBandLen(env: CoreEnvelope): number {
   return best;
 }
 
+/** The nearest miss when a blueprint does not fit, in the order standard, compact, walkup:
+ *  cross_depth: a floor plate is shallower than minCrossDepth, no mode can start.
+ *  compact_depth: a band holds the compact core length but its stair columns find no depth
+ *  behind the corridor face on every floor.
+ *  walkup_floors: only a walkup band exists and the floor count is over walkupMaxFloors.
+ *  band: no corridor position holds even the walkup core length. */
+export type CoreBlocker = "cross_depth" | "band" | "compact_depth" | "walkup_floors";
+
 export interface CoreFeasibility {
   /** whether THIS blueprint (its floor count included) generates */
   fits: boolean;
   /** standard: elevator core in the shaft row. compact: stair columns, elevators kept.
    *  walkup: stair-only, floors capped at walkupMaxFloors. none: not buildable. */
   mode: CoreMode | "none";
+  /** present when fits is false */
+  blocker?: CoreBlocker;
   frameAngleDeg: number;
   /** chosen corridor-face position and its band (after the vFace scan) */
   bandLength: number;
   /** row core: stair + one car + riser + stub (+ egress stair) + margin */
   minCoreLength: number;
-  /** compact core: stair columns + one car + riser + stub + margin; also needs
-   *  rear depth >= stairShaftDepth above the corridor face */
+  /** compact core: stair columns + one car + riser + stub + margin */
   minCompactCoreLength: number;
   /** row core without the car */
   minWalkupCoreLength: number;
   walkupMaxFloors: number;
   maxElevators: number;
+  /** shallowest floor plate across the frame, and the floor it belongs to */
+  plateDepth: number;
+  plateDepthFloor: number;
+  /** plate depth every mode needs on every floor: shaft row + corridor + one room strip */
+  minCrossDepth: number;
   crossDepthOk: boolean;
+  /** plate depth the compact core needs on a rectangular plate: room strip + corridor +
+   *  stairShaftDepth for its columns; compactDepthOk is the exact per-floor column test */
+  minCompactDepth: number;
+  compactDepthOk: boolean;
+}
+
+function blockerOf(env: CoreEnvelope, placement: Placement | null): CoreBlocker | undefined {
+  if (placement && withinCap(env, placement)) return undefined;
+  if (!env.crossDepthOk) return "cross_depth";
+  const band = bestBandLen(env);
+  if (band >= compactFixedLen(env) + ELEVATOR.shaft) return "compact_depth";
+  if (band >= rowFixedLen(env)) return "walkup_floors";
+  return "band";
+}
+
+/** Whether some corridor position holds the compact core with its column depth (step 8). */
+function compactDepthOk(env: CoreEnvelope): boolean {
+  return env.crossDepthOk && env.candidates.some((vFace) => compactAt(env, vFace) !== null);
+}
+
+/** The gate's message for an unfit blueprint, quoting the recipe's own numbers. */
+function unfitDetail(env: CoreEnvelope, blocker: CoreBlocker, placement: Placement | null): string {
+  const m = (n: number) => `${n.toFixed(1)}m`;
+  const band = m(placement ? placement.bandLen : bestBandLen(env));
+  const mins = `standard minimum ${m(rowFixedLen(env) + ELEVATOR.shaft)}, compact minimum ${m(compactFixedLen(env) + ELEVATOR.shaft)}, walkup minimum ${m(rowFixedLen(env))}; see schemas/core-feasibility.json`;
+  switch (blocker) {
+    case "cross_depth":
+      return `plate depth ${m(env.plateDepth)} on floor ${env.plateDepthFloor} is below the ${m(MIN_CROSS_DEPTH)} minimum for a room strip, the corridor and the shaft row in the layout frame`;
+    case "compact_depth":
+      return `band ${band} holds a compact core but its stair columns need ${m(env.stairDepth)} behind the corridor face on every floor (plate depth ${m(env.plateDepth)}, compact needs ${m(minCompactDepth(env))} on a rectangular plate; ${mins})`;
+    case "walkup_floors":
+      return `walkup core (band ${band}, ${mins}) allows at most ${WALKUP.maxFloors} floors, blueprint has ${env.aboveFloors}`;
+    case "band":
+      return `no corridor position holds a core: best band ${band} is below the walkup minimum ${m(rowFixedLen(env))} (${mins})`;
+  }
+}
+
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
 }
 
 /** Assembler pre-check mirroring planCore exactly: same frame, same vFace scan, same
  *  thresholds (see schemas/core-feasibility.json). */
 export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFeasibility {
   const { env, placement } = selectEnvelope(blueprint);
-  const mode = placement?.mode ?? "none";
+  const blocker = blockerOf(env, placement);
   return {
-    fits: mode === "standard" || mode === "compact" ||
-      (mode === "walkup" && env.aboveFloors <= WALKUP.maxFloors),
-    mode,
+    fits: blocker === undefined,
+    mode: placement?.mode ?? "none",
+    ...(blocker ? { blocker } : {}),
     frameAngleDeg: env.frame.angleDeg,
-    bandLength: Math.round((placement ? placement.bandLen : bestBandLen(env)) * 100) / 100,
-    minCoreLength: Math.round((rowFixedLen(env) + ELEVATOR.shaft) * 100) / 100,
-    minCompactCoreLength: Math.round((compactFixedLen(env) + ELEVATOR.shaft) * 100) / 100,
-    minWalkupCoreLength: Math.round(rowFixedLen(env) * 100) / 100,
+    bandLength: round2(placement ? placement.bandLen : bestBandLen(env)),
+    minCoreLength: round2(rowFixedLen(env) + ELEVATOR.shaft),
+    minCompactCoreLength: round2(compactFixedLen(env) + ELEVATOR.shaft),
+    minWalkupCoreLength: round2(rowFixedLen(env)),
     walkupMaxFloors: WALKUP.maxFloors,
     maxElevators: placement?.maxElevators ?? 0,
+    plateDepth: round2(env.plateDepth),
+    plateDepthFloor: env.plateDepthFloor,
+    minCrossDepth: MIN_CROSS_DEPTH,
     crossDepthOk: env.crossDepthOk,
+    minCompactDepth: round2(minCompactDepth(env)),
+    compactDepthOk: compactDepthOk(env),
   };
 }
 
@@ -284,14 +378,9 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
   const { env, placement } = selectEnvelope(request.blueprint);
   const { frame, twoStairs, stairDepth } = env;
 
-  if (!env.crossDepthOk) {
-    throw new InteriorError("E_FLOOR_TOO_SMALL", `plate depth ${env.vLen.toFixed(1)}m is below the ${(ELEVATOR.shaft + CORRIDOR.width + ROOM.minStripDepth).toFixed(1)}m minimum for corridor, shafts and rooms at any frame angle`);
-  }
-  if (!placement) {
-    throw new InteriorError("E_FLOOR_TOO_SMALL", `no corridor position holds a core: best band ${bestBandLen(env).toFixed(1)}m is below the walkup minimum ${rowFixedLen(env).toFixed(1)}m (standard minimum ${(rowFixedLen(env) + ELEVATOR.shaft).toFixed(1)}m, compact minimum ${(compactFixedLen(env) + ELEVATOR.shaft).toFixed(1)}m; see schemas/core-feasibility.json)`);
-  }
-  if (placement.mode === "walkup" && env.aboveFloors > WALKUP.maxFloors) {
-    throw new InteriorError("E_FLOOR_TOO_SMALL", `walkup core (band ${placement.bandLen.toFixed(1)}m, standard minimum ${(rowFixedLen(env) + ELEVATOR.shaft).toFixed(1)}m, compact minimum ${(compactFixedLen(env) + ELEVATOR.shaft).toFixed(1)}m) allows at most ${WALKUP.maxFloors} floors, blueprint has ${env.aboveFloors}`);
+  const blocker = blockerOf(env, placement);
+  if (!placement || blocker) {
+    throw new InteriorError("E_FLOOR_TOO_SMALL", unfitDetail(env, blocker ?? "band", placement));
   }
 
   const { mode, vFace } = placement;
@@ -446,7 +535,7 @@ function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan): void
     ...plan.elevators.map((e) => [e.id, e.rect] as [string, UvRect]),
     ...(plan.stairB ? [["stair-b", plan.stairB] as [string, UvRect]] : []),
   ];
-  const plates = platesOf(request.blueprint.floors, plan.frame, facadeDepth(request.blueprint.facade?.style));
+  const plates = platesOf(request.blueprint.floors, plan.frame, facadeDepth(request.blueprint.facade));
   for (const [i, floor] of request.blueprint.floors.entries()) {
     for (const [id, rect] of named) {
       if (!coversRect(plates[i]!, rect)) {

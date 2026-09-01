@@ -1,5 +1,5 @@
 import type { Document } from "@gltf-transform/core";
-import { readGlbFile, writeGlb } from "./glb/io.js";
+import { createDocument, readGlbFile, writeGlb } from "./glb/io.js";
 import { resolveAssignments, validateRequest, validateShell } from "./blueprint/validate.js";
 import { buildInterior } from "./geometry/index.js";
 import { planBuilding } from "./layout/index.js";
@@ -19,6 +19,9 @@ export interface GenerateOptions {
   shellDoc?: Document;
   /** how the GLB carries its maps; external by default (a finished, textured interior) */
   textures?: TextureOptions;
+  /** also return each floor band's interior as its own GLB (`floorGlbs` on the result),
+   *  same materials, node scheme and texture mode as the whole building */
+  floorGlbs?: boolean;
 }
 
 /** The box surface: validates, plans, builds NPC support and geometry, resolves the material
@@ -34,8 +37,18 @@ export async function generateInterior(
   const assignments = resolveAssignments(validated);
   const plan = planBuilding(validated, assignments);
   const npc = buildNpcSupport(plan, validated);
-  const { doc, stepsByFloor } = buildInterior(plan, validated, shellDoc);
+  const { doc, stepsByFloor, floorMeshes } = buildInterior(plan, validated, shellDoc);
   const textures = await textureDocument(doc, validated.materialTheme, options.textures);
+
+  let floorGlbs: Map<number, Uint8Array> | undefined;
+  if (options.floorGlbs) {
+    floorGlbs = new Map();
+    for (const [index, meshes] of floorMeshes) {
+      const floorDoc = createDocument(meshes);
+      await textureDocument(floorDoc, validated.materialTheme, options.textures);
+      floorGlbs.set(index, await writeGlb(floorDoc));
+    }
+  }
 
   const floors: FloorInterior[] = plan.floors.map((floor) => ({
     ...floor,
@@ -48,5 +61,5 @@ export async function generateInterior(
     },
   }));
 
-  return { glb: await writeGlb(doc), floors, npc, textures };
+  return { glb: await writeGlb(doc), floors, npc, textures, ...(floorGlbs ? { floorGlbs } : {}) };
 }

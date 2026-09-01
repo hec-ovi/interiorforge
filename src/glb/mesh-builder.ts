@@ -101,6 +101,19 @@ export class MeshBuilder {
     if (caps === "both") this.addHorizontalPolygon(material, corners, y0, "down", uv);
   }
 
+  /** Appends every group of `other` after this builder's own, material by material. */
+  merge(other: MeshBuilder): void {
+    for (const material of other.materials()) {
+      const from = other.getGroup(material)!;
+      const g = this.group(material);
+      const base = g.positions.length / 3;
+      for (const v of from.positions) g.positions.push(v);
+      for (const v of from.normals) g.normals.push(v);
+      for (const v of from.uvs) g.uvs.push(v);
+      for (const index of from.indices) g.indices.push(base + index);
+    }
+  }
+
   isEmpty(): boolean {
     return this.groups.size === 0;
   }

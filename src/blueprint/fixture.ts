@@ -26,6 +26,8 @@ export interface FixtureOptions {
   theme?: string;
   /** exterior facade style; curtain-wall glazes every face in bays that hang slab to slab */
   facadeStyle?: "curtain-wall" | "glass" | "panel" | "megablock";
+  /** measured shell wall depth written on the blueprint, as exterior 0.22 publishes it */
+  wallDepth?: number;
 }
 
 export interface Fixture {
@@ -92,7 +94,8 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
     elevation += height;
   }
 
-  const blueprint: Blueprint = { buildingId: `fixture-${type}-${seed}`, facade: { style: facadeStyle }, floors };
+  const facade = { style: facadeStyle, ...(options.wallDepth !== undefined ? { wallDepth: options.wallDepth } : {}) };
+  const blueprint: Blueprint = { buildingId: `fixture-${type}-${seed}`, facade, floors };
   const request: InteriorRequest = {
     seed,
     building: { id: blueprint.buildingId, type, tier },

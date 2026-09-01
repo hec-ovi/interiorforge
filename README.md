@@ -24,7 +24,7 @@ Without a shell to work from, a fixture shell is fabricated, so the box runs wit
 One `InteriorRequest` (`schemas/request.schema.json`):
 
 - **seed**, **building** (id, type, wealth tier), **shellGlb** path, **materialTheme**
-- **blueprint**: the shell's per-floor description (outlines, elevations, heights, openings, basements as negative indexes) and its facade style, which sets how deep the shell wall reaches inside the outline
+- **blueprint**: the shell's per-floor description (outlines, elevations, heights, openings, basements as negative indexes) and its facade: a measured `wallDepth`, or a style that picks how deep the shell wall reaches inside the outline
 - **assignments** (optional): one floor kind per floor from lobby, office, corpo office, restaurant, coffee shop, retail, mall floor, gym, studio, apartment, hotel rooms, mechanical, parking, terrace, with `spans: 2` for double-height floors. Omitted, they are derived from the blueprint's own floor labels and the building type, so a mixed-use tower gets a shop floor, a restaurant floor and apartments each with their own program.
 
 Units are meters, building-local, +Y up.
@@ -33,9 +33,10 @@ Units are meters, building-local, +Y up.
 
 - **`building.glb`**: the shell completed and furnished. Every material resolves through a PBR library ([pbrforge](../pbrforge) by default) into real maps: basecolor, normal, occlusion, emission where the entry has one, with its metallic and roughness factors and transmission and IOR for glass. Tiled maps carry a `KHR_texture_transform` over world-meter UVs so nothing stretches. Three texture modes: `external` writes map URIs against a configurable base path, `--embed` packs everything into one self-contained GLB, `--keys-only` leaves the material keys for a runtime that resolves them itself. With no material database on disk the output falls back to keys, so the tool still runs standalone.
 - **`floors/NNN.json`**: the vertical core (elevators, stairs with real tread geometry, shafts), rooms as polygons with doors of one to four leaves, and furniture placements. Irregular footprints rotate the layout frame and publish the angle, so a triangular or decagonal plate lays out along its own axes.
+- **`floors/NNN.glb`** (with `--floor-glbs`): each floor band's interior as its own GLB next to its JSON, same materials and node scheme as the whole building, so a runtime can stream the floors near the player.
 - **`npc.json`**: usable anchor positions, supported roles with min and max counts, routine loops (anchor, dwell range, animation), and nav data: a per-floor walkable grid plus stair and elevator connectors.
 
-Library surface: `generateInterior(request, options)`, `findPath(npc, from, to)` (an obstacle-avoiding route between any two walkable points, returned as same-floor legs and connector rides), `makeFixture(options)` for a stand-in shell, and `coreFeasibility(blueprint)`, a pre-check that answers whether a footprint can hold a vertical core and in which mode (standard, compact, stair-only walkup with a floor cap, or none). The gate and the generator share one placement function, so `fits: true` means the building generates.
+Library surface: `generateInterior(request, options)`, `findPath(npc, from, to)` (an obstacle-avoiding route between any two walkable points, returned as same-floor legs and connector rides), `makeFixture(options)` for a stand-in shell, and `coreFeasibility(blueprint)`, a pre-check that answers whether a footprint can hold a vertical core and in which mode (standard, compact, stair-only walkup with a floor cap, or none), and when it cannot, which condition it misses: plate depth on its shallowest floor, the band along the corridor, the depth the compact stair columns need, or the walkup floor cap. The gate and the generator share one placement function, so `fits: true` means the building generates.
 
 ## How it works
 

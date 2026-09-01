@@ -3,13 +3,15 @@
  *  npm run generate -- [--out out] [--seed 1] [--floors 12] [--basements 0]
  *                      [--type offices] [--tier mid] [--theme cyberpunk] [--request path.json]
  *                      [--embed] [--keys-only] [--materials DIR] [--materials-base URI]
+ *                      [--floor-glbs]
  *
  *  Without --request, a fixture shell is fabricated (standalone mode); with it, the JSON
  *  file must be a full InteriorRequest whose shellGlb path resolves on disk.
  *
  *  Textures come from the materials database by default, as external URIs relative to the
  *  output directory. --embed packs the maps into one self-contained GLB; --keys-only leaves
- *  the material keys for a consumer that resolves them itself.
+ *  the material keys for a consumer that resolves them itself. --floor-glbs also writes
+ *  each floor band's interior as floors/NNN.glb next to its JSON.
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
@@ -66,11 +68,14 @@ async function main(): Promise<void> {
   const result = await generateInterior(request, {
     ...(shellDoc ? { shellDoc } : {}),
     textures: textureOptions(out, request.materialTheme),
+    floorGlbs: flag("floor-glbs"),
   });
   await writeFile(join(out, "building.glb"), result.glb);
   for (const floor of result.floors) {
     const tag = floor.floor < 0 ? `m${-floor.floor}` : String(floor.floor).padStart(3, "0");
     await writeFile(join(out, "floors", `${tag}.json`), JSON.stringify(floor, null, 1));
+    const glb = result.floorGlbs?.get(floor.floor);
+    if (glb) await writeFile(join(out, "floors", `${tag}.glb`), glb);
   }
   await writeFile(join(out, "npc.json"), JSON.stringify(result.npc, null, 1));
   const textures = result.textures.mode === "keys"

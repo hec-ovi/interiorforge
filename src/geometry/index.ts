@@ -32,6 +32,9 @@ export interface InteriorGeometry {
   doc: Document;
   /** floor index -> stair id -> frame-space tread and landing tops (see coreAngleDeg) */
   stepsByFloor: Map<number, Record<string, Rect3[]>>;
+  /** the same geometry split by floor band: what stands between a floor's slab and the
+   *  next (its stair climb included), the shaft floors under the lowest served floor */
+  floorMeshes: Map<number, MeshBuilder>;
 }
 
 /** Completes the shell document with the full interior. Mutates and returns shellDoc. */
@@ -41,7 +44,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     Math.floor(createRng(request.seed, "materials").next() * 1000),
   );
   const core = plan.core;
-  const mb = new MeshBuilder();
+  const floorMeshes = new Map<number, MeshBuilder>();
   const stepsByFloor = new Map<number, Record<string, Rect3[]>>();
   const sorted = [...plan.floors].sort((a, b) => a.floor - b.floor);
   const bpByIndex = new Map(request.blueprint.floors.map((f) => [f.index, f]));
@@ -49,11 +52,13 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
   const lowest = sorted.find((f) => f.rooms.length > 0)!;
   /** every step of one stair over the whole building, for the fit check */
   const wholeRun = new Map<string, RunStep[]>();
-  const style = request.blueprint.facade?.style;
-  const wallDepth = shellWallDepth(style);
+  const facade = request.blueprint.facade;
+  const wallDepth = shellWallDepth(facade);
 
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
+    const mb = new MeshBuilder();
+    floorMeshes.set(floor.floor, mb);
     const uv = plan.uvFloors.get(floor.floor)!;
     // the ceiling of a spans-2 floor sits at the top of its open upper half
     const upper = sorted[i + 1]?.rooms.length === 0 ? sorted[i + 1] : undefined;
@@ -101,7 +106,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     // slabs reach the lining's outer face; walls end inside the lining; nothing crosses it
     const slabPlate = insetPolygon(uv.outline, wallDepth);
     const wallPlate = insetPolygon(uv.outline, wallDepth + SHELL_WALL.lining / 2);
-    const roomPlate = insetPolygon(uv.outline, facadeDepth(style));
+    const roomPlate = insetPolygon(uv.outline, facadeDepth(facade));
     const cut = (rect: UvRect, plate: Point[]): Point[] =>
       toWorldPolygon(clipPolygonToRect(plate, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }), core.frame);
     const roomPlans = uv.rooms.map((r) => ({ kind: r.kind, polygon: cut(r.rect, slabPlate) }));
@@ -124,13 +129,15 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     emitLightFixtures(mb, keys, floor.lights);
   }
 
-  buildShaftFloors(mb, keys, core, lowest.elevation);
+  buildShaftFloors(floorMeshes.get(lowest.floor)!, keys, core, lowest.elevation);
   assertStairFit(core, wholeRun);
-  assertInsideShell(mb, request.blueprint.floors, wallDepth);
+  const whole = new MeshBuilder();
+  for (const floor of sorted) whole.merge(floorMeshes.get(floor.floor)!);
+  assertInsideShell(whole, request.blueprint.floors, wallDepth);
 
   removeShellSeparators(shellDoc);
-  appendToDocument(shellDoc, mb);
-  return { doc: shellDoc, stepsByFloor };
+  appendToDocument(shellDoc, whole);
+  return { doc: shellDoc, stepsByFloor, floorMeshes };
 }
 
 /** Stairs have to fit the player: a flight at least STAIR.clearWidth wide and STAIR.headroom

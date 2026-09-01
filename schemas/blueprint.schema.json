@@ -21,7 +21,8 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "style": { "type": "string", "description": "exterior facade style (curtain-wall, glass, panel, megablock); picks the shell wall depth the interior keeps clear of" }
+        "style": { "type": "string", "description": "exterior facade style (curtain-wall, glass, panel, megablock); picks the shell wall depth the interior keeps clear of when wallDepth is absent" },
+        "wallDepth": { "type": "number", "minimum": 0, "description": "measured inward reach of the shell wall in meters (reveals, frames, glazing, closed leaves); read ahead of the per-style table" }
       }
     },
     "floors": {

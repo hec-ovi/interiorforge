@@ -43,7 +43,7 @@ export function planFloor(
 ): PlannedFloor {
   const frame = core.frame;
   const uvOutline = floor.outline.map((p) => worldToUv(p, frame));
-  const bounds = floorBounds(uvOutline, request.blueprint.facade?.style);
+  const bounds = floorBounds(uvOutline, request.blueprint.facade);
   const ids = idGen(floor.index);
   const rng = createRng(request.seed, "floor", floor.index);
 

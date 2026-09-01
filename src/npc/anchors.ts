@@ -140,8 +140,10 @@ function norm360(deg: number): number {
 
 /** Exported anchors must be pathable by construction and clear of every doorway: keep the
  *  ideal point when its own cell is corridor-reached and out of the way, otherwise walk out
- *  to the nearest cell that is both. Null when nothing usable is close enough (the anchor is
- *  dropped). */
+ *  to the nearest cell that is both. The keep-out test runs on the exact point that is
+ *  exported (the cell centre rounded to centimetres): a centre a few millimetres outside a
+ *  door zone must not round back into it. Null when nothing usable is close enough (the
+ *  anchor is dropped). */
 function snapToReached(grid: WalkGrid, visited: Uint8Array, p: Point, keepOut: DoorKeepOut): Point | null {
   const [c0, r0] = grid.cellAt(p);
   const usable = (c: number, r: number, at: Point) =>
@@ -155,11 +157,12 @@ function snapToReached(grid: WalkGrid, visited: Uint8Array, p: Point, keepOut: D
       for (let dc = -ring; dc <= ring; dc++) {
         if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
         const center = grid.center(c0 + dc, r0 + dr);
-        if (!usable(c0 + dc, r0 + dr, center)) continue;
-        const dist = Math.hypot(center[0] - p[0], center[1] - p[1]);
+        const at: Point = [round2(center[0]), round2(center[1])];
+        if (!usable(c0 + dc, r0 + dr, at)) continue;
+        const dist = Math.hypot(at[0] - p[0], at[1] - p[1]);
         if (dist < bestDist) {
           bestDist = dist;
-          best = [round2(center[0]), round2(center[1])];
+          best = at;
         }
       }
     }

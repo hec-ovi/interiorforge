@@ -60,11 +60,18 @@ export interface BlueprintFloor {
   [extra: string]: unknown;
 }
 
+/** Exterior facade: `wallDepth` is the measured inward reach of the shell wall (reveals,
+ *  frames, glazing, closed leaves); without it the style picks a per-style depth. */
+export interface Facade {
+  style?: string;
+  wallDepth?: number;
+  [extra: string]: unknown;
+}
+
 export interface Blueprint {
   buildingId: string;
   bounds?: { footprint: Point[]; height: number };
-  /** exterior facade style; sets how deep its wall reaches inside the outline */
-  facade?: { style?: string; [extra: string]: unknown };
+  facade?: Facade;
   floors: BlueprintFloor[];
   [extra: string]: unknown;
 }
@@ -265,6 +272,8 @@ export interface InteriorResult {
   glb: Uint8Array;
   floors: FloorInterior[];
   npc: NpcSupport;
+  /** on request: the interior of each floor band as its own GLB, keyed by floor index */
+  floorGlbs?: Map<number, Uint8Array>;
   /** what the GLB carries: external map URIs, embedded maps, or material keys only */
   textures: { mode: "external" | "embedded" | "keys"; baseUrl?: string; materials: number };
 }
