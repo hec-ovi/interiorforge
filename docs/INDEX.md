@@ -7,9 +7,10 @@ Root box: the interior generator (CONTRACT.md). Inner boxes, one folder each:
 - `src/blueprint`: request validation, assignment resolution, standalone fixture shell. Depends on core, glb.
 - `src/layout`: vertical core plan, corridors, rooms, furniture, nav grid, reachability validation. Depends on core.
 - `src/npc`: anchors, roles, routines, nav export, reference pathfinder. Depends on core, layout.
+- `src/materials`: resolves material keys through ../materials and textures the GLB (external URIs, embedded maps, or keys only). Depends on core, glb.
 - `src/geometry`: interior meshes completing the shell GLB, stairs, walls, openings. Depends on core, glb, layout.
 - `src/ui`: browser preview: panoptic 3D view plus standalone floor editor. Depends on core, root surface, three.js.
 
-Root `src/index.ts` wires blueprint -> layout -> npc -> geometry into `generateInterior`; `src/cli.ts` runs it from the terminal.
+Root `src/index.ts` wires blueprint -> layout -> npc -> geometry -> materials into `generateInterior`; `src/cli.ts` runs it from the terminal.
 
 Dependency edges flow one way: ui and cli sit on top, core sits at the bottom, no cycles.

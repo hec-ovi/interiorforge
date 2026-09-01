@@ -7,9 +7,10 @@ const fix = makeFixture({ seed: 44, floors: 7, basements: 1 });
 
 describe("generateInterior", () => {
   it("produces a GLB plus schema-valid floor JSONs, byte-identical across runs", async () => {
-    const a = await generateInterior(fix.request, { shellDoc: fix.shellDoc });
+    const keys = { textures: { mode: "keys" as const } };
+    const a = await generateInterior(fix.request, { shellDoc: fix.shellDoc, ...keys });
     const again = makeFixture({ seed: 44, floors: 7, basements: 1 });
-    const b = await generateInterior(again.request, { shellDoc: again.shellDoc });
+    const b = await generateInterior(again.request, { shellDoc: again.shellDoc, ...keys });
     expect(Buffer.from(a.glb).equals(Buffer.from(b.glb))).toBe(true);
     expect(JSON.stringify(a.floors)).toBe(JSON.stringify(b.floors));
     expect(JSON.stringify(a.npc)).toBe(JSON.stringify(b.npc));

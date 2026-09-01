@@ -231,4 +231,6 @@ export interface InteriorResult {
   glb: Uint8Array;
   floors: FloorInterior[];
   npc: NpcSupport;
+  /** what the GLB carries: external map URIs, embedded maps, or material keys only */
+  textures: { mode: "external" | "embedded" | "keys"; baseUrl?: string; materials: number };
 }

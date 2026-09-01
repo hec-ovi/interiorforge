@@ -5,6 +5,12 @@ export type Vec3 = [number, number, number];
 
 export type BoxFace = "top" | "bottom" | "north" | "south" | "east" | "west";
 
+/** world: UVs in meters, so tiled materials never stretch. unit: 0..1 over the face, for
+ *  exact-placement materials (an elevator door panel wears its texture once). */
+export type UvMode = "world" | "unit";
+
+const UNIT_QUAD: [number, number][] = [[0, 0], [0, 1], [1, 1], [1, 0]];
+
 const ALL_FACES: BoxFace[] = ["top", "bottom", "north", "south", "east", "west"];
 
 export interface MeshGroup {
@@ -29,27 +35,34 @@ export class MeshBuilder {
   }
 
   /** Quad with vertices CCW as seen from the front face. */
-  addQuad(material: string, [v0, v1, v2, v3]: [Vec3, Vec3, Vec3, Vec3]): void {
+  addQuad(material: string, [v0, v1, v2, v3]: [Vec3, Vec3, Vec3, Vec3], uv: UvMode = "world"): void {
     const n = faceNormal(v0, v1, v2);
     const g = this.group(material);
     const base = g.positions.length / 3;
-    for (const v of [v0, v1, v2, v3]) {
+    [v0, v1, v2, v3].forEach((v, i) => {
       g.positions.push(...v);
       g.normals.push(...n);
-      g.uvs.push(...uvFor(v, n));
-    }
+      g.uvs.push(...(uv === "unit" ? UNIT_QUAD[i]! : uvFor(v, n)));
+    });
     g.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
 
   /** Horizontal surface from a simple polygon at height y. */
-  addHorizontalPolygon(material: string, polygon: readonly Point[], y: number, facing: "up" | "down"): void {
+  addHorizontalPolygon(
+    material: string, polygon: readonly Point[], y: number, facing: "up" | "down", uv: UvMode = "world",
+  ): void {
     const g = this.group(material);
     const base = g.positions.length / 3;
     const n: Vec3 = facing === "up" ? [0, 1, 0] : [0, -1, 0];
+    const xs = polygon.map((p) => p[0]);
+    const zs = polygon.map((p) => p[1]);
+    const [x0, z0] = [Math.min(...xs), Math.min(...zs)];
+    const [w, d] = [Math.max(...xs) - x0 || 1, Math.max(...zs) - z0 || 1];
     for (const [x, z] of polygon) {
       g.positions.push(x, y, z);
       g.normals.push(...n);
-      g.uvs.push(x, z);
+      if (uv === "unit") g.uvs.push((x - x0) / w, (z - z0) / d);
+      else g.uvs.push(x, z);
     }
     for (const [a, b, c] of triangulate(polygon)) {
       // shoelace-CCW in XZ faces -Y; flip for an upward surface
@@ -96,14 +109,14 @@ export class MeshBuilder {
   }
 
   /** Vertical prism over a CCW plan polygon: outward side quads plus top and bottom. */
-  addPrism(material: string, corners: readonly Point[], y0: number, y1: number): void {
+  addPrism(material: string, corners: readonly Point[], y0: number, y1: number, uv: UvMode = "world"): void {
     for (let i = 0; i < corners.length; i++) {
       const a = corners[i]!;
       const b = corners[(i + 1) % corners.length]!;
-      this.addQuad(material, [[a[0], y0, a[1]], [a[0], y1, a[1]], [b[0], y1, b[1]], [b[0], y0, b[1]]]);
+      this.addQuad(material, [[a[0], y0, a[1]], [a[0], y1, a[1]], [b[0], y1, b[1]], [b[0], y0, b[1]]], uv);
     }
-    this.addHorizontalPolygon(material, corners, y1, "up");
-    this.addHorizontalPolygon(material, corners, y0, "down");
+    this.addHorizontalPolygon(material, corners, y1, "up", uv);
+    this.addHorizontalPolygon(material, corners, y0, "down", uv);
   }
 
   isEmpty(): boolean {

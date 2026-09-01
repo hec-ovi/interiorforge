@@ -6,7 +6,7 @@ Purpose: derives everything the simulation layer needs from a building plan: anc
 
 - `buildNpcSupport(plan: BuildingPlan, request: InteriorRequest) -> NpcSupport` (the `schemas/npc.schema.json` shape)
   - anchors: entrances, per-floor elevator waits and stair entries, and furniture-driven spots (work behind desks and counters, beds, toilets, seats, machines, patrol points, idle and cleaning spots). Every anchor has a walkable approach cell within 0.9 m or is dropped.
-  - roles: staffing by building type and floor kind (receptionist, security, vendor or barista, cook, waiter, office workers, executives, residents, guests, trainer, cleaner) with `[min, max]` counts.
+  - roles: staffing by building type and floor kind (receptionist, security, vendor or barista, cook, waiter, clerk per sales floor, office workers, executives, residents, guests, trainer, cleaner) with `[min, max]` counts.
   - routines: one deterministic loop per role over its anchors, with dwell ranges and animations. The simulation walks between steps via nav.
   - nav: per-floor walkable bitmask (from the layout grids) plus connectors: every stair and elevator serves every planned floor (digital controls default); spans-2 upper floors are excluded.
 - `findPath(npc: NpcSupport, from: {floor, position}, to: {floor, position}) -> PathLeg[] | null`

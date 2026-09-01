@@ -1,8 +1,15 @@
-import { Document, NodeIO, getBounds, type Material } from "@gltf-transform/core";
+import { Document, Format, NodeIO, getBounds, type Material } from "@gltf-transform/core";
+import {
+  KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsTransmission, KHRTextureTransform,
+} from "@gltf-transform/extensions";
 import type { MeshBuilder } from "./mesh-builder.js";
 import type { Vec3 } from "./mesh-builder.js";
 
-const io = new NodeIO();
+/** The extensions textured materials use: tiling transforms, glass, emissive strength.
+ *  Unregistered extensions are silently dropped on write, so they live with the IO. */
+const io = new NodeIO().registerExtensions([
+  KHRTextureTransform, KHRMaterialsTransmission, KHRMaterialsIOR, KHRMaterialsEmissiveStrength,
+]);
 
 export function createDocument(builder: MeshBuilder): Document {
   const doc = new Document();
@@ -88,8 +95,58 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   return [r + m, g + m, b + m];
 }
 
+/** GLB out. The library's binary writer drops image URIs, so the JSON chunk is assembled
+ *  here: textures that carry a URI stay external, textures carrying bytes stay embedded. */
 export async function writeGlb(doc: Document): Promise<Uint8Array> {
-  return io.writeBinary(doc);
+  const { json, resources } = await io.writeJSON(doc, { format: Format.GLB });
+  const textures = doc.getRoot().listTextures();
+  json.images?.forEach((image, i) => {
+    const uri = textures[i]?.getURI();
+    if (uri) image.uri = uri;
+  });
+  return packGlb(json, Object.values(resources)[0]);
+}
+
+const GLB_MAGIC = 0x46546c67;
+const GLB_JSON = 0x4e4f534a;
+const GLB_BIN = 0x004e4942;
+
+/** glTF 2.0 container: 12-byte header, JSON chunk padded with spaces, BIN chunk padded with zeros. */
+function packGlb(json: unknown, bin?: Uint8Array): Uint8Array {
+  const jsonChunk = pad4(new TextEncoder().encode(JSON.stringify(json)), 0x20);
+  const binChunk = bin && bin.byteLength > 0 ? pad4(bin, 0) : null;
+  const total = 12 + 8 + jsonChunk.byteLength + (binChunk ? 8 + binChunk.byteLength : 0);
+  const out = new Uint8Array(total);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, GLB_MAGIC, true);
+  view.setUint32(4, 2, true);
+  view.setUint32(8, total, true);
+  view.setUint32(12, jsonChunk.byteLength, true);
+  view.setUint32(16, GLB_JSON, true);
+  out.set(jsonChunk, 20);
+  if (binChunk) {
+    const at = 20 + jsonChunk.byteLength;
+    view.setUint32(at, binChunk.byteLength, true);
+    view.setUint32(at + 4, GLB_BIN, true);
+    out.set(binChunk, at + 8);
+  }
+  return out;
+}
+
+function pad4(data: Uint8Array, fill: number): Uint8Array {
+  const size = Math.ceil(data.byteLength / 4) * 4;
+  if (size === data.byteLength) return data;
+  const padded = new Uint8Array(size).fill(fill);
+  padded.set(data);
+  return padded;
+}
+
+/** The JSON chunk of a GLB, for inspecting output that references external images. */
+export function glbJson(glb: Uint8Array): Record<string, unknown> {
+  const view = new DataView(glb.buffer, glb.byteOffset, glb.byteLength);
+  const length = view.getUint32(12, true);
+  const text = new TextDecoder().decode(glb.subarray(20, 20 + length));
+  return JSON.parse(text.replace(/\0+$/, "").trim()) as Record<string, unknown>;
 }
 
 export async function readGlbBytes(bytes: Uint8Array): Promise<Document> {

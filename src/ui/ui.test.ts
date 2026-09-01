@@ -27,6 +27,7 @@ async function mountAndGenerate() {
   const viewer = fakeViewer();
   const state = mountApp(root, viewer);
   const user = userEvent.setup();
+  await waitFor(() => expect(state.result).not.toBeNull(), { timeout: 30000 });
 
   const seed = root.querySelector<HTMLInputElement>('input[name="seed"]')!;
   await user.clear(seed);
@@ -40,6 +41,17 @@ async function mountAndGenerate() {
 }
 
 describe("preview ui", () => {
+  it("shows a building at first load, with no file picking", async () => {
+    document.body.innerHTML = "";
+    const root = document.createElement("div");
+    document.body.append(root);
+    const viewer = fakeViewer();
+    const state = mountApp(root, viewer);
+    await waitFor(() => expect(state.result).not.toBeNull(), { timeout: 30000 });
+    expect(viewer.glb).toBeInstanceOf(Uint8Array);
+    expect(state.result!.floors.length).toBeGreaterThan(1);
+  }, 40000);
+
   it("generates a building from the controls and hands the GLB to the viewer", async () => {
     const { root, viewer, state } = await mountAndGenerate();
     expect(viewer.glb).toBeInstanceOf(Uint8Array);

@@ -46,7 +46,7 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
   const depth = options.depth ?? 20;
   const type = options.type ?? "offices";
   const tier = options.tier ?? "mid";
-  const theme = options.theme ?? "urbe";
+  const theme = options.theme ?? "cyberpunk";
 
   const rng = createRng(seed, "fixture");
   const chamfer = Math.min(width, depth) * rng.range(0.15, 0.3);
@@ -154,8 +154,9 @@ function makeOpenings(
 
 function buildShell(blueprint: Blueprint, theme: string, tier: Tier): Document {
   const mb = new MeshBuilder();
-  const facade = `${theme}/facade/${tier}`;
-  const slab = `${theme}/concrete/${tier}`;
+  // exterior's material kinds, so a fixture shell resolves against the same database
+  const facade = `${theme}/wall/${tier}`;
+  const slab = `${theme}/floor-slab/${tier}`;
   const top = blueprint.floors.at(-1)!;
   const roofY = top.elevation + top.height;
   const outline = blueprint.floors[0]!.outline;

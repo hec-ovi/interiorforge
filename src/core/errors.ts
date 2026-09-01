@@ -3,7 +3,8 @@ export type InteriorErrorCode =
   | "E_SHELL_MISMATCH"
   | "E_ASSIGNMENT_INVALID"
   | "E_FLOOR_TOO_SMALL"
-  | "E_UNREACHABLE_SPACE";
+  | "E_UNREACHABLE_SPACE"
+  | "E_MATERIAL_UNRESOLVED";
 
 export class InteriorError extends Error {
   readonly code: InteriorErrorCode;

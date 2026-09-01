@@ -10,7 +10,7 @@ Purpose: turns a building plan into interior meshes and completes the shell GLB:
   - Vertical core: internal shaft divider walls, elevator door openings with closed metal door panels, stair shafts with entry openings, U-return stair flights and landings sized per floor height (riser <= 0.17, tread 0.28), continuous bottom to top.
   - Furniture as boxes at their planned position, rotation and size.
   - `stepsByFloor: Map<floor, Rect3[]>`: world tread rectangles per floor for the floor JSON.
-- All meshes use material keys `theme/kind/tier`; single-sided, CCW, world-meter UVs (glb box discipline).
+- All meshes use material keys `theme/kind/tier`; single-sided, CCW, world-meter UVs (glb box discipline). Elevator door panels carry 0..1 UVs instead: their material is an exact placement, never tiled. The materials box resolves the keys into maps afterwards.
 - Deterministic: identical plan, identical bytes.
 
 ## Errors

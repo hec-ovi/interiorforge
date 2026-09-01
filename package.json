@@ -6,12 +6,13 @@
   "description": "Deterministic building interior generator: fills an exterior GLB shell with per-floor rooms, stairs, elevators, furniture placeholders and NPC routine data.",
   "scripts": {
     "generate": "tsx src/cli.ts",
-    "preview": "vite src/ui",
+    "preview": "vite --config src/ui/vite.config.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/extensions": "^4.5.0",
     "ajv": "^8.17.1"
   },
   "devDependencies": {

@@ -24,7 +24,7 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 
 - Same request, identical plan. Per-floor RNG streams: floor N never changes when floor M is edited.
 - Core rects identical across floors; stairs continuous; every floor served by every elevator.
-- Every room reachable from the elevator lobby through doors; corridor and door widths per docs/RESEARCH.md constants.
+- Every room reachable from the floor's spine (corridor, elevator lobby or mall concourse) through doors; corridor and door widths per docs/RESEARCH.md constants.
 - Rooms plus corridors plus core tile the outline: no interior gap band.
 
 ## Depends on

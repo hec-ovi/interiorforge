@@ -25,7 +25,8 @@ export function emitElevatorDoors(mb: MeshBuilder, keys: MaterialKeys, core: Cor
   for (const elevator of core.elevators) {
     const at = elevator.rect.u + elevator.rect.lu / 2;
     const panel: UvRect = { u: at - DOOR_W / 2, v: core.vFace - 0.03, lu: DOOR_W, lv: 0.06 };
-    mb.addPrism(material, uvRectCorners(panel).map((p) => uvToWorld(p, core.frame)), elevation, elevation + DOOR_H);
+    // the door material is an exact placement: one texture over the panel, never tiled
+    mb.addPrism(material, uvRectCorners(panel).map((p) => uvToWorld(p, core.frame)), elevation, elevation + DOOR_H, "unit");
   }
 }
 

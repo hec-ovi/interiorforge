@@ -1,6 +1,7 @@
 import { generateInterior, makeFixture } from "../index.js";
 import { readGlbBytes } from "../glb/io.js";
 import type { InteriorRequest } from "../core/types.js";
+import type { TextureOptions, ThemeIndex } from "../materials/index.js";
 import type { AppParams, AppState } from "./app-state.js";
 import { createAppState } from "./app-state.js";
 import { createPlanView } from "./views/plan-view.js";
@@ -9,6 +10,21 @@ import { createControls } from "./widgets/controls.js";
 import { createInfoPanel } from "./widgets/info-panel.js";
 
 /** Wires the app into `root`. The 3D viewer is injected so tests can stub WebGL. */
+const MATERIALS_BASE = "/materials/themes";
+
+/** The dev server serves the materials database; textures resolve against it, so what the
+ *  preview shows is the finished interior. Without it the GLB keeps its material keys. */
+async function textureOptions(theme: string): Promise<TextureOptions> {
+  const baseUrl = `${MATERIALS_BASE}/${theme}`;
+  try {
+    const response = await fetch(`${baseUrl}/theme.json`);
+    if (!response.ok) return { mode: "keys" };
+    return { mode: "external", theme: (await response.json()) as ThemeIndex, baseUrl };
+  } catch {
+    return { mode: "keys" };
+  }
+}
+
 export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
   const state = createAppState();
 
@@ -17,7 +33,10 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
     state.setBusy(true);
     try {
       const fixture = makeFixture(params);
-      const result = await generateInterior(fixture.request, { shellDoc: fixture.shellDoc });
+      const result = await generateInterior(fixture.request, {
+        shellDoc: fixture.shellDoc,
+        textures: await textureOptions(fixture.request.materialTheme),
+      });
       state.setResult(result);
       await viewer.setGlb(result.glb);
       applySlice();
@@ -57,10 +76,13 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
         },
         shellGlb: "(loaded)",
         blueprint,
-        materialTheme: extRequest?.theme ?? "urbe",
+        materialTheme: extRequest?.theme ?? "cyberpunk",
       } as unknown as InteriorRequest;
       const shellDoc = await readGlbBytes(shellBytes);
-      const result = await generateInterior(request, { shellDoc });
+      const result = await generateInterior(request, {
+        shellDoc,
+        textures: await textureOptions(request.materialTheme),
+      });
       state.setResult(result);
       await viewer.setGlb(result.glb);
       applySlice();
@@ -95,6 +117,7 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
   showPlan();
 
   root.append(side, viewer.el, planWrap);
+  void regenerate(state.params); // first load shows a finished building, no picking needed
   return state;
 }
 
