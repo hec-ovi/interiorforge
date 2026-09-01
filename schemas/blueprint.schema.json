@@ -1,24 +1,34 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urbe/interior/blueprint",
-  "title": "Blueprint",
-  "description": "Exterior shell blueprint consumed by the interior generator. Produced by the exterior box (fixture until synced). Units: meters. Building-local space, right-handed, +Y up, floor outlines on the XZ plane, CCW winding.",
+  "$id": "urbe/interior/blueprint-consumed",
+  "title": "BlueprintConsumed",
+  "description": "Consumer view of the canonical exterior blueprint (../exterior/schemas/blueprint.schema.json, v0.3). Interior reads the floors core and bounds; every other exterior section (seed, signage, screens, lights, fireEscape, roof, materials) is accepted and ignored. Units meters, +Y up, XZ floor plane, CCW outlines. Negative floor indexes are basements.",
   "type": "object",
   "required": ["buildingId", "floors"],
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "buildingId": { "type": "string" },
+    "bounds": {
+      "type": "object",
+      "required": ["footprint", "height"],
+      "additionalProperties": true,
+      "properties": {
+        "footprint": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point2" } },
+        "height": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
     "floors": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["index", "elevation", "height", "outline", "openings"],
-        "additionalProperties": false,
+        "required": ["index", "kind", "elevation", "height", "outline", "openings"],
+        "additionalProperties": true,
         "properties": {
-          "index": { "type": "integer", "minimum": 0, "description": "0 = ground floor, contiguous" },
+          "index": { "type": "integer", "description": "0 = ground floor, contiguous; negative = basement" },
+          "kind": { "type": "string", "description": "exterior slot label slug (lobby, residential, office, basement...); assignments win over it" },
           "elevation": { "type": "number", "description": "Y of this floor's walking surface" },
-          "height": { "type": "number", "minimum": 2.2, "maximum": 6, "description": "floor-to-floor distance" },
+          "height": { "type": "number", "minimum": 2.2, "maximum": 12, "description": "floor-to-floor distance" },
           "outline": {
             "type": "array",
             "minItems": 3,
@@ -30,7 +40,7 @@
             "items": {
               "type": "object",
               "required": ["id", "kind", "edge", "offset", "width", "height", "sill"],
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
                 "id": { "type": "string" },
                 "kind": { "enum": ["door", "window", "balconyDoor", "aperture"] },

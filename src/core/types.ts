@@ -11,7 +11,7 @@ export type Tier = "poor" | "standard" | "rich" | "lux";
 
 export type FloorKind =
   | "lobby" | "office" | "corpo_office" | "restaurant" | "coffee_shop" | "gym"
-  | "residence_studio" | "apartment" | "hotel_rooms" | "mechanical" | "terrace";
+  | "residence_studio" | "apartment" | "hotel_rooms" | "mechanical" | "parking" | "terrace";
 
 export interface FloorAssignment {
   floor: number;
@@ -24,7 +24,8 @@ export interface InteriorRequest {
   building: { id: string; type: BuildingType; tier: Tier };
   shellGlb: string;
   blueprint: Blueprint;
-  assignments: FloorAssignment[];
+  /** optional: derived from blueprint floor kind slugs when omitted */
+  assignments?: FloorAssignment[];
   materialTheme: string;
 }
 
@@ -40,19 +41,26 @@ export interface Opening {
   width: number;
   height: number;
   sill: number;
+  [extra: string]: unknown;
 }
 
+/** Consumer view of the canonical exterior blueprint; extra exterior fields pass through untouched. */
 export interface BlueprintFloor {
   index: number;
+  /** exterior slot label slug; assignments win over it */
+  kind: string;
   elevation: number;
   height: number;
   outline: Point[];
   openings: Opening[];
+  [extra: string]: unknown;
 }
 
 export interface Blueprint {
   buildingId: string;
+  bounds?: { footprint: Point[]; height: number };
   floors: BlueprintFloor[];
+  [extra: string]: unknown;
 }
 
 // ---- floor.schema.json ----
