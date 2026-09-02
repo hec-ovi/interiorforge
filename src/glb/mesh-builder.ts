@@ -9,9 +9,10 @@ export type BoxFace = "top" | "bottom" | "north" | "south" | "east" | "west";
  *  exact-placement materials (an elevator door panel wears its texture once). */
 export type UvMode = "world" | "unit";
 
-/** A prism side quad is [bottom, top] of the edge start then [top, bottom] of its end, and seen from
- *  its front the edge start is on the viewer's right: u runs 1 to 0 along it so a picture reads left to right. */
-const UNIT_QUAD: [number, number][] = [[1, 0], [1, 1], [0, 1], [0, 0]];
+/** A prism side quad is [bottom, top] of the edge start then [top, bottom] of its end. Seen from its
+ *  front the edge start is on the viewer's right, so u runs 1 to 0 along it and a picture reads left to
+ *  right; v follows glTF (0 at the top of the image), so the top of the face wears the top of the picture. */
+const UNIT_QUAD: [number, number][] = [[1, 1], [1, 0], [0, 0], [0, 1]];
 
 const ALL_FACES: BoxFace[] = ["top", "bottom", "north", "south", "east", "west"];
 

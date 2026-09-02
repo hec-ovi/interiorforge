@@ -60,7 +60,7 @@ describe("MeshBuilder", () => {
 });
 
 describe("MeshBuilder unit faces", () => {
-  it("a unit-mapped side face reads left to right from its front: u grows along up x normal", () => {
+  it("a unit-mapped side face reads left to right and upright from its front", () => {
     const mb = new MeshBuilder();
     mb.addPrism("screen", [[0, 0], [2, 0], [2, 1], [0, 1]], 0, 1, "unit", "none");
     const g = mb.getGroup("screen")!;
@@ -73,6 +73,10 @@ describe("MeshBuilder unit faces", () => {
       const along = (i: number, j: number) => (v(j)[0]! - v(i)[0]!) * right[0]! + (v(j)[2]! - v(i)[2]!) * right[2]!;
       expect(Math.sign(u(3) - u(0))).toBe(Math.sign(along(0, 3)));
       expect(u(1) - u(0)).toBe(0);
+      // glTF: v grows downward, so the top vertex (index 1) carries v 0 and the bottom (index 0) v 1
+      const vAt = (i: number) => g.uvs[(q * 4 + i) * 2 + 1]!;
+      expect(vAt(1)).toBe(0);
+      expect(vAt(0)).toBe(1);
     }
   });
 });

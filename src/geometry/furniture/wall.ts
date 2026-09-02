@@ -7,9 +7,8 @@ export function displayScreen(p: Placer): void {
   p.box("screen", -p.hw + 0.05, p.hw - 0.05, p.hd, p.hd + 0.012, 0.05, p.height - 0.05);
 }
 
-/** Framed piece on the wall: frame, mount and the glazed face. */
+/** Framed piece on the wall: a wood frame with a real border, and a picture (an image ad of the theme) as its face. */
 export function wallArt(p: Placer): void {
   p.box("wood", -p.hw, p.hw, -p.hd, p.hd, 0, p.height);
-  p.box("plaster", -p.hw + 0.04, p.hw - 0.04, p.hd, p.hd + 0.004, 0.04, p.height - 0.04);
-  p.box("glass", -p.hw + 0.06, p.hw - 0.06, p.hd + 0.004, p.hd + 0.01, 0.06, p.height - 0.06);
+  p.box("screen", -p.hw + 0.06, p.hw - 0.06, p.hd, p.hd + 0.006, 0.06, p.height - 0.06);
 }
