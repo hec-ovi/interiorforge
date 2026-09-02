@@ -91,7 +91,7 @@ export function buildInteriorWalls(
 
   const bands: WallBands = {
     y0: elevation, ceilingY,
-    field: keys.wall(program), accent: keys.accent(program), trim: keys.trim(),
+    field: keys.wall(), accent: keys.accent(program), trim: keys.trim(),
   };
   for (const line of lines.values()) {
     for (const [a, b] of mergeIntervals(line.intervals)) {

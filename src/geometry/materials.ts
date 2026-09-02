@@ -23,15 +23,6 @@ const FURNITURE_FAMILY: Partial<Record<FurnitureKind, string>> = {
 /** Walls and ceilings prefer the pattern class: flat colours, panel grids and hex fields
  *  read cleanly at any distance, where a photographed plaster goes damp and blotchy up close.
  *  Floors, wood and concrete keep their photo sets, where real texture earns its place. */
-const WALL_PATTERN: Partial<Record<RoomKind, string>> = {
-  reception: "hex", lounge: "hex", concourse: "hex", elevator_lobby: "hex",
-  dining_area: "hex", bar: "hex", counter_area: "hex", sales_floor: "hex",
-  office_open: "panel", office_private: "panel", meeting: "panel", executive_office: "panel",
-  corridor: "panel", kitchen: "panel", storage: "panel", mechanical_room: "panel",
-  gym_floor: "panel", locker_room: "panel", parking_area: "panel", terrace_open: "panel",
-  bedroom: "two-tone", living: "two-tone", studio_main: "two-tone",
-  bathroom: "two-tone", toilets: "two-tone",
-};
 
 export class MaterialKeys {
   constructor(
@@ -55,9 +46,9 @@ export class MaterialKeys {
     return this.key(FURNITURE_FAMILY[kind] ?? "wood");
   }
 
-  wall(room?: RoomKind): string {
-    const pattern = (room && WALL_PATTERN[room]) ?? (this.seed % 2 === 0 ? "panel" : "hex");
-    return this.key("plaster", pattern);
+  /** Walls are flat: the plain plaster everywhere, so a pattern only ever reads as a border. */
+  wall(): string {
+    return this.key("plaster", "plain");
   }
 
   /** The accent band and feature wall: a different key, so the two tones read apart under

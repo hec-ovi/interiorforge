@@ -25,7 +25,7 @@ export function buildFacadeLining(
 ): void {
   const bands: WallBands = {
     y0: bpFloor.elevation, ceilingY,
-    field: keys.wall(program), accent: keys.accent(program), trim: keys.trim(),
+    field: keys.wall(), accent: keys.accent(program), trim: keys.trim(),
   };
   const outline = bpFloor.outline;
   const y0 = bpFloor.elevation;
