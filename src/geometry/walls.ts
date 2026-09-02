@@ -33,9 +33,10 @@ interface WallLine {
   holes: WallHole[];
 }
 
+/** Door heads on the half-metre grid: 2.5 m for one or two leaves, 3 m for wider portals, never within 0.3 m of the slab. */
 export function doorHeadHeight(leaves: number, floorHeight: number): number {
-  const head = leaves >= 3 ? 2.4 : leaves === 2 ? 2.2 : 2.1;
-  return Math.min(head, floorHeight - 0.3);
+  const head = leaves >= 3 ? 3.0 : 2.5;
+  return Math.min(head, Math.floor((floorHeight - 0.3) * 2 + 1e-9) / 2);
 }
 
 /** Interior walls of one floor: the union of room edges off the facade, with door holes.

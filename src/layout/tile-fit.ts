@@ -4,6 +4,7 @@ import type { CorePlan } from "./core-plan.js";
 import { Facade } from "./openings.js";
 import { collectLines, coreRectsOf, endsOf, frozen, pointOn, type WallLine } from "./pier-align.js";
 import type { PlanRoom } from "./plan-types.js";
+import { sharedEdge } from "./rooms.js";
 import type { UvRect } from "./uv.js";
 import { uvToWorld } from "./uv.js";
 
@@ -71,4 +72,35 @@ export function fitPartitionsToGrid(
 
 function round(v: number): number {
   return Math.round(v * 1000) / 1000;
+}
+
+/**
+ * Doors follow their walls. A door records where it sits along the edge it was
+ * cut in, and the alignment passes move edges after that, so a door can end up
+ * past the stretch its two rooms still share: no hole would be cut and the
+ * room would read walled off. Every room door is put back inside the shared
+ * stretch, centred when it fell outside, narrowed only when the stretch is
+ * shorter than the door.
+ */
+export function refitDoors(rooms: PlanRoom[]): number {
+  const byId = new Map(rooms.map((r) => [r.id, r]));
+  let refit = 0;
+  for (const room of rooms) {
+    for (const door of room.doors) {
+      const other = byId.get(door.to);
+      if (!other) continue;
+      const shared = sharedEdge(room.rect, other.rect);
+      if (!shared) continue;
+      const { edge, lo, hi } = shared;
+      // a doorway narrower than the door beats a sealed room, down to half a metre
+      const width = round(Math.max(0.5, Math.min(door.width, hi - lo - 0.2)));
+      const inside = door.edge === edge && door.at - width / 2 >= lo + 0.1 - 1e-6 && door.at + width / 2 <= hi - 0.1 + 1e-6;
+      if (inside && width === door.width) continue;
+      door.edge = edge;
+      door.width = round(width);
+      door.at = round((lo + hi) / 2);
+      refit++;
+    }
+  }
+  return refit;
 }
