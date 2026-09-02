@@ -44,17 +44,26 @@ describe("buildInterior", () => {
     }
   });
 
-  it("carries an emissive housing for every published light fixture", () => {
+  it("carries one emissive lens in a separate plain housing for every light", () => {
     const fix = makeFixture({ seed: 8, floors: 4 });
     const plan = planBuilding(fix.request, resolveAssignments(fix.request));
     const { doc } = buildInterior(plan, fix.request, fix.shellDoc);
-    const lights = plan.floors.reduce((n, f) => n + f.lights.length, 0);
-    expect(lights).toBeGreaterThan(0);
-    const housings = doc.getRoot().listMeshes()
-      .filter((m) => m.getName().includes("/light-fixture/"))
+    const lights = plan.floors.flatMap((f) => f.lights);
+    expect(lights.length).toBeGreaterThan(0);
+    const lightMeshes = doc.getRoot().listMeshes().filter((m) => m.getName().includes("/light-fixture/"));
+    const lenses = lightMeshes
       .reduce((n, m) => n + m.listPrimitives().reduce((v, p) => v + p.getAttribute("POSITION")!.getCount(), 0), 0);
-    // one box per fixture: 6 quads of 4 vertices
-    expect(housings).toBe(lights * 24);
+    expect(lenses).toBe(lights.length * 4);
+    const metal = doc.getRoot().listMeshes().filter((m) => m.getName().includes("/metal/"));
+    expect(metal.length).toBeGreaterThan(0);
+    const lens = doc.getRoot().listMeshes().find((m) => m.getName().includes("/light-fixture/"))!;
+    const uv = lens.listPrimitives()[0]!.getAttribute("TEXCOORD_0")!.getArray()!;
+    expect(Math.min(...uv)).toBe(0);
+    expect(Math.max(...uv)).toBe(1);
+    const normals = lightMeshes.flatMap((mesh) => mesh.listPrimitives().flatMap((primitive) =>
+      Array.from(primitive.getAttribute("NORMAL")!.getArray()!).filter((_, i) => i % 3 === 1)));
+    expect(normals.some((y) => y === 1)).toBe(true);
+    expect(normals.some((y) => y === -1)).toBe(true);
   });
 
   it("records continuous stair steps for every floor below the top", () => {

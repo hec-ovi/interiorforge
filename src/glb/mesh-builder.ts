@@ -67,6 +67,22 @@ export class MeshBuilder {
     g.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
 
+  /** Quad with explicit texture coordinates, for a non-repeating detail within a face. */
+  addQuadUv(
+    material: string, [v0, v1, v2, v3]: [Vec3, Vec3, Vec3, Vec3],
+    uvs: readonly [[number, number], [number, number], [number, number], [number, number]],
+  ): void {
+    const n = faceNormal(v0, v1, v2);
+    const g = this.group(material);
+    const base = g.positions.length / 3;
+    [v0, v1, v2, v3].forEach((vertex, i) => {
+      g.positions.push(...vertex);
+      g.normals.push(...n);
+      g.uvs.push(...uvs[i]!);
+    });
+    g.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
+
   /** Horizontal surface from a simple polygon at height y. */
   addHorizontalPolygon(
     material: string, polygon: readonly Point[], y: number, facing: "up" | "down", uv: UvMode = "world",
@@ -180,4 +196,3 @@ function faceNormal(v0: Vec3, v1: Vec3, v2: Vec3): Vec3 {
   const len = Math.hypot(nx, ny, nz) || 1;
   return [nx / len, ny / len, nz / len];
 }
-

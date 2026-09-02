@@ -10,6 +10,7 @@ Purpose: turns a building plan into interior meshes and completes the shell GLB:
   - Shell fit check (`shell-fit.ts`): every vertex is measured against its floor's outline before the document is written; a vertex inside the shell wall depth that is not an opening's reveal lining, or a reveal vertex standing in another edge's wall, throws `E_SHELL_BREACH` naming the floor that holds it (the upper floor on a slab line).
   - Vertical core: internal shaft divider walls, elevator door openings with closed metal door panels, stair shafts with entry openings, and continuous U-return stairs. Flights are 1.2 m clear, risers are 0.16 to 0.18 m, treads are 0.28 m and landings are 1.2 m. A geometry-level probe checks 2.1 m above every tread and landing against stairs, slabs, walls and fixtures before export.
   - Furniture as boxes at their planned position, rotation and size.
+  - Each light is a plain metal housing with a separate emissive lens mapped once across its face. Cove fixtures add a shielding lip and expose the lens upward; ceiling fixtures expose it downward.
   - `stepsByFloor: Map<floor, Rect3[]>`: world tread rectangles per floor for the floor JSON.
 - All meshes use material keys `theme/kind/tier`; single-sided, CCW, world-meter UVs (glb box discipline). Elevator door panels carry 0..1 UVs instead: their material is an exact placement, never tiled. The materials box resolves the keys into maps afterwards.
 - Deterministic: identical plan, identical bytes.
