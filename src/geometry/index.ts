@@ -40,10 +40,7 @@ export interface InteriorGeometry {
 
 /** Completes the shell document with the full interior. Mutates and returns shellDoc. */
 export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shellDoc: Document): InteriorGeometry {
-  const keys = new MaterialKeys(
-    request.materialTheme, request.building.tier,
-    Math.floor(createRng(request.seed, "materials").next() * 1000),
-  );
+  const keys = new MaterialKeys(request.materialTheme, request.building.tier);
   const core = plan.core;
   const floorMeshes = new Map<number, MeshBuilder>();
   const stepsByFloor = new Map<number, Record<string, Rect3[]>>();

@@ -20,15 +20,16 @@ const FURNITURE_FAMILY: Partial<Record<FurnitureKind, string>> = {
   gym_machine: "metal", plant: "fabric",
 };
 
-/** Walls and ceilings prefer the pattern class: flat colours, panel grids and hex fields
- *  read cleanly at any distance, where a photographed plaster goes damp and blotchy up close.
- *  Floors, wood and concrete keep their photo sets, where real texture earns its place. */
+/** Walls and ceilings take the pattern class, and only its joint-free members: a texture
+ *  whose module is 1 to 3 m cuts mid-tile against a room laid on the half-metre grid, which
+ *  reads as a mistake. Every grid an interior surface shows is geometry the interior placed
+ *  (wall bands, casings, light housings), never a repeat in a map. Floors, wood and concrete
+ *  keep their photo sets, where real texture earns its place. */
 
 export class MaterialKeys {
   constructor(
     private readonly theme: string,
     private readonly tier: string,
-    private readonly seed = 0,
   ) {}
 
   /** `theme/kind/tier`, plus an optional `#variant` preference the materials database
@@ -55,8 +56,8 @@ export class MaterialKeys {
    *  any resolver, not only one that honours the variant preference. */
   accent(room?: RoomKind): string {
     return room === "bathroom" || room === "toilets" || room === "kitchen"
-      ? this.key("tile", "slab")
-      : this.key("concrete", "panel");
+      ? this.key("tile")
+      : this.key("concrete", "plain");
   }
 
   /** Baseboards, top trim and reveals. */
@@ -75,7 +76,7 @@ export class MaterialKeys {
   }
 
   ceiling(): string {
-    return this.key("ceiling", this.seed % 3 === 0 ? "plain" : "panel");
+    return this.key("ceiling", "plain");
   }
 
   concrete(): string {
