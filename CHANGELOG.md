@@ -1,5 +1,7 @@
 # Changelog
 
+0.20.2: a spot fixture asks for the materials box's `lamp` variant (recessed lens and housing) instead of a flat lit panel, so a downlight reads as a lamp.
+
 0.20.1: wall fields are plain plaster everywhere; a pattern class is asked for on the accent band and the ceiling only, so it reads as a border and never as a wall of hexagons.
 
 0.20: reveals keep out of the corner walls. An opening's hole closes from either end where its reveal, square to its own edge from the skin clearance back to the wall depth, would stand in a neighbouring edge's wall: a curtain-wall bay 0.12 m from a right-angle corner is lined from the wall depth in, and before an acute apex the last wallDepth / tan(half the corner angle) of the opening is closed (0.31 m at p53's 59-degree apex), so the walls meeting at a corner own their depth and the lining ring turns the corner behind both. The shell fit check reads the same rule: a reveal vertex inside another edge's wall strip is `E_SHELL_BREACH`, and the error names the floor that holds the vertex, the upper one on a slab line. Proven on city parcel p53 (basement, 59-degree apex, bays to 0.11 m of it), kept as a fixture blueprint; `makeFixture` takes such a `blueprint` and a string seed.

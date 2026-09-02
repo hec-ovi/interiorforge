@@ -80,8 +80,8 @@ export class MaterialKeys {
     return this.key("elevator_door");
   }
 
-  /** Emissive housing of a light fixture: a lit line or a lit panel. */
+  /** Emissive housing of a light fixture: a downlight with its lens and housing, or a lit line. */
   light(kind: "strip" | "spot" | "cove" = "strip"): string {
-    return this.key("light-fixture", kind === "spot" ? "panel" : "strip");
+    return this.key("light-fixture", kind === "spot" ? "lamp" : "strip");
   }
 }
