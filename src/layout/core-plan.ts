@@ -388,7 +388,14 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
     : Math.min(elevatorsFor(request, env.area, env.aboveFloors, env.topElevation), Math.max(1, placement.maxElevators));
 
   const stairColW = snapUp(STAIR_WIDTH);
-  const { u0 } = blockSpan(env, placement, elevatorCount);
+  const span = blockSpan(env, placement, elevatorCount);
+  // The stair head meets the roof housing the exterior published: the block slides along its
+  // band so stair A is centred under it, as far as the band allows.
+  const bulkhead = request.blueprint.roof?.bulkhead;
+  const stairALen = mode === "compact" ? stairColW : env.stairDepth;
+  const u0 = bulkhead
+    ? Math.min(snapDown(placement.bandU1 - span.len), Math.max(snapUp(placement.bandU0), snap(worldToUv(bulkhead.center, env.frame)[0] - stairALen / 2)))
+    : span.u0;
 
   let u = u0;
   const stairA: UvRect = mode === "compact"

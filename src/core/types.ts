@@ -72,6 +72,8 @@ export interface Blueprint {
   buildingId: string;
   bounds?: { footprint: Point[]; height: number };
   facade?: Facade;
+  /** the exterior's roof: the housing over the stair head, when the roof holds one */
+  roof?: { bulkhead?: { center: Point; axis: Point; width: number; depth: number } | null; [extra: string]: unknown };
   floors: BlueprintFloor[];
   [extra: string]: unknown;
 }

@@ -1,5 +1,6 @@
 # Changelog
 
+0.21.4: the core block slides along its band so stair A is centred under the roof housing the exterior published; the stair head lands in the roof cutout.
 0.21.3: door casings around every doorway and window casings on the room side of every window.
 0.21.2: doors are refitted into the stretch their rooms share after the wall passes (no walled-off rooms); door heads at 2.5 m and 3 m on the grid.
 0.21.1: under a curtain wall the ceiling meets the spandrel line; partitions may stand on pane mullions.
