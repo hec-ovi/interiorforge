@@ -1,5 +1,6 @@
 # Changelog
 
+0.21.0: the interior grid: partitions snap onto a 0.5 m grid from the outline corner (a quarter tile at most, never into an opening or off the core), and floors and ceilings tile from that corner so the pattern runs whole through the building and meets the exterior window borders.
 0.20.6: unit-mapped faces follow glTF v (0 at the top), so wall screens and lift panels are upright as well as unmirrored; framed wall art carries a picture (an image ad of the theme) inside a 6 cm wood border.
 0.20.5: unit-mapped side faces (wall screens, lift door panels) read left to right from their front.
 0.20.4: a partition landing on an opening's boundary stands on the frame member there, so on a curtain wall the walls fall on the mullion lines and never mid-pane.

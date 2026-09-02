@@ -5,6 +5,7 @@ import { clipPolygonToRect, insetPolygon } from "../core/geom.js";
 import { createRng } from "../core/rng.js";
 import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
+import { gridOrigin } from "../layout/tile-fit.js";
 import { appendToDocument } from "../glb/io.js";
 import { ceilingClear, STAIR, stairSlab } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
@@ -57,9 +58,9 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
 
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
-    const mb = new MeshBuilder(core.frame);
-    floorMeshes.set(floor.floor, mb);
     const uv = plan.uvFloors.get(floor.floor)!;
+    const mb = new MeshBuilder(core.frame, gridOrigin(uv.outline));
+    floorMeshes.set(floor.floor, mb);
     // the ceiling of a spans-2 floor sits at the top of its open upper half
     const upper = sorted[i + 1]?.rooms.length === 0 ? sorted[i + 1] : undefined;
     const wallTop = floor.elevation + floor.height + (upper?.height ?? 0);

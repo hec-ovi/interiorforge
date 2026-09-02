@@ -53,6 +53,8 @@ Closed set, thrown as `InteriorError { code, floor?, detail }`:
 - `E_MATERIAL_UNRESOLVED`: the materials theme has no entry for a key the building uses, or embedded textures were asked for without the database on disk
 
 ## Invariants
+- Interior grid: partitions stand on a 0.5 m grid counted from the floor outline's low corner in the building frame (half the exterior panel), after the pier alignment; floors and ceilings tile from that same corner, so tiles run whole from room to room and meet the window borders the exterior put on the same grid (layout/tile-fit.ts).
+
 
 - Deterministic: same request, same materials database and same texture options give byte-identical JSON and GLB. No LLM calls, no wall-clock, no ambient randomness.
 - Every floor is real and reachable: stairs are continuous walkable geometry from ground to top, every elevator serves every floor it spans, shafts vertically aligned across floors.

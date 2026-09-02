@@ -34,8 +34,11 @@ export interface UvFrame {
 const WORLD_FRAME: UvFrame = { cos: 1, sin: 0 };
 
 export class MeshBuilder {
-  /** @param frame the building frame every floor, ceiling and roof tile follows */
-  constructor(private readonly frame: UvFrame = WORLD_FRAME) {}
+  /**
+   * @param frame the building frame every floor, ceiling and roof tile follows
+   * @param origin the frame-space corner tiles count from; without one, each polygon counts from its own corner
+   */
+  constructor(private readonly frame: UvFrame = WORLD_FRAME, private readonly origin: Point | null = null) {}
 
   private readonly groups = new Map<string, MeshGroup>();
 
@@ -75,9 +78,10 @@ export class MeshBuilder {
     const zs = polygon.map((p) => p[1]);
     const [x0, z0] = [Math.min(...xs), Math.min(...zs)];
     const [w, d] = [Math.max(...xs) - x0 || 1, Math.max(...zs) - z0 || 1];
-    // tiles start at the polygon's own corner in the building frame, so every room cuts the same way
+    // tiles count from the building's grid corner, so they run whole from room to room; a builder
+    // without one lets each polygon count from its own corner
     const framed = polygon.map(([x, z]) => this.toFrame(x, z));
-    const origin: Point = [Math.min(...framed.map((p) => p[0])), Math.min(...framed.map((p) => p[1]))];
+    const origin: Point = this.origin ?? [Math.min(...framed.map((p) => p[0])), Math.min(...framed.map((p) => p[1]))];
     for (const [x, z] of polygon) {
       g.positions.push(x, y, z);
       g.normals.push(...n);

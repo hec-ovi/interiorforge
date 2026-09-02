@@ -19,16 +19,16 @@ const MIN_SPAN: Record<string, number> = { bathroom: 1.4, toilets: 1.4, storage:
 const MIN_SPINE_SPAN = 2.0;
 const SEALED_MIN_SPAN = 0.5;
 
-type Axis = "u" | "v";
+export type Axis = "u" | "v";
 
-interface Edge {
+export interface Edge {
   rect: UvRect;
   /** the rect's low edge sits on the line, or its high edge */
   side: "lo" | "hi";
   minSpan: number;
 }
 
-interface WallLine {
+export interface WallLine {
   axis: Axis;
   c: number;
   edges: Edge[];
@@ -40,7 +40,7 @@ function minSpanOf(room: PlanRoom): number {
 }
 
 /** The shafts a wall can be locked to. The service stub is a reservation, not geometry. */
-function coreRectsOf(core: CorePlan): UvRect[] {
+export function coreRectsOf(core: CorePlan): UvRect[] {
   const rects = [core.stairA, core.riser, ...core.elevators.map((e) => e.rect)];
   if (core.stairB) rects.push(core.stairB);
   return rects;
@@ -49,7 +49,7 @@ function coreRectsOf(core: CorePlan): UvRect[] {
 /** A wall line that runs against a core rect never moves: elevator doors, stair entries and
  *  the shaft row hang off it. Coordinate alone is not enough; the line has to actually reach
  *  along that rect. */
-function frozen(line: WallLine, ends: number[], rects: UvRect[]): boolean {
+export function frozen(line: WallLine, ends: number[], rects: UvRect[]): boolean {
   const lo = ends[0]!;
   const hi = ends.at(-1)!;
   return rects.some((r) => {
@@ -65,7 +65,7 @@ function round(v: number): number {
   return Math.round(v * 1000) / 1000;
 }
 
-function collectLines(rooms: PlanRoom[], sealed: UvRect[]): WallLine[] {
+export function collectLines(rooms: PlanRoom[], sealed: UvRect[]): WallLine[] {
   const lines = new Map<string, WallLine>();
   const add = (axis: Axis, c: number, edge: Edge): void => {
     const key = `${axis}:${round(c).toFixed(3)}`;
@@ -88,7 +88,7 @@ function collectLines(rooms: PlanRoom[], sealed: UvRect[]): WallLine[] {
 }
 
 /** Where a wall line reaches: the ends of the spans its rooms cover along it. */
-function endsOf(line: WallLine): number[] {
+export function endsOf(line: WallLine): number[] {
   const spans = line.edges.map((e) =>
     line.axis === "u"
       ? [e.rect.v, e.rect.v + e.rect.lv]
@@ -102,7 +102,7 @@ function endsOf(line: WallLine): number[] {
   return [...ends].sort((a, b) => a - b);
 }
 
-function pointOn(line: WallLine, c: number, along: number): Point {
+export function pointOn(line: WallLine, c: number, along: number): Point {
   return line.axis === "u" ? [c, along] : [along, c];
 }
 
