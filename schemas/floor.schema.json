@@ -9,6 +9,7 @@
     "kind",
     "elevation",
     "height",
+    "ceilingElevation",
     "coreAngleDeg",
     "core",
     "rooms",
@@ -33,6 +34,10 @@
     },
     "height": {
       "type": "number"
+    },
+    "ceilingElevation": {
+      "type": "number",
+      "description": "absolute Y of the finished ceiling plane of this floor. The plenum above it varies per floor: it is the storey's service void, widened to clear the head of the tallest opening the blueprint draws on that floor and stopped one slab soffit (0.15 m) under the floor above. Glaze up to this line and nothing shows between ceiling and window."
     },
     "core": {
       "type": "object",

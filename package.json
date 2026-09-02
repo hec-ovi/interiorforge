@@ -1,6 +1,6 @@
 {
   "name": "urbe-interior",
-  "version": "0.23.1",
+  "version": "0.24.0",
   "private": true,
   "type": "module",
   "description": "Deterministic building interior generator: fills an exterior GLB shell with per-floor rooms, stairs, elevators, furniture placeholders and NPC routine data.",

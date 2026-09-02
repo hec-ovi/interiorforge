@@ -186,6 +186,8 @@ export interface FloorInterior {
   kind: string;
   elevation: number;
   height: number;
+  /** absolute Y of the finished ceiling plane; the plenum above it varies per floor */
+  ceilingElevation: number;
   /** rotation of the building's layout frame; every core rect and stair step is axis-aligned
    *  in that frame, rotated about its own center by this angle for world corners */
   coreAngleDeg: number;

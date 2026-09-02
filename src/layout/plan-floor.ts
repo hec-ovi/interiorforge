@@ -5,7 +5,7 @@ import { createRng } from "../core/rng.js";
 import type {
   BlueprintFloor, Door, FloorInterior, FloorKind, InteriorRequest, Room,
 } from "../core/types.js";
-import { CELL, ceilingUnder, DOOR, ELEVATOR, ROOM } from "./constants.js";
+import { CELL, ceilingUnder, DOOR, ELEVATOR, ROOM, SOFFIT_DEPTH } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { stairAccess } from "./core-plan.js";
 import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
@@ -53,6 +53,7 @@ export function planFloor(
     return {
       interior: {
         floor: floor.index, kind, elevation: floor.elevation, height: floor.height,
+        ceilingElevation: round3(floor.elevation + floor.height - SOFFIT_DEPTH),
         coreAngleDeg: frame.angleDeg,
         core: coreToWorld(core, []), rooms: [], furniture: [], lights: [],
       },
@@ -149,18 +150,19 @@ export function planFloor(
   const furniture = furnish(rooms, kind, rng, ids, bounds);
 
   const sealed = [...backing.sealed, ...extraSealed.filter((s) => clipRatio(s, uvOutline) > 0.05)];
+  const ceilingElevation = round3(floor.elevation + ceilingUnder(floor.openings, spaceHeight));
   const grid = validateAndRepair(
     floor.outline, bounds, rooms, furniture, sealed, core, floor.index, ids,
   );
 
   return {
     interior: {
-      floor: floor.index, kind, elevation: floor.elevation, height: floor.height,
+      floor: floor.index, kind, elevation: floor.elevation, height: floor.height, ceilingElevation,
       coreAngleDeg: frame.angleDeg,
       core: coreToWorld(core, sealed),
       rooms: rooms.map((r) => roomToWorld(r, uvOutline, frame)),
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
-      lights: planLights(rooms, core, bounds.inner, floor.elevation + ceilingUnder(floor.openings as { spandrel?: number }[], spaceHeight), floor.elevation + spaceHeight / 2, ids),
+      lights: planLights(rooms, core, bounds.inner, ceilingElevation, floor.elevation + spaceHeight / 2, ids),
     },
     grid,
     uv: { outline: uvOutline, rooms, furniture, sealed },
@@ -266,6 +268,10 @@ function furnitureToWorld(f: PlanFurniture, frame: Frame) {
 
 function norm360(deg: number): number {
   return Math.round(((deg % 360) + 360) % 360 * 100) / 100;
+}
+
+function round3(v: number): number {
+  return Math.round(v * 1000) / 1000;
 }
 
 function roundPoint([x, z]: Point): Point {

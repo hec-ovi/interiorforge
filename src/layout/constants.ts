@@ -64,6 +64,9 @@ export const CEILING = {
   minClear: 2.1, // clear height kept under it, whatever the storey
 };
 
+/** The slab hangs this far under a floor's walking surface, so a ceiling stops there. */
+export const SOFFIT_DEPTH = 0.15;
+
 /** Ceiling plane of a space, above its own floor level. Low storeys keep the clear height
  *  and lose the service void instead. */
 export function ceilingClear(spaceHeight: number): number {
@@ -71,14 +74,16 @@ export function ceilingClear(spaceHeight: number): number {
 }
 
 /**
- * The ceiling height a floor takes: under a curtain wall it meets the spandrel
- * line the exterior drew (the band that hides the slab), so nothing shows
- * between ceiling and glass; elsewhere the standard drop.
+ * The ceiling height a floor takes, above its own floor level: the service void
+ * the storey allows, but never below the head of the glass the exterior drew
+ * (from the street nothing may show between ceiling and window) and never up
+ * into the slab soffit above.
  */
-export function ceilingUnder(openings: readonly { spandrel?: number }[], spaceHeight: number): number {
-  const spandrel = Math.max(0, ...openings.map((o) => o.spandrel ?? 0));
-  const atSpandrel = spaceHeight - spandrel;
-  return spandrel > 0 && atSpandrel >= CEILING.minClear ? atSpandrel : ceilingClear(spaceHeight);
+export function ceilingUnder(
+  openings: readonly { sill: number; height: number }[], spaceHeight: number,
+): number {
+  const glassHead = Math.max(0, ...openings.map((o) => o.sill + o.height));
+  return Math.min(spaceHeight - SOFFIT_DEPTH, Math.max(ceilingClear(spaceHeight), glassHead));
 }
 
 export const ROOM = {

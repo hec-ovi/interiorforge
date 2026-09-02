@@ -5,7 +5,7 @@ import type { CorePlan } from "../layout/core-plan.js";
 import { uvRectCorners, uvToWorld } from "../layout/uv.js";
 import { coreRects } from "./core-geo.js";
 import type { MaterialKeys } from "./materials.js";
-import { SOFFIT_DEPTH } from "./shell-fit.js";
+import { SOFFIT_DEPTH } from "../layout/constants.js";
 
 /** Rooms without a dropped ceiling: raw soffit or open air reads right there. */
 const OPEN_CEILING: ReadonlySet<RoomKind> = new Set([

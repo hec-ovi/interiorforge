@@ -7,7 +7,7 @@ import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { gridOrigin } from "../layout/tile-fit.js";
 import { appendToDocument } from "../glb/io.js";
-import { ceilingUnder, STAIR, stairSlab } from "../layout/constants.js";
+import { STAIR, stairSlab } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import type { BuildingPlan } from "../layout/index.js";
 import type { PlanRoom } from "../layout/plan-types.js";
@@ -111,8 +111,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
       toWorldPolygon(clipPolygonToRect(plate, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }), core.frame);
     const roomPlans = uv.rooms.map((r) => ({ kind: r.kind, polygon: cut(r.rect, slabPlate) }));
     const sealedPolys = uv.sealed.map((rect) => cut(rect, slabPlate));
-    const spaceHeight = floor.height + (upper?.height ?? 0);
-    const ceilingY = floor.elevation + ceilingUnder(bpFloor.openings as { spandrel?: number }[], spaceHeight);
+    const ceilingY = floor.ceilingElevation;
     buildFloorSurfaces(mb, keys, roomPlans.filter((r) => r.polygon.length >= 3), floor.elevation, ceilingY, sealedPolys.filter((p) => p.length >= 3));
     // the floor's biggest room sets the wall pattern, so a venue floor and an office floor
     // never wear the same one

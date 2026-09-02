@@ -3,6 +3,7 @@ import type { Point } from "../core/geom.js";
 import { boundaryDistance, clipPolygonToConvex, distance } from "../core/geom.js";
 import type { BlueprintFloor, Opening } from "../core/types.js";
 import type { MeshBuilder } from "../glb/mesh-builder.js";
+import { SOFFIT_DEPTH } from "../layout/constants.js";
 import { SHELL_WALL } from "../layout/shell.js";
 
 /** How the interior fits inside the shell: every vertex stays behind the shell's wall depth,
@@ -10,8 +11,6 @@ import { SHELL_WALL } from "../layout/shell.js";
  *  keep out of the neighbouring walls. */
 
 const EPS = 1e-6;
-/** the slab soffit hangs this far under a floor's walking surface */
-export const SOFFIT_DEPTH = 0.15;
 /** an edge's wall zone reaches this far out through its skin: everything outside counts */
 const OUTSIDE = 1e4;
 
