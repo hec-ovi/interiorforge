@@ -119,14 +119,14 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     const program = uv.rooms.reduce((best, r) => (r.rect.lu * r.rect.lv > best.rect.lu * best.rect.lv ? r : best)).kind;
     buildInteriorWalls(
       mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, wallPlate, core.frame, floor.elevation,
-      wallTop, floor.height, ceilingY, program, holes, createRng(request.seed, "accent", floor.floor),
+      wallTop, ceilingY, program, holes, createRng(request.seed, "accent", floor.floor),
     );
     buildFacadeLining(mb, keys, bpFloor, wallDepth, wallTop, ceilingY, program);
     emitCoreDividers(mb, keys, core, floor.elevation, wallTop);
     emitElevatorDoors(mb, keys, core, floor.elevation);
     emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation);
     emitLightFixtures(mb, keys, floor.lights);
-    assertDoorwaysClear(mb, floorDoorways(uv.rooms, core.frame, floor.elevation, floor.height), floor.floor);
+    assertDoorwaysClear(mb, floorDoorways(uv.rooms, core.frame, floor.elevation, ceilingY), floor.floor);
   }
 
   buildShaftFloors(floorMeshes.get(lowest.floor)!, keys, core, lowest.elevation);

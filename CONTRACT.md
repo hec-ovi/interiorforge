@@ -2,7 +2,7 @@
 
 Purpose: deterministically fills one building shell with interiors per floor and exports NPC routine placeholders and walk paths for that instance.
 
-Status: implemented (0.22). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
+Status: implemented (0.23). Simulation builds against `schemas/npc.schema.json`. Validated against real exterior output (rotated city parcels).
 
 ## In
 
@@ -55,7 +55,8 @@ Closed set, thrown as `InteriorError { code, floor?, detail }`:
 ## Invariants
 - The core block is centred under the exterior's roof housing (`blueprint.roof.bulkhead`) along its band, so the stair head arrives inside the roof cutout.
 - Every doorway carries a casing (two jambs and a head, 8 cm, standing 2 cm proud of both faces) in the door material; every window carries a casing on the room side (jambs, head, stool) in the window-frame material, standing 3 cm proud of the lining and never past its own facade.
-- Doors follow their walls: after the pier and grid passes every room door sits inside the stretch its two rooms still share on the plate (an irregular outline cuts room rects, and beyond the plate the facade lining stands where the partition would be), centred when it fell outside and narrowed to the stretch down to 0.5 m. A pair sharing no such stretch loses the door and the reachability pass cuts a working one elsewhere. Door heads stand at 2.5 m (3 m for three or more leaves), on the half-metre grid.
+- Doors follow their walls: after the pier and grid passes every room door sits inside the stretch its two rooms still share on the plate (an irregular outline cuts room rects, and beyond the plate the facade lining stands where the partition would be), centred when it fell outside and narrowed to the stretch down to 0.5 m. A pair sharing no such stretch loses the door and the reachability pass cuts a working one elsewhere.
+- Every doorway is 0.9 m clear, bathrooms included, and keeps the corner bands out of the opening: a doorway sits at least half a wall plus its bands (0.09 m) from each end of its stretch, and only a wall too short for that carries a narrower leaf, down to 0.7 m. Door heads stand at 2.5 m (3 m for three or more leaves) or, in a space too low for that, one casing band under its ceiling, so a low storey gets a tall opening rather than a stub.
 - Every doorway is open in the built mesh: nothing the interior emits stands in the clear volume of a room door (its width, the wall with its bands either side, floor to the 2.1 m passage). Checked per floor on the geometry itself, not on the plan (`E_UNREACHABLE_SPACE`), and proven over the 71 parcels of city-urbe-small: 8157 interior doors, none walled shut.
 - Under a curtain wall the dropped ceiling meets the spandrel line the exterior drew (nothing shows between ceiling and glass); a partition may stand on any pane mullion of a glazed sheet, as on a jamb.
 - Interior grid: partitions stand on a 0.5 m grid counted from the floor outline's low corner in the building frame (half the exterior panel), after the pier alignment; floors and ceilings tile from that same corner, so tiles run whole from room to room and meet the window borders the exterior put on the same grid (layout/tile-fit.ts).

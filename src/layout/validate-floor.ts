@@ -130,7 +130,7 @@ function repairOne(
       ];
       if (existing.length >= 3) continue;
       for (const fraction of [0.5, 0.1, 0.9, 0.3, 0.7]) {
-        const door = doorBetween(room, target.id, target.rect, ids, 1, DOOR.interior, fraction);
+        const door = doorBetween(room, target.id, target.rect, ids, 1, DOOR.single, fraction);
         if (!door) break;
         // a repair door lands after the refit pass, so it takes the plate test itself
         if (fitDoorToStretch(door, room.rect, target.rect, plate) === null) {

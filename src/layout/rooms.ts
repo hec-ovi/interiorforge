@@ -2,7 +2,8 @@ import type { Point } from "../core/geom.js";
 import { clipPolygonToRect, polygonArea } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
 import type { FloorKind, RoomKind } from "../core/types.js";
-import { CORRIDOR, DOOR, ELEVATOR, ROOM } from "./constants.js";
+import { CORRIDOR, DOOR, ELEVATOR, ROOM, WALL } from "./constants.js";
+import { BAND_PROUD } from "./shell.js";
 import type { CorePlan } from "./core-plan.js";
 import type { FloorFrame, PlanDoor, PlanRoom } from "./plan-types.js";
 import { VENUE_KINDS } from "./frame.js";
@@ -48,8 +49,18 @@ export function sharedEdge(
   return null;
 }
 
-/** Shortest stretch that still carries a door: half a metre of leaf and a jamb each side. */
-export const MIN_STRETCH = 0.7;
+/** A doorway keeps this clear of each end of its stretch: the corner wall's bands reach that
+ *  far into the opening, and nothing may stand in a doorway. */
+export const BAND_CLEAR = WALL / 2 + 2 * BAND_PROUD;
+
+/** Shortest stretch that still carries a door: the narrowest leaf between the corner bands. */
+export const MIN_STRETCH = DOOR.min + 2 * BAND_CLEAR;
+
+/** The widest clear leaf a stretch carries, capped at the width asked for: full width wherever
+ *  the wall allows it, never wider than the space between the corner bands. */
+export function doorWidthOn(stretch: number, want: number): number {
+  return Math.round(Math.min(want, stretch - 2 * BAND_CLEAR) * 1000) / 1000;
+}
 
 /** The part of two rooms' shared edge that a real partition covers: the stretch inside the
  *  plate. An irregular outline cuts room rects, and beyond the plate the facade lining
@@ -99,18 +110,15 @@ export function doorBetween(
   leaves: 1 | 2 | 3 | 4 = 1, width = DOOR.single, fraction = 0.5,
 ): PlanDoor | null {
   const shared = sharedEdge(owner.rect, toRect);
-  if (!shared || shared.hi - shared.lo < DOOR.bath + 0.4) return null;
+  if (!shared || shared.hi - shared.lo < MIN_STRETCH) return null;
   const { edge, lo, hi } = shared;
-  let w = width;
-  if (hi - lo < w + 0.4) {
-    w = hi - lo - 0.4;
-    leaves = 1;
-  }
-  const span = hi - lo - w - 0.2;
-  const center = lo + w / 2 + 0.1 + span * fraction;
+  let w = doorWidthOn(hi - lo, width);
+  if (w < width) leaves = 1;
+  const span = hi - lo - w - 2 * BAND_CLEAR;
+  const center = span > 0 ? lo + w / 2 + BAND_CLEAR + span * fraction : (lo + hi) / 2;
   const door: PlanDoor = { id: ids.door(), to: toId, leaves, width: w, edge, at: snap(center) };
   // snapping may push the door off-interval on short walls; recenter unclamped then
-  if (door.at - w / 2 < lo + 0.1 || door.at + w / 2 > hi - 0.1) door.at = center;
+  if (door.at - w / 2 < lo + BAND_CLEAR || door.at + w / 2 > hi - BAND_CLEAR) door.at = center;
   owner.doors.push(door);
   return door;
 }
@@ -307,7 +315,7 @@ const CONNECT_PREF: Partial<Record<RoomKind, number>> = {
 
 const CONNECT_DOOR: Partial<Record<RoomKind, [1 | 2, number]>> = {
   living: [2, 1.6], studio_main: [2, 1.6], kitchen: [2, 1.6],
-  bedroom: [1, DOOR.interior], bathroom: [1, DOOR.bath],
+  bedroom: [1, DOOR.single], bathroom: [1, DOOR.single],
 };
 
 /** Connects every room of a unit to its hall through adjacent rooms, halls and livings first.
@@ -323,7 +331,7 @@ function connectUnit(rooms: PlanRoom[], hall: PlanRoom, ids: IdGen): void {
       const targets = rooms
         .filter((r) => connected.has(r.id))
         .sort((a, b) => (CONNECT_PREF[a.kind] ?? 9) - (CONNECT_PREF[b.kind] ?? 9) || a.id.localeCompare(b.id));
-      const [leaves, width] = CONNECT_DOOR[room.kind] ?? [1, DOOR.interior];
+      const [leaves, width] = CONNECT_DOOR[room.kind] ?? [1, DOOR.single];
       const target = targets.find((t) => doorBetween(room, t.id, t.rect, ids, leaves, width));
       if (target) {
         connected.add(room.id);

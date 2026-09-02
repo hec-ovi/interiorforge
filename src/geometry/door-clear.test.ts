@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { makeFixture } from "../blueprint/fixture.js";
+import { DOOR } from "../layout/constants.js";
 import { resolveAssignments } from "../blueprint/validate.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { planBuilding } from "../layout/index.js";
 import type { PlanRoom } from "../layout/plan-types.js";
 import { makeFrame } from "../layout/uv.js";
 import { assertDoorwaysClear, floorDoorways } from "./door-clear.js";
+import { doorHeadHeight } from "./walls.js";
 import { buildInterior } from "./index.js";
 
 const frame = makeFrame(0);
@@ -30,6 +32,26 @@ describe("doorways are open in the geometry", () => {
     mb.addBox("wall", { x: 3.45, z: 3.95, w: 2.55, d: 0.1 }, 0, 3);
     mb.addBox("wall", { x: 2.55, z: 3.95, w: 0.9, d: 0.1 }, 2.5, 3); // the lintel over the head
     expect(() => assertDoorwaysClear(mb, floorDoorways(rooms, frame, 0, 3), 0)).not.toThrow();
+  });
+
+  it("doorways take the full clear width and a real head", () => {
+    const fix = makeFixture({ seed: 6, floors: 5, basements: 1 });
+    const plan = planBuilding(fix.request, resolveAssignments(fix.request));
+    for (const floor of plan.floors) {
+      for (const room of floor.rooms) {
+        for (const door of room.doors) {
+          if (door.to === "outside") continue;
+          // 0.9 m clear, unless the shared wall itself is too short between its corner bands
+          expect(door.width).toBeGreaterThanOrEqual(DOOR.min);
+          const head = doorHeadHeight(door.leaves, 3.0);
+          expect(head).toBeCloseTo(door.leaves >= 3 ? 2.84 : 2.5, 6);
+        }
+      }
+    }
+    // a low storey carries the opening to a lintel under its ceiling, not to a stub height
+    expect(doorHeadHeight(1, 2.25)).toBeCloseTo(2.09, 6);
+    expect(doorHeadHeight(1, 4.0)).toBe(2.5);
+    expect(doorHeadHeight(3, 4.0)).toBe(3.0);
   });
 
   it("every door of a built building opens", () => {

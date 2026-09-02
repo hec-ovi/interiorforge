@@ -34,7 +34,7 @@ export interface Doorway {
 
 /** The doorways of one floor: every door between two rooms, at the size the player passes. */
 export function floorDoorways(
-  rooms: readonly PlanRoom[], frame: Frame, elevation: number, floorHeight: number,
+  rooms: readonly PlanRoom[], frame: Frame, elevation: number, ceilingY: number,
 ): Doorway[] {
   const out: Doorway[] = [];
   for (const room of rooms) {
@@ -43,7 +43,7 @@ export function floorDoorways(
       const [x, z] = uvToWorld(doorUvPoint(door, room), frame);
       const alongU = door.edge === "v0" || door.edge === "v1";
       const rad = ((alongU ? 0 : 90) + frame.angleDeg) * Math.PI / 180;
-      const clear = Math.min(doorHeadHeight(door.leaves, floorHeight), DOOR.clearHeight) - 2 * MARGIN;
+      const clear = Math.min(doorHeadHeight(door.leaves, ceilingY - elevation), DOOR.clearHeight) - 2 * MARGIN;
       out.push({
         id: `${room.id}/${door.id}`,
         center: [x, elevation + MARGIN + clear / 2, z],

@@ -13,9 +13,10 @@ export const CORRIDOR = {
 };
 
 export const DOOR = {
+  /** every doorway the player passes, bathrooms included: 0.9 m clear */
   single: 0.9,
-  interior: 0.8,
-  bath: 0.7,
+  /** floor width where a shared wall is too short for the full leaf; still twice the capsule */
+  min: 0.7,
   double: 1.8,
   triple: 2.7,
   quad: 3.6,

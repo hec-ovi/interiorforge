@@ -4,7 +4,7 @@ import type { CorePlan } from "./core-plan.js";
 import { Facade } from "./openings.js";
 import { collectLines, coreRectsOf, endsOf, frozen, pointOn, type WallLine } from "./pier-align.js";
 import type { PlanDoor, PlanRoom } from "./plan-types.js";
-import { sharedStretch } from "./rooms.js";
+import { BAND_CLEAR, doorWidthOn, sharedStretch } from "./rooms.js";
 import type { UvRect } from "./uv.js";
 import { uvToWorld } from "./uv.js";
 
@@ -109,10 +109,10 @@ export function fitDoorToStretch(
   const stretch = sharedStretch(from, to, plate, door.at);
   if (!stretch) return null;
   const { edge, lo, hi } = stretch;
-  // a doorway narrower than the door beats a sealed room, down to half a metre
-  const width = round(Math.max(0.5, Math.min(door.width, hi - lo - 0.2)));
-  const inside = door.edge === edge && door.at - width / 2 >= lo + 0.1 - 1e-6
-    && door.at + width / 2 <= hi - 0.1 + 1e-6;
+  // full clear width wherever the wall carries it, narrower rather than sealing the room
+  const width = doorWidthOn(hi - lo, door.width);
+  const inside = door.edge === edge && door.at - width / 2 >= lo + BAND_CLEAR - 1e-6
+    && door.at + width / 2 <= hi - BAND_CLEAR + 1e-6;
   if (inside && width === door.width) return "kept";
   door.edge = edge;
   door.width = round(width);

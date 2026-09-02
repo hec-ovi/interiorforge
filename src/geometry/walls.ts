@@ -54,10 +54,12 @@ interface RoomSegment {
   edge: EdgeName | null;
 }
 
-/** Door heads on the half-metre grid: 2.5 m for one or two leaves, 3 m for wider portals, never within 0.3 m of the slab. */
-export function doorHeadHeight(leaves: number, floorHeight: number): number {
+/** Door heads: 2.5 m for one or two leaves, 3 m for wider portals. A space too low for that
+ *  carries the opening up to a lintel of one casing band under its ceiling, so a low storey
+ *  gets a tall opening rather than a stubby one. */
+export function doorHeadHeight(leaves: number, clearHeight: number): number {
   const head = leaves >= 3 ? 3.0 : 2.5;
-  return Math.min(head, Math.floor((floorHeight - 0.3) * 2 + 1e-9) / 2);
+  return Math.min(head, clearHeight - 2 * CASING.width);
 }
 
 /** Interior walls of one floor: the union of room edges off the facade, with door holes.
@@ -65,7 +67,7 @@ export function doorHeadHeight(leaves: number, floorHeight: number): number {
  *  `envelope` (the plate inside the facade lining) and rotates to world. */
 export function buildInteriorWalls(
   mb: MeshBuilder, keys: MaterialKeys, rooms: PlanRoom[], uvOutline: Point[], envelope: Point[],
-  frame: Frame, elevation: number, wallTop: number, floorHeight: number, ceilingY: number,
+  frame: Frame, elevation: number, wallTop: number, ceilingY: number,
   program: RoomKind, extraHoles: UvWallHole[], rng: Rng,
 ): void {
   const lines = new Map<string, WallLine>();
@@ -88,7 +90,7 @@ export function buildInteriorWalls(
     for (const door of room.doors) {
       if (door.to === "outside") continue; // hole handled by the facade lining
       const [u, v] = doorUvPoint(door, room);
-      const head = elevation + doorHeadHeight(door.leaves, floorHeight);
+      const head = elevation + doorHeadHeight(door.leaves, ceilingY - elevation);
       if (door.edge.startsWith("v")) {
         lineFor("H", v).holes.push({ at: u, width: door.width, y0: elevation, y1: head });
       } else {

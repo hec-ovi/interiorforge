@@ -3,6 +3,7 @@ import type { Point } from "../core/geom.js";
 import { clipPolygonToRect, insetPolygon, pointInPolygon, polygonBounds } from "../core/geom.js";
 import type { LightFixture, RoomKind } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
+import { doorUvPoint } from "./plan-floor.js";
 import type { PlanRoom } from "./plan-types.js";
 import type { IdGen } from "./rooms.js";
 import type { Frame, UvRect } from "./uv.js";
@@ -21,6 +22,10 @@ const MAX_PER_ROOM = 10;
 const MIN_COVE_SIDE = 2.0;
 const COVE_SEGMENT = 6.0; // cove segments abut, so a long wall reads as one line
 const COVE_MAX_PER_SIDE = 8;
+/** a cove stops this far short of an opening's jamb */
+const COVE_GAP = 0.2;
+/** how far off a wall line a cove still counts as running in that wall */
+const COVE_WALL_REACH = 0.4;
 /** a fixture's housing plus clearance, kept off the facade lining */
 const FIXTURE_MARGIN = 0.25;
 
@@ -96,10 +101,20 @@ function rangeOf(lumens: number, kind: LightFixture["kind"]): number {
   return round3(clamp(kind === "cove" ? reach * 1.6 : reach, 2, 14));
 }
 
+/** An opening in a wall line, as a cove reads it: the line it sits on and the run it eats. */
+interface DoorGap {
+  alongU: boolean;
+  c: number;
+  lo: number;
+  hi: number;
+}
+
 class FloorLighting {
   private readonly out: LightFixture[] = [];
 
   private readonly uvOutline: readonly Point[];
+
+  private gaps: DoorGap[] = [];
 
   constructor(
     private readonly ids: IdGen,
@@ -108,6 +123,19 @@ class FloorLighting {
     private readonly ceilingY: number,
   ) {
     this.uvOutline = insetPolygon(uvInner, FIXTURE_MARGIN);
+  }
+
+  /** Every doorway of the floor, so no cove line runs across an opening. */
+  openings(rooms: readonly PlanRoom[]): void {
+    this.gaps = rooms.flatMap((room) => room.doors
+      .filter((door) => door.to !== "outside")
+      .map((door) => {
+        const [u, v] = doorUvPoint(door, room);
+        const alongU = door.edge.startsWith("v");
+        const at = alongU ? u : v;
+        const half = door.width / 2 + COVE_GAP;
+        return { alongU, c: alongU ? v : u, lo: at - half, hi: at + half };
+      }));
   }
 
   fixtures(): LightFixture[] {
@@ -201,34 +229,58 @@ class FloorLighting {
   /** Emissive line where wall meets ceiling: the venue look from the reference. */
   private cove(room: PlanRoom, style: LightStyle): void {
     const r = room.rect;
-    const sides: { at: Point; length: number; angleDeg: 0 | 90 }[] = [
-      { at: [r.u + r.lu / 2, r.v + COVE_INSET], length: r.lu - 2 * COVE_INSET, angleDeg: 0 },
-      { at: [r.u + r.lu / 2, r.v + r.lv - COVE_INSET], length: r.lu - 2 * COVE_INSET, angleDeg: 0 },
-      { at: [r.u + COVE_INSET, r.v + r.lv / 2], length: r.lv - 2 * COVE_INSET, angleDeg: 90 },
-      { at: [r.u + r.lu - COVE_INSET, r.v + r.lv / 2], length: r.lv - 2 * COVE_INSET, angleDeg: 90 },
+    const sides: { wall: number; angleDeg: 0 | 90; from: number; to: number }[] = [
+      { wall: r.v + COVE_INSET, angleDeg: 0, from: r.u + COVE_INSET, to: r.u + r.lu - COVE_INSET },
+      { wall: r.v + r.lv - COVE_INSET, angleDeg: 0, from: r.u + COVE_INSET, to: r.u + r.lu - COVE_INSET },
+      { wall: r.u + COVE_INSET, angleDeg: 90, from: r.v + COVE_INSET, to: r.v + r.lv - COVE_INSET },
+      { wall: r.u + r.lu - COVE_INSET, angleDeg: 90, from: r.v + COVE_INSET, to: r.v + r.lv - COVE_INSET },
     ];
     for (const side of sides) {
-      if (side.length < MIN_COVE_SIDE) continue;
-      // abutting segments: the line reads continuous, each piece stays a sane light source
-      const pieces = clamp(Math.ceil(side.length / COVE_SEGMENT), 1, COVE_MAX_PER_SIDE);
-      const length = side.length / pieces;
-      for (let i = 0; i < pieces; i++) {
-        const offset = -side.length / 2 + length * (i + 0.5);
-        const at: Point = side.angleDeg === 0
-          ? [side.at[0] + offset, side.at[1]]
-          : [side.at[0], side.at[1] + offset];
-        const half = length / 2;
-        const ends: [Point, Point] = side.angleDeg === 0
-          ? [[at[0] - half, at[1]], [at[0] + half, at[1]]]
-          : [[at[0], at[1] - half], [at[0], at[1] + half]];
-        if (!this.inside(ends[0]) || !this.inside(ends[1])) continue;
-        this.push({
-          kind: "cove", room: room.id, at, y: this.ceilingY - COVE_DROP,
-          length, angleDeg: side.angleDeg,
-          lumens: Math.round(length * 220), colorTemperatureK: style.colorTemperatureK,
-        });
+      if (side.to - side.from < MIN_COVE_SIDE) continue;
+      for (const run of this.openRuns(side.angleDeg === 0, side.wall, side.from, side.to)) {
+        this.coveRun(room, style, side.angleDeg, side.wall, run);
       }
     }
+  }
+
+  /** One unbroken stretch of cove, cut into abutting segments so the line reads continuous
+   *  and each piece stays a sane light source. */
+  private coveRun(
+    room: PlanRoom, style: LightStyle, angleDeg: 0 | 90, wall: number, [from, to]: [number, number],
+  ): void {
+    const run = to - from;
+    if (run < MIN_COVE_SIDE) return;
+    const pieces = clamp(Math.ceil(run / COVE_SEGMENT), 1, COVE_MAX_PER_SIDE);
+    const length = run / pieces;
+    const half = length / 2;
+    for (let i = 0; i < pieces; i++) {
+      const mid = from + length * (i + 0.5);
+      const at: Point = angleDeg === 0 ? [mid, wall] : [wall, mid];
+      const ends: [Point, Point] = angleDeg === 0
+        ? [[mid - half, wall], [mid + half, wall]]
+        : [[wall, mid - half], [wall, mid + half]];
+      if (!this.inside(ends[0]) || !this.inside(ends[1])) continue;
+      this.push({
+        kind: "cove", room: room.id, at, y: this.ceilingY - COVE_DROP, length, angleDeg,
+        lumens: Math.round(length * 220), colorTemperatureK: style.colorTemperatureK,
+      });
+    }
+  }
+
+  /** A wall run split by the openings standing in it: a cove never crosses a doorway. */
+  private openRuns(alongU: boolean, wall: number, from: number, to: number): [number, number][] {
+    const cuts = this.gaps
+      .filter((g) => g.alongU === alongU && Math.abs(g.c - wall) < COVE_WALL_REACH)
+      .sort((a, b) => a.lo - b.lo);
+    const runs: [number, number][] = [];
+    let cursor = from;
+    for (const gap of cuts) {
+      if (gap.hi <= cursor || gap.lo >= to) continue;
+      if (gap.lo > cursor) runs.push([cursor, gap.lo]);
+      cursor = Math.max(cursor, gap.hi);
+    }
+    if (cursor < to) runs.push([cursor, to]);
+    return runs;
   }
 
   private spotAt(
@@ -287,6 +339,7 @@ export function planLights(
   rooms: PlanRoom[], core: CorePlan, uvInner: readonly Point[], ceilingY: number, landingY: number, ids: IdGen,
 ): LightFixture[] {
   const lighting = new FloorLighting(ids, core.frame, uvInner, ceilingY);
+  lighting.openings(rooms);
   for (const room of rooms) lighting.room(room);
   lighting.stairwell("stair-a", core.stairA, stairAccess(core, "a").entry, landingY);
   if (core.stairB) lighting.stairwell("stair-b", core.stairB, stairAccess(core, "b").entry, landingY);

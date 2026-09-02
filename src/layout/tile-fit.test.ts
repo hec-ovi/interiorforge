@@ -49,14 +49,23 @@ describe("refitDoors", () => {
   it("puts a door back inside the stretch its rooms still share after a wall moved", () => {
     const a: PlanRoom = { id: "a", kind: "office_open", rect: { u: 0, v: 0, lu: 4, lv: 4 }, doors: [] };
     const b: PlanRoom = { id: "b", kind: "corridor", rect: { u: 4, v: 0, lu: 2, lv: 4 }, doors: [] };
-    a.doors.push({ id: "d1", to: "b", leaves: 1, width: 0.9, edge: "u1", at: 3.5 });
-    // the corridor's low edge slid up past the door
-    b.rect.v = 3.2; b.rect.lv = 0.8;
+    a.doors.push({ id: "d1", to: "b", leaves: 1, width: 0.9, edge: "u1", at: 1 });
+    // the corridor's low edge slid up past the door, leaving 1.2 m of shared wall
+    b.rect.v = 2.8; b.rect.lv = 1.2;
     expect(refitDoors([a, b], plate)).toBe(1);
-    expect(a.doors[0]).toMatchObject({ edge: "u1", width: 0.6 });
-    expect(a.doors[0]!.at).toBeCloseTo(3.6, 6);
+    // the doorway keeps its clear width and moves to the middle of what is left
+    expect(a.doors[0]).toMatchObject({ edge: "u1", width: 0.9 });
+    expect(a.doors[0]!.at).toBeCloseTo(3.4, 6);
     // a door already inside its stretch is left alone
     expect(refitDoors([a, b], plate)).toBe(0);
+  });
+
+  it("drops a door the shared wall is too short to carry at full width", () => {
+    const a: PlanRoom = { id: "a", kind: "office_open", rect: { u: 0, v: 0, lu: 4, lv: 4 }, doors: [] };
+    const b: PlanRoom = { id: "b", kind: "corridor", rect: { u: 4, v: 3.4, lu: 2, lv: 0.6 }, doors: [] };
+    a.doors.push({ id: "d1", to: "b", leaves: 1, width: 0.9, edge: "u1", at: 3.7 });
+    expect(refitDoors([a, b], plate)).toBe(1);
+    expect(a.doors).toHaveLength(0);
   });
 
   it("drops a door on a stretch the plate does not carry", () => {
