@@ -116,8 +116,8 @@ export function resolveAssignments(request: InteriorRequest): FloorAssignment[] 
 }
 
 /** Exterior emits the atlas parcel type verbatim on every typed floor, plus lobby, entry,
- *  basement, bar and executive. Each slug picks its program, so a mixed building gets a real
- *  restaurant, shop or mall floor whatever its overall type is. */
+ *  basement, bar, executive and the generic `shop`. Each slug picks its program, so a mixed
+ *  building gets a real restaurant, shop or mall floor whatever its overall type is. */
 const SLUG_KIND: Record<string, FloorKind> = {
   lobby: "lobby", entry: "lobby",
   offices: "office", office: "office", corpo: "corpo_office", corpo_office: "corpo_office",
@@ -132,8 +132,16 @@ const SLUG_KIND: Record<string, FloorKind> = {
   terrace: "terrace", roof: "terrace",
 };
 
+/** Which venue a generic `shop` floor is: the parcel type says, so a coffee shop gets a
+ *  counter and a barista rather than a generic sales floor. */
+const VENUE_BY_TYPE: Partial<Record<BuildingType, FloorKind>> = {
+  restaurant: "restaurant", coffee_shop: "coffee_shop", mall: "mall_floor", commerce: "retail",
+};
+
 function kindFromSlug(slug: string, type: BuildingType, floor: number, rng: Rng): FloorKind {
   if (slug === "residential") return rng.next() < 0.35 ? "residence_studio" : "apartment";
+  // exterior's generic venue slug: a shop floor is a shop whatever storey it sits on
+  if (slug === "shop") return VENUE_BY_TYPE[type] ?? "retail";
   const known = SLUG_KIND[slug];
   if (known) return known;
   if (floor < 0) return "parking";

@@ -95,6 +95,21 @@ describe("resolveAssignments", () => {
       "lobby", "restaurant", "coffee_shop", "retail", "mall_floor", "office", "corpo_office",
     ]);
   });
+
+  it("reads a generic shop floor as the parcel's own venue", () => {
+    const venue = (type: string): string => {
+      const { request } = makeFixture({ seed: 4, floors: 3, type: type as InteriorRequest["building"]["type"] });
+      const shop = clone(request);
+      delete (shop as Partial<InteriorRequest>).assignments;
+      shop.blueprint.floors.forEach((f) => { f.kind = "shop"; });
+      return resolveAssignments(shop)[0]!.kind;
+    };
+    expect(venue("coffee_shop")).toBe("coffee_shop");
+    expect(venue("restaurant")).toBe("restaurant");
+    expect(venue("mall")).toBe("mall_floor");
+    expect(venue("commerce")).toBe("retail");
+    expect(venue("offices")).toBe("retail");
+  });
 });
 
 describe("shell", () => {
