@@ -69,6 +69,17 @@ export function ceilingClear(spaceHeight: number): number {
   return spaceHeight - Math.min(CEILING.drop, Math.max(0, spaceHeight - CEILING.minClear));
 }
 
+/**
+ * The ceiling height a floor takes: under a curtain wall it meets the spandrel
+ * line the exterior drew (the band that hides the slab), so nothing shows
+ * between ceiling and glass; elsewhere the standard drop.
+ */
+export function ceilingUnder(openings: readonly { spandrel?: number }[], spaceHeight: number): number {
+  const spandrel = Math.max(0, ...openings.map((o) => o.spandrel ?? 0));
+  const atSpandrel = spaceHeight - spandrel;
+  return spandrel > 0 && atSpandrel >= CEILING.minClear ? atSpandrel : ceilingClear(spaceHeight);
+}
+
 export const ROOM = {
   minArea: 4,
   minDim: 1.6,

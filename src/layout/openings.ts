@@ -43,6 +43,14 @@ export class Facade {
       const end = opening.offset + opening.width;
       if (Math.abs(hit.t - opening.offset) <= MEMBER_HALF || Math.abs(hit.t - end) <= MEMBER_HALF) continue;
       if (hit.t + margin <= opening.offset || hit.t - margin >= end) continue;
+      // a mullion inside a glazed sheet is a member too: a wall may stand on any pane column line
+      const cols = (opening as { panes?: { cols?: number } }).panes?.cols ?? 1;
+      if (cols > 1) {
+        const paneW = opening.width / cols;
+        let onMullion = false;
+        for (let k = 1; k < cols; k++) if (Math.abs(hit.t - (opening.offset + k * paneW)) <= MEMBER_HALF) onMullion = true;
+        if (onMullion) continue;
+      }
       return opening.id;
     }
     return null;

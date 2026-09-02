@@ -25,3 +25,18 @@ describe("Facade.crossedBy", () => {
     expect(facade.crossedBy([4.05, 0])).toBe("w1"); // mid-pane, off the member by more than its half width
   });
 });
+
+describe("Facade.crossedBy on a glazed sheet", () => {
+  it("lets a wall stand on a pane mullion and refuses it mid-pane", async () => {
+    const { Facade } = await import("./openings.js");
+    const floor = {
+      index: 0, kind: "office", elevation: 0, height: 4,
+      outline: [[0, 0], [12, 0], [12, 8], [0, 8]],
+      openings: [{ id: "w0", kind: "window", edge: 0, offset: 1, width: 4, height: 3, sill: 0, panes: { cols: 4, rows: 2 } }],
+    } as never;
+    const facade = new Facade(floor);
+    expect(facade.crossedBy([3, 0])).toBeNull(); // the mullion between panes two and three
+    expect(facade.crossedBy([3.5, 0])).toBe("w0"); // mid-pane
+    expect(facade.crossedBy([1, 0])).toBeNull(); // the jamb
+  });
+});
