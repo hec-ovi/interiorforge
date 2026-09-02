@@ -13,6 +13,7 @@ const TIER = "mid";
 const KINDS = [
   "wall", "floor-slab", "plaster", "tile", "wood", "carpet", "rubber", "concrete", "metal",
   "elevator_door", "fabric", "glass", "light-fixture", "ad-screen", "ceiling",
+  "door", "window-frame",
 ];
 const TILE_SIZE: [number, number] = [3, 2];
 /** 1x1 png, so embedded output carries real image bytes */

@@ -53,6 +53,7 @@ Closed set, thrown as `InteriorError { code, floor?, detail }`:
 - `E_MATERIAL_UNRESOLVED`: the materials theme has no entry for a key the building uses, or embedded textures were asked for without the database on disk
 
 ## Invariants
+- Every doorway carries a casing (two jambs and a head, 8 cm, standing 2 cm proud of both faces) in the door material; every window carries a casing on the room side (jambs, head, stool) in the window-frame material, standing 3 cm proud of the lining and never past its own facade.
 - Doors follow their walls: after the pier and grid passes every room door sits inside the stretch its two rooms still share (centred when it fell outside, narrowed to the stretch down to 0.5 m), so a hole is always cut and no room is walled off. Door heads stand at 2.5 m (3 m for three or more leaves), on the half-metre grid.
 - Under a curtain wall the dropped ceiling meets the spandrel line the exterior drew (nothing shows between ceiling and glass); a partition may stand on any pane mullion of a glazed sheet, as on a jamb.
 - Interior grid: partitions stand on a 0.5 m grid counted from the floor outline's low corner in the building frame (half the exterior panel), after the pier alignment; floors and ceilings tile from that same corner, so tiles run whole from room to room and meet the window borders the exterior put on the same grid (layout/tile-fit.ts).

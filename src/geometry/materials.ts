@@ -60,6 +60,16 @@ export class MaterialKeys {
   }
 
   /** Baseboards, top trim and reveals. */
+  /** Door casings: the painted steel every door and its frame wear. */
+  door(): string {
+    return this.key("door");
+  }
+
+  /** Window casings on the room side, the same member as the exterior frame. */
+  windowFrame(): string {
+    return this.key("window-frame");
+  }
+
   trim(): string {
     return this.key("metal");
   }

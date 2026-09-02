@@ -24,6 +24,10 @@ export interface WallBands {
   field: string;
   accent: string;
   trim: string;
+  /** door casings: jambs and head around every doorway */
+  casing: string;
+  /** window casings on the room side of every window */
+  frame: string;
 }
 
 /** Which ends of a wall slice are seen: the underside of a lintel over a door, the top of a

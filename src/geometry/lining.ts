@@ -26,6 +26,7 @@ export function buildFacadeLining(
   const bands: WallBands = {
     y0: bpFloor.elevation, ceilingY,
     field: keys.wall(), accent: keys.accent(program), trim: keys.trim(),
+    casing: keys.door(), frame: keys.windowFrame(),
   };
   const outline = bpFloor.outline;
   const y0 = bpFloor.elevation;
@@ -78,7 +79,7 @@ export function buildFacadeLining(
       piece(cursor, hole.t0, y0, wallTop);
       if (hole.y0 > 0) piece(hole.t0, hole.t1, y0, y0 + hole.y0, { top: true });
       if (hole.y1 < wallTop - y0) piece(hole.t0, hole.t1, y0 + hole.y1, wallTop, { bottom: true });
-      emitReveal(mb, bands, at, hole, y0, wallDepth, hole.y1 < wallTop - y0);
+      emitReveal(mb, bands, at, hole, y0, wallDepth, hole.y1 < wallTop - y0, len);
       cursor = hole.t1;
     }
     piece(cursor, len, y0, wallTop);
@@ -139,11 +140,14 @@ function lineDistance(p: Point, a: Point, b: Point): number {
   return Math.abs((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / len;
 }
 
+/** Window casing on the room side: this wide, standing this proud of the lining face. */
+const WINDOW_CASING = { width: 0.08, proud: 0.03 };
+
 /** The four faces lining an opening between the shell's skin and the lining: jambs, sill (a
  *  threshold at floor level) and head, each in the band it continues. */
 function emitReveal(
   mb: MeshBuilder, bands: WallBands, at: (t: number, depth: number) => Point,
-  hole: OpeningHole, y0: number, wallDepth: number, hasHead: boolean,
+  hole: OpeningHole, y0: number, wallDepth: number, hasHead: boolean, len: number,
 ): void {
   const near = SHELL_WALL.skinClear;
   const v = (p: Point, y: number): [number, number, number] => [p[0], y, p[1]];
@@ -157,4 +161,19 @@ function emitReveal(
   const plan = [at(hole.t0, near), at(hole.t1, near), at(hole.t1, wallDepth), at(hole.t0, wallDepth)];
   mb.addHorizontalPolygon(sillMaterial, plan, y0 + hole.y0, "up");
   if (hasHead) mb.addHorizontalPolygon(bandMaterial(bands, y0 + hole.y1 - 1e-3), plan, y0 + hole.y1, "down");
+  // the room-side casing: jambs, head and (over a sill) a stool, standing proud of the lining face
+  const face = wallDepth + SHELL_WALL.lining; // the lining's room face
+  const box = (t0: number, t1: number, by0: number, by1: number) => {
+    if (t1 - t0 < 1e-3 || by1 - by0 < 1e-3) return;
+    mb.addPrism(bands.frame, [at(t0, face), at(t1, face), at(t1, face + WINDOW_CASING.proud), at(t0, face + WINDOW_CASING.proud)], by0, by1, "world");
+  };
+  const w = WINDOW_CASING.width;
+  const top = y0 + hole.y1 + (hasHead ? w : 0);
+  const bottom = y0 + hole.y0 - (hole.y0 > 0 ? w : 0);
+  // a casing stays on its own facade: at a corner the jamb stops where the next wall's lining begins
+  const edge = face + WINDOW_CASING.proud;
+  box(Math.max(edge, hole.t0 - w), hole.t0, bottom, top);
+  box(hole.t1, Math.min(len - edge, hole.t1 + w), bottom, top);
+  if (hasHead) box(hole.t0, hole.t1, y0 + hole.y1, top);
+  if (hole.y0 > 0) box(hole.t0, hole.t1, bottom, y0 + hole.y0);
 }

@@ -11,6 +11,9 @@ import type { MaterialKeys } from "./materials.js";
 import type { Exposed, WallBands } from "./wall-detail.js";
 import { layerBands } from "./wall-detail.js";
 
+/** Casing members around a doorway: this wide, standing this proud of each wall face. */
+const CASING = { width: 0.08, proud: 0.02 };
+
 /** A hole in a wall line: `at` runs along the line in uv, y absolute. */
 export interface WallHole {
   at: number;
@@ -93,6 +96,7 @@ export function buildInteriorWalls(
   const bands: WallBands = {
     y0: elevation, ceilingY,
     field: keys.wall(), accent: keys.accent(program), trim: keys.trim(),
+    casing: keys.door(), frame: keys.windowFrame(),
   };
   for (const line of lines.values()) {
     for (const [a, b] of mergeIntervals(line.intervals)) {
@@ -121,12 +125,26 @@ function emitWallRun(
       mb.addPrism(material, toWorldPolygon(footprint, frame), by0, by1, "world", caps);
     }, exposed);
   };
+  // a casing member: a box on the wall line standing proud of both faces, clipped like the wall
+  const member = (s: number, e: number, my0: number, my1: number) => {
+    if (e - s < 1e-3 || my1 - my0 < 1e-3) return;
+    const thickness = WALL + 2 * CASING.proud;
+    const rect: UvRect = line.axis === "H"
+      ? { u: s, v: line.c - thickness / 2, lu: e - s, lv: thickness }
+      : { u: line.c - thickness / 2, v: s, lu: thickness, lv: e - s };
+    const footprint = clipPolygonToRect(envelope, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv });
+    if (footprint.length >= 3) mb.addPrism(bands.casing, toWorldPolygon(footprint, frame), my0, my1, "world");
+  };
   for (const hole of sorted) {
     const h0 = Math.max(a, hole.at - hole.width / 2);
     const h1 = Math.min(b, hole.at + hole.width / 2);
     solid(cursor, h0, y0, y1);
     if (hole.y0 > y0) solid(h0, h1, y0, hole.y0, { top: true });
     if (hole.y1 < y1) solid(h0, h1, hole.y1, y1, { bottom: true });
+    // the doorway's casing: two jambs and a head
+    member(h0 - CASING.width, h0, hole.y0, hole.y1 + CASING.width);
+    member(h1, h1 + CASING.width, hole.y0, hole.y1 + CASING.width);
+    member(h0, h1, hole.y1, hole.y1 + CASING.width);
     cursor = h1;
   }
   solid(cursor, b, y0, y1);

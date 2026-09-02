@@ -7,7 +7,7 @@ import { MaterialKeys } from "./materials.js";
 import { BASEBOARD, DADO_TOP, layerBands, TOP_TRIM } from "./wall-detail.js";
 
 const keys = new MaterialKeys("cyberpunk", "mid", 1);
-const bands = { y0: 0, ceilingY: 3.2, field: keys.wall(), accent: keys.accent(), trim: keys.trim() };
+const bands = { y0: 0, ceilingY: 3.2, field: keys.wall(), accent: keys.accent(), trim: keys.trim(), casing: keys.door(), frame: keys.windowFrame() };
 
 describe("wall bands", () => {
   it("stacks trim, dado, field and top trim from floor to ceiling", () => {
