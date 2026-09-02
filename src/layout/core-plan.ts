@@ -77,7 +77,7 @@ function platesOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame, 
   return floors.map((f) => insetPolygon(toUvPolygon(f.outline, frame), depth));
 }
 
-function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame, depth: number): CoreEnvelope {
+function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame, depth: number, bulkheadV: number | null = null): CoreEnvelope {
   const uvFloors = platesOf(floors, frame, depth);
   const groundIndex = floors.findIndex((f) => f.index === 0);
   const bounds = polygonBounds(uvFloors[groundIndex]!);
@@ -86,9 +86,10 @@ function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame
   const aboveFloors = floors.filter((f) => f.index >= 0).length;
   const twoStairs = area > TWO_STAIRS.areaOver || aboveFloors > TWO_STAIRS.floorsOver;
 
+  // the row the stair head wants: centred under the roof housing when the exterior published one
   const idealVFace = vLen < SINGLE_LOADED_BELOW
     ? snapDown(bounds.z + vLen - ELEVATOR.shaft)
-    : snap(bounds.z + (vLen + CORRIDOR.width) / 2);
+    : bulkheadV !== null ? snap(bulkheadV - snapUp(STAIR_WIDTH) / 2) : snap(bounds.z + (vLen + CORRIDOR.width) / 2);
   const vMin = snapUp(bounds.z + ROOM.minStripDepth + CORRIDOR.width);
   const vMax = snapDown(bounds.z + vLen - ELEVATOR.shaft);
   // ideal first, then outward in 0.5 steps (lower side first on ties), clamped
@@ -243,14 +244,19 @@ function selectEnvelope(blueprint: InteriorRequest["blueprint"]): CoreChoice {
   const depth = facadeDepth(blueprint.facade);
   const ground = floors.find((f) => f.index === 0)! as Ground;
   const base = principalAngle(ground.outline);
-  const first = envelopeOf(floors, frameAt(base, ground), depth);
+  // the roof housing's row in a frame, when the exterior published one
+  const bulkhead = blueprint.roof?.bulkhead;
+  const bulkV = (frame: Frame): number | null => (bulkhead ? worldToUv(bulkhead.center, frame)[1] : null);
+  const firstFrame = frameAt(base, ground);
+  const first = envelopeOf(floors, firstFrame, depth, bulkV(firstFrame));
   const firstPlacement = first.crossDepthOk ? selectPlacement(first) : null;
   if (firstPlacement && withinCap(first, firstPlacement)) return { env: first, placement: firstPlacement };
 
   let best: CoreChoice | null = null;
   let bestRank = Infinity;
   for (const angle of frameAngles(base).slice(1)) {
-    const env = envelopeOf(floors, frameAt(angle, ground), depth);
+    const frame = frameAt(angle, ground);
+    const env = envelopeOf(floors, frame, depth, bulkV(frame));
     if (!env.crossDepthOk) continue;
     const placement = selectPlacement(env);
     if (!placement || !withinCap(env, placement)) continue;
