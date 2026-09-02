@@ -6,6 +6,8 @@ import { WALL } from "./constants.js";
  *  facade on a pier, never across a window or a door. */
 
 /** Half a partition plus the reveal a wall needs beside a frame. */
+/** Half the width of a mullion or jamb: a wall this close to an opening's boundary stands on the member. */
+const MEMBER_HALF = 0.06;
 const WALL_MARGIN = WALL / 2 + 0.06;
 /** A wall end this close to an outline edge is touching the facade. */
 const CONTACT_EPS = 0.12;
@@ -30,13 +32,17 @@ export class Facade {
     return null;
   }
 
-  /** The opening a wall arriving at this point would cross, if any. */
+  /** The opening a wall arriving at this point would cross, if any. A wall that lands on an
+   *  opening's boundary meets the frame member there (a mullion between two bays, a jamb), so
+   *  on a curtain wall partitions fall on the mullion lines and never mid-pane. */
   crossedBy(p: Point, margin = WALL_MARGIN): string | null {
     const hit = this.contact(p);
     if (!hit) return null;
     for (const opening of this.floor.openings) {
       if (opening.edge !== hit.edge) continue;
-      if (hit.t + margin <= opening.offset || hit.t - margin >= opening.offset + opening.width) continue;
+      const end = opening.offset + opening.width;
+      if (Math.abs(hit.t - opening.offset) <= MEMBER_HALF || Math.abs(hit.t - end) <= MEMBER_HALF) continue;
+      if (hit.t + margin <= opening.offset || hit.t - margin >= end) continue;
       return opening.id;
     }
     return null;
