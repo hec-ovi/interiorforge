@@ -57,7 +57,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
 
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
-    const mb = new MeshBuilder();
+    const mb = new MeshBuilder(core.frame);
     floorMeshes.set(floor.floor, mb);
     const uv = plan.uvFloors.get(floor.floor)!;
     // the ceiling of a spans-2 floor sits at the top of its open upper half

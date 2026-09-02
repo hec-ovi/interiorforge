@@ -30,6 +30,7 @@ export function emitLightFixtures(mb: MeshBuilder, keys: MaterialKeys, lights: L
       x + dir[0] * half * a! + side[0] * shape.halfWidth * b!,
       z + dir[1] * half * a! + side[1] * shape.halfWidth * b!,
     ]);
-    mb.addPrism(material, corners, y, y + top);
+    // one fixture, one map: the housing is exact-placement, never a tile
+    mb.addPrism(material, corners, y, y + top, "unit");
   }
 }

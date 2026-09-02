@@ -25,7 +25,18 @@ export interface MeshGroup {
 
 /** Accumulates interior geometry per material key with glTF-correct winding
  *  (CCW front faces, right-handed, +Y up) and world-meter UVs. */
+/** The building's own axes for horizontal tiling: a rotation of the world's, so tiles run along the building, not along north. */
+export interface UvFrame {
+  cos: number;
+  sin: number;
+}
+
+const WORLD_FRAME: UvFrame = { cos: 1, sin: 0 };
+
 export class MeshBuilder {
+  /** @param frame the building frame every floor, ceiling and roof tile follows */
+  constructor(private readonly frame: UvFrame = WORLD_FRAME) {}
+
   private readonly groups = new Map<string, MeshGroup>();
 
   private group(material: string): MeshGroup {
@@ -37,15 +48,18 @@ export class MeshBuilder {
     return g;
   }
 
-  /** Quad with vertices CCW as seen from the front face. */
+  /** Quad with vertices CCW as seen from the front face. World UVs start at the quad's own first
+   *  vertex: u along the face from there, v up from its bottom, so a tile pattern begins at the
+   *  corner and the floor line of every wall and cuts the same way on every building. */
   addQuad(material: string, [v0, v1, v2, v3]: [Vec3, Vec3, Vec3, Vec3], uv: UvMode = "world"): void {
     const n = faceNormal(v0, v1, v2);
     const g = this.group(material);
     const base = g.positions.length / 3;
+    const bottom = Math.min(v0[1], v1[1], v2[1], v3[1]);
     [v0, v1, v2, v3].forEach((v, i) => {
       g.positions.push(...v);
       g.normals.push(...n);
-      g.uvs.push(...(uv === "unit" ? UNIT_QUAD[i]! : uvFor(v, n)));
+      g.uvs.push(...(uv === "unit" ? UNIT_QUAD[i]! : this.faceUv(v, v0, n, bottom)));
     });
     g.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
@@ -61,11 +75,14 @@ export class MeshBuilder {
     const zs = polygon.map((p) => p[1]);
     const [x0, z0] = [Math.min(...xs), Math.min(...zs)];
     const [w, d] = [Math.max(...xs) - x0 || 1, Math.max(...zs) - z0 || 1];
+    // tiles start at the polygon's own corner in the building frame, so every room cuts the same way
+    const framed = polygon.map(([x, z]) => this.toFrame(x, z));
+    const origin: Point = [Math.min(...framed.map((p) => p[0])), Math.min(...framed.map((p) => p[1]))];
     for (const [x, z] of polygon) {
       g.positions.push(x, y, z);
       g.normals.push(...n);
       if (uv === "unit") g.uvs.push((x - x0) / w, (z - z0) / d);
-      else g.uvs.push(x, z);
+      else g.uvs.push(...this.planUv(x, z, origin));
     }
     for (const [a, b, c] of triangulate(polygon)) {
       // shoelace-CCW in XZ faces -Y; flip for an upward surface
@@ -102,6 +119,25 @@ export class MeshBuilder {
     if (caps === "none") return;
     this.addHorizontalPolygon(material, corners, y1, "up", uv);
     if (caps === "both") this.addHorizontalPolygon(material, corners, y0, "down", uv);
+  }
+
+  /** A plan point in the building frame. */
+  private toFrame(x: number, z: number): Point {
+    return [x * this.frame.cos + z * this.frame.sin, -x * this.frame.sin + z * this.frame.cos];
+  }
+
+  /** Horizontal tiling: building-frame meters from the polygon's corner. */
+  private planUv(x: number, z: number, origin: Point): [number, number] {
+    const [u, v] = this.toFrame(x, z);
+    return [u - origin[0], v - origin[1]];
+  }
+
+  /** Wall tiling: meters along the face from its first vertex, meters up from its bottom. */
+  private faceUv(v: Vec3, start: Vec3, n: Vec3, bottom: number): [number, number] {
+    if (Math.abs(n[1]) > 0.9) return this.planUv(v[0], v[2], this.toFrame(start[0], start[2]));
+    const tx = n[2], tz = -n[0];
+    const len = Math.hypot(tx, tz) || 1;
+    return [((v[0] - start[0]) * tx + (v[2] - start[2]) * tz) / len, v[1] - bottom];
   }
 
   /** Appends every group of `other` after this builder's own, material by material. */
@@ -141,11 +177,3 @@ function faceNormal(v0: Vec3, v1: Vec3, v2: Vec3): Vec3 {
   return [nx / len, ny / len, nz / len];
 }
 
-/** World-planar UVs in meters: horizontal faces map x/z, walls map along-wall/height. */
-function uvFor(v: Vec3, n: Vec3): [number, number] {
-  if (Math.abs(n[1]) > 0.9) return [v[0], v[2]];
-  // horizontal tangent along the wall: cross(up, n)
-  const tx = n[2], tz = -n[0];
-  const len = Math.hypot(tx, tz) || 1;
-  return [(v[0] * tx + v[2] * tz) / len, v[1]];
-}
