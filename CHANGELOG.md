@@ -1,5 +1,6 @@
 # Changelog
 
+0.22.0: no room is walled off. A room's accent wall is the tone its wall run carries from corner to corner instead of a facing plane laid over the wall, which used to stand across the doorways of the neighbouring room (1661 of 8157 interior doors in city-urbe-small were sealed by one) and z-fight the wall face it sat inside. A door whose shared stretch is cut away by the outline is dropped so the reachability pass can cut a working one, and every doorway is checked against the built mesh before the GLB is written: nothing may stand in the clear opening (E_UNREACHABLE_SPACE names the door and the material blocking it). All 71 parcels of the small city build with every interior doorway open.
 0.21.4: the core block slides along its band and its row scan starts under the roof housing the exterior published, so the stair head lands in the roof cutout.
 0.21.3: door casings around every doorway and window casings on the room side of every window.
 0.21.2: doors are refitted into the stretch their rooms share after the wall passes (no walled-off rooms); door heads at 2.5 m and 3 m on the grid.

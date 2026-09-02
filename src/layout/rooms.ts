@@ -48,6 +48,49 @@ export function sharedEdge(
   return null;
 }
 
+/** Shortest stretch that still carries a door: half a metre of leaf and a jamb each side. */
+export const MIN_STRETCH = 0.7;
+
+/** The part of two rooms' shared edge that a real partition covers: the stretch inside the
+ *  plate. An irregular outline cuts room rects, and beyond the plate the facade lining
+ *  stands where the partition would be, so a door there would be walled shut. `near` picks
+ *  the stretch holding a door that already exists; otherwise the longest one wins. */
+export function sharedStretch(
+  a: UvRect, b: UvRect, plate: readonly Point[], near?: number,
+): { edge: PlanDoor["edge"]; lo: number; hi: number } | null {
+  const shared = sharedEdge(a, b);
+  if (!shared) return null;
+  const alongU = shared.edge === "v0" || shared.edge === "v1";
+  const c = shared.edge === "v0" ? a.v : shared.edge === "v1" ? a.v + a.lv
+    : shared.edge === "u0" ? a.u : a.u + a.lu;
+  let best: { edge: PlanDoor["edge"]; lo: number; hi: number } | null = null;
+  for (const [runLo, runHi] of lineRuns(plate, alongU, c)) {
+    const lo = Math.max(shared.lo, runLo);
+    const hi = Math.min(shared.hi, runHi);
+    if (hi - lo < MIN_STRETCH) continue;
+    if (near !== undefined && near >= lo && near <= hi) return { edge: shared.edge, lo, hi };
+    if (!best || hi - lo > best.hi - best.lo) best = { edge: shared.edge, lo, hi };
+  }
+  return best;
+}
+
+/** Where a line crosses a polygon: the intervals of it that lie inside. */
+function lineRuns(poly: readonly Point[], alongU: boolean, c: number): [number, number][] {
+  const crossings: number[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i]!;
+    const q = poly[(i + 1) % poly.length]!;
+    const [pc, qc] = alongU ? [p[1], q[1]] : [p[0], q[0]];
+    if ((pc <= c && qc <= c) || (pc > c && qc > c)) continue;
+    const [pa, qa] = alongU ? [p[0], q[0]] : [p[1], q[1]];
+    crossings.push(pa + ((c - pc) / (qc - pc)) * (qa - pa));
+  }
+  crossings.sort((x, y) => x - y);
+  const runs: [number, number][] = [];
+  for (let i = 0; i + 1 < crossings.length; i += 2) runs.push([crossings[i]!, crossings[i + 1]!]);
+  return runs;
+}
+
 /** Door on the shared edge of two abutting rects, owned by `owner`. Returns null when the
  *  contact interval is too short for even the narrowest leaf. `fraction` shifts the door
  *  along the interval (repair probes several positions). */

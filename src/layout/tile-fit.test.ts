@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Point } from "../core/geom.js";
 import type { BlueprintFloor } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
 import type { PlanRoom } from "./plan-types.js";
@@ -43,16 +44,28 @@ describe("fitPartitionsToGrid", () => {
 });
 
 describe("refitDoors", () => {
+  const plate: Point[] = [[0, 0], [6, 0], [6, 4], [0, 4]];
+
   it("puts a door back inside the stretch its rooms still share after a wall moved", () => {
     const a: PlanRoom = { id: "a", kind: "office_open", rect: { u: 0, v: 0, lu: 4, lv: 4 }, doors: [] };
     const b: PlanRoom = { id: "b", kind: "corridor", rect: { u: 4, v: 0, lu: 2, lv: 4 }, doors: [] };
     a.doors.push({ id: "d1", to: "b", leaves: 1, width: 0.9, edge: "u1", at: 3.5 });
     // the corridor's low edge slid up past the door
     b.rect.v = 3.2; b.rect.lv = 0.8;
-    expect(refitDoors([a, b])).toBe(1);
+    expect(refitDoors([a, b], plate)).toBe(1);
     expect(a.doors[0]).toMatchObject({ edge: "u1", width: 0.6 });
     expect(a.doors[0]!.at).toBeCloseTo(3.6, 6);
     // a door already inside its stretch is left alone
-    expect(refitDoors([a, b])).toBe(0);
+    expect(refitDoors([a, b], plate)).toBe(0);
+  });
+
+  it("drops a door on a stretch the plate does not carry", () => {
+    // the outline cuts the shared edge away: no partition stands where the door sits
+    const cut: Point[] = [[0, 0], [3.5, 0], [3.5, 4], [0, 4]];
+    const a: PlanRoom = { id: "a", kind: "office_open", rect: { u: 0, v: 0, lu: 4, lv: 4 }, doors: [] };
+    const b: PlanRoom = { id: "b", kind: "corridor", rect: { u: 4, v: 0, lu: 2, lv: 4 }, doors: [] };
+    a.doors.push({ id: "d1", to: "b", leaves: 1, width: 0.9, edge: "u1", at: 3.5 });
+    expect(refitDoors([a, b], cut)).toBe(1);
+    expect(a.doors).toHaveLength(0);
   });
 });

@@ -8,6 +8,7 @@ import { buildNavGrid } from "./navgrid.js";
 import { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
 import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import { doorBetween, type IdGen } from "./rooms.js";
+import { fitDoorToStretch } from "./tile-fit.js";
 import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
 import { pointInUvRect, uvRectCenter, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
@@ -52,7 +53,7 @@ export function validateAndRepair(
         floorIndex,
       );
     }
-    const fixed = repairOne(unreached, rooms, grid, visited, core, ids);
+    const fixed = repairOne(unreached, rooms, grid, visited, core, ids, bounds.inner);
     if (!fixed) {
       throw new InteriorError(
         "E_UNREACHABLE_SPACE",
@@ -114,7 +115,7 @@ function nearReached(grid: WalkGrid, visited: Uint8Array, p: Point): boolean {
 
 function repairOne(
   unreached: PlanRoom[], rooms: PlanRoom[], grid: WalkGrid, visited: Uint8Array,
-  core: CorePlan, ids: IdGen,
+  core: CorePlan, ids: IdGen, plate: readonly Point[],
 ): boolean {
   for (const room of unreached) {
     const reachedRooms = rooms.filter((r) => r !== room && roomReached(grid, visited, r, core));
@@ -131,6 +132,11 @@ function repairOne(
       for (const fraction of [0.5, 0.1, 0.9, 0.3, 0.7]) {
         const door = doorBetween(room, target.id, target.rect, ids, 1, DOOR.interior, fraction);
         if (!door) break;
+        // a repair door lands after the refit pass, so it takes the plate test itself
+        if (fitDoorToStretch(door, room.rect, target.rect, plate) === null) {
+          room.doors.pop();
+          break;
+        }
         if (existing.every((d) => Math.abs(d.at - door.at) > 0.7)) return true;
         room.doors.pop(); // same spot as an existing door: discard and try the next probe
       }

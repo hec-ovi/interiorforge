@@ -3,8 +3,8 @@ import type { BlueprintFloor } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
 import { Facade } from "./openings.js";
 import { collectLines, coreRectsOf, endsOf, frozen, pointOn, type WallLine } from "./pier-align.js";
-import type { PlanRoom } from "./plan-types.js";
-import { sharedEdge } from "./rooms.js";
+import type { PlanDoor, PlanRoom } from "./plan-types.js";
+import { sharedStretch } from "./rooms.js";
 import type { UvRect } from "./uv.js";
 import { uvToWorld } from "./uv.js";
 
@@ -79,28 +79,43 @@ function round(v: number): number {
  * cut in, and the alignment passes move edges after that, so a door can end up
  * past the stretch its two rooms still share: no hole would be cut and the
  * room would read walled off. Every room door is put back inside the shared
- * stretch, centred when it fell outside, narrowed only when the stretch is
- * shorter than the door.
+ * stretch that a partition really covers (the part on `plate`, since an
+ * irregular outline cuts room rects and the facade lining stands beyond it),
+ * centred when it fell outside, narrowed only when the stretch is shorter than
+ * the door. A pair with no such stretch loses the door, and the reachability
+ * pass cuts a working one elsewhere.
  */
-export function refitDoors(rooms: PlanRoom[]): number {
+export function refitDoors(rooms: PlanRoom[], plate: readonly Point[]): number {
   const byId = new Map(rooms.map((r) => [r.id, r]));
   let refit = 0;
   for (const room of rooms) {
-    for (const door of room.doors) {
+    room.doors = room.doors.filter((door) => {
       const other = byId.get(door.to);
-      if (!other) continue;
-      const shared = sharedEdge(room.rect, other.rect);
-      if (!shared) continue;
-      const { edge, lo, hi } = shared;
-      // a doorway narrower than the door beats a sealed room, down to half a metre
-      const width = round(Math.max(0.5, Math.min(door.width, hi - lo - 0.2)));
-      const inside = door.edge === edge && door.at - width / 2 >= lo + 0.1 - 1e-6 && door.at + width / 2 <= hi - 0.1 + 1e-6;
-      if (inside && width === door.width) continue;
-      door.edge = edge;
-      door.width = round(width);
-      door.at = round((lo + hi) / 2);
-      refit++;
-    }
+      if (!other) return true;
+      const fit = fitDoorToStretch(door, room.rect, other.rect, plate);
+      if (fit !== "kept") refit++;
+      return fit !== null;
+    });
   }
   return refit;
+}
+
+/** Puts one door inside the stretch its two rooms really share on the plate, narrowing it
+ *  down to half a metre rather than sealing the room. `null` when the pair shares no such
+ *  stretch: no wall stands there to hole. */
+export function fitDoorToStretch(
+  door: PlanDoor, from: UvRect, to: UvRect, plate: readonly Point[],
+): "kept" | "moved" | null {
+  const stretch = sharedStretch(from, to, plate, door.at);
+  if (!stretch) return null;
+  const { edge, lo, hi } = stretch;
+  // a doorway narrower than the door beats a sealed room, down to half a metre
+  const width = round(Math.max(0.5, Math.min(door.width, hi - lo - 0.2)));
+  const inside = door.edge === edge && door.at - width / 2 >= lo + 0.1 - 1e-6
+    && door.at + width / 2 <= hi - 0.1 + 1e-6;
+  if (inside && width === door.width) return "kept";
+  door.edge = edge;
+  door.width = round(width);
+  door.at = round((lo + hi) / 2);
+  return "moved";
 }

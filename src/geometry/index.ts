@@ -11,10 +11,11 @@ import { ceilingUnder, STAIR, stairSlab } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import type { BuildingPlan } from "../layout/index.js";
 import type { PlanRoom } from "../layout/plan-types.js";
-import { facadeDepth, SHELL_WALL, shellWallDepth } from "../layout/shell.js";
+import { SHELL_WALL, shellWallDepth } from "../layout/shell.js";
 import type { UvRect } from "../layout/uv.js";
 import { toWorldPolygon } from "../layout/uv.js";
 import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorShaftWalls } from "./core-geo.js";
+import { assertDoorwaysClear, floorDoorways } from "./door-clear.js";
 import { emitFurniture } from "./furniture/index.js";
 import { emitLightFixtures } from "./lights.js";
 import { MaterialKeys } from "./materials.js";
@@ -25,7 +26,6 @@ import {
 } from "./stairs.js";
 import { assertInsideShell } from "./shell-fit.js";
 import { buildFloorSurfaces, buildShaftFloors } from "./surfaces.js";
-import { emitAccentWalls } from "./wall-detail.js";
 import { buildFacadeLining } from "./lining.js";
 import { buildInteriorWalls } from "./walls.js";
 
@@ -107,7 +107,6 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     // slabs reach the lining's outer face; walls end inside the lining; nothing crosses it
     const slabPlate = insetPolygon(uv.outline, wallDepth);
     const wallPlate = insetPolygon(uv.outline, wallDepth + SHELL_WALL.lining / 2);
-    const roomPlate = insetPolygon(uv.outline, facadeDepth(facade));
     const cut = (rect: UvRect, plate: Point[]): Point[] =>
       toWorldPolygon(clipPolygonToRect(plate, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }), core.frame);
     const roomPlans = uv.rooms.map((r) => ({ kind: r.kind, polygon: cut(r.rect, slabPlate) }));
@@ -118,16 +117,16 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     // the floor's biggest room sets the wall pattern, so a venue floor and an office floor
     // never wear the same one
     const program = uv.rooms.reduce((best, r) => (r.rect.lu * r.rect.lv > best.rect.lu * best.rect.lv ? r : best)).kind;
-    buildInteriorWalls(mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, wallPlate, core.frame, floor.elevation, wallTop, floor.height, ceilingY, program, holes);
-    buildFacadeLining(mb, keys, bpFloor, wallDepth, wallTop, ceilingY, program);
-    emitAccentWalls(
-      mb, keys, uv.rooms, roomPlate, core.frame, floor.elevation, ceilingY,
-      createRng(request.seed, "accent", floor.floor),
+    buildInteriorWalls(
+      mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, wallPlate, core.frame, floor.elevation,
+      wallTop, floor.height, ceilingY, program, holes, createRng(request.seed, "accent", floor.floor),
     );
+    buildFacadeLining(mb, keys, bpFloor, wallDepth, wallTop, ceilingY, program);
     emitCoreDividers(mb, keys, core, floor.elevation, wallTop);
     emitElevatorDoors(mb, keys, core, floor.elevation);
     emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation);
     emitLightFixtures(mb, keys, floor.lights);
+    assertDoorwaysClear(mb, floorDoorways(uv.rooms, core.frame, floor.elevation, floor.height), floor.floor);
   }
 
   buildShaftFloors(floorMeshes.get(lowest.floor)!, keys, core, lowest.elevation);

@@ -134,7 +134,7 @@ export function planFloor(
   // then onto the interior grid, half the exterior panel, counted from the outline's corner
   fitPartitionsToGrid(rooms, [...backing.sealed, ...extraSealed], floor, core, uvOutline);
   // walls moved twice since the doors were cut: every door goes back inside the stretch its rooms share
-  refitDoors(rooms);
+  refitDoors(rooms, bounds.inner);
 
   // exterior doors (entrances, balcony doors) land on whichever room faces them
   const exteriorDoors = floor.openings
