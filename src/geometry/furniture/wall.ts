@@ -7,8 +7,13 @@ export function displayScreen(p: Placer): void {
   p.box("screen", -p.hw + 0.05, p.hw - 0.05, p.hd, p.hd + 0.012, 0.05, p.height - 0.05);
 }
 
-/** Framed piece on the wall: a wood frame with a real border, and a picture (an image ad of the theme) as its face. */
+/** Framed piece on the wall: a backing board, four wood rails standing proud as the border, and a picture (an image ad of the theme) inside them. */
 export function wallArt(p: Placer): void {
+  const rail = 0.06;
   p.box("wood", -p.hw, p.hw, -p.hd, p.hd, 0, p.height);
-  p.box("screen", -p.hw + 0.06, p.hw - 0.06, p.hd, p.hd + 0.006, 0.06, p.height - 0.06);
+  p.box("wood", -p.hw, -p.hw + rail, p.hd, p.hd + 0.02, 0, p.height);
+  p.box("wood", p.hw - rail, p.hw, p.hd, p.hd + 0.02, 0, p.height);
+  p.box("wood", -p.hw + rail, p.hw - rail, p.hd, p.hd + 0.02, 0, rail);
+  p.box("wood", -p.hw + rail, p.hw - rail, p.hd, p.hd + 0.02, p.height - rail, p.height);
+  p.box("screen", -p.hw + rail, p.hw - rail, p.hd, p.hd + 0.006, rail, p.height - rail);
 }
