@@ -5,7 +5,7 @@ Purpose: the only place that touches GLB bytes: builds interior meshes with corr
 ## In / Out
 
 - `mesh-builder.ts`: `MeshBuilder` accumulates geometry per material key (`theme/kind/tier` slugs).
-  - `addQuad(material, [v0, v1, v2, v3], uv?)`: vertices CCW seen from the front; normal derived from winding. `uv` is "world" (default): planar UVs in meters (walls: u along the wall, v up; horizontal: u = x, v = z), or "unit": 0..1 over the face, for exact-placement materials.
+  - `addQuad(material, [v0, v1, v2, v3], uv?)`: vertices CCW seen from the front; normal derived from winding. `uv` is "world" (default): planar UVs in meters (walls: u along the wall, v up; horizontal: u = x, v = z), or "unit": 0..1 over the face, for exact-placement materials; on a prism side u grows toward the viewer's right seen from the front, so a picture reads left to right.
   - `addHorizontalPolygon(material, polygon, y, facing, uv?)`: triangulated floor or ceiling surface, `facing` "up" | "down".
   - `addBox(material, rect, y0, y1, faces?)`: axis-aligned box, outward normals; `faces` subset of `top bottom north south east west` (default all six).
   - `addPrism(material, corners, y0, y1, uv?, caps?)`: vertical prism over a plan polygon at any angle, caps optional.
