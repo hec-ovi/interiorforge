@@ -59,6 +59,24 @@ describe("MeshBuilder", () => {
   });
 });
 
+describe("MeshBuilder unit faces", () => {
+  it("a unit-mapped side face reads left to right from its front: u grows along up x normal", () => {
+    const mb = new MeshBuilder();
+    mb.addPrism("screen", [[0, 0], [2, 0], [2, 1], [0, 1]], 0, 1, "unit", "none");
+    const g = mb.getGroup("screen")!;
+    for (let q = 0; q < 4; q++) {
+      const v = (i: number) => g.positions.slice((q * 4 + i) * 3, (q * 4 + i) * 3 + 3);
+      const n = g.normals.slice(q * 4 * 3, q * 4 * 3 + 3);
+      const u = (i: number) => g.uvs[(q * 4 + i) * 2]!;
+      // the viewer's right when facing this side: up x normal
+      const right = [n[2]!, 0, -n[0]!];
+      const along = (i: number, j: number) => (v(j)[0]! - v(i)[0]!) * right[0]! + (v(j)[2]! - v(i)[2]!) * right[2]!;
+      expect(Math.sign(u(3) - u(0))).toBe(Math.sign(along(0, 3)));
+      expect(u(1) - u(0)).toBe(0);
+    }
+  });
+});
+
 describe("glb io", () => {
   it("writes a GLB that reads back with material names and bounds intact, byte-identically", async () => {
     const build = () => {

@@ -1,5 +1,6 @@
 # Changelog
 
+0.20.5: unit-mapped side faces (wall screens, lift door panels) read left to right from their front.
 0.20.4: a partition landing on an opening's boundary stands on the frame member there, so on a curtain wall the walls fall on the mullion lines and never mid-pane.
 
 0.20.3: a stair shaft's downlight hangs under the mid landing, half a storey up at the far end from the entry, so nothing floats in the stair void.
