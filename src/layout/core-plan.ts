@@ -3,16 +3,12 @@ import type { Point } from "../core/geom.js";
 import { insetPolygon, polygonArea, polygonBounds } from "../core/geom.js";
 import type { FloorAssignment, InteriorRequest } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
-import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, STAIR, TWO_STAIRS, WALKUP } from "./constants.js";
+import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
 import { facadeDepth } from "./shell.js";
+import { SHAFT_WIDTH, shaftDepthFor } from "./stair-plan.js";
 import type { Frame, UvRect } from "./uv.js";
 import { coversRect, makeFrame, snap, snapDown, snapUp, toUvPolygon, worldToUv } from "./uv.js";
-
-export interface StairFlights {
-  flightsPerFloor: number;
-  risersPerFlight: number;
-}
 
 /** standard: elevator core in the shaft row. compact: stairs turn into columns reaching
  *  into the rear strip so near-miss bands keep elevators. walkup: stair-only, capped. */
@@ -38,7 +34,6 @@ export interface CorePlan {
   stub: UvRect;
 }
 
-const STAIR_WIDTH = 2 * STAIR.flightWidth + STAIR.flightGap; // two flights side by side
 const MARGIN = 0.5;
 const SCAN_RANGE = 8; // how far vFace may move from its ideal to find a fitting band
 
@@ -89,7 +84,7 @@ function envelopeOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame
   // the row the stair head wants: centred under the roof housing when the exterior published one
   const idealVFace = vLen < SINGLE_LOADED_BELOW
     ? snapDown(bounds.z + vLen - ELEVATOR.shaft)
-    : bulkheadV !== null ? snap(bulkheadV - snapUp(STAIR_WIDTH) / 2) : snap(bounds.z + (vLen + CORRIDOR.width) / 2);
+    : bulkheadV !== null ? snap(bulkheadV - snapUp(SHAFT_WIDTH) / 2) : snap(bounds.z + (vLen + CORRIDOR.width) / 2);
   const vMin = snapUp(bounds.z + ROOM.minStripDepth + CORRIDOR.width);
   const vMax = snapDown(bounds.z + vLen - ELEVATOR.shaft);
   // ideal first, then outward in 0.5 steps (lower side first on ties), clamped
@@ -138,7 +133,7 @@ function rowFixedLen(env: CoreEnvelope): number {
 
 /** Compact core: stairs become 2.5 m columns reaching stairDepth into the rear strip. */
 function compactFixedLen(env: CoreEnvelope): number {
-  const stairCols = (env.twoStairs ? 2 : 1) * snapUp(STAIR_WIDTH);
+  const stairCols = (env.twoStairs ? 2 : 1) * snapUp(SHAFT_WIDTH);
   return stairCols + RISER_SHAFT.w + CORRIDOR.serviceStub + MARGIN;
 }
 
@@ -154,7 +149,7 @@ interface Placement {
 /** u extent of the core block for a car count. planCore lays the block out here and the
  *  selector validates it, so the gate and the generator place the same rects. */
 function blockSpan(env: CoreEnvelope, p: Placement, elevatorCount: number): { u0: number; len: number } {
-  const colW = snapUp(STAIR_WIDTH);
+  const colW = snapUp(SHAFT_WIDTH);
   const stairALen = p.mode === "compact" ? colW : env.stairDepth;
   const len = stairALen + elevatorCount * ELEVATOR.shaft + RISER_SHAFT.w + CORRIDOR.serviceStub
     + (p.mode === "compact" && env.twoStairs ? colW : 0);
@@ -393,7 +388,7 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
   const elevatorCount = mode === "walkup" ? 0
     : Math.min(elevatorsFor(request, env.area, env.aboveFloors, env.topElevation), Math.max(1, placement.maxElevators));
 
-  const stairColW = snapUp(STAIR_WIDTH);
+  const stairColW = snapUp(SHAFT_WIDTH);
   const span = blockSpan(env, placement, elevatorCount);
   // The stair head meets the roof housing the exterior published: the block slides along its
   // band so stair A is centred under it, as far as the band allows.
@@ -499,13 +494,6 @@ function frameAt(angle: number, ground: Ground): Frame {
   return frame;
 }
 
-/** Exact flight split for one climb: even flight count, comfortable risers. */
-export function stairFlights(climb: number): StairFlights {
-  const totalRisers = Math.ceil(climb / STAIR.riser);
-  const flightsPerFloor = 2 * Math.ceil(totalRisers / (2 * STAIR.maxRisersPerFlight));
-  return { flightsPerFloor, risersPerFlight: Math.ceil(totalRisers / flightsPerFloor) };
-}
-
 /** Every climb the stair may have to take: one storey, or two where an assignment spans.
  *  Read off the blueprint alone, so the gate and the generator size the same shaft. */
 function climbCandidates(floors: InteriorRequest["blueprint"]["floors"]): number[] {
@@ -519,11 +507,7 @@ function climbCandidates(floors: InteriorRequest["blueprint"]["floors"]): number
  *  fewer flights, so its flights are LONGER than a tall storey's: the shaft has to take the
  *  worst climb of this blueprint, not the tallest floor. */
 function stairShaftDepth(floors: InteriorRequest["blueprint"]["floors"]): number {
-  let worst = 0;
-  for (const climb of climbCandidates(floors)) {
-    worst = Math.max(worst, stairFlights(climb).risersPerFlight);
-  }
-  return snapUp(worst * STAIR.tread + 2 * STAIR.landing);
+  return shaftDepthFor(climbCandidates(floors));
 }
 
 function elevatorsFor(request: InteriorRequest, area: number, aboveFloors: number, topElevation: number): number {

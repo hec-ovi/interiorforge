@@ -5,7 +5,7 @@ import { createRng } from "../core/rng.js";
 import type {
   BlueprintFloor, Door, FloorInterior, FloorKind, InteriorRequest, Room,
 } from "../core/types.js";
-import { CELL, ceilingUnder, DOOR, ELEVATOR, ROOM, SOFFIT_DEPTH } from "./constants.js";
+import { CELL, ceilingUnder, DOOR, ELEVATOR, ROOM, SOFFIT_DEPTH, stairSlab } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { stairAccess } from "./core-plan.js";
 import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
@@ -162,7 +162,10 @@ export function planFloor(
       core: coreToWorld(core, sealed),
       rooms: rooms.map((r) => roomToWorld(r, uvOutline, frame)),
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
-      lights: planLights(rooms, core, bounds.inner, ceilingElevation, floor.elevation + spaceHeight / 2, ids),
+      lights: planLights(
+        rooms, core, bounds.inner, ceilingElevation,
+        floor.elevation + spaceHeight - stairSlab(spaceHeight), ids,
+      ),
     },
     grid,
     uv: { outline: uvOutline, rooms, furniture, sealed },

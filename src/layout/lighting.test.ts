@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { makeFixture } from "../blueprint/fixture.js";
 import { resolveAssignments } from "../blueprint/validate.js";
 import { pointInPolygon } from "../core/geom.js";
-import { ceilingClear } from "./constants.js";
+import { ceilingClear, stairSlab } from "./constants.js";
 import { planBuilding } from "./index.js";
 
 const fix = makeFixture({ seed: 31, floors: 8, basements: 1, type: "offices" });
@@ -21,22 +21,20 @@ describe("floor lighting", () => {
     }
   });
 
-  it("hangs a stairwell downlight under the mid landing, in the far half from the entry", () => {
+  it("embeds a stairwell downlight in the arrival landing over the entry", () => {
     for (const floor of plan.floors) {
       if (floor.rooms.length === 0) continue;
-      const ceilingY = floor.elevation + ceilingClear(floor.height);
+      const landingY = floor.elevation + floor.height - stairSlab(floor.height);
       for (const stair of floor.core.stairs) {
         const lights = floor.lights.filter((l) => l.room === stair.id);
         expect(lights.length).toBe(1);
-        // half a storey up, not at this floor's ceiling, which the shaft does not have
-        expect(lights[0]!.position[1]).toBeLessThan(ceilingY - 0.3);
-        expect(lights[0]!.position[1]).toBeGreaterThan(floor.elevation + 1.0);
+        expect(lights[0]!.position[1]).toBeCloseTo(landingY, 3);
         const r = stair.rect;
         const alongX = r.w >= r.d;
         const run = alongX ? lights[0]!.position[0] - r.x : lights[0]!.position[2] - r.z;
         const entry = alongX ? stair.entry[0] - r.x : stair.entry[1] - r.z;
         const len = alongX ? r.w : r.d;
-        expect((run > len / 2) !== (entry > len / 2)).toBe(true);
+        expect((run > len / 2) === (entry > len / 2)).toBe(true);
       }
     }
   });
@@ -48,9 +46,11 @@ describe("floor lighting", () => {
       const stairs = new Set(floor.core.stairs.map((s) => s.id));
       for (const light of floor.lights) {
         const [x, y, z] = light.position;
-        // a stairwell's downlight hangs under the mid landing, half a storey up
-        expect(y).toBeGreaterThan(floor.elevation + (stairs.has(light.room) ? 1.0 : 1.8));
-        expect(y).toBeLessThanOrEqual(ceiling + 1e-6);
+        expect(y).toBeGreaterThan(floor.elevation + 1.8);
+        const high = stairs.has(light.room)
+          ? floor.elevation + floor.height - stairSlab(floor.height)
+          : ceiling;
+        expect(y).toBeLessThanOrEqual(high + 1e-6);
         expect(pointInPolygon([x, z], outline), `${light.id} outside the plate`).toBe(true);
       }
     }

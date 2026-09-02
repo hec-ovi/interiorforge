@@ -26,14 +26,13 @@ export const DOOR = {
 };
 
 export const STAIR = {
-  riser: 0.17,
+  /** comfortable rise range and target */
+  riser: { min: 0.16, ideal: 0.17, max: 0.18 },
   tread: 0.28,
-  flightWidth: 1.15,
-  flightGap: 0.15,
+  /** clear wall-face to wall-face width for two people */
+  flightWidth: 1.2,
   landing: 1.2,
   maxRisersPerFlight: 14,
-  /** clear width of one flight; the game capsule is 0.7 m wide */
-  clearWidth: 1.0,
   /** clear height over every tread and landing along the walk line */
   headroom: 2.1,
   /** structural thickness under treads and landings */

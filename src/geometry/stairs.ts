@@ -1,8 +1,9 @@
 import type { Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
-import { STAIR, stairSlab } from "../layout/constants.js";
+import { STAIR, WALL } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import { stairAccess } from "../layout/core-plan.js";
+import { planFlights } from "../layout/stair-plan.js";
 import type { Frame, UvRect } from "../layout/uv.js";
 import { uvRectCorners, uvToWorld } from "../layout/uv.js";
 import type { UvWallHole } from "./walls.js";
@@ -17,7 +18,7 @@ export interface UvStep {
   y: number;
 }
 
-/** The shaft's local run: s along the flights from the entry end, lanes across it. */
+/** Clear inside of a shaft: s along the flights, with two clear lanes across it. */
 interface Run {
   runLen: number;
   laneWidth: number;
@@ -26,65 +27,36 @@ interface Run {
 
 function runOf(shaft: UvRect, entryLowEnd: boolean): Run {
   const alongU = shaft.lu >= shaft.lv;
-  const runLen = alongU ? shaft.lu : shaft.lv;
-  const laneWidth = (alongU ? shaft.lv : shaft.lu) / 2;
+  const inset = WALL / 2;
+  const runLen = (alongU ? shaft.lu : shaft.lv) - WALL;
+  const laneWidth = ((alongU ? shaft.lv : shaft.lu) - WALL) / 2;
   return {
     runLen,
     laneWidth,
     step(s0, s1, lane0, lane1, yTop) {
       const lo = Math.min(s0, s1);
       const hi = Math.max(s0, s1);
-      const a = entryLowEnd ? lo : runLen - hi;
-      const b = entryLowEnd ? hi : runLen - lo;
+      const a = inset + (entryLowEnd ? lo : runLen - hi);
+      const b = inset + (entryLowEnd ? hi : runLen - lo);
+      const across = inset + lane0 * laneWidth;
+      const width = (lane1 - lane0) * laneWidth;
       return alongU
-        ? { u: shaft.u + a, v: shaft.v + lane0 * laneWidth, lu: b - a, lv: (lane1 - lane0) * laneWidth, y: yTop }
-        : { u: shaft.u + lane0 * laneWidth, v: shaft.v + a, lu: (lane1 - lane0) * laneWidth, lv: b - a, y: yTop };
+        ? { u: shaft.u + a, v: shaft.v + across, lu: b - a, lv: width, y: yTop }
+        : { u: shaft.u + across, v: shaft.v + a, lu: width, lv: b - a, y: yTop };
     },
   };
 }
 
 /** Clear width of one flight: what the player capsule has to pass through. */
 export function stairClearWidth(shaft: UvRect): number {
-  return Math.min(shaft.lu, shaft.lv) / 2;
+  return (Math.min(shaft.lu, shaft.lv) - WALL) / 2;
 }
 
 /** Landing at the walk-in end, at floor level, as deep as the climb leaving it allows. Only
  *  the lowest served floor needs its own; every floor above stands on the landing the climb
  *  below arrives on. */
-export function baseLanding(shaft: UvRect, entryLowEnd: boolean, elevation: number, climb: number): UvStep {
-  const run = runOf(shaft, entryLowEnd);
-  const depth = climb > 0 ? flightPlan(run.runLen, climb).landing : STAIR.landing;
-  return run.step(0, depth, 0, 2, elevation);
-}
-
-interface FlightPlan {
-  flights: number;
-  risersPerFlight: number;
-  rise: number;
-  landing: number;
-  flightLen: number;
-}
-
-/** How one climb splits into flights inside a run: even flight count, comfortable risers,
- *  landings giving up depth (never below a flight's own width) before the flights split. */
-function flightPlan(runLen: number, climb: number): FlightPlan {
-  const totalRisers = Math.ceil(climb / STAIR.riser);
-  let flights = 2 * Math.ceil(totalRisers / (2 * STAIR.maxRisersPerFlight));
-  let landing = STAIR.landing;
-  while (Math.ceil(totalRisers / flights) * STAIR.tread > runLen - 2 * landing && flights < 40) {
-    const room = (runLen - Math.ceil(totalRisers / flights) * STAIR.tread) / 2;
-    if (room >= STAIR.flightWidth) {
-      landing = room;
-      break;
-    }
-    flights += 2;
-  }
-  const risersPerFlight = Math.ceil(totalRisers / flights);
-  return {
-    flights, risersPerFlight, landing,
-    rise: climb / (risersPerFlight * flights),
-    flightLen: risersPerFlight * STAIR.tread,
-  };
+export function baseLanding(shaft: UvRect, entryLowEnd: boolean, elevation: number): UvStep {
+  return runOf(shaft, entryLowEnd).step(0, STAIR.landing, 0, 2, elevation);
 }
 
 /** U-return flights inside one shaft for one climb, frame space. Flights run along the
@@ -93,11 +65,12 @@ function flightPlan(runLen: number, climb: number): FlightPlan {
  *  Any climb height (spans included); row shafts run along u, compact columns along v. */
 export function computeStairSteps(shaft: UvRect, entryLowEnd: boolean, elevation: number, climb: number): UvStep[] {
   const run = runOf(shaft, entryLowEnd);
-  const { flights, risersPerFlight, rise, landing, flightLen } = flightPlan(run.runLen, climb);
+  const { flights, risersPerFlight, rise } = planFlights(climb);
   // both flights of a turn share the same stretch of run, side by side in the two lanes, and
   // the entry landing is always the same depth: landings line up storey over storey, so a
   // flight never runs low over the landing below it
-  const farStart = landing + flightLen;
+  const landing = STAIR.landing;
+  const farStart = landing + risersPerFlight * STAIR.tread;
 
   const out: UvStep[] = [];
   let y = elevation;

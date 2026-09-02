@@ -3,23 +3,27 @@ import { makeFixture } from "../blueprint/fixture.js";
 import { resolveAssignments } from "../blueprint/validate.js";
 import { STAIR, stairSlab } from "../layout/constants.js";
 import { planBuilding } from "../layout/index.js";
+import { planFlights, shaftLength } from "../layout/stair-plan.js";
+import { buildInterior } from "./index.js";
+import { stairClearance } from "./stair-clearance.js";
 import type { RunStep, UvStep } from "./stairs.js";
 import {
   baseLanding, computeStairSteps, entryAtLowEnd, minHeadroom, stairClearWidth,
 } from "./stairs.js";
 
 describe("computeStairSteps", () => {
-  const shaft = { u: 4, v: 11.5, lu: 6, lv: 2.5 };
+  const shaft = { u: 4, v: 11.5, lu: 6.5, lv: 2.5 };
+
+  const isTread = (step: UvStep): boolean => Math.min(step.lu, step.lv) < 0.3;
 
   it("lands exactly on the next floor with legal risers, treads inside the shaft", () => {
     for (const climb of [2.6, 3.4, 4.0, 7.4, 11.8]) {
       const steps = computeStairSteps(shaft, false, 10, climb);
       const top = Math.max(...steps.map((s) => s.y));
       expect(top).toBeCloseTo(10 + climb, 6);
-      const rises = steps.map((s) => s.y).toSorted((a, b) => a - b);
-      const riser = (rises.at(-1)! - 10) / rises.length;
-      expect(riser).toBeLessThanOrEqual(STAIR.riser + 1e-9);
-      expect(riser).toBeGreaterThan(0.1);
+      const { rise } = planFlights(climb);
+      expect(rise).toBeGreaterThanOrEqual(STAIR.riser.min - 1e-9);
+      expect(rise).toBeLessThanOrEqual(STAIR.riser.max + 1e-9);
       for (const s of steps) {
         expect(s.u).toBeGreaterThanOrEqual(shaft.u - 1e-6);
         expect(s.u + s.lu).toBeLessThanOrEqual(shaft.u + shaft.lu + 1e-6);
@@ -29,15 +33,34 @@ describe("computeStairSteps", () => {
     }
   });
 
-  it("consecutive treads rise by at most one riser", () => {
-    const steps = computeStairSteps(shaft, true, 0, 3.0).filter((s) => s.lu * s.lv < 2); // treads only
-    for (let i = 1; i < steps.length; i++) {
-      expect(steps[i]!.y - steps[i - 1]!.y).toBeLessThanOrEqual(STAIR.riser + 1e-9);
+  it("uses 1.2 m clear flights, 0.28 m treads and full-depth landings", () => {
+    const steps = computeStairSteps(shaft, true, 0, 3.0);
+    for (const step of steps) {
+      if (isTread(step)) {
+        expect(step.lu).toBeCloseTo(STAIR.tread, 6);
+        expect(step.lv).toBeCloseTo(STAIR.flightWidth, 6);
+      } else {
+        expect(step.lu).toBeGreaterThanOrEqual(STAIR.landing - 1e-6);
+        expect(step.lv).toBeCloseTo(2 * STAIR.flightWidth, 6);
+      }
+    }
+    const treads = steps.filter(isTread);
+    for (let i = 1; i < treads.length; i++) {
+      expect(treads[i]!.y - treads[i - 1]!.y).toBeCloseTo(planFlights(3.0).rise, 9);
+    }
+  });
+
+  it("fits every supported climb in the shaft sized by the shared arithmetic", () => {
+    for (const climb of [2.6, 3.0, 3.65, 4.0, 5.0, 8.65, 12]) {
+      const { risersPerFlight } = planFlights(climb);
+      const tight = { u: 0, v: 0, lu: shaftLength(risersPerFlight), lv: 2.5 };
+      const steps = computeStairSteps(tight, true, 0, climb);
+      for (const step of steps) expect(step.u + step.lu).toBeLessThanOrEqual(tight.lu + 1e-6);
     }
   });
 
   it("compact column shafts run their flights along v and land exactly", () => {
-    const column = { u: 4, v: 11.5, lu: 2.5, lv: 6 };
+    const column = { u: 4, v: 11.5, lu: 2.5, lv: 6.5 };
     const steps = computeStairSteps(column, true, 0, 3.4);
     expect(Math.max(...steps.map((s) => s.y))).toBeCloseTo(3.4, 6);
     for (const s of steps) {
@@ -47,7 +70,7 @@ describe("computeStairSteps", () => {
       expect(s.v + s.lv).toBeLessThanOrEqual(column.v + column.lv + 1e-6);
     }
     // treads are wider (across u) than deep (along v): the run follows the long dimension
-    const treads = steps.filter((s) => s.lu * s.lv < 0.5);
+    const treads = steps.filter(isTread);
     for (const t of treads) expect(t.lu).toBeGreaterThan(t.lv);
   });
 });
@@ -68,7 +91,7 @@ function wholeRun(fixture: ReturnType<typeof makeFixture>, which: "a" | "b"): Ru
     const climb = target ? target.elevation - floor.elevation : 0;
     const slab = stairSlab(climb > 0 ? climb : floor.height);
     const uv: UvStep[] = [];
-    if (floor === lowest) uv.push(baseLanding(shaft, entryLow, floor.elevation, climb));
+    if (floor === lowest) uv.push(baseLanding(shaft, entryLow, floor.elevation));
     if (target) uv.push(...computeStairSteps(shaft, entryLow, floor.elevation, climb));
     steps.push(...uv.map((s) => ({ ...s, slab })));
   }
@@ -85,11 +108,11 @@ describe("a stair the player fits through", () => {
   const fixture = makeFixture({ seed: 8, floors: 8, basements: 1 });
 
   for (const which of ["a", "b"] as const) {
-    it(`stair-${which}: flights are at least ${STAIR.clearWidth}m clear and the run is continuous`, () => {
+    it(`stair-${which}: flights are ${STAIR.flightWidth}m clear and the run is continuous`, () => {
       const plan = planBuilding(fixture.request, resolveAssignments(fixture.request));
       const shaft = which === "a" ? plan.core.stairA : plan.core.stairB!;
       expect(shaft).toBeTruthy();
-      expect(stairClearWidth(shaft)).toBeGreaterThanOrEqual(STAIR.clearWidth);
+      expect(stairClearWidth(shaft)).toBeGreaterThanOrEqual(STAIR.flightWidth - 1e-9);
 
       const steps = wholeRun(fixture, which);
       const climbing = [...steps].sort((a, b) => a.y - b.y || a.u - b.u || a.v - b.v);
@@ -97,10 +120,10 @@ describe("a stair the player fits through", () => {
       expect(climbing[0]!.y).toBeCloseTo(plan.floors.find((f) => f.rooms.length > 0)!.elevation, 6);
       for (let i = 1; i < climbing.length; i++) {
         const step = climbing[i]!;
-        expect(step.y - climbing[i - 1]!.y, `step ${i} rise`).toBeLessThanOrEqual(STAIR.riser + 1e-6);
+        expect(step.y - climbing[i - 1]!.y, `step ${i} rise`).toBeLessThanOrEqual(STAIR.riser.max + 1e-6);
         // every step is stepped onto from one at most a riser below, sharing an edge
         const support = climbing.some((s) => s !== step
-          && step.y - s.y >= -1e-6 && step.y - s.y <= STAIR.riser + 1e-6
+          && step.y - s.y >= -1e-6 && step.y - s.y <= STAIR.riser.max + 1e-6
           && touches(s, step));
         expect(support, `step ${i} at y ${step.y} is cut off`).toBe(true);
       }
@@ -125,5 +148,13 @@ describe("a stair the player fits through", () => {
       .map((s) => ({ ...s, slab: stairSlab(climb) }));
     expect(Math.max(...steps.map((s) => s.y))).toBeCloseTo(above.elevation, 6);
     expect(minHeadroom(steps)).toBeGreaterThanOrEqual(STAIR.headroom);
+  });
+
+  it("checks the finished shaft geometry above every tread and landing", () => {
+    const plan = planBuilding(fixture.request, resolveAssignments(fixture.request));
+    const { floorMeshes } = buildInterior(plan, fixture.request, fixture.shellDoc);
+    const steps = wholeRun(fixture, "a");
+    const probe = stairClearance(plan.core.stairA, plan.core.frame, steps, [...floorMeshes.values()]);
+    expect(probe.clear, `${probe.material} over a step at y ${probe.step.y}`).toBeGreaterThanOrEqual(STAIR.headroom);
   });
 });

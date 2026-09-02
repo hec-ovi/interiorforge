@@ -19,6 +19,7 @@ import { assertDoorwaysClear, floorDoorways } from "./door-clear.js";
 import { emitFurniture } from "./furniture/index.js";
 import { emitLightFixtures } from "./lights.js";
 import { MaterialKeys } from "./materials.js";
+import { stairClearance } from "./stair-clearance.js";
 import type { RunStep, UvStep } from "./stairs.js";
 import {
   baseLanding, computeStairSteps, emitStairMeshes, entryAtLowEnd, minHeadroom, stairClearWidth,
@@ -48,8 +49,8 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
   const bpByIndex = new Map(request.blueprint.floors.map((f) => [f.index, f]));
   const stairIds: ("a" | "b")[] = core.stairB ? ["a", "b"] : ["a"];
   const lowest = sorted.find((f) => f.rooms.length > 0)!;
-  /** every step of one stair over the whole building, for the fit check */
-  const wholeRun = new Map<string, RunStep[]>();
+  /** Every step of one stair, floor by floor, for geometry-level clearance checks. */
+  const runs = new Map<string, Map<number, RunStep[]>>();
   const facade = request.blueprint.facade;
   const wallDepth = shellWallDepth(facade);
 
@@ -73,7 +74,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
         const steps: UvStep[] = [];
         // the lowest served floor stands on its own landing; every floor above stands on the
         // landing the climb below arrives on
-        if (floor === lowest) steps.push(baseLanding(shaft, entryLow, floor.elevation, climb));
+        if (floor === lowest) steps.push(baseLanding(shaft, entryLow, floor.elevation));
         if (target) steps.push(...computeStairSteps(shaft, entryLow, floor.elevation, climb));
         if (steps.length === 0) continue;
         const id = `stair-${which}`;
@@ -81,7 +82,9 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
         const record = stepsByFloor.get(floor.floor) ?? {};
         record[id] = frameRects;
         stepsByFloor.set(floor.floor, record);
-        wholeRun.set(id, [...(wholeRun.get(id) ?? []), ...steps.map((s) => ({ ...s, slab }))]);
+        const run = runs.get(id) ?? new Map<number, RunStep[]>();
+        run.set(floor.floor, steps.map((s) => ({ ...s, slab })));
+        runs.set(id, run);
         emitStairMeshes(mb, keys, core.frame, steps, slab);
       }
     }
@@ -126,9 +129,9 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
   }
 
   buildShaftFloors(floorMeshes.get(lowest.floor)!, keys, core, lowest.elevation);
-  assertStairFit(core, wholeRun);
   const whole = new MeshBuilder();
   for (const floor of sorted) whole.merge(floorMeshes.get(floor.floor)!);
+  assertStairFit(core, runs, sorted.map((floor) => ({ ...floor, mesh: floorMeshes.get(floor.floor)! })));
   assertInsideShell(whole, request.blueprint.floors, wallDepth);
 
   removeShellSeparators(shellDoc);
@@ -136,27 +139,44 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
   return { doc: shellDoc, stepsByFloor, floorMeshes };
 }
 
-/** Stairs have to fit the player: a flight at least STAIR.clearWidth wide and STAIR.headroom
- *  clear over every tread and landing of the whole run. */
-function assertStairFit(core: CorePlan, wholeRun: Map<string, RunStep[]>): void {
+/** Validate both stair arithmetic and the geometry actually emitted around each run. */
+function assertStairFit(
+  core: CorePlan, runs: Map<string, Map<number, RunStep[]>>,
+  bands: { elevation: number; height: number; mesh: MeshBuilder }[],
+): void {
   const shafts: [string, typeof core.stairA][] = [["stair-a", core.stairA]];
   if (core.stairB) shafts.push(["stair-b", core.stairB]);
   for (const [id, shaft] of shafts) {
     const width = stairClearWidth(shaft);
-    if (width < STAIR.clearWidth - 1e-6) {
+    if (width < STAIR.flightWidth - 1e-6) {
       throw new InteriorError(
         "E_UNREACHABLE_SPACE",
-        `${id} flight is ${width.toFixed(2)}m clear, below the ${STAIR.clearWidth}m the player needs`,
+        `${id} flight is ${width.toFixed(2)}m clear, below the ${STAIR.flightWidth}m minimum`,
       );
     }
-    const steps = wholeRun.get(id);
-    if (!steps) continue;
-    const clear = minHeadroom(steps);
+    const byFloor = runs.get(id);
+    if (!byFloor) continue;
+    const clear = minHeadroom([...byFloor.values()].flat());
     if (clear < STAIR.headroom - 1e-6) {
       throw new InteriorError(
         "E_UNREACHABLE_SPACE",
         `${id} has ${clear.toFixed(2)}m headroom along the walk line, below the ${STAIR.headroom}m minimum`,
       );
+    }
+    for (const [floor, steps] of byFloor) {
+      const low = Math.min(...steps.map((step) => step.y));
+      const high = Math.max(...steps.map((step) => step.y)) + STAIR.headroom + STAIR.slab;
+      const nearby = bands
+        .filter((band) => band.elevation <= high && band.elevation + band.height >= low)
+        .map((band) => band.mesh);
+      const probe = stairClearance(shaft, core.frame, steps, nearby);
+      if (probe.clear < STAIR.headroom - 1e-6) {
+        throw new InteriorError(
+          "E_UNREACHABLE_SPACE",
+          `${id} runs into ${probe.material} ${probe.clear.toFixed(2)}m over a step at y ${probe.step.y.toFixed(2)}, below the ${STAIR.headroom}m minimum`,
+          floor,
+        );
+      }
     }
   }
 }

@@ -7,7 +7,7 @@
     "2. ideal vFace on the ground outline's uv bounding box, snap = 0.5: vDepth < singleLoadedBelowDepth ? snapDown(vMin + vDepth - elevatorShaft) : snap(vMin + (vDepth + corridorWidth) / 2).",
     "3. vFace SCAN: candidates = ideal, then +-0.5 steps outward (lower side first) up to vFaceScanRange, clamped to [vMin + minStripDepth + corridorWidth, vMax - elevatorShaft]. The core goes to the first candidate whose band fits the mode being tried.",
     "4. band(vFace) = per floor, the longest contiguous u-run where the strip v in [vFace - corridorWidth, vFace + elevatorShaft] lies fully inside the floor outline, intersected across floors. Fully inside is exact (clipped area >= rect area, minus a 1e-9 relative epsilon for float noise); the same test decides whether the placed core rects fit, so the gate and the generator never disagree.",
-    "5. stairShaftDepth = ceilTo0.5(worstRisersPerFlight * tread + 2 * landing), where worstRisersPerFlight is the largest ceil(totalRisers / flights) over every climb the stair may take: each floor height, and each pair of adjacent heights (an assignment may span two floors). totalRisers = ceil(climb / riser), flights = 2 * ceil(totalRisers / (2 * maxRisersPerFlight)). A SHORT storey uses fewer flights, so its flights are longer than a tall storey's: sizing off the tallest floor alone leaves the shaft too short.",
+    "5. stairShaftDepth = ceilTo0.1(worstRisersPerFlight * stairTread + 2 * stairLanding + wallThickness). For each floor height and each adjacent pair (an assignment may span two floors), flights = 2 * ceil((climb / stairRiserIdeal) / (2 * maxRisersPerFlight)); totalRisers is the multiple of flights nearest climb / stairRiserIdeal whose exact rise is inside [stairRiserMin, stairRiserMax]; risersPerFlight = totalRisers / flights. A short storey can use fewer, longer flights than a tall storey, so every possible climb participates.",
     "6. twoStairs = groundArea > twoStairsAreaOver OR aboveGroundFloors > twoStairsFloorsOver.",
     "7. minWalkupCoreLength = stairShaftDepth + riserShaft + serviceStub + (twoStairs ? stairShaftDepth : 0) + margin; minCoreLength = minWalkupCoreLength + elevatorShaft.",
     "8. minCompactCoreLength = stairColumnWidth * (twoStairs ? 2 : 1) + riserShaft + serviceStub + margin + elevatorShaft; compact additionally needs rear depth for its columns: the block rect (u span of step 12 at maxElevators, v in [vFace, vFace + stairShaftDepth]) must lie fully inside every floor plate (stairs become stairColumnWidth-wide columns running stairShaftDepth into the rear strip). On a rectangular plate that is vDepth >= minCompactDepth = minStripDepth + corridorWidth + stairShaftDepth (10.5 m for 3 m storeys); the result reports the exact per-floor test as compactDepthOk. A band that holds minCompactCoreLength but not this depth is mode none with blocker compact_depth.",
@@ -30,17 +30,20 @@
     "frameSweepStepDeg": 5,
     "stairColumnWidth": 2.5,
     "walkupMaxFloors": 6,
-    "stairRiser": 0.17,
+    "stairRiserMin": 0.16,
+    "stairRiserIdeal": 0.17,
+    "stairRiserMax": 0.18,
     "stairTread": 0.28,
     "maxRisersPerFlight": 14,
     "stairLanding": 1.2,
     "twoStairsAreaOver": 460,
     "twoStairsFloorsOver": 4,
-    "stairClearWidth": 1.0,
+    "stairClearWidth": 1.2,
     "stairHeadroom": 2.1,
     "stairSlab": 0.15,
     "stairMinSlab": 0.06,
-    "stairFlightWidth": 1.15,
+    "stairFlightWidth": 1.2,
+    "wallThickness": 0.1,
     "shellWallDepth": {
       "curtain-wall": 0.15,
       "glass": 0.15,
@@ -56,5 +59,5 @@
       "megablock": 0.62
     }
   },
-  "note": "Stair fit: a flight is stairClearWidth clear (half the shaft's short side) and keeps stairHeadroom over every tread and landing of the whole run. The tread slab thins from stairSlab toward stairMinSlab on low storeys so the headroom holds; landings give up depth down to stairFlightWidth before a climb splits into more flights."
+  "note": "Stair fit: each flight is stairClearWidth clear between wall faces, every landing is at least stairLanding deep, each exact rise is inside [stairRiserMin, stairRiserMax], and every tread is stairTread deep. The generator checks stairHeadroom over every tread and landing against the finished floor geometry, including slabs, walls and fixtures. Stair lights are flush in the arrival landing and do not reduce the clearance."
 }

@@ -1,5 +1,6 @@
 # Changelog
 
+0.25.0: stair dimensions and finished-geometry clearance. Flights are 1.2 m clear between wall faces, risers stay between 0.16 and 0.18 m, treads are 0.28 m and landings are 1.2 m. Core feasibility and emitted stairs share the same flight arithmetic. Before export, probes above every tread and landing reject slabs, walls or fixtures inside the 2.1 m headroom. Stair lights sit flush in the arrival landing instead of hanging into the walk line.
 0.24.1: no cut tiles on interior surfaces. Ceilings and accent bands asked for the `panel` and `slab` pattern variants, whose 2 to 3 m module cut mid-tile against rooms laid on the half-metre grid; they take the joint-free member of their entry now, and the only grids an interior shows are the bands, casings and housings it places itself.
 0.24.0: every floor publishes `ceilingElevation`, the absolute Y of its finished ceiling, and the ceiling rises to the head of the glass on that floor instead of taking a fixed service void: under a curtain wall it now stops one slab soffit under the floor above, where it used to sit 0.93 m below the glass head and leave the slab edge and a floating ceiling visible from the street.
 0.23.1: a floor labelled with the generic `shop` slug takes the venue program its parcel type names, so a coffee shop gets its counter and barista instead of the office trio.
