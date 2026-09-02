@@ -1,5 +1,7 @@
 # Changelog
 
+0.20.3: a stair shaft's downlight hangs under the mid landing, half a storey up at the far end from the entry, so nothing floats in the stair void.
+
 0.20.2: a spot fixture asks for the materials box's `lamp` variant (recessed lens and housing) instead of a flat lit panel, so a downlight reads as a lamp.
 
 0.20.1: wall fields are plain plaster everywhere; a pattern class is asked for on the accent band and the ceiling only, so it reads as a border and never as a wall of hexagons.

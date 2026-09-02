@@ -1,3 +1,4 @@
+import { stairAccess } from "./core-plan.js";
 import type { Point } from "../core/geom.js";
 import { clipPolygonToRect, insetPolygon, pointInPolygon, polygonBounds } from "../core/geom.js";
 import type { LightFixture, RoomKind } from "../core/types.js";
@@ -127,9 +128,19 @@ class FloorLighting {
     }
   }
 
-  /** One downlight per storey inside a stair shaft, at the walk-in end. */
-  stairwell(id: string, shaft: UvRect): void {
-    this.spotAt(id, center(shaft), STAIR_LIGHT.lumens, STAIR_LIGHT.colorTemperatureK, true);
+  /** One downlight per storey inside a stair shaft, hung under the mid landing: the shaft has
+   *  no ceiling of its own on this storey, so the landing above the far end is the only soffit
+   *  a fixture can hang from. */
+  stairwell(id: string, shaft: UvRect, entry: Point, landingY: number): void {
+    const alongU = shaft.lu >= shaft.lv;
+    const runStart = alongU ? shaft.u : shaft.v;
+    const runLen = alongU ? shaft.lu : shaft.lv;
+    const entryAt = alongU ? entry[0] : entry[1];
+    const entryLow = entryAt - runStart < runLen / 2;
+    const run = entryLow ? runStart + runLen * 0.75 : runStart + runLen * 0.25;
+    const cross = alongU ? shaft.v + shaft.lv / 2 : shaft.u + shaft.lu / 2;
+    const at: Point = alongU ? [run, cross] : [cross, run];
+    this.spotAt(id, at, STAIR_LIGHT.lumens, STAIR_LIGHT.colorTemperatureK, true, landingY);
   }
 
   /** A row of luminaires per aisle, spaced along the room's long axis. */
@@ -220,9 +231,11 @@ class FloorLighting {
     }
   }
 
-  private spotAt(room: string, at: Point, lumens: number, colorTemperatureK: number, force = false): void {
+  private spotAt(
+    room: string, at: Point, lumens: number, colorTemperatureK: number, force = false, soffitY = this.ceilingY,
+  ): void {
     if (!force && !this.inside(at)) return;
-    this.push({ kind: "spot", room, at, y: this.ceilingY - CEILING_GAP, length: 0, angleDeg: 0, lumens, colorTemperatureK });
+    this.push({ kind: "spot", room, at, y: soffitY - CEILING_GAP, length: 0, angleDeg: 0, lumens, colorTemperatureK });
   }
 
   private inside(p: Point): boolean {
@@ -267,14 +280,15 @@ function center(r: UvRect): Point {
   return [r.u + r.lu / 2, r.v + r.lv / 2];
 }
 
-/** Fixtures for one floor: every room by its kind, plus a downlight in each stair shaft.
- *  `uvInner` is the plate behind the facade lining (layout/shell.ts). */
+/** Fixtures for one floor: every room by its kind, plus a downlight in each stair shaft under
+ *  its mid landing (`landingY`, half a storey up). `uvInner` is the plate behind the facade
+ *  lining (layout/shell.ts). */
 export function planLights(
-  rooms: PlanRoom[], core: CorePlan, uvInner: readonly Point[], ceilingY: number, ids: IdGen,
+  rooms: PlanRoom[], core: CorePlan, uvInner: readonly Point[], ceilingY: number, landingY: number, ids: IdGen,
 ): LightFixture[] {
   const lighting = new FloorLighting(ids, core.frame, uvInner, ceilingY);
   for (const room of rooms) lighting.room(room);
-  lighting.stairwell("stair-a", core.stairA);
-  if (core.stairB) lighting.stairwell("stair-b", core.stairB);
+  lighting.stairwell("stair-a", core.stairA, stairAccess(core, "a").entry, landingY);
+  if (core.stairB) lighting.stairwell("stair-b", core.stairB, stairAccess(core, "b").entry, landingY);
   return lighting.fixtures();
 }

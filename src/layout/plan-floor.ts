@@ -155,7 +155,7 @@ export function planFloor(
       core: coreToWorld(core, sealed),
       rooms: rooms.map((r) => roomToWorld(r, uvOutline, frame)),
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
-      lights: planLights(rooms, core, bounds.inner, floor.elevation + ceilingClear(spaceHeight), ids),
+      lights: planLights(rooms, core, bounds.inner, floor.elevation + ceilingClear(spaceHeight), floor.elevation + spaceHeight / 2, ids),
     },
     grid,
     uv: { outline: uvOutline, rooms, furniture, sealed },
