@@ -7,7 +7,7 @@ import { BAND_PROUD } from "./shell.js";
 import type { CorePlan } from "./core-plan.js";
 import type { FloorFrame, PlanDoor, PlanRoom } from "./plan-types.js";
 import { VENUE_KINDS } from "./frame.js";
-import { snap } from "./uv.js";
+import { pointInUvRect, snap } from "./uv.js";
 import type { UvRect } from "./uv.js";
 
 /** Fraction of a uv rect actually inside the floor outline; irregular parcels cut
@@ -558,18 +558,28 @@ export function fillServiceSegment(
   return rooms;
 }
 
-/** Ground-floor exterior doors: attach each blueprint door opening to the room it lands on. */
+/** Facade connections: attach each traversable blueprint opening to the room it lands on. */
 export function attachOutsideDoors(
-  rooms: PlanRoom[], uvDoorPoints: { at: [number, number]; width: number; leaves: 1 | 2 | 3 | 4 }[],
+  rooms: PlanRoom[], uvDoorPoints: ({ at: [number, number]; width: number } & ({
+    leaves: 1 | 2 | 3 | 4; openFront?: never;
+  } | {
+    openFront: {
+      clearHeight: number; clearDepth: number; position: Point; angleDeg: number; inward: Point;
+    }; leaves?: never;
+  }))[],
   ids: IdGen,
 ): void {
   for (const opening of uvDoorPoints) {
     const [u, v] = opening.at;
+    const probe = opening.openFront
+      ? [u + opening.openFront.inward[0] * 0.5, v + opening.openFront.inward[1] * 0.5] as Point
+      : null;
+    const owner = probe ? rooms.find((room) => pointInUvRect(probe, room.rect, 0.01)) : undefined;
     let best: { room: PlanRoom; edge: PlanDoor["edge"]; dist: number } | null = null;
-    for (const room of rooms) {
+    for (const room of owner ? [owner] : rooms) {
       const r = room.rect;
       // strips snap inward from the true facade, so allow a generous band
-      if (u < r.u - 0.7 || u > r.u + r.lu + 0.7 || v < r.v - 0.7 || v > r.v + r.lv + 0.7) continue;
+      if (!owner && (u < r.u - 0.7 || u > r.u + r.lu + 0.7 || v < r.v - 0.7 || v > r.v + r.lv + 0.7)) continue;
       const edges: [PlanDoor["edge"], number][] = [
         ["v0", Math.abs(v - r.v)], ["v1", Math.abs(v - (r.v + r.lv))],
         ["u0", Math.abs(u - r.u)], ["u1", Math.abs(u - (r.u + r.lu))],
@@ -578,11 +588,18 @@ export function attachOutsideDoors(
         if (!best || dist < best.dist) best = { room, edge, dist };
       }
     }
-    if (best && best.dist < 1.2) {
-      best.room.doors.push({
-        id: ids.door(), to: "outside", leaves: opening.leaves, width: opening.width,
-        edge: best.edge, at: best.edge.startsWith("v") ? u : v,
-      });
+    if (best && (best.dist < 1.2 || opening.openFront)) {
+      const connection: PlanDoor = opening.openFront
+        ? {
+            id: ids.door(), to: "outside", width: opening.width,
+            edge: best.edge, at: best.edge.startsWith("v") ? u : v,
+            openFront: opening.openFront,
+          }
+        : {
+            id: ids.door(), to: "outside", leaves: opening.leaves, width: opening.width,
+            edge: best.edge, at: best.edge.startsWith("v") ? u : v,
+          };
+      best.room.doors.push(connection);
     }
   }
 }

@@ -16,9 +16,16 @@ export interface DoorZone {
 /** Keep-clear box of one door, in the owning room's uv space. */
 export function doorZone(door: PlanDoor, room: PlanRoom): UvRect {
   const [u, v] = doorUvPoint(door, room);
-  const leaf = door.width / door.leaves;
-  const across = Math.max(leaf, DOOR.clearance);
+  const across = door.openFront
+    ? Math.max(door.openFront.clearDepth, DOOR.clearance)
+    : Math.max(door.width / door.leaves, DOOR.clearance);
   const along = door.width / 2 + DOOR.jamb;
+  if (door.openFront) {
+    const rad = (door.openFront.angleDeg * Math.PI) / 180;
+    const du = Math.abs(Math.cos(rad)) * along + Math.abs(Math.sin(rad)) * across;
+    const dv = Math.abs(Math.sin(rad)) * along + Math.abs(Math.cos(rad)) * across;
+    return { u: u - du, v: v - dv, lu: 2 * du, lv: 2 * dv };
+  }
   return door.edge.startsWith("v")
     ? { u: u - along, v: v - across, lu: 2 * along, lv: 2 * across }
     : { u: u - across, v: v - along, lu: 2 * across, lv: 2 * along };

@@ -189,7 +189,6 @@
               "required": [
                 "id",
                 "to",
-                "leaves",
                 "width",
                 "position",
                 "angleDeg"
@@ -201,7 +200,11 @@
                 },
                 "to": {
                   "type": "string",
-                  "description": "room id, or 'outside' (exterior opening), or a core element id"
+                  "description": "room id, or 'outside' (exterior connection), or a core element id"
+                },
+                "kind": {
+                  "const": "openFront",
+                  "description": "present only for a permanently open street frontage; its absence means a door"
                 },
                 "leaves": {
                   "enum": [
@@ -222,8 +225,28 @@
                 "angleDeg": {
                   "type": "number",
                   "description": "wall direction at the door, degrees around +Y"
+                },
+                "clearHeight": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "openFront only: exact traversable height"
+                },
+                "clearDepth": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "openFront only: exact traversable depth through the fixed surround"
                 }
-              }
+              },
+              "oneOf": [
+                {
+                  "required": ["leaves"],
+                  "not": { "required": ["kind"] }
+                },
+                {
+                  "required": ["kind", "clearHeight", "clearDepth"],
+                  "not": { "required": ["leaves"] }
+                }
+              ]
             }
           }
         }

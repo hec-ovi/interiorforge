@@ -11,6 +11,7 @@ import { stairAccess } from "./core-plan.js";
 import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import { planLights } from "./lighting.js";
+import { isExteriorConnection } from "./openings.js";
 import { alignPartitionsToPiers } from "./pier-align.js";
 import { fitPartitionsToGrid, refitDoors } from "./tile-fit.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
@@ -137,13 +138,31 @@ export function planFloor(
   // walls moved twice since the doors were cut: every door goes back inside the stretch its rooms share
   refitDoors(rooms, bounds.inner);
 
-  // exterior doors (entrances, balcony doors) land on whichever room faces them
+  // facade connections land on whichever room faces them. An open front uses the portal's
+  // exact traversable dimensions and carries no fictional leaf swing.
   const exteriorDoors = floor.openings
-    .filter((o) => o.kind === "door" || o.kind === "balconyDoor")
+    .filter(isExteriorConnection)
     .map((o) => {
       const world = doorWorldPoint(floor, o.edge, o.offset + o.width / 2);
-      const leaves = Math.min(4, Math.max(1, Math.round(o.width / DOOR.single))) as 1 | 2 | 3 | 4;
-      return { at: worldToUv(world, frame) as [number, number], width: o.width, leaves };
+      const at = worldToUv(world, frame) as [number, number];
+      if (o.kind === "openFront") {
+        const portal = o.portal!; // request validation requires it for this variant
+        const a = worldToUv(floor.outline[o.edge]!, frame);
+        const b = worldToUv(floor.outline[(o.edge + 1) % floor.outline.length]!, frame);
+        const edgeLength = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+        const along: Point = [(b[0] - a[0]) / edgeLength, (b[1] - a[1]) / edgeLength];
+        return {
+          at, width: portal.clearWidth,
+          openFront: {
+            clearHeight: portal.clearHeight, clearDepth: portal.clearDepth,
+            position: at, angleDeg: (Math.atan2(along[1], along[0]) * 180) / Math.PI,
+            inward: [-along[1], along[0]] as Point,
+          },
+        };
+      }
+      const leaves = o.leaves
+        ?? Math.min(4, Math.max(1, Math.round(o.width / DOOR.single))) as 1 | 2 | 3 | 4;
+      return { at, width: o.width, leaves };
     });
   attachOutsideDoors(rooms, exteriorDoors, ids);
 
@@ -235,6 +254,7 @@ function rectPoly(r: UvRect): Point[] {
 }
 
 export function doorUvPoint(door: PlanDoor, room: PlanRoom): Point {
+  if (door.openFront) return door.openFront.position;
   const r = room.rect;
   switch (door.edge) {
     case "v0": return [door.at, r.v];
@@ -246,15 +266,20 @@ export function doorUvPoint(door: PlanDoor, room: PlanRoom): Point {
 
 function doorToWorld(door: PlanDoor, room: PlanRoom, frame: Frame): Door {
   const alongU = door.edge === "v0" || door.edge === "v1";
-  const uvAngle = alongU ? 0 : 90;
-  return {
+  const uvAngle = door.openFront?.angleDeg ?? (alongU ? 0 : 90);
+  const common = {
     id: door.id,
     to: door.to,
-    leaves: door.leaves,
     width: door.width,
     position: roundPoint(uvToWorld(doorUvPoint(door, room), frame)),
     angleDeg: norm360(uvAngle + frame.angleDeg),
   };
+  return door.openFront
+    ? {
+        ...common, kind: "openFront",
+        clearHeight: door.openFront.clearHeight, clearDepth: door.openFront.clearDepth,
+      }
+    : { ...common, leaves: door.leaves };
 }
 
 function furnitureToWorld(f: PlanFurniture, frame: Frame) {

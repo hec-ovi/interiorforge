@@ -53,6 +53,17 @@ export interface OpeningHole {
 }
 
 export function openingHole(floor: BlueprintFloor, o: Opening, wallDepth: number): OpeningHole {
+  if (o.kind === "openFront") {
+    const portal = o.portal!; // request validation requires it for this variant
+    const side = (o.width - portal.clearWidth) / 2;
+    const [r0, r1] = revealRun(floor.outline, o.edge, wallDepth);
+    return {
+      t0: Math.max(o.offset + side, r0),
+      t1: Math.min(o.offset + o.width - side, r1),
+      y0: 0,
+      y1: portal.clearHeight,
+    };
+  }
   const top = o.sill + o.height;
   const [r0, r1] = revealRun(floor.outline, o.edge, wallDepth);
   return {

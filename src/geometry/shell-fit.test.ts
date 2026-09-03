@@ -107,6 +107,23 @@ describe("shell fit", () => {
     expect(hole.t1).toBeCloseTo(10 - 0.3 / Math.tan(Math.PI / 6), 6);
   });
 
+  it("an open front lining meets the fitted portal's exact clear dimensions", () => {
+    const floor: BlueprintFloor = {
+      index: 0, kind: "commerce", elevation: 0, height: 4,
+      outline: [[0, 0], [18, 0], [18, 12], [0, 12]],
+      openings: [{
+        id: "open", kind: "openFront", edge: 0, offset: 3, width: 12, height: 3.5, sill: 0,
+        portal: {
+          frameWidth: 0.16, frameDepth: 0.1, recessDepth: 0.35,
+          clearWidth: 11.68, clearHeight: 3.34, clearDepth: 0.35,
+        },
+        accessRole: "main",
+      }],
+    };
+    const hole = openingHole(floor, floor.openings[0]!, 0.3);
+    expect(hole).toEqual({ t0: 3.16, t1: 14.84, y0: 0, y1: 3.34 });
+  });
+
   it("a vertex on the wall plane is E_SHELL_BREACH, never shipped", () => {
     const floor: BlueprintFloor = { index: 0, kind: "lobby", elevation: 0, height: 3, outline: [[0, 0], [10, 0], [10, 8], [0, 8]], openings: [] };
     const mb = new MeshBuilder();

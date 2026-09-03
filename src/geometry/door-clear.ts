@@ -1,12 +1,14 @@
 import { InteriorError } from "../core/errors.js";
+import type { BlueprintFloor } from "../core/types.js";
 import type { MeshBuilder } from "../glb/mesh-builder.js";
 import { DOOR, WALL } from "../layout/constants.js";
 import { doorUvPoint } from "../layout/plan-floor.js";
 import type { PlanRoom } from "../layout/plan-types.js";
-import { BAND_PROUD } from "../layout/shell.js";
+import { BAND_PROUD, SHELL_WALL } from "../layout/shell.js";
 import type { Frame } from "../layout/uv.js";
 import { uvToWorld } from "../layout/uv.js";
 import { doorHeadHeight } from "./walls.js";
+import { edgeFrame, edgePoint } from "./shell-fit.js";
 
 /** A doorway is only a doorway when the geometry is actually open: a wall run that missed
  *  its hole, a band or a facing standing across it walls the room off while the plan and the
@@ -39,7 +41,7 @@ export function floorDoorways(
   const out: Doorway[] = [];
   for (const room of rooms) {
     for (const door of room.doors) {
-      if (door.to === "outside") continue;
+      if (door.openFront || door.to === "outside") continue;
       const [x, z] = uvToWorld(doorUvPoint(door, room), frame);
       const alongU = door.edge === "v0" || door.edge === "v1";
       const rad = ((alongU ? 0 : 90) + frame.angleDeg) * Math.PI / 180;
@@ -53,6 +55,25 @@ export function floorDoorways(
     }
   }
   return out;
+}
+
+/** Clear volumes through permanently open street fronts, from the exterior's fixed frame to
+ *  the room face. Unlike a door, this connection has no leaf or movement envelope. */
+export function openFrontClearances(floor: BlueprintFloor, wallDepth: number): Doorway[] {
+  return floor.openings.flatMap((opening) => {
+    if (opening.kind !== "openFront") return [];
+    const portal = opening.portal!; // request validation requires it for this variant
+    const frame = edgeFrame(floor.outline, opening.edge);
+    const near = SHELL_WALL.skinClear;
+    const far = Math.max(portal.clearDepth, wallDepth + SHELL_WALL.lining + BAND_PROUD);
+    const center = edgePoint(frame, opening.offset + opening.width / 2, (near + far) / 2);
+    return [{
+      id: opening.id,
+      center: [center[0], floor.elevation + portal.clearHeight / 2, center[1]],
+      along: [frame.dir[0], frame.dir[1]],
+      half: [portal.clearWidth / 2 - MARGIN, portal.clearHeight / 2 - MARGIN, (far - near) / 2],
+    }];
+  });
 }
 
 /** Throws E_UNREACHABLE_SPACE when anything the floor emitted stands in a doorway. */

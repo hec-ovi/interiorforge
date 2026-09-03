@@ -19,6 +19,21 @@ describe("door clearance", () => {
     expect(zone.v).toBeCloseTo(-Math.max(leaf, DOOR.clearance), 6);
   });
 
+  it("keeps a wide open front clear without assigning it a leaf swing", () => {
+    const room: PlanRoom = {
+      id: "shop", kind: "sales_floor", rect: { u: 0, v: 0, lu: 16, lv: 10 },
+      doors: [{
+        id: "open", to: "outside", width: 11.68, edge: "v0", at: 8,
+        openFront: {
+          clearHeight: 3.34, clearDepth: 0.35, position: [8, 0], angleDeg: 0, inward: [0, 1],
+        },
+      }],
+    };
+    const zone = doorZone(room.doors[0]!, room);
+    expect(zone.lu).toBeCloseTo(11.68 + 2 * DOOR.jamb, 6);
+    expect(zone.lv).toBeCloseTo(2 * DOOR.clearance, 6);
+  });
+
   it("no floor ships with anything standing in a doorway", () => {
     for (const options of [
       { seed: 21, floors: 10, basements: 1 },

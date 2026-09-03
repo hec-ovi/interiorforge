@@ -88,7 +88,7 @@ export function buildInteriorWalls(
       lineFor(s.axis, s.c).intervals.push({ a: s.a, b: s.b, accent: s.edge !== null && s.edge === accent });
     }
     for (const door of room.doors) {
-      if (door.to === "outside") continue; // hole handled by the facade lining
+      if (door.openFront || door.to === "outside") continue; // hole handled by the facade lining
       const [u, v] = doorUvPoint(door, room);
       const head = elevation + doorHeadHeight(door.leaves, ceilingY - elevation);
       if (door.edge.startsWith("v")) {

@@ -15,7 +15,7 @@ import { SHELL_WALL, shellWallDepth } from "../layout/shell.js";
 import type { UvRect } from "../layout/uv.js";
 import { toWorldPolygon } from "../layout/uv.js";
 import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorShaftWalls } from "./core-geo.js";
-import { assertDoorwaysClear, floorDoorways } from "./door-clear.js";
+import { assertDoorwaysClear, floorDoorways, openFrontClearances } from "./door-clear.js";
 import { emitFurniture } from "./furniture/index.js";
 import { emitLightFixtures } from "./lights.js";
 import { MaterialKeys } from "./materials.js";
@@ -125,7 +125,10 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
     emitElevatorDoors(mb, keys, core, floor.elevation);
     emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation);
     emitLightFixtures(mb, keys, floor.lights);
-    assertDoorwaysClear(mb, floorDoorways(uv.rooms, core.frame, floor.elevation, ceilingY), floor.floor);
+    assertDoorwaysClear(mb, [
+      ...floorDoorways(uv.rooms, core.frame, floor.elevation, ceilingY),
+      ...openFrontClearances(bpFloor, wallDepth),
+    ], floor.floor);
   }
 
   buildShaftFloors(floorMeshes.get(lowest.floor)!, keys, core, lowest.elevation);

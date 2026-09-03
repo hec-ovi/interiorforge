@@ -40,7 +40,7 @@ describe("doorways are open in the geometry", () => {
     for (const floor of plan.floors) {
       for (const room of floor.rooms) {
         for (const door of room.doors) {
-          if (door.to === "outside") continue;
+          if (door.kind === "openFront" || door.to === "outside") continue;
           // 0.9 m clear, unless the shared wall itself is too short between its corner bands
           expect(door.width).toBeGreaterThanOrEqual(DOOR.min);
           const head = doorHeadHeight(door.leaves, 3.0);

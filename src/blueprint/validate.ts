@@ -70,6 +70,15 @@ function validateOpenings(
     if (o.sill + o.height > floorHeight + 1e-6) {
       throw new InteriorError("E_BLUEPRINT_INVALID", `opening ${o.id} taller than the floor`, floor);
     }
+    if (o.kind === "openFront") {
+      if (floor !== 0 || o.sill !== 0) {
+        throw new InteriorError("E_BLUEPRINT_INVALID", `open front ${o.id} must start at street level on floor 0`, floor);
+      }
+      const portal = o.portal!; // required by the consumer schema for openFront
+      if (portal.clearWidth > o.width + 1e-6 || portal.clearHeight > o.height + 1e-6) {
+        throw new InteriorError("E_BLUEPRINT_INVALID", `open front ${o.id} clear dimensions exceed its wall opening`, floor);
+      }
+    }
     const list = byEdge.get(o.edge) ?? [];
     for (const other of list) {
       if (o.offset < other.end && other.start < o.offset + o.width) {

@@ -58,7 +58,8 @@ export function buildNavGrid(
   for (const room of rooms) {
     for (const door of room.doors) {
       const band = door.to === "outside" ? facadeBand : WALL_BAND;
-      openUvRect(grid, frame, doorChannelUv(door, room, band), worldOutline);
+      if (door.openFront) openOpenFrontChannel(grid, frame, door, room, band, worldOutline);
+      else openUvRect(grid, frame, doorChannelUv(door, room, band), worldOutline);
     }
   }
   for (const channel of stairDoorChannelsUv(core)) openUvRect(grid, frame, channel, worldOutline);
@@ -106,6 +107,33 @@ export function stairDoorChannelsUv(core: CorePlan): UvRect[] {
     return access.axis === "H"
       ? { u: access.at - 0.5, v: access.c - across, lu: 1.0, lv: 2 * across }
       : { u: access.c - across, v: access.at - 0.5, lu: 2 * across, lv: 1.0 };
+  });
+}
+
+/** Opens a facade channel on the portal's exact direction. Its bounding box limits the grid
+ *  scan; projection against the portal axes keeps diagonal fronts from opening extra wall. */
+function openOpenFrontChannel(
+  grid: WalkGrid, frame: Frame, door: PlanRoom["doors"][number], room: PlanRoom,
+  band: number, worldOutline: readonly Point[],
+): void {
+  if (!door.openFront) return;
+  const [u, v] = doorUvPoint(door, room);
+  const rad = (door.openFront.angleDeg * Math.PI) / 180;
+  const along: Point = [Math.cos(rad), Math.sin(rad)];
+  const across: Point = [-along[1], along[0]];
+  const halfAlong = door.width / 2;
+  const halfAcross = band + 2 * CELL;
+  const du = Math.abs(along[0]) * halfAlong + Math.abs(across[0]) * halfAcross;
+  const dv = Math.abs(along[1]) * halfAlong + Math.abs(across[1]) * halfAcross;
+  const bounds = { u: u - du, v: v - dv, lu: 2 * du, lv: 2 * dv };
+  forCellsInUvRect(grid, frame, bounds, 0, (c, r, center) => {
+    const at = worldToUv(center, frame);
+    const d: Point = [at[0] - u, at[1] - v];
+    if (
+      Math.abs(d[0] * along[0] + d[1] * along[1]) <= halfAlong
+      && Math.abs(d[0] * across[0] + d[1] * across[1]) <= halfAcross
+      && pointInPolygon(center, worldOutline)
+    ) grid.set(c, r, true);
   });
 }
 

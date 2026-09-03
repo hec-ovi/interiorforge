@@ -36,7 +36,7 @@ export function createInfoPanel(state: AppState): HTMLElement {
       const lines = [
         `area ${Math.abs(polygonArea(room.polygon)).toFixed(1)} m2`,
         room.unit ? `unit ${room.unit}` : "",
-        `doors: ${room.doors.map((d) => `${d.leaves}-leaf to ${d.to}`).join(", ") || "none"}`,
+        `doors: ${room.doors.map((d) => d.kind === "openFront" ? `open front to ${d.to}` : `${d.leaves}-leaf to ${d.to}`).join(", ") || "none"}`,
         `furniture: ${floor.furniture.filter((f) => f.room === room.id).map((f) => f.kind).join(", ") || "none"}`,
         `anchors: ${result.npc.anchors.filter((a) => a.floor === floor.floor && a.room === room.id).map((a) => a.kind).join(", ") || "none"}`,
         `lights: ${floor.lights.filter((l) => l.room === room.id).map((l) => l.kind).join(", ") || "none"}`,

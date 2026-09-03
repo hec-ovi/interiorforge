@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import floorSchema from "../schemas/floor.schema.json" with { type: "json" };
 import { readGlbBytes } from "./glb/io.js";
-import { generateInterior, makeFixture } from "./index.js";
+import { findPath, generateInterior, makeFixture } from "./index.js";
 
 const fix = makeFixture({ seed: 44, floors: 7, basements: 1 });
 
@@ -61,6 +61,66 @@ describe("generateInterior", () => {
       for (const prim of node.getMesh()!.listPrimitives()) interiorVertices += prim.getAttribute("POSITION")!.getCount();
     }
     expect(vertices).toBe(interiorVertices);
+  });
+
+  it("builds a producer-shaped open shop front as a clear, reachable portal without leaves", async () => {
+    // The open edge is 11 degrees off the layout frame. Its center is 1.22 m from the
+    // hall's rectangular working edge, while the clipped hall still owns the threshold.
+    const outline: [number, number][] = [
+      [120.086, 172.54], [95.279, 185.344], [83.844, 150.793], [101.852, 140.533],
+    ];
+    const base = makeFixture({ seed: "open-front", floors: 2, type: "commerce", outline });
+    const blueprint = structuredClone(base.request.blueprint);
+    const ground = blueprint.floors.find((floor) => floor.index === 0)!;
+    ground.kind = "commerce";
+    const opening = {
+      id: "open-front:main", kind: "openFront" as const, edge: 1, offset: 1, width: 12,
+      height: 3.4, sill: 0,
+      portal: {
+        frameWidth: 0.15, frameDepth: 0.18, recessDepth: 0.35,
+        clearWidth: 11.68, clearHeight: 3.25, clearDepth: 0.35,
+      },
+      accessRole: "main" as const,
+      material: "cyberpunk/window-frame/mid",
+    };
+    ground.openings = [opening, ...ground.openings.filter((item) => item.edge !== opening.edge && item.kind !== "door")];
+    const fix = makeFixture({ seed: "open-front", blueprint, type: "commerce" });
+
+    const result = await generateInterior(fix.request, {
+      shellDoc: fix.shellDoc, textures: { mode: "keys" },
+    });
+    const floor = result.floors.find((item) => item.floor === 0)!;
+    expect(floor.kind).toBe("retail");
+    const room = floor.rooms.find((item) => item.doors.some((door) => door.kind === "openFront"))!;
+    expect(room.kind).toBe("sales_floor");
+    const portal = room.doors.find((door) => door.kind === "openFront")!;
+    expect(portal).toMatchObject({
+      kind: "openFront", to: "outside", width: opening.portal.clearWidth,
+      clearHeight: opening.portal.clearHeight, clearDepth: opening.portal.clearDepth,
+    });
+    expect(portal).not.toHaveProperty("leaves");
+    const edgeA = ground.outline[opening.edge]!;
+    const edgeB = ground.outline[(opening.edge + 1) % ground.outline.length]!;
+    const edgeLength = Math.hypot(edgeB[0] - edgeA[0], edgeB[1] - edgeA[1]);
+    const centerT = (opening.offset + opening.width / 2) / edgeLength;
+    expect(portal.position[0]).toBeCloseTo(edgeA[0] + (edgeB[0] - edgeA[0]) * centerT, 2);
+    expect(portal.position[1]).toBeCloseTo(edgeA[1] + (edgeB[1] - edgeA[1]) * centerT, 2);
+    const edgeAngle = ((Math.atan2(edgeB[1] - edgeA[1], edgeB[0] - edgeA[0]) * 180) / Math.PI + 360) % 360;
+    expect(portal.angleDeg).toBeCloseTo(edgeAngle, 2);
+
+    const entrance = result.npc.anchors.find((anchor) => anchor.floor === 0 && anchor.kind === "entrance")!;
+    expect(entrance).toBeTruthy();
+    for (const anchor of result.npc.anchors) {
+      expect(findPath(
+        result.npc,
+        { floor: entrance.floor, position: entrance.position },
+        { floor: anchor.floor, position: anchor.position },
+      ), `no route from open front to ${anchor.id}`).not.toBeNull();
+    }
+
+    const ajv = new Ajv2020({ allErrors: false, strict: false });
+    const check = ajv.compile(floorSchema);
+    expect(check(JSON.parse(JSON.stringify(floor))), JSON.stringify(check.errors)).toBe(true);
   });
 
   it("rejects a malformed request with E_BLUEPRINT_INVALID", async () => {

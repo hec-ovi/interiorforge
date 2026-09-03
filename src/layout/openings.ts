@@ -1,5 +1,5 @@
 import type { Point } from "../core/geom.js";
-import type { BlueprintFloor, FloorInterior } from "../core/types.js";
+import type { BlueprintFloor, FloorInterior, Opening } from "../core/types.js";
 import { WALL } from "./constants.js";
 
 /** Facade openings as a keep-off rule for interior walls: a partition may only meet the
@@ -11,6 +11,16 @@ const MEMBER_HALF = 0.06;
 const WALL_MARGIN = WALL / 2 + 0.06;
 /** A wall end this close to an outline edge is touching the facade. */
 const CONTACT_EPS = 0.12;
+
+/** Openings that connect a room to exterior walkable space. */
+export function isExteriorConnection(opening: Opening): boolean {
+  return opening.kind === "door" || opening.kind === "balconyDoor" || opening.kind === "openFront";
+}
+
+/** Street-facing openings that orient the ground-floor plan. */
+export function isStreetAccess(opening: { kind: string }): boolean {
+  return opening.kind === "door" || opening.kind === "openFront";
+}
 
 export class Facade {
   constructor(private readonly floor: BlueprintFloor) {}

@@ -35,7 +35,16 @@ export interface InteriorRequest {
 
 // ---- blueprint.schema.json ----
 
-export type OpeningKind = "door" | "window" | "balconyDoor" | "aperture";
+export type OpeningKind = "door" | "window" | "balconyDoor" | "openFront" | "aperture";
+
+export interface OpeningPortal {
+  frameWidth: number;
+  frameDepth: number;
+  recessDepth: number;
+  clearWidth: number;
+  clearHeight: number;
+  clearDepth: number;
+}
 
 export interface Opening {
   id: string;
@@ -45,6 +54,12 @@ export interface Opening {
   width: number;
   height: number;
   sill: number;
+  /** present on exterior doors and balcony doors */
+  leaves?: 1 | 2 | 3 | 4;
+  /** fitted, permanently open connection; present exactly on openFront */
+  portal?: OpeningPortal;
+  /** primary navigation role; present exactly on openFront */
+  accessRole?: "main";
   [extra: string]: unknown;
 }
 
@@ -95,14 +110,28 @@ export type FurnitureKind =
   | "bar_counter" | "stool" | "display_rack"
   | "wall_shelf" | "display_screen" | "wall_art" | "crate";
 
-export interface Door {
+interface RoomConnection {
   id: string;
   to: string;
-  leaves: 1 | 2 | 3 | 4;
   width: number;
   position: Point;
   angleDeg: number;
 }
+
+export interface RoomDoor extends RoomConnection {
+  /** omitted means the established hinged-door variant */
+  kind?: "door";
+  leaves: 1 | 2 | 3 | 4;
+}
+
+/** Permanently open street connection. It has traversable dimensions and no leaves. */
+export interface OpenFrontConnection extends RoomConnection {
+  kind: "openFront";
+  clearHeight: number;
+  clearDepth: number;
+}
+
+export type Door = RoomDoor | OpenFrontConnection;
 
 export interface Room {
   id: string;

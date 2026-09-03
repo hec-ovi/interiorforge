@@ -51,13 +51,37 @@
               "additionalProperties": true,
               "properties": {
                 "id": { "type": "string" },
-                "kind": { "enum": ["door", "window", "balconyDoor", "aperture"] },
+                "kind": { "enum": ["door", "window", "balconyDoor", "openFront", "aperture"] },
                 "edge": { "type": "integer", "minimum": 0, "description": "outline edge index (vertex i to i+1)" },
                 "offset": { "type": "number", "minimum": 0, "description": "meters along the edge to the opening's start" },
                 "width": { "type": "number", "exclusiveMinimum": 0 },
                 "height": { "type": "number", "exclusiveMinimum": 0 },
-                "sill": { "type": "number", "minimum": 0, "description": "bottom of opening above floor surface" }
-              }
+                "sill": { "type": "number", "minimum": 0, "description": "bottom of opening above floor surface" },
+                "portal": {
+                  "type": "object",
+                  "required": ["frameWidth", "frameDepth", "recessDepth", "clearWidth", "clearHeight", "clearDepth"],
+                  "additionalProperties": false,
+                  "description": "openFront only: fixed surround and exact traversable dimensions of the permanently open street connection",
+                  "properties": {
+                    "frameWidth": { "type": "number", "exclusiveMinimum": 0 },
+                    "frameDepth": { "type": "number", "exclusiveMinimum": 0 },
+                    "recessDepth": { "type": "number", "exclusiveMinimum": 0 },
+                    "clearWidth": { "type": "number", "exclusiveMinimum": 0 },
+                    "clearHeight": { "type": "number", "exclusiveMinimum": 0 },
+                    "clearDepth": { "type": "number", "exclusiveMinimum": 0 }
+                  }
+                },
+                "accessRole": {
+                  "const": "main",
+                  "description": "openFront only: the primary navigation connection, with no moving leaf"
+                }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "kind": { "const": "openFront" } }, "required": ["kind"] },
+                  "then": { "required": ["portal", "accessRole"] }
+                }
+              ]
             }
           }
         }

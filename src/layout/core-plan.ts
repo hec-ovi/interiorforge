@@ -5,6 +5,7 @@ import type { FloorAssignment, InteriorRequest } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
 import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
+import { isStreetAccess } from "./openings.js";
 import { facadeDepth } from "./shell.js";
 import { SHAFT_WIDTH, shaftDepthFor } from "./stair-plan.js";
 import type { Frame, UvRect } from "./uv.js";
@@ -477,16 +478,16 @@ function frameAt(angle: number, ground: Ground): Frame {
   const outline = ground.outline;
   let frame = makeFrame(angle);
 
-  const door = ground.openings.find((o) => o.kind === "door");
-  if (door) {
-    const p0 = outline[door.edge % outline.length]!;
-    const p1 = outline[(door.edge + 1) % outline.length]!;
+  const access = ground.openings.find(isStreetAccess);
+  if (access) {
+    const p0 = outline[access.edge % outline.length]!;
+    const p1 = outline[(access.edge + 1) % outline.length]!;
     const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
-    const t = (door.offset + door.width / 2) / len;
-    const doorWorld: [number, number] = [p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t];
-    const uvDoor = worldToUv(doorWorld, frame);
+    const t = (access.offset + access.width / 2) / len;
+    const accessWorld: [number, number] = [p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t];
+    const uvAccess = worldToUv(accessWorld, frame);
     const vs = outline.map((p) => worldToUv(p, frame)[1]);
-    if (uvDoor[1] > (Math.min(...vs) + Math.max(...vs)) / 2) {
+    if (uvAccess[1] > (Math.min(...vs) + Math.max(...vs)) / 2) {
       const flipped = angle > 0 ? angle - 180 : angle + 180;
       frame = makeFrame(Math.round(flipped * 100) / 100);
     }

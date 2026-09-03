@@ -1,5 +1,7 @@
 # Changelog
 
+0.26.0: permanently open shop fronts use the exterior portal's exact clear width, height and depth. They orient the ground-floor plan, connect the shop to the nav grid, reserve a wide furniture and NPC approach, meet the facade lining at the fixed surround, and publish an `openFront` room connection with no leaves. The full portal volume is checked against emitted interior geometry.
+
 0.25.1: light fixtures use a plain metal housing and a separate emissive lens mapped once across its face. Cove fixtures add a shielding lip and face the lens upward. Ceiling strips and spots face it downward, replacing the all-emissive blocks seen in the building screenshots.
 0.25.0: stair dimensions and finished-geometry clearance. Flights are 1.2 m clear between wall faces, risers stay between 0.16 and 0.18 m, treads are 0.28 m and landings are 1.2 m. Core feasibility and emitted stairs share the same flight arithmetic. Before export, probes above every tread and landing reject slabs, walls or fixtures inside the 2.1 m headroom. Stair lights sit flush in the arrival landing instead of hanging into the walk line.
 0.24.1: no cut tiles on interior surfaces. Ceilings and accent bands asked for the `panel` and `slab` pattern variants, whose 2 to 3 m module cut mid-tile against rooms laid on the half-metre grid; they take the joint-free member of their entry now, and the only grids an interior shows are the bands, casings and housings it places itself.

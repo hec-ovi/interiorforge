@@ -7,15 +7,32 @@ import type { UvRect } from "./uv.js";
 
 export type EdgeName = "v0" | "v1" | "u0" | "u1";
 
-export interface PlanDoor {
+interface PlanConnection {
   id: string;
-  to: string; // room id, "outside", or a core element id
-  leaves: 1 | 2 | 3 | 4;
   width: number;
   /** which edge of the owning room's rect the door sits on, and the u or v coordinate along it */
   edge: EdgeName;
   at: number;
 }
+
+export type PlanDoor = PlanConnection & ({
+  to: string; // room id, "outside", or a core element id
+  leaves: 1 | 2 | 3 | 4;
+  openFront?: never;
+} | {
+  to: "outside";
+  /** permanently open facade portal; no leaf or swing exists */
+  openFront: {
+    clearHeight: number;
+    clearDepth: number;
+    /** exact portal center and wall direction in layout-frame coordinates */
+    position: Point;
+    angleDeg: number;
+    /** unit vector from the facade into the room, in layout-frame coordinates */
+    inward: Point;
+  };
+  leaves?: never;
+});
 
 export interface PlanRoom {
   id: string;

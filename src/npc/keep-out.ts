@@ -32,7 +32,7 @@ export class DoorKeepOut {
           along,
           across: [-along[1], along[0]],
           halfWidth: door.width / 2 + DOOR.jamb,
-          depth: door.to === "outside"
+          depth: door.kind === "openFront" || door.to === "outside"
             ? ENTRANCE_STANDOFF
             : Math.max(door.width / door.leaves, DOOR.clearance),
         });
