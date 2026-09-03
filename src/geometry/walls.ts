@@ -7,6 +7,7 @@ import { WALL } from "../layout/constants.js";
 import { doorUvPoint } from "../layout/plan-floor.js";
 import { Facade as FacadeReservations, PARTITION_HALF } from "../layout/openings.js";
 import type { EdgeName, PlanRoom } from "../layout/plan-types.js";
+import { TILE } from "../layout/tile-fit.js";
 import type { Frame, UvRect } from "../layout/uv.js";
 import { toWorldPolygon, uvRectCorners, uvToWorld } from "../layout/uv.js";
 import type { MaterialKeys } from "./materials.js";
@@ -333,7 +334,9 @@ function onFacadeBand(
     const edgeLength = Math.hypot(ex, ez);
     if (edgeLength < 1e-6) continue;
     const parallel = Math.abs((dx * ex + dz * ez) / (length * edgeLength));
-    if (parallel > 0.999 && distanceToSegment(mid, edgeA, edgeB) <= facadeDepth + PARTITION_HALF) return true;
+    // Layout cells can put the room edge up to half a finish tile behind the exact inset.
+    // That one-sided snapped edge is still the facade lining's boundary, not a partition.
+    if (parallel > 0.999 && distanceToSegment(mid, edgeA, edgeB) <= facadeDepth + TILE / 2) return true;
   }
   return false;
 }

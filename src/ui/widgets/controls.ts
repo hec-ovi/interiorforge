@@ -28,7 +28,7 @@ export function createControls(
 
   const header = el("div", { class: "sidebar-header" }, [
     brandRow,
-    el("span", { class: "brand-tag" }, ["URBE SPATIAL ENGINE v0.28.0"]),
+    el("span", { class: "brand-tag" }, ["URBE SPATIAL ENGINE v0.28.1"]),
   ]);
 
   // Parametric Generator Inputs

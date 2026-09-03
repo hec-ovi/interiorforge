@@ -7,6 +7,79 @@ import { findPath, generateFloorInteriors, generateInterior, makeFixture } from 
 
 const fix = makeFixture({ seed: 44, floors: 7, basements: 1 });
 
+type Point3 = [number, number, number];
+
+function transformPoint(position: ArrayLike<number>, index: number, matrix: readonly number[]): Point3 {
+  const x = Number(position[index * 3]);
+  const y = Number(position[index * 3 + 1]);
+  const z = Number(position[index * 3 + 2]);
+  return [
+    matrix[0]! * x + matrix[4]! * y + matrix[8]! * z + matrix[12]!,
+    matrix[1]! * x + matrix[5]! * y + matrix[9]! * z + matrix[13]!,
+    matrix[2]! * x + matrix[6]! * y + matrix[10]! * z + matrix[14]!,
+  ];
+}
+
+function clipPlane(polygon: Point3[], axis: number, boundary: number, keepGreater: boolean): Point3[] {
+  const clipped: Point3[] = [];
+  for (let i = 0; i < polygon.length; i++) {
+    const a = polygon[i]!;
+    const b = polygon[(i + 1) % polygon.length]!;
+    const aInside = keepGreater ? a[axis]! >= boundary : a[axis]! <= boundary;
+    const bInside = keepGreater ? b[axis]! >= boundary : b[axis]! <= boundary;
+    if (aInside) clipped.push(a);
+    if (aInside === bInside) continue;
+    const t = (boundary - a[axis]!) / (b[axis]! - a[axis]!);
+    clipped.push([
+      a[0] + (b[0] - a[0]) * t,
+      a[1] + (b[1] - a[1]) * t,
+      a[2] + (b[2] - a[2]) * t,
+    ]);
+  }
+  return clipped;
+}
+
+function polygonArea(polygon: Point3[]): number {
+  if (polygon.length < 3) return 0;
+  let twiceArea = 0;
+  const origin = polygon[0]!;
+  for (let i = 1; i + 1 < polygon.length; i++) {
+    const a = polygon[i]!;
+    const b = polygon[i + 1]!;
+    const ax = a[0] - origin[0], ay = a[1] - origin[1], az = a[2] - origin[2];
+    const bx = b[0] - origin[0], by = b[1] - origin[1], bz = b[2] - origin[2];
+    twiceArea += Math.hypot(ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx);
+  }
+  return twiceArea / 2;
+}
+
+function triangleEntersReservation(
+  triangle: Point3[], reservation: FloorInterior["openingReservations"][number], elevation: number,
+): boolean {
+  const halfWidth = (reservation.width - 0.14) / 2 - 0.03;
+  let polygon = triangle.map(([x, y, z]) => {
+    const dx = x - reservation.position[0];
+    const dz = z - reservation.position[1];
+    return [
+      dx * -reservation.inward[1] + dz * reservation.inward[0],
+      y - elevation,
+      dx * reservation.inward[0] + dz * reservation.inward[1],
+    ] as Point3;
+  });
+  const bounds: [number, number][] = [
+    [-halfWidth, halfWidth],
+    [reservation.sill + 0.05, reservation.sill + reservation.height - 0.05],
+    [0.02, reservation.depth - 0.02],
+  ];
+  for (let axis = 0; axis < bounds.length; axis++) {
+    polygon = clipPlane(polygon, axis, bounds[axis]![0], true);
+    if (polygon.length < 3) return false;
+    polygon = clipPlane(polygon, axis, bounds[axis]![1], false);
+    if (polygon.length < 3) return false;
+  }
+  return polygonArea(polygon) > 1e-8;
+}
+
 async function expectOpeningVolumesClear(
   glb: Uint8Array, floor: FloorInterior, opening?: string,
 ): Promise<void> {
@@ -15,20 +88,19 @@ async function expectOpeningVolumesClear(
     ? floor.openingReservations.filter((item) => item.opening === opening)
     : floor.openingReservations;
   for (const reservation of reservations) {
-    const clearHalfWidth = (reservation.width - 0.14) / 2 - 0.03;
     for (const node of document.getRoot().listNodes()) {
+      const matrix = node.getWorldMatrix();
       for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
         const positions = primitive.getAttribute("POSITION")!.getArray()!;
-        for (let i = 0; i < positions.length; i += 3) {
-          const y = positions[i + 1]! - floor.elevation;
-          if (y <= reservation.sill + 0.05 || y >= reservation.sill + reservation.height - 0.05) continue;
-          const dx = positions[i]! - reservation.position[0];
-          const dz = positions[i + 2]! - reservation.position[1];
-          const depth = dx * reservation.inward[0] + dz * reservation.inward[1];
-          const along = dx * -reservation.inward[1] + dz * reservation.inward[0];
-          const inside = depth > 0.02 && depth < reservation.depth - 0.02
-            && Math.abs(along) < clearHalfWidth;
-          expect(inside, `${node.getName()} enters ${reservation.opening}`).toBe(false);
+        const indices = primitive.getIndices()?.getArray();
+        const count = indices?.length ?? primitive.getAttribute("POSITION")!.getCount();
+        for (let i = 0; i + 2 < count; i += 3) {
+          const triangle = [0, 1, 2].map((offset) =>
+            transformPoint(positions, Number(indices?.[i + offset] ?? i + offset), matrix));
+          expect(
+            triangleEntersReservation(triangle, reservation, floor.elevation),
+            `${node.getName()} enters ${reservation.opening}`,
+          ).toBe(false);
         }
       }
     }
@@ -184,7 +256,9 @@ describe("generateInterior", () => {
     const blueprint = structuredClone(source.request.blueprint);
     blueprint.facade = {
       ...blueprint.facade,
-      wallDepth: 0.31,
+      // This shallow lining makes the room-grid edge land beyond the old point-contact
+      // tolerance. The full triangle-volume check must still reject a facade band there.
+      wallDepth: 0.23,
       // Deliberately permit no endpoints: every proposed terminal partition must be
       // reallocated short of the facade reservations rather than accepted through one.
       grids: blueprint.floors.flatMap((item) => item.outline.map((_, edge) => ({

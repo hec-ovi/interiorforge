@@ -2,7 +2,7 @@
 
 Purpose: deterministically fills one building shell with furnished interiors and exports floor, NPC routine and navigation data.
 
-Status: implemented at 0.28.0. Simulation consumes [schemas/npc.schema.json](schemas/npc.schema.json).
+Status: implemented at 0.28.1. Simulation consumes [schemas/npc.schema.json](schemas/npc.schema.json).
 
 ## In
 
