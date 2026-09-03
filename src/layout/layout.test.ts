@@ -140,7 +140,7 @@ describe("planBuilding", () => {
     const bad = coreFeasibility(tiny.request.blueprint);
     expect(bad.fits).toBe(false);
 
-    // a tall tower on a modest plate: elevator demand clamps to the band instead of failing
+    // a tall tower on a modest plate: elevator demand clamps to the available band
     const tall = makeFixture({ seed: 2, floors: 40, width: 26, depth: 20 });
     const f = coreFeasibility(tall.request.blueprint);
     expect(f.fits).toBe(true);

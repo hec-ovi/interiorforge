@@ -119,8 +119,8 @@ interface RoomConnection {
 }
 
 export interface RoomDoor extends RoomConnection {
-  /** omitted means the established hinged-door variant */
-  kind?: "door";
+  /** regular doors omit kind; the schema reserves it for open fronts */
+  kind?: never;
   leaves: 1 | 2 | 3 | 4;
 }
 
@@ -174,7 +174,7 @@ export interface LightFixture {
   range: number;
   /** full spread of the light: a strip and a cove wash wide and soft, a spot throws down */
   beamDeg: number;
-  /** how much of the flux leaves as a soft wash rather than a beam, 0..1 */
+  /** share of flux emitted as a soft wash, 0..1 */
   diffuse: number;
   /** where the light goes: a ceiling fixture throws down, a cove washes the ceiling up */
   facing: "down" | "up";

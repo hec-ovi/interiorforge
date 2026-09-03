@@ -101,7 +101,7 @@ export function refitDoors(rooms: PlanRoom[], plate: readonly Point[]): number {
 }
 
 /** Puts one door inside the stretch its two rooms really share on the plate, narrowing it
- *  down to half a metre rather than sealing the room. `null` when the pair shares no such
+ *  to the 0.7 m minimum. `null` when the pair shares no such
  *  stretch: no wall stands there to hole. */
 export function fitDoorToStretch(
   door: PlanDoor, from: UvRect, to: UvRect, plate: readonly Point[],
@@ -109,7 +109,7 @@ export function fitDoorToStretch(
   const stretch = sharedStretch(from, to, plate, door.at);
   if (!stretch) return null;
   const { edge, lo, hi } = stretch;
-  // full clear width wherever the wall carries it, narrower rather than sealing the room
+  // use the full clear width where the wall carries it, with the contract minimum on short walls
   const width = doorWidthOn(hi - lo, door.width);
   const inside = door.edge === edge && door.at - width / 2 >= lo + BAND_CLEAR - 1e-6
     && door.at + width / 2 <= hi - BAND_CLEAR + 1e-6;

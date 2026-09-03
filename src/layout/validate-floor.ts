@@ -122,8 +122,8 @@ function repairOne(
     // prefer public rooms so the repair door lands somewhere sensible
     reachedRooms.sort((a, b) => publicRank(a) - publicRank(b));
     for (const target of reachedRooms) {
-      // furniture can strand an existing door in a pocket: probe positions away from the
-      // doors this pair already has instead of stacking duplicates on the same spot
+      // furniture can strand an existing door in a pocket: probe positions away from this
+      // pair's existing doors and avoid duplicate doors on the same spot
       const existing = [
         ...room.doors.filter((d) => d.to === target.id),
         ...target.doors.filter((d) => d.to === room.id),

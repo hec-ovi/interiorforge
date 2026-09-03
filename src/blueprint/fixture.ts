@@ -29,7 +29,7 @@ export interface FixtureOptions {
   theme?: string;
   /** exterior facade style; curtain-wall glazes every face in bays that hang slab to slab */
   facadeStyle?: "curtain-wall" | "glass" | "panel" | "megablock";
-  /** measured shell wall depth written on the blueprint, as exterior 0.22 publishes it */
+  /** measured shell wall depth written on the blueprint */
   wallDepth?: number;
 }
 

@@ -46,6 +46,6 @@
         }
       }
     },
-    "materialTheme": { "type": "string", "description": "theme id resolved by the materials box; interior references materials as kind/theme/tier keys" }
+    "materialTheme": { "type": "string", "description": "theme id resolved by the materials box; interior references materials as theme/kind/tier keys" }
   }
 }

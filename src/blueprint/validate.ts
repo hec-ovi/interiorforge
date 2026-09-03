@@ -141,8 +141,7 @@ const SLUG_KIND: Record<string, FloorKind> = {
   terrace: "terrace", roof: "terrace",
 };
 
-/** Which venue a generic `shop` floor is: the parcel type says, so a coffee shop gets a
- *  counter and a barista rather than a generic sales floor. */
+/** Maps a generic `shop` floor to the venue named by its parcel type. */
 const VENUE_BY_TYPE: Partial<Record<BuildingType, FloorKind>> = {
   restaurant: "restaurant", coffee_shop: "coffee_shop", mall: "mall_floor", commerce: "retail",
 };

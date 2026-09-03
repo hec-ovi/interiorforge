@@ -11,24 +11,26 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 - `BuildingPlan`
   - `floors: FloorInterior[]` (the floor.schema.json shape) sorted by index; a double-height span's upper floor has `rooms: []`. Room polygons tile the outline; the shell wall model (`shell.ts`: wall depth from the blueprint's `facade.wallDepth`, else by facade style; lining; bands) says where the room really starts, and the core, furniture, light fixtures and the nav grid keep to that inner plate.
   - `core: CorePlan`: building-wide vertical core in frame (uv) space, identical on every floor. The frame aligns u to the longest ground edge and flips so a street door or `openFront` faces the hall side; rotated parcels work natively, `coreAngleDeg` carries the rotation.
+  - `navGrids: Map<number, WalkGrid>`: 0.25 m wall-aware walkable grid per floor, world-axis-aligned regardless of frame rotation; diagonal walls are blocked by their true distance.
+  - `uvFloors: Map<number, UvFloorData>`: frame-space rooms, furniture and sealed bands for the geometry and NPC passes.
+  - `assignments: FloorAssignment[]`: the supplied assignments sorted by floor.
 - `coreFeasibility(blueprint) -> CoreFeasibility`: the root contract's pre-check, computed by the same frame, band scan and placement as `planCore`; when it does not fit, `blocker` names the nearest miss (`cross_depth` on the shallowest floor plate, `band`, `compact_depth`, `walkup_floors`) and the `E_FLOOR_TOO_SMALL` message quotes the same numbers.
-  - `navGrids: Map<floorIndex, WalkGrid>`: 0.25 m wall-aware walkable grid per floor, world-axis-aligned regardless of frame rotation (diagonal walls blocked by true distance).
-  - `uvFloors: Map<floorIndex, UvFloorData>`: frame-space rooms, furniture and sealed bands for the geometry and npc passes.
-- Pipeline (docs/RESEARCH.md): core first, corridor second (spine, point-access by plate and kind), strip split into units third, rooms from per-kind program tables fourth, furniture fifth, flood-fill validation with deterministic door repair last.
+- Pipeline ([research](../../docs/RESEARCH.md)): core, corridor, strip programs, furniture, then flood-fill validation with deterministic door repair.
 
 ## Errors
 
 - `E_FLOOR_TOO_SMALL`: plate cannot fit core plus corridor plus minimum rooms.
+- `E_ASSIGNMENT_INVALID`: an assignment references a floor absent from the blueprint.
 - `E_UNREACHABLE_SPACE`: a floor failed reachability validation after repair.
 
 ## Invariants
 
-- Same request, identical plan. Per-floor RNG streams: floor N never changes when floor M is edited.
-- Core rects identical across floors, placed on the plate behind the facade lining; stairs continuous, with 1.2 m clear flights, 0.16 to 0.18 m risers, 0.28 m treads and 1.2 m landings; every floor served by every elevator.
-- Every room reachable from the floor's spine (corridor, elevator lobby or mall concourse) through its connections; corridor and door widths per docs/RESEARCH.md constants.
+- The same request and assignments produce the same plan. Each floor has an independent RNG stream, so consuming values on floor M does not shift floor N's random choices.
+- Core rects are identical across floors and placed behind the facade lining. Stairs are continuous, with 1.2 m clear flights, 0.16 to 0.18 m risers, 0.28 m treads and 1.2 m landings. Every occupied floor is served by every elevator.
+- Every room is reachable from the floor's spine (corridor, elevator lobby or mall concourse) through its connections. Corridor and door widths follow [the research constants](../../docs/RESEARCH.md).
 - A ground-floor `openFront` connects its facade room to outside at `portal.clearWidth`, opens the nav grid across the lining and reserves its clear approach without a leaf swing.
-- Rooms plus corridors plus core tile the outline: no interior gap band.
+- Rooms, corridors, sealed shafts and core occupy the usable inner plate without an interior gap band.
 
 ## Depends on
 
-- ../core/CONTRACT.md
+- [core](../core/CONTRACT.md)

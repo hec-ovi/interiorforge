@@ -54,9 +54,8 @@ interface RoomSegment {
   edge: EdgeName | null;
 }
 
-/** Door heads: 2.5 m for one or two leaves, 3 m for wider portals. A space too low for that
- *  carries the opening up to a lintel of one casing band under its ceiling, so a low storey
- *  gets a tall opening rather than a stubby one. */
+/** Door heads: 2.5 m for one or two leaves, 3 m for wider portals. A lower space carries
+ *  the opening up to one casing band below its ceiling. */
 export function doorHeadHeight(leaves: number, clearHeight: number): number {
   const head = leaves >= 3 ? 3.0 : 2.5;
   return Math.min(head, clearHeight - 2 * CASING.width);
@@ -144,8 +143,8 @@ function roomSegments(room: PlanRoom, uvOutline: readonly Point[]): RoomSegment[
   return out;
 }
 
-/** The room's feature wall: one interior edge without a door, picked by seed, so a room
- *  reads as colour-blocked rather than four identical planes. Small rooms take none. */
+/** The room's feature wall: one interior edge without a door, picked by seed.
+ *  Small rooms take none. */
 function accentEdge(room: PlanRoom, segments: RoomSegment[], rng: Rng): EdgeName | null {
   if (room.rect.lu < 1.6 || room.rect.lv < 1.6) return null;
   const doors = new Set(room.doors.map((d) => d.edge));

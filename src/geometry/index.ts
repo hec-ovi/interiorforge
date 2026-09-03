@@ -198,8 +198,8 @@ function assertStairFit(
   }
 }
 
-/** The shell's separator planes (exterior naming: floor:<index>/slab) get replaced by
- *  our slabs with real shaft holes. */
+/** Removes the shell's separator planes (exterior naming: floor:<index>/slab) before
+ *  adding interior slabs with shaft holes. */
 const SLAB_NODE = /^floor:-?\d+\/slab$/;
 
 function removeShellSeparators(doc: Document): void {

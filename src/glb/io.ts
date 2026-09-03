@@ -80,7 +80,7 @@ function variantOf(material: Material): string | undefined {
 function makeMaterial(doc: Document, key: string, variant?: string): Material {
   const material = doc
     .createMaterial(key)
-    .setBaseColorFactor(placeholderColor(variant ? `${key}#${variant}` : key))
+    .setBaseColorFactor(keyColor(variant ? `${key}#${variant}` : key))
     .setMetallicFactor(0)
     .setRoughnessFactor(0.9)
     .setDoubleSided(false);
@@ -88,9 +88,9 @@ function makeMaterial(doc: Document, key: string, variant?: string): Material {
   return material;
 }
 
-/** Deterministic placeholder tint per material key so the preview separates surfaces
+/** Deterministic tint per material key so the preview separates surfaces
  *  before the materials box resolves real textures. */
-function placeholderColor(key: string): [number, number, number, number] {
+function keyColor(key: string): [number, number, number, number] {
   let h = 0x811c9dc5;
   for (const ch of key) {
     h ^= ch.codePointAt(0)!;

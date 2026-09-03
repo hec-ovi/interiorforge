@@ -2,9 +2,11 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { Document } from "@gltf-transform/core";
 import { makeFixture } from "../blueprint/fixture.js";
 import { glbJson } from "../glb/io.js";
 import { generateInterior } from "../index.js";
+import { applyMaterials, MaterialLibrary } from "./index.js";
 import type { MaterialEntry, ThemeIndex } from "./theme.js";
 
 const THEME = "cyberpunk";
@@ -130,6 +132,40 @@ describe("finished interior", () => {
     const fix = fixture();
     await expect(generateInterior(fix.request, { shellDoc: fix.shellDoc, textures: { dir } }))
       .rejects.toMatchObject({ code: "E_MATERIAL_UNRESOLVED", message: /carpet/ });
+  });
+
+  it("reports an unreadable theme through the closed error set", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "urbe-materials-invalid-"));
+    const themeDir = join(dir, "themes", THEME);
+    mkdirSync(themeDir, { recursive: true });
+    writeFileSync(join(themeDir, "theme.json"), "{");
+    const fix = fixture();
+
+    await expect(generateInterior(fix.request, { shellDoc: fix.shellDoc, textures: { dir } }))
+      .rejects.toMatchObject({ code: "E_MATERIAL_UNRESOLVED", message: /cannot be read/ });
+  });
+
+  it("contains errors from a supplied map reader", () => {
+    const key = `${THEME}/wall/${TIER}`;
+    const index: ThemeIndex = {
+      theme: THEME,
+      entries: {
+        [key]: {
+          key,
+          alignment: "tile",
+          tiling: { worldSize: [1, 1] },
+          variants: [{ id: "1", resolution: [1, 1], maps: { basecolor: "missing.png" } }],
+        },
+      },
+    };
+    const doc = new Document();
+    doc.createMaterial(key);
+
+    expect(() => applyMaterials(doc, new MaterialLibrary(index), {
+      baseUrl: ".",
+      embed: true,
+      readMap: () => { throw new Error("reader unavailable"); },
+    })).toThrow(expect.objectContaining({ code: "E_MATERIAL_UNRESOLVED", message: expect.stringMatching(/missing\.png/) }));
   });
 
   it("runs standalone: no materials database means keys, not a failure", async () => {

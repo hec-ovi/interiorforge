@@ -5,21 +5,22 @@ Purpose: derives everything the simulation layer needs from a building plan: anc
 ## In / Out
 
 - `buildNpcSupport(plan: BuildingPlan, request: InteriorRequest) -> NpcSupport` (the `schemas/npc.schema.json` shape)
-  - anchors: entrances (doors and permanently open fronts), per-floor elevator waits and stair entries, and furniture-driven spots (work behind desks and counters, beds, toilets, seats, machines, patrol points, idle and cleaning spots). Every anchor has a walkable approach cell within 0.9 m or is dropped. No anchor stands in a connection's keep-clear zone: a spot inside one is walked out to the nearest clear reached cell, tested at the centimetre position that is exported (`anchorConflicts` re-checks every floor and a hit is `E_UNREACHABLE_SPACE`; `fixtures/city-p15.request.json` is the parcel whose nearest clear cell sits on a zone edge).
+  - anchors: entrances (doors and permanently open fronts), per-floor elevator waits and stair entries, and furniture-driven spots (work behind desks and counters, beds, toilets, seats, machines, patrol points, idle and cleaning spots). A blocked candidate searches up to ten 0.25 m grid rings and takes the nearest clear reached cell in the first usable ring; no match drops the anchor. `anchorConflicts` checks the exported centimetre position against every connection keep-clear zone and produces `E_UNREACHABLE_SPACE` on a conflict.
   - roles: staffing by building type and floor kind (receptionist, security, vendor or barista, cook, waiter, clerk per sales floor, office workers, executives, residents, guests, trainer, cleaner) with `[min, max]` counts.
   - routines: one deterministic loop per role over its anchors, with dwell ranges and animations. The simulation walks between steps via nav.
-  - nav: per-floor walkable bitmask (from the layout grids) plus connectors: every stair and elevator serves every planned floor (digital controls default); spans-2 upper floors are excluded.
+  - nav: per-floor walkable bitmask from the layout grids plus connectors. A multi-floor building publishes every stair and elevator as a connector serving each occupied floor; a single-floor building publishes no connectors. Double-height upper floors are excluded.
 - `findPath(npc: NpcSupport, from: {floor, position}, to: {floor, position}) -> PathLeg[] | null`
-  - Reference pathfinder over the exported JSON alone: A* on the floor bitmask with line-of-sight smoothing; cross-floor routes ride one connector (nearest by combined walk distance, elevators preferred beyond one floor of travel).
+  - Reference pathfinder over the exported JSON alone: A* on the floor bitmask with line-of-sight smoothing. Cross-floor routes ride one connector selected by combined endpoint distance; elevators are preferred beyond one floor of travel.
   - `PathLeg`: `{ kind: "walk", floor, points: Point[] }` or `{ kind: "ride", connector, fromFloor, toFloor }`.
-  - Returns null only when no route exists (never for two walkable in-plan points; that is a generator bug caught by tests).
+  - Returns `null` when no connector or complete walk route exists.
 
 ## Errors
 
-None of its own: inputs are already validated. `findPath` returns null instead of throwing.
+- `E_UNREACHABLE_SPACE`: an exported anchor remains inside a door keep-clear zone.
+- `findPath` returns `null` when no route exists and does not throw for route misses.
 
 ## Depends on
 
-- ../core/CONTRACT.md
-- ../layout/CONTRACT.md (BuildingPlan)
-- ../../schemas/npc.schema.json
+- [core](../core/CONTRACT.md)
+- [layout](../layout/CONTRACT.md) (`BuildingPlan`)
+- [NPC schema](../../schemas/npc.schema.json)

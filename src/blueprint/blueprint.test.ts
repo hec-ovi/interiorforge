@@ -14,7 +14,7 @@ describe("validateRequest", () => {
     expect(validateRequest(clone(request))).toBeTruthy();
   });
 
-  it("accepts exterior v0.3 extras it does not consume", () => {
+  it("accepts additive exterior fields", () => {
     const r = clone(request) as InteriorRequest & { blueprint: Record<string, unknown> };
     r.blueprint.seed = "abc";
     r.blueprint.signage = [];

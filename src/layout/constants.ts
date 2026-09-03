@@ -3,13 +3,12 @@
 export const CELL = 0.25; // nav grid cell
 export const SNAP = 0.5; // layout rects snap to this grid
 export const WALL = 0.1; // interior partition thickness
-export const AGENT_RADIUS = 0.3; // NPC body radius used to erode walkable space
+export const AGENT_RADIUS = 0.3; // NPC body radius applied when eroding walkable space
 
 export const CORRIDOR = {
   /** uniform main corridor width: stair shafts and elevator banks sit flush inside its band */
   width: 2.5,
   serviceStub: 1.2,
-  deadEndMax: 6,
 };
 
 export const DOOR = {
@@ -115,7 +114,7 @@ export const SPINE_KINDS: ReadonlySet<string> = new Set(["corridor", "elevator_l
 export const TWO_STAIRS = { areaOver: 460, floorsOver: 4 };
 
 /** Plates shallower than this get a single-loaded corridor: core row flush to the back
- *  facade, one deep strip of rooms instead of two shallow ones. */
+ *  facade and one deep room strip. */
 export const SINGLE_LOADED_BELOW = 12.5;
 
 /** Stair-only degrade for footprints whose band cannot hold an elevator core. */

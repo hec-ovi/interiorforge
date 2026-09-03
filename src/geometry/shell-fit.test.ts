@@ -9,7 +9,7 @@ import cityP53 from "./fixtures/city-p53.blueprint.json" with { type: "json" };
 import { assertInsideShell, edgeFrame, openingHole } from "./shell-fit.js";
 
 /** Reads the GLB back and measures every interior vertex against its floor's outline: the
- *  contract promise, checked on the real output rather than the builder. `wall` is the depth
+ *  contract promise, checked on the serialized output. `wall` is the depth
  *  of the closest vertex outside any opening, `reveal` the closest inside one, `corner` how
  *  far a reveal vertex keeps from the other edges' walls. */
 async function worstDepth(glb: Uint8Array, blueprint: Blueprint): Promise<{ wall: number; reveal: number; corner: number }> {
@@ -124,7 +124,7 @@ describe("shell fit", () => {
     expect(hole).toEqual({ t0: 3.16, t1: 14.84, y0: 0, y1: 3.34 });
   });
 
-  it("a vertex on the wall plane is E_SHELL_BREACH, never shipped", () => {
+  it("a vertex on the wall plane produces E_SHELL_BREACH", () => {
     const floor: BlueprintFloor = { index: 0, kind: "lobby", elevation: 0, height: 3, outline: [[0, 0], [10, 0], [10, 8], [0, 8]], openings: [] };
     const mb = new MeshBuilder();
     mb.addBox("x/wall/mid", { x: 4, z: 7.9, w: 1, d: 0.1 }, 0, 2);

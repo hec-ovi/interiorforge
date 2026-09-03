@@ -92,8 +92,17 @@ function texture(
   const cached = cache.get(path);
   if (cached) return cached;
   const created = doc.createTexture(`${key}/${slot}`).setMimeType("image/png");
-  if (options.embed) created.setImage(options.readMap(path));
-  else created.setURI(`${options.baseUrl.replace(/\/$/, "")}/${path}`);
+  if (options.embed) {
+    try {
+      created.setImage(options.readMap(path));
+    } catch (err) {
+      if (err instanceof InteriorError) throw err;
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new InteriorError("E_MATERIAL_UNRESOLVED", `material map "${path}" cannot be read: ${detail}`);
+    }
+  } else {
+    created.setURI(`${options.baseUrl.replace(/\/$/, "")}/${path}`);
+  }
   cache.set(path, created);
   return created;
 }

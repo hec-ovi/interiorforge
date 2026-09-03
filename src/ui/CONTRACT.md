@@ -1,28 +1,54 @@
 # CONTRACT: ui
 
-Purpose: browser preview of a generated building: panoptic 3D navigation of the whole GLB and a standalone floor editor that isolates one floor for inspection and path testing. Presentation only; all generation runs through the root `generateInterior`.
+Purpose: renders the generated building, one-floor inspection, room details and walk-path checks in a browser.
 
-Run: `npm run preview` (Vite dev server).
+Status: implemented at 0.27.1. Run with `npm run preview`.
 
-## Components
+## Inputs
 
-- `views/viewer3d.ts`: `Viewer3D` interface: `setGlb(bytes)`, `setFloorSlice({y0, y1} | null)`, `el`. `createViewer3d()` implements it with three.js (orbit controls, clipping planes for the floor slice); tests inject a fake.
-- `views/plan-view.ts`: `createPlanView(state)`: SVG floor plan of the selected floor: room polygons (click to select), doors, furniture, anchors, nav path overlay. Two plan clicks run `findPath` on the current floor and draw the route.
-- `widgets/controls.ts`: `createControls(state, onGenerate, onLoadFiles)`: fixture parameters (seed, floors, basements, type, tier), generate button, real-building loader (shell .glb + blueprint .json + exterior request .json in one multi-file pick), mode toggle (building | floor), floor selector.
-- `widgets/info-panel.ts`: `createInfoPanel(state)`: details of the selected room (kind, unit, doors, furniture, anchors) and path status.
-- `app-state.ts`: `createAppState()`: params, result, mode, floor index, selection, path; `on(event, cb)` with events `result`, `mode`, `floor`, `selection`, `path`, `busy`.
-- `components/dom.ts`: `el()` element builder, labeled field helpers.
+- `mountApp(root: HTMLElement, viewer: Viewer3D) -> AppState`: mounts the preview and starts one fixture generation with `{ seed: 1, floors: 12, basements: 1, type: "offices", tier: "mid" }`.
+- `Viewer3D`: `{ el: HTMLElement, setGlb(Uint8Array): Promise<void>, setFloorSlice({ y0, y1 } | null): void, setLights(readonly LightFixture[] | null): void, standIn([x, z], eyeY, headingDeg): void }`. Tests inject this interface; `createViewer3d() -> Viewer3D` supplies the Three.js implementation.
+- `createControls(state, onGenerate, onLoadFiles, onStandIn) -> HTMLElement`: emits fixture `AppParams`, a selected `File[]`, or an eye-view request. A building load requires a shell `.glb` and blueprint `.json`; an exterior request `.json` supplies type, tier and theme when present.
+- `createPlanView(state) -> HTMLElement`: a room click selects it. Two shift-clicks request a same-floor path.
+- `showToast({ type?, title?, message, duration? }) -> () => void`: renders one dismissible notice and returns its dismiss function.
 
-## Events / flow
+`InteriorResult` follows the [root contract](../../CONTRACT.md); its floor and NPC data follow the [floor schema](../../schemas/floor.schema.json) and [NPC schema](../../schemas/npc.schema.json). `AppParams` uses the root `BuildingType` and `Tier` unions.
 
-`controls` -> `onGenerate(params)` -> main regenerates (fixture + generateInterior) -> `state.setResult` -> viewer gets GLB bytes, plan and info re-render. Mode `floor` slices the 3D view to the selected floor's y range and shows the plan.
+## Outputs
+
+- `AppState`: `{ params, result, mode, floorIndex, selectedRoom, path, busy }` plus setters, `floorData()` and event subscriptions.
+- Building mode gives the viewer the complete GLB. Floor mode clips it to the selected floor, instantiates that floor's lights, renders rooms, doors, furniture, anchors and the selected path, and exposes selected-room details.
+- Eye view calls `standIn` at 1.65 m above the selected floor, centered in the selected room or the largest room.
+
+## Events
+
+- State subscriptions use the closed names `result | mode | floor | selection | path | busy` and receive `() => void`.
+- Controls emit `onGenerate(AppParams)`, `onLoadFiles(File[])` and `onStandIn()`.
+- Plan selection emits `selection`; a completed path pick emits `path` with `PathLeg[] | null`.
+
+## Errors
+
+The UI contains browser failures and renders one of these closed outcomes:
+
+- `Generation Failed`: fixture generation, material resolution or viewer GLB loading failed. The message is the caught error message.
+- `Load Failed`: selected files are incomplete, invalid, or fail parsing, generation or viewer loading. The message is the caught error message.
+- `Preview Failed`: Three.js import or viewer startup failed. The message is the caught error message.
+- `Unreachable`: `findPath` returned `null`; this is a path result, not an exception.
+
+A material theme request that is unavailable yields key-only rendering.
 
 ## Invariants
 
-- No business logic: the plan renders `FloorInterior` and `NpcSupport` data as-is; paths come from the npc box `findPath`.
-- Square corners everywhere; dark neutral palette.
+- Presentation code calls [root generation](../../CONTRACT.md) and [NPC pathfinding](../npc/CONTRACT.md); it contains no layout or simulation rules.
+- The plan renders [floor](../../schemas/floor.schema.json) and [NPC](../../schemas/npc.schema.json) data without changing them.
+- Generated and loaded GLBs reach the viewer through `setGlb`. Busy state clears on success and failure.
+- Form controls and toast dismissal use keyboard-accessible native elements. All UI elements have square corners.
 
-## Depends on
+## Dependencies
 
-- ../core/CONTRACT.md (types), root CONTRACT.md surface (`generateInterior`, `makeFixture`, `findPath`)
-- three.js (viewer only)
+- [root contract](../../CONTRACT.md)
+- [core contract](../core/CONTRACT.md)
+- [glb contract](../glb/CONTRACT.md)
+- [materials contract](../materials/CONTRACT.md)
+- [npc contract](../npc/CONTRACT.md)
+- Three.js 0.185, DOM, WebGL, `ResizeObserver`, Vite

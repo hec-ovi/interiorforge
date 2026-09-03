@@ -4,7 +4,7 @@ Purpose: the only place that touches GLB bytes: builds interior meshes with corr
 
 ## In / Out
 
-- `mesh-builder.ts`: `MeshBuilder` accumulates geometry per material key (`theme/kind/tier` slugs).
+- `mesh-builder.ts`: `new MeshBuilder(frame?, origin?)` accumulates geometry per material key (`theme/kind/tier` slugs).
   - `addQuad(material, [v0, v1, v2, v3], uv?)`: vertices CCW seen from the front; normal derived from winding. `uv` is "world" (default): planar UVs in meters (walls: u along the wall, v up; horizontal: u = x, v = z), or "unit": 0..1 over the face, for exact-placement materials; on a prism side u grows toward the viewer's right seen from the front and v follows glTF (0 at the top), so a picture reads left to right and upright.
   - `addQuadUv(material, [v0, v1, v2, v3], [uv0, uv1, uv2, uv3])`: the same quad contract with caller-supplied UV coordinates for a deliberately mapped face.
   - `addHorizontalPolygon(material, polygon, y, facing, uv?)`: triangulated floor or ceiling surface, `facing` "up" | "down".
@@ -14,23 +14,24 @@ Purpose: the only place that touches GLB bytes: builds interior meshes with corr
   - `seal()`: makes the builder read-only and compacts positions, normals, UVs and indices into glTF-width typed arrays. Further geometry additions fail.
   - `isEmpty()`, group access for tests.
 - `io.ts`
-  - `createDocument(builder) -> Document`: fresh glTF document, one scene, one material per key (name = key, deterministic placeholder color), single-sided.
-  - `appendToDocument(document, builder)`: adds the builder's meshes into an existing document's default scene (used to complete the shell GLB).
-  - `writeGlb(document) -> Uint8Array`: deterministic binary, byte-identical for identical input. Textures carrying a URI stay external, textures carrying bytes are embedded in the binary chunk.
-  - `readGlbBytes(bytes) -> Document`, `readGlbFile(path) -> Document`, `glbJson(bytes) -> object`: the JSON chunk, for inspecting output that references external images.
+  - `createDocument(builder) -> Document`: fresh glTF document, one scene and one single-sided material per key with a deterministic key color.
+  - `appendToDocument(document, builder)`: adds the builder's meshes to an existing document's default scene for shell completion.
+  - `writeGlb(document) -> Promise<Uint8Array>`: deterministic binary, byte-identical for identical input. Textures carrying a URI stay external, textures carrying bytes are embedded in the binary chunk.
+  - `readGlbBytes(bytes) -> Promise<Document>`, `readGlbFile(path) -> Promise<Document>`, `glbJson(bytes) -> Record<string, unknown>`: the JSON chunk, for inspecting output that references external images.
   - `sceneBounds(document) -> {min, max}` for shell consistency checks.
 
 ## Errors
 
-None of its own; propagates @gltf-transform I/O failures. Callers wrap into `InteriorError` where a code applies.
+- Mutation after `MeshBuilder.seal()` throws `Error("cannot add geometry to a sealed mesh")`.
+- GLB parse, serialization and file I/O errors propagate from glTF Transform or the platform. Public generator entrypoints map unreadable shell input to `E_SHELL_MISMATCH`.
 
 ## Invariants
 
 - glTF conventions: CCW front faces, right-handed, +Y up, single-sided materials.
 - Sealing preserves material order and the values that are written to GLB.
-- Never mirrors geometry by negative scale; no coplanar duplicate faces emitted by construction.
+- Geometry is written at its supplied coordinates without negative node scaling.
 
 ## Depends on
 
-- ../core/CONTRACT.md
+- [core](../core/CONTRACT.md)
 - @gltf-transform/core and @gltf-transform/extensions 4.x (texture transform, transmission, IOR, emissive strength)

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urbe/interior/blueprint-consumed",
   "title": "BlueprintConsumed",
-  "description": "Consumer view of the canonical exterior blueprint (../exterior/schemas/blueprint.schema.json, v0.3). Interior reads the floors core and bounds; every other exterior section (seed, signage, screens, lights, fireEscape, roof, materials) is accepted and ignored. Units meters, +Y up, XZ floor plane, CCW outlines. Negative floor indexes are basements.",
+  "description": "Consumer view of the canonical Exterior blueprint. Interior reads the floor core and bounds; additive Exterior sections pass through. Units meters, +Y up, XZ floor plane, CCW outlines. Negative floor indexes are basements.",
   "type": "object",
   "required": ["buildingId", "floors"],
   "additionalProperties": true,

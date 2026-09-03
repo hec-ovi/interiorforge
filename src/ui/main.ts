@@ -49,7 +49,6 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err), "Generation Failed");
-      throw err;
     } finally {
       state.setBusy(false);
     }
@@ -102,7 +101,6 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err), "Load Failed");
-      throw err;
     } finally {
       state.setBusy(false);
     }
@@ -163,8 +161,12 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
 async function boot(): Promise<void> {
   const root = document.getElementById("app");
   if (!root) return; // test environment mounts explicitly
-  const { createViewer3d } = await import("./views/viewer3d.js");
-  mountApp(root, createViewer3d());
+  try {
+    const { createViewer3d } = await import("./views/viewer3d.js");
+    mountApp(root, createViewer3d());
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : String(err), "Preview Failed");
+  }
 }
 
 void boot();

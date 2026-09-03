@@ -5,8 +5,8 @@ import type { CorePlan } from "../layout/index.js";
 import { elevatorWaitUv } from "../layout/index.js";
 import { uvToWorld } from "../layout/uv.js";
 
-/** Exports the layout grids and vertical connectors. Every stair and elevator serves every
- *  planned floor (digital controls default); spans-2 upper halves have no stop. */
+/** Exports the layout grids and vertical connectors. Multi-floor stairs and elevators serve
+ *  every occupied floor; double-height upper halves have no stop. */
 export function buildNav(floors: FloorInterior[], grids: Map<number, WalkGrid>, core: CorePlan): Nav {
   const served = floors.filter((f) => f.rooms.length > 0).map((f) => f.floor).sort((a, b) => a - b);
 
@@ -22,6 +22,7 @@ export function buildNav(floors: FloorInterior[], grids: Map<number, WalkGrid>, 
   });
 
   const connectors: NavConnector[] = [];
+  if (served.length < 2) return { cellSize: CELL, floors: navFloors, connectors };
   const sample = floors.find((f) => f.rooms.length > 0)!;
   core.elevators.forEach((elevator, i) => {
     const [x, z] = uvToWorld(elevatorWaitUv(core, i), core.frame);

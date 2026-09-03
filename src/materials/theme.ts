@@ -1,6 +1,5 @@
-/** Consumer view of ../../materials: its theme index and material entries, as documented in
- *  ../materials/CONTRACT.md and schema/material-entry.schema.json. Only the fields this box
- *  needs to texture a GLB. */
+/** Consumer view of the sibling Materials theme index and material-entry schema. Only the
+ *  fields this box needs to texture a glTF document. */
 
 export type MapSlot = "basecolor" | "normal" | "roughness" | "metallic" | "height" | "ao" | "emission";
 

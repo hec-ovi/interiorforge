@@ -27,7 +27,7 @@ const FURNITURE_ANCHORS: Record<string, { kind: AnchorKind; side: "front" | "beh
   toilet: { kind: "toilet", side: "front" },
   gym_machine: { kind: "machine_spot", side: "front" },
   display_rack: { kind: "work_spot", side: "front" },
-  // seats are real pieces now: the anchor is on the seat, facing where the seat faces
+  // seat anchors use the seat surface and its facing
   chair: { kind: "seat", side: "on" },
   stool: { kind: "seat", side: "on" },
   office_chair: { kind: "seat", side: "on" },

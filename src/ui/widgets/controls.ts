@@ -28,7 +28,7 @@ export function createControls(
 
   const header = el("div", { class: "sidebar-header" }, [
     brandRow,
-    el("span", { class: "brand-tag" }, ["URBE SPATIAL ENGINE v0.17"]),
+    el("span", { class: "brand-tag" }, ["URBE SPATIAL ENGINE v0.27.1"]),
   ]);
 
   // Parametric Generator Inputs
@@ -94,7 +94,7 @@ export function createControls(
     generate,
     el("div", { class: "section-title" }, ["SOURCE FILES"]),
     el("div", { class: "load-row" }, [
-      el("span", { class: "load-hint" }, ["or load a real building (shell .glb + blueprint .json + request .json)"]),
+      el("span", { class: "load-hint" }, ["or load a real building (shell .glb + blueprint .json + optional request .json)"]),
       loadInput,
     ]),
     el("div", { class: "section-title" }, ["VIEW & NAVIGATION"]),

@@ -20,6 +20,17 @@ describe("buildNpcSupport", () => {
     expect(check(asJson), JSON.stringify(check.errors)).toBe(true);
   });
 
+  it("omits inter-floor connectors from a single-floor building", () => {
+    const single = makeFixture({ seed: 2, floors: 1 });
+    const support = buildNpcSupport(
+      planBuilding(single.request, resolveAssignments(single.request)), single.request,
+    );
+    const check = new Ajv2020({ allErrors: false, strict: false }).compile(npcSchema);
+
+    expect(support.nav.connectors).toEqual([]);
+    expect(check(JSON.parse(JSON.stringify(support))), JSON.stringify(check.errors)).toBe(true);
+  });
+
   it("is deterministic", () => {
     const again = buildNpcSupport(planBuilding(fix.request, resolveAssignments(fix.request)), fix.request);
     expect(JSON.stringify(again)).toBe(JSON.stringify(npc));
@@ -173,7 +184,7 @@ describe("buildNpcSupport", () => {
     }
   });
 
-  it("returns null for an unreachable target instead of throwing", () => {
+  it("returns null for an unreachable target", () => {
     const entrance = npc.anchors.find((a) => a.kind === "entrance")!;
     expect(findPath(npc, { floor: 0, position: entrance.position }, { floor: 999, position: [0, 0] })).toBeNull();
   });

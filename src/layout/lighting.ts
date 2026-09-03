@@ -157,8 +157,8 @@ class FloorLighting {
     }
   }
 
-  /** One flush downlight in the arrival landing above the entry. It is embedded into the
-   *  landing rather than hung below it, preserving the full stair headroom. */
+  /** One flush downlight embedded in the arrival landing above the entry, preserving the
+   *  full stair headroom. */
   stairwell(id: string, shaft: UvRect, entry: Point, landingY: number): void {
     const alongU = shaft.lu >= shaft.lv;
     const runStart = alongU ? shaft.u : shaft.v;

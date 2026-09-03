@@ -156,4 +156,37 @@ describe("preview ui", () => {
     closeBtn.click();
     expect(toastElem!.classList.contains("toast-dismissing")).toBe(true);
   });
+
+  it("renders generation failures and restores the controls", async () => {
+    document.body.innerHTML = "";
+    const root = document.createElement("div");
+    document.body.append(root);
+    const viewer = fakeViewer();
+    viewer.setGlb = async () => {
+      throw new Error("viewer rejected the GLB");
+    };
+
+    const state = mountApp(root, viewer);
+
+    await findByText(document.body, "Generation Failed", {}, { timeout: 30000 });
+    await findByText(document.body, "viewer rejected the GLB");
+    await waitFor(() => expect(state.busy).toBe(false));
+    expect(getByRole<HTMLButtonElement>(root, "button", { name: "generate" }).disabled).toBe(false);
+  }, 40000);
+
+  it("renders incomplete file selections and restores the controls", async () => {
+    document.body.innerHTML = "";
+    const root = document.createElement("div");
+    document.body.append(root);
+    const state = mountApp(root, fakeViewer());
+    await waitFor(() => expect(state.result).not.toBeNull(), { timeout: 30000 });
+    const input = root.querySelector<HTMLInputElement>('input[name="load"]')!;
+    const user = userEvent.setup();
+
+    await user.upload(input, new File(["unrecognized"], "notes.txt", { type: "text/plain" }));
+
+    await findByText(document.body, "Load Failed");
+    await findByText(document.body, "need a shell .glb and a blueprint .json");
+    await waitFor(() => expect(state.busy).toBe(false));
+  }, 40000);
 });

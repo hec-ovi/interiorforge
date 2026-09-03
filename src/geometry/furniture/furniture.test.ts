@@ -28,11 +28,11 @@ function build(kind: FurnitureKind, rotationDeg: 0 | 90 = 0, angleDeg = 0): numb
 }
 
 describe("shaped furniture", () => {
-  it("builds every kind out of real parts, not one placeholder block", () => {
+  it("builds every kind as a shaped assembly", () => {
     for (const kind of KINDS) {
       const verts = build(kind);
       // a single box is 24 vertices; every piece is made of several
-      expect(verts, `${kind} is a placeholder`).toBeGreaterThan(48);
+      expect(verts, `${kind} needs shaped geometry`).toBeGreaterThan(48);
     }
   });
 

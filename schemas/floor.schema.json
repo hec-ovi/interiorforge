@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urbe/interior/floor",
   "title": "FloorInterior",
-  "description": "Layout of one generated floor: vertical core, rooms, doors, furniture. Coordinates are building-local XZ meters, same space as the blueprint.",
+  "description": "Layout of one generated floor: vertical core, rooms, doors, furniture and lights. Coordinates are building-local XZ meters, same space as the blueprint.",
   "type": "object",
   "required": [
     "floor",
@@ -409,7 +409,7 @@
             "type": "number",
             "minimum": 0,
             "maximum": 1,
-            "description": "share of the flux that leaves as a soft wash rather than a beam; a cove is almost all wash"
+            "description": "share of the flux emitted as a soft wash; a cove is almost all wash"
           },
           "facing": {
             "enum": [

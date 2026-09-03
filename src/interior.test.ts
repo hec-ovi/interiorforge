@@ -160,4 +160,11 @@ describe("generateInterior", () => {
       generateInterior(fix.request, { shellDoc: tiny.shellDoc }),
     ).rejects.toMatchObject({ code: "E_SHELL_MISMATCH" });
   });
+
+  it("reports an unreadable shell through the closed error set", async () => {
+    const request = structuredClone(fix.request);
+    request.shellGlb = "fixtures/missing-shell.glb";
+    await expect(generateInterior(request, { textures: { mode: "keys" } }))
+      .rejects.toMatchObject({ code: "E_SHELL_MISMATCH", message: /cannot read shell GLB/ });
+  });
 });

@@ -1,15 +1,15 @@
 # Box map
 
-Root box: the interior generator (CONTRACT.md). Inner boxes, one folder each:
+Root box: the [interior generator](../CONTRACT.md). Inner boxes, one folder each:
 
-- `src/core`: seeded RNG, 2D geometry (clipping, exact polygon insets), walkable grid, shared types, error type. Depends on nothing.
-- `src/glb`: GLB read and write, mesh builder with winding, UV discipline and sealed typed buffers. Depends on core.
-- `src/blueprint`: request validation, assignment resolution, standalone fixture shell. Depends on core, glb.
-- `src/layout`: shell wall model, vertical core plan, corridors, rooms, furniture, lights, nav grid, reachability validation. Depends on core.
-- `src/npc`: anchors, roles, routines, nav export, reference pathfinder. Depends on core, layout.
-- `src/materials`: resolves material keys through ../materials and textures the GLB (external URIs, embedded maps, or keys only). Depends on core, glb.
-- `src/geometry`: interior meshes completing the shell GLB (built per floor band, merged for the building), stairs, walls, lights, `furniture/` (one shaped model per kind), and the shell fit check. Depends on core, glb, layout.
-- `src/ui`: browser preview: panoptic 3D view plus standalone floor editor. Depends on core, root surface, three.js.
+- [`src/core`](../src/core/CONTRACT.md): seeded RNG, 2D geometry, walkable grid, shared types and errors. Depends on nothing.
+- [`src/glb`](../src/glb/CONTRACT.md): GLB I/O and mesh construction with winding, UV and sealed-buffer rules. Depends on core.
+- [`src/blueprint`](../src/blueprint/CONTRACT.md): request validation, assignment resolution and fixture shells. Depends on core and glb.
+- [`src/layout`](../src/layout/CONTRACT.md): shell wall model, vertical core, rooms, furniture, lights, nav grid and reachability. Depends on core.
+- [`src/npc`](../src/npc/CONTRACT.md): anchors, roles, routines, nav export and pathfinding. Depends on core and layout.
+- [`src/materials`](../src/materials/CONTRACT.md): resolves material keys through the sibling [Materials](https://github.com/hec-ovi/pbrforge/blob/main/CONTRACT.md) database and textures a glTF document. Depends on core, Materials and glTF Transform.
+- [`src/geometry`](../src/geometry/CONTRACT.md): floor-band and combined interior meshes, shaped furniture and shell-fit checks. Depends on core, glb and layout.
+- [`src/ui`](../src/ui/CONTRACT.md): Three.js building preview and floor inspector. Depends on the root surface, core, glb, materials, npc and Three.js.
 
 Root `src/index.ts` wires blueprint -> layout -> npc -> geometry -> materials. `generateInterior` returns the combined building; `generateFloorInteriors` serializes and releases one floor at a time without a combined document. `src/cli.ts` runs either path from the terminal.
 

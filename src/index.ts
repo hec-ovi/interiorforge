@@ -1,4 +1,5 @@
 import type { Document } from "@gltf-transform/core";
+import { InteriorError } from "./core/errors.js";
 import { readGlbFile, writeGlb } from "./glb/io.js";
 import { resolveAssignments, validateRequest, validateShell } from "./blueprint/validate.js";
 import { buildInterior, buildInteriorBands } from "./geometry/index.js";
@@ -12,7 +13,7 @@ export { makeFixture, type FixtureOptions } from "./blueprint/fixture.js";
 export { findPath, type PathLeg, type PathQuery } from "./npc/index.js";
 export { coreFeasibility, type CoreFeasibility } from "./layout/index.js";
 export { type TextureMode, type TextureOptions, type TextureReport } from "./materials/index.js";
-export { InteriorError } from "./core/errors.js";
+export { InteriorError };
 export type * from "./core/types.js";
 
 export interface GenerateOptions {
@@ -34,7 +35,7 @@ export async function generateInterior(
   request: unknown, options: GenerateOptions = {},
 ): Promise<InteriorResult> {
   const validated = validateRequest(request);
-  const shellDoc = options.shellDoc ?? (await readGlbFile(validated.shellGlb));
+  const shellDoc = options.shellDoc ?? (await readShell(validated.shellGlb));
   validateShell(validated, shellDoc);
 
   const assignments = resolveAssignments(validated);
@@ -68,9 +69,18 @@ export async function generateFloorInteriors(
 
 async function validateFloorRequest(request: unknown, supplied?: Document): Promise<InteriorRequest> {
   const validated = validateRequest(request);
-  const shell = supplied ?? (await readGlbFile(validated.shellGlb));
+  const shell = supplied ?? (await readShell(validated.shellGlb));
   validateShell(validated, shell);
   return validated;
+}
+
+async function readShell(path: string): Promise<Document> {
+  try {
+    return await readGlbFile(path);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new InteriorError("E_SHELL_MISMATCH", `cannot read shell GLB "${path}": ${message}`);
+  }
 }
 
 function finishFloors(

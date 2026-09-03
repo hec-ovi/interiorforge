@@ -181,7 +181,7 @@ export function createViewer3d(): Viewer3D {
     setFloorSlice(slice) {
       clipping = slice !== null;
       if (slice) {
-        hudModeText.textContent = `FLOOR SLICE (${slice.y0.toFixed(1)}m – ${slice.y1.toFixed(1)}m)`;
+        hudModeText.textContent = `FLOOR SLICE (${slice.y0.toFixed(1)}m - ${slice.y1.toFixed(1)}m)`;
         // keep geometry with slice.y0 <= y <= slice.y1
         clipLow.constant = -slice.y0;
         clipHigh.constant = slice.y1;
