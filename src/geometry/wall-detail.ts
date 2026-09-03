@@ -8,6 +8,9 @@ export const BASEBOARD = 0.12;
 export const DADO_TOP = 1.05;
 export const TOP_TRIM = 0.09;
 const PROUD = BAND_PROUD;
+/** Small hidden overlap between neighbouring solid bands. It closes the thickness step
+ *  without putting two caps on the same plane. */
+export const BAND_SEAL = 0.002;
 
 export interface WallBands {
   /** absolute y of the floor and of the ceiling plane */
@@ -37,11 +40,12 @@ export function layerBands(
   exposed: Exposed = {},
 ): void {
   const slice = (material: string, thickness: number, a: number, b: number): void => {
-    const lo = Math.max(sy0, a);
-    const hi = Math.min(sy1, b);
+    const lo = Math.max(sy0, a - BAND_SEAL);
+    const hi = Math.min(sy1, b + BAND_SEAL);
     if (hi - lo <= 1e-3) return;
-    const capped = (exposed.bottom && lo <= sy0 + 1e-6) || (exposed.top && hi >= sy1 - 1e-6);
-    emit(material, thickness, lo, hi, capped ? "both" : "none");
+    // Every band is a closed box. Neighbouring sections overlap inside the wall by 2 mm,
+    // so their caps never coincide and a proud baseboard or trim leaves no open ledge.
+    emit(material, thickness, lo, hi, "both");
   };
   const base = bands.y0;
   const trimStart = Math.max(base + DADO_TOP, bands.ceilingY - TOP_TRIM);

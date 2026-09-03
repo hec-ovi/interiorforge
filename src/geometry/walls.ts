@@ -101,6 +101,8 @@ export function buildInteriorWalls(
     lineFor(extra.axis, extra.c).holes.push(extra.hole);
   }
 
+  for (const line of lines.values()) line.holes = canonicalHoles(line.holes);
+
   const bands: WallBands = {
     y0: elevation, ceilingY,
     field: keys.wall(), accent: keys.accent(program), trim: keys.trim(),
@@ -116,6 +118,19 @@ export function buildInteriorWalls(
       }
     }
   }
+}
+
+/** A doorway is recorded by both adjoining rooms. Collapse those records before drawing,
+ *  otherwise the two casings and lintels occupy exactly the same planes. */
+export function canonicalHoles(holes: readonly WallHole[]): WallHole[] {
+  const unique = new Map<string, WallHole>();
+  for (const hole of holes) {
+    const key = [hole.at, hole.width, hole.y0, hole.y1]
+      .map((value) => Math.round(value * 1e5))
+      .join(":");
+    if (!unique.has(key)) unique.set(key, hole);
+  }
+  return [...unique.values()].sort((a, b) => a.at - b.at || a.y0 - b.y0 || a.y1 - b.y1);
 }
 
 /** The interior segments of a room's outline: its clipped polygon edges off the facade,
