@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import floorSchema from "../schemas/floor.schema.json" with { type: "json" };
+import type { RoomDoor } from "./core/types.js";
 import { readGlbBytes } from "./glb/io.js";
 import { findPath, generateFloorInteriors, generateInterior, makeFixture } from "./index.js";
 
@@ -207,6 +208,44 @@ describe("generateInterior", () => {
     const ajv = new Ajv2020({ allErrors: false, strict: false });
     const check = ajv.compile(floorSchema);
     expect(check(JSON.parse(JSON.stringify(floor))), JSON.stringify(check.errors)).toBe(true);
+  });
+
+  it("emits doorway casings as closed face trims without occupying the wall reveal", async () => {
+    const fixture = makeFixture({ seed: "casing-section", floors: 2, type: "offices" });
+    const result = await generateFloorInteriors(fixture.request, {
+      shellDoc: fixture.shellDoc, textures: { mode: "keys" },
+    });
+    const floor = result.floors.find((item) => item.floor === 0)!;
+    const door = floor.rooms.flatMap((room) => room.doors)
+      .find((item): item is RoomDoor => item.to !== "outside" && item.kind !== "openFront")!;
+    const angle = door.angleDeg * Math.PI / 180;
+    const along: [number, number] = [Math.cos(angle), Math.sin(angle)];
+    const inward: [number, number] = [-along[1], along[0]];
+    const head = floor.elevation + (door.leaves >= 3 ? 3 : 2.5);
+    const document = await readGlbBytes(result.floorGlbs.get(0)!);
+    const node = document.getRoot().listNodes()
+      .find((item) => item.getName().includes("/door/"))!;
+    const primitive = node.getMesh()!.listPrimitives()[0]!;
+    const positions = primitive.getAttribute("POSITION")!.getArray()!;
+    const indices = primitive.getIndices()!.getArray()!;
+    const depths: number[] = [];
+    for (let i = 0; i < indices.length; i += 3) {
+      const vertices = [0, 1, 2].map((offset) => {
+        const at = Number(indices[i + offset]) * 3;
+        return [positions[at]!, positions[at + 1]!, positions[at + 2]!] as const;
+      });
+      const center = vertices.reduce<[number, number, number]>((sum, vertex) => [
+        sum[0] + vertex[0] / 3, sum[1] + vertex[1] / 3, sum[2] + vertex[2] / 3,
+      ], [0, 0, 0]);
+      const dx = center[0] - door.position[0];
+      const dz = center[2] - door.position[1];
+      if (Math.abs(center[1] - head) > 0.09 || Math.abs(dx * along[0] + dz * along[1]) > door.width / 2) continue;
+      const projection = vertices.map((vertex) =>
+        (vertex[0] - door.position[0]) * inward[0] + (vertex[2] - door.position[1]) * inward[1]);
+      depths.push(Math.max(...projection) - Math.min(...projection));
+    }
+    expect(depths.length).toBeGreaterThan(0);
+    expect(Math.max(...depths)).toBeLessThanOrEqual(0.0201);
   });
 
   it("connects the last served floor to Exterior's roof threshold and nav surface", async () => {

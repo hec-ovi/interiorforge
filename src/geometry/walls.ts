@@ -252,15 +252,24 @@ function emitWallRun(
       mb.addPrism(material, toWorldPolygon(footprint, frame), by0, by1, "world", caps);
     }, exposed);
   };
-  // a casing member: a box on the wall line standing proud of both faces, clipped like the wall
+  // A casing member is two closed face trims. The closed wall end owns the reveal between
+  // them, so no second solid occupies that reveal or shares its visible jamb/head planes.
   const member = (s: number, e: number, my0: number, my1: number) => {
     if (e - s < 1e-3 || my1 - my0 < 1e-3) return;
-    const thickness = WALL + 2 * CASING.proud;
-    const rect: UvRect = line.axis === "H"
-      ? { u: s, v: line.c - thickness / 2, lu: e - s, lv: thickness }
-      : { u: line.c - thickness / 2, v: s, lu: thickness, lv: e - s };
-    const footprint = clipPolygonToRect(envelope, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv });
-    if (footprint.length >= 3) mb.addPrism(bands.casing, toWorldPolygon(footprint, frame), my0, my1, "world");
+    const half = WALL / 2;
+    const rects: UvRect[] = line.axis === "H"
+      ? [
+          { u: s, v: line.c - half - CASING.proud, lu: e - s, lv: CASING.proud },
+          { u: s, v: line.c + half, lu: e - s, lv: CASING.proud },
+        ]
+      : [
+          { u: line.c - half - CASING.proud, v: s, lu: CASING.proud, lv: e - s },
+          { u: line.c + half, v: s, lu: CASING.proud, lv: e - s },
+        ];
+    for (const rect of rects) {
+      const footprint = clipPolygonToRect(envelope, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv });
+      if (footprint.length >= 3) mb.addPrism(bands.casing, toWorldPolygon(footprint, frame), my0, my1, "world");
+    }
   };
   for (const hole of sorted) {
     const h0 = Math.max(a, hole.at - hole.width / 2);
