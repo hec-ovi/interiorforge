@@ -9,7 +9,7 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 ## Out
 
 - `BuildingPlan`
-  - `floors: FloorInterior[]` (the floor.schema.json shape) sorted by index; a double-height span's upper floor has `rooms: []`. Room polygons tile the outline; the shell wall model (`shell.ts`: wall depth from the blueprint's `facade.wallDepth`, else by facade style; lining; bands) says where the room really starts, and the core, furniture, light fixtures and the nav grid keep to that inner plate.
+  - `floors: FloorInterior[]` (the floor.schema.json shape) sorted by index; a double-height span's upper floor has `rooms: []`. Each floor publishes every exterior opening's forbidden volume in `openingReservations`, including partition width allowance, facade depth and moving-door depth. Room polygons tile the outline; the shell wall model (`shell.ts`: wall depth from the blueprint's `facade.wallDepth`, else by facade style; lining; bands) says where the room really starts, and the core, furniture, light fixtures and the nav grid keep to that inner plate.
   - `core: CorePlan`: building-wide vertical core in frame (uv) space, identical on every floor. The frame aligns u to the longest ground edge and flips so a street door or `openFront` faces the hall side; rotated parcels work natively, `coreAngleDeg` carries the rotation.
   - `navGrids: Map<number, WalkGrid>`: 0.25 m wall-aware walkable grid per floor, world-axis-aligned regardless of frame rotation; diagonal walls are blocked by their true distance.
   - `uvFloors: Map<number, UvFloorData>`: frame-space rooms, furniture and sealed bands for the geometry and NPC passes.
@@ -28,7 +28,8 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 - The same request and assignments produce the same plan. Each floor has an independent RNG stream, so consuming values on floor M does not shift floor N's random choices.
 - Core rects are identical across floors and placed behind the facade lining. Stairs are continuous, with 1.2 m clear flights, 0.16 to 0.18 m risers, 0.28 m treads and 1.2 m landings. Every occupied floor is served by every elevator.
 - Every room is reachable from the floor's spine (corridor, elevator lobby or mall concourse) through its connections. Corridor and door widths follow [the research constants](../../docs/RESEARCH.md).
-- A ground-floor `openFront` connects its facade room to outside at `portal.clearWidth`, opens the nav grid across the lining and reserves its clear approach without a leaf swing.
+- A ground-floor `openFront` connects its facade room to outside at `portal.clearWidth`, opens the nav grid across the lining and reserves its clear approach without a leaf swing. A moving exterior door consumes `door.motion.clearDepth`; the exported room connection repeats it and furniture and NPC anchors stay out of it.
+- Facade endpoints use `facade.grids[].partitionAnchors` as their sole full-thickness permission. Grid fitting runs before facade fitting. A movable partition lands on an anchor; a core-locked or minimum-room boundary stops before the reserved opening volume and joins the facade-side space instead of crossing the opening.
 - Rooms, corridors, sealed shafts and core occupy the usable inner plate without an interior gap band.
 
 ## Depends on

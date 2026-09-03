@@ -18,6 +18,8 @@ interface PlanConnection {
 export type PlanDoor = PlanConnection & ({
   to: string; // room id, "outside", or a core element id
   leaves: 1 | 2 | 3 | 4;
+  /** inward moving-leaf reservation on an exterior door */
+  clearDepth?: number;
   openFront?: never;
 } | {
   to: "outside";

@@ -3,7 +3,7 @@ import { clipPolygonToRect, isCcw, polygonBounds } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
 import { createRng } from "../core/rng.js";
 import type {
-  BlueprintFloor, Door, FloorInterior, FloorKind, InteriorRequest, Room,
+  BlueprintFloor, Door, FloorInterior, FloorKind, InteriorRequest, OpeningReservation, Room,
 } from "../core/types.js";
 import { CELL, ceilingUnder, DOOR, ELEVATOR, ROOM, SOFFIT_DEPTH, stairSlab } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
@@ -12,6 +12,7 @@ import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import { planLights } from "./lighting.js";
 import { isExteriorConnection } from "./openings.js";
+import { PARTITION_HALF } from "./openings.js";
 import { alignPartitionsToPiers } from "./pier-align.js";
 import { fitPartitionsToGrid, refitDoors } from "./tile-fit.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
@@ -56,7 +57,9 @@ export function planFloor(
         floor: floor.index, kind, elevation: floor.elevation, height: floor.height,
         ceilingElevation: round3(floor.elevation + floor.height - SOFFIT_DEPTH),
         coreAngleDeg: frame.angleDeg,
-        core: coreToWorld(core, []), rooms: [], furniture: [], lights: [],
+        core: coreToWorld(core, []),
+        openingReservations: reserveOpenings(floor, bounds.facadeDepth),
+        rooms: [], furniture: [], lights: [],
       },
       // upper half of a double-height space: no slab, nothing walkable
       grid: new WalkGrid([b.x, b.z], CELL, Math.ceil(b.w / CELL), Math.ceil(b.d / CELL)),
@@ -131,10 +134,13 @@ export function planFloor(
     for (const r of rooms) r.doors = r.doors.filter((d) => !dropped.has(d.to));
   }
 
-  // partitions must not cut a window: wall lines slide onto the piers between openings
-  alignPartitionsToPiers(rooms, [...backing.sealed, ...extraSealed], floor, core, uvOutline);
-  // then onto the interior grid, half the exterior panel, counted from the outline's corner
+  // partitions first land on the interior grid, half the exterior panel, counted from the
+  // outline's corner. The facade reservation pass runs last so the grid cannot move a wall
+  // back through an opening after it has been fitted to a pier.
   fitPartitionsToGrid(rooms, [...backing.sealed, ...extraSealed], floor, core, uvOutline);
+  alignPartitionsToPiers(
+    rooms, [...backing.sealed, ...extraSealed], floor, core, uvOutline, request.blueprint.facade,
+  );
   // walls moved twice since the doors were cut: every door goes back inside the stretch its rooms share
   refitDoors(rooms, bounds.inner);
 
@@ -162,7 +168,7 @@ export function planFloor(
       }
       const leaves = o.leaves
         ?? Math.min(4, Math.max(1, Math.round(o.width / DOOR.single))) as 1 | 2 | 3 | 4;
-      return { at, width: o.width, leaves };
+      return { at, width: o.width, leaves, clearDepth: o.door?.motion?.clearDepth };
     });
   attachOutsideDoors(rooms, exteriorDoors, ids);
 
@@ -179,6 +185,7 @@ export function planFloor(
       floor: floor.index, kind, elevation: floor.elevation, height: floor.height, ceilingElevation,
       coreAngleDeg: frame.angleDeg,
       core: coreToWorld(core, sealed),
+      openingReservations: reserveOpenings(floor, bounds.facadeDepth),
       rooms: rooms.map((r) => roomToWorld(r, uvOutline, frame)),
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
       lights: planLights(
@@ -279,7 +286,33 @@ function doorToWorld(door: PlanDoor, room: PlanRoom, frame: Frame): Door {
         ...common, kind: "openFront",
         clearHeight: door.openFront.clearHeight, clearDepth: door.openFront.clearDepth,
       }
-    : { ...common, leaves: door.leaves };
+    : {
+        ...common, leaves: door.leaves,
+        ...(door.clearDepth === undefined ? {} : { clearDepth: door.clearDepth }),
+      };
+}
+
+/** Exact facade volumes held before allocation. Width includes the full partition safety
+ *  allowance; depth includes the lining and any moving-leaf envelope. */
+function reserveOpenings(floor: BlueprintFloor, facadeDepth: number): OpeningReservation[] {
+  return floor.openings.map((opening) => {
+    const p0 = floor.outline[opening.edge]!;
+    const p1 = floor.outline[(opening.edge + 1) % floor.outline.length]!;
+    const edgeLength = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
+    const along: Point = [(p1[0] - p0[0]) / edgeLength, (p1[1] - p0[1]) / edgeLength];
+    const motion = opening.door?.motion?.clearDepth ?? opening.portal?.clearDepth ?? 0;
+    return {
+      opening: opening.id,
+      kind: opening.kind,
+      position: roundPoint(doorWorldPoint(floor, opening.edge, opening.offset + opening.width / 2)),
+      angleDeg: norm360((Math.atan2(along[1], along[0]) * 180) / Math.PI),
+      inward: roundPoint([-along[1], along[0]]),
+      width: round3(opening.width + 2 * PARTITION_HALF),
+      sill: opening.sill,
+      height: opening.height,
+      depth: round3(Math.max(facadeDepth, motion) + PARTITION_HALF),
+    };
+  });
 }
 
 function furnitureToWorld(f: PlanFurniture, frame: Frame) {

@@ -12,6 +12,7 @@
     "ceilingElevation",
     "coreAngleDeg",
     "core",
+    "openingReservations",
     "rooms",
     "furniture",
     "lights"
@@ -126,6 +127,26 @@
         }
       }
     },
+    "openingReservations": {
+      "type": "array",
+      "description": "exterior opening volumes reserved before room, wall, fixture and furniture placement",
+      "items": {
+        "type": "object",
+        "required": ["opening", "kind", "position", "angleDeg", "inward", "width", "sill", "height", "depth"],
+        "additionalProperties": false,
+        "properties": {
+          "opening": { "type": "string" },
+          "kind": { "enum": ["door", "window", "balconyDoor", "openFront", "aperture"] },
+          "position": { "$ref": "#/$defs/point2" },
+          "angleDeg": { "type": "number" },
+          "inward": { "$ref": "#/$defs/point2" },
+          "width": { "type": "number", "exclusiveMinimum": 0 },
+          "sill": { "type": "number", "minimum": 0 },
+          "height": { "type": "number", "exclusiveMinimum": 0 },
+          "depth": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
     "rooms": {
       "type": "array",
       "description": "empty exactly when this floor is the upper half of a spans-2 assignment",
@@ -234,7 +255,7 @@
                 "clearDepth": {
                   "type": "number",
                   "exclusiveMinimum": 0,
-                  "description": "openFront only: exact traversable depth through the fixed surround"
+                  "description": "moving exterior door reservation, or openFront traversable depth through the fixed surround"
                 }
               },
               "oneOf": [

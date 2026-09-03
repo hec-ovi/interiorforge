@@ -1,14 +1,14 @@
 import type { Point } from "../core/geom.js";
-import type { BlueprintFloor, FloorInterior, Opening } from "../core/types.js";
+import type { BlueprintFloor, Facade as BlueprintFacade, FloorInterior, Opening } from "../core/types.js";
 import { WALL } from "./constants.js";
 
 /** Facade openings as a keep-off rule for interior walls: a partition may only meet the
  *  facade on a pier, never across a window or a door. */
 
-/** Half a partition plus the reveal a wall needs beside a frame. */
-/** Half the width of a mullion or jamb: a wall this close to an opening's boundary stands on the member. */
+/** Half the width of a legacy opening jamb. Explicit facade grids supersede this fallback. */
 const MEMBER_HALF = 0.06;
-const WALL_MARGIN = WALL / 2 + 0.06;
+/** Half the partition plus Exterior's required safety space on each side. */
+export const PARTITION_HALF = WALL / 2 + 0.02;
 /** A wall end this close to an outline edge is touching the facade. */
 const CONTACT_EPS = 0.12;
 
@@ -23,7 +23,10 @@ export function isStreetAccess(opening: { kind: string }): boolean {
 }
 
 export class Facade {
-  constructor(private readonly floor: BlueprintFloor) {}
+  constructor(
+    private readonly floor: BlueprintFloor,
+    private readonly facade?: BlueprintFacade,
+  ) {}
 
   /** Where a point sits on the outline, or null when it is not on the facade at all. */
   contact(p: Point): { edge: number; t: number } | null {
@@ -42,28 +45,39 @@ export class Facade {
     return null;
   }
 
-  /** The opening a wall arriving at this point would cross, if any. A wall that lands on an
-   *  opening's boundary meets the frame member there (a mullion between two bays, a jamb), so
-   *  on a curtain wall partitions fall on the mullion lines and never mid-pane. */
-  crossedBy(p: Point, margin = WALL_MARGIN): string | null {
+  /** The facade reservation a wall arriving here would violate. When Exterior publishes a
+   *  grid, partitionAnchors are the sole permitted full-thickness endpoints. */
+  reservationAt(p: Point, margin = PARTITION_HALF): { id: string; opening?: Opening } | null {
     const hit = this.contact(p);
     if (!hit) return null;
+    const grid = this.facade?.grids?.find((entry) => entry.floor === this.floor.index && entry.edge === hit.edge);
+    if (grid) {
+      const allowed = grid.partitionAnchors.some((anchor) => {
+        const half = anchor.width / 2;
+        return hit.t - margin >= anchor.offset - half - 1e-6
+          && hit.t + margin <= anchor.offset + half + 1e-6;
+      });
+      if (allowed) return null;
+      const opening = this.floor.openings.find((candidate) =>
+        candidate.edge === hit.edge
+        && hit.t + margin > candidate.offset
+        && hit.t - margin < candidate.offset + candidate.width);
+      return { id: opening?.id ?? `facade:${this.floor.index}:${hit.edge}:unreserved`, ...(opening ? { opening } : {}) };
+    }
+
+    // Older blueprints without facade grids retain the opening-jamb compatibility rule.
     for (const opening of this.floor.openings) {
       if (opening.edge !== hit.edge) continue;
       const end = opening.offset + opening.width;
       if (Math.abs(hit.t - opening.offset) <= MEMBER_HALF || Math.abs(hit.t - end) <= MEMBER_HALF) continue;
       if (hit.t + margin <= opening.offset || hit.t - margin >= end) continue;
-      // a mullion inside a glazed sheet is a member too: a wall may stand on any pane column line
-      const cols = (opening as { panes?: { cols?: number } }).panes?.cols ?? 1;
-      if (cols > 1) {
-        const paneW = opening.width / cols;
-        let onMullion = false;
-        for (let k = 1; k < cols; k++) if (Math.abs(hit.t - (opening.offset + k * paneW)) <= MEMBER_HALF) onMullion = true;
-        if (onMullion) continue;
-      }
-      return opening.id;
+      return { id: opening.id, opening };
     }
     return null;
+  }
+
+  crossedBy(p: Point, margin = PARTITION_HALF): string | null {
+    return this.reservationAt(p, margin)?.id ?? null;
   }
 }
 
@@ -76,8 +90,10 @@ export interface PartitionConflict {
 
 /** Interior walls that end inside a window or door of the facade. Empty on a good floor:
  *  partitions land on the piers between the blueprint's openings. */
-export function partitionConflicts(floor: FloorInterior, bpFloor: BlueprintFloor): PartitionConflict[] {
-  const facade = new Facade(bpFloor);
+export function partitionConflicts(
+  floor: FloorInterior, bpFloor: BlueprintFloor, blueprintFacade?: BlueprintFacade,
+): PartitionConflict[] {
+  const facade = new Facade(bpFloor, blueprintFacade);
   const out: PartitionConflict[] = [];
   const seen = new Set<string>();
   for (const room of floor.rooms) {

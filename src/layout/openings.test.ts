@@ -27,16 +27,20 @@ describe("Facade.crossedBy", () => {
 });
 
 describe("Facade.crossedBy on a glazed sheet", () => {
-  it("lets a wall stand on a pane mullion and refuses it mid-pane", async () => {
+  it("uses only explicit full-thickness anchors, never an arbitrary pane mullion", async () => {
     const { Facade } = await import("./openings.js");
     const floor = {
       index: 0, kind: "office", elevation: 0, height: 4,
       outline: [[0, 0], [12, 0], [12, 8], [0, 8]],
       openings: [{ id: "w0", kind: "window", edge: 0, offset: 1, width: 4, height: 3, sill: 0, panes: { cols: 4, rows: 2 } }],
     } as never;
-    const facade = new Facade(floor);
-    expect(facade.crossedBy([3, 0])).toBeNull(); // the mullion between panes two and three
+    const facade = new Facade(floor, {
+      grids: [{ floor: 0, edge: 0, partitionAnchors: [{ offset: 0.8, width: 0.2 }] }],
+    });
+    expect(facade.crossedBy([3, 0])).toBe("w0"); // pane mullion has no structural permission
     expect(facade.crossedBy([3.5, 0])).toBe("w0"); // mid-pane
-    expect(facade.crossedBy([1, 0])).toBeNull(); // the jamb
+    expect(facade.crossedBy([1, 0])).toBe("w0"); // an opening boundary is not an anchor
+    expect(facade.crossedBy([0.8, 0])).toBeNull(); // full partition plus safety fits the anchor
+    expect(facade.crossedBy([0.8, 0], 0.11)).toBe("facade:0:0:unreserved"); // a thicker wall does not fit it
   });
 });

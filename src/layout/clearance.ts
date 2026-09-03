@@ -18,7 +18,7 @@ export function doorZone(door: PlanDoor, room: PlanRoom): UvRect {
   const [u, v] = doorUvPoint(door, room);
   const across = door.openFront
     ? Math.max(door.openFront.clearDepth, DOOR.clearance)
-    : Math.max(door.width / door.leaves, DOOR.clearance);
+    : Math.max(door.clearDepth ?? door.width / door.leaves, DOOR.clearance);
   const along = door.width / 2 + DOOR.jamb;
   if (door.openFront) {
     const rad = (door.openFront.angleDeg * Math.PI) / 180;

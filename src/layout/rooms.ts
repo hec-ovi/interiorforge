@@ -561,7 +561,7 @@ export function fillServiceSegment(
 /** Facade connections: attach each traversable blueprint opening to the room it lands on. */
 export function attachOutsideDoors(
   rooms: PlanRoom[], uvDoorPoints: ({ at: [number, number]; width: number } & ({
-    leaves: 1 | 2 | 3 | 4; openFront?: never;
+    leaves: 1 | 2 | 3 | 4; clearDepth?: number; openFront?: never;
   } | {
     openFront: {
       clearHeight: number; clearDepth: number; position: Point; angleDeg: number; inward: Point;
@@ -598,6 +598,7 @@ export function attachOutsideDoors(
         : {
             id: ids.door(), to: "outside", leaves: opening.leaves, width: opening.width,
             edge: best.edge, at: best.edge.startsWith("v") ? u : v,
+            ...(opening.clearDepth === undefined ? {} : { clearDepth: opening.clearDepth }),
           };
       best.room.doors.push(connection);
     }

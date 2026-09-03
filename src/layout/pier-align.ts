@@ -1,6 +1,6 @@
 import type { Point } from "../core/geom.js";
 import { clipPolygonToRect, polygonBounds } from "../core/geom.js";
-import type { BlueprintFloor } from "../core/types.js";
+import type { BlueprintFloor, Facade as BlueprintFacade } from "../core/types.js";
 import { ROOM, SPINE_KINDS } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { Facade } from "./openings.js";
@@ -116,9 +116,9 @@ export interface PierAlignment {
  *  in a fixed order and the smallest clearing shift wins, ties to the lower side. */
 export function alignPartitionsToPiers(
   rooms: PlanRoom[], sealed: UvRect[], bpFloor: BlueprintFloor, core: CorePlan,
-  uvOutline: readonly Point[],
+  uvOutline: readonly Point[], blueprintFacade?: BlueprintFacade,
 ): PierAlignment {
-  const facade = new Facade(bpFloor);
+  const facade = new Facade(bpFloor, blueprintFacade);
   const coreRects = coreRectsOf(core);
   const frame = core.frame;
   let moved = 0;

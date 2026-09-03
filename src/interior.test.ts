@@ -150,6 +150,65 @@ describe("generateInterior", () => {
     expect(check(JSON.parse(JSON.stringify(floor))), JSON.stringify(check.errors)).toBe(true);
   });
 
+  it("publishes and enforces Exterior opening and moving-door reservations", async () => {
+    const source = makeFixture({ seed: "opening-reservation", floors: 1, type: "commerce", width: 28, depth: 20 });
+    const blueprint = structuredClone(source.request.blueprint);
+    blueprint.facade = {
+      ...blueprint.facade,
+      wallDepth: 0.31,
+      // Deliberately permit no endpoints: every proposed terminal partition must be
+      // reallocated short of the facade reservations rather than accepted through one.
+      grids: blueprint.floors.flatMap((item) => item.outline.map((_, edge) => ({
+        floor: item.index, edge, partitionAnchors: [],
+      }))),
+    };
+    const ground = blueprint.floors[0]!;
+    const entrance = ground.openings.find((opening) => opening.kind === "door")!;
+    entrance.door = { motion: { clearDepth: 2.2 } };
+    const reserved = makeFixture({ seed: "opening-reservation", blueprint, type: "commerce" });
+
+    const result = await generateInterior(reserved.request, {
+      shellDoc: reserved.shellDoc, textures: { mode: "keys" }, floorGlbs: true,
+    });
+    const floor = result.floors[0]!;
+    const volume = floor.openingReservations.find((item) => item.opening === entrance.id)!;
+    expect(volume).toMatchObject({
+      opening: entrance.id, kind: "door", sill: 0, height: entrance.height,
+      depth: 2.27,
+    });
+    expect(volume.width).toBeCloseTo(entrance.width + 0.14, 3);
+    expect(Math.hypot(...volume.inward)).toBeCloseTo(1, 3);
+
+    const exteriorDoor = floor.rooms.flatMap((room) => room.doors)
+      .find((door) => door.to === "outside" && door.width === entrance.width)!;
+    expect(exteriorDoor).toMatchObject({ clearDepth: 2.2 });
+
+    const document = await readGlbBytes(result.floorGlbs!.get(0)!);
+    for (const reservation of floor.openingReservations) {
+      const clearHalfWidth = (reservation.width - 0.14) / 2 - 0.03;
+      for (const node of document.getRoot().listNodes()) {
+        for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
+          const positions = primitive.getAttribute("POSITION")!.getArray()!;
+          for (let i = 0; i < positions.length; i += 3) {
+            const y = positions[i + 1]! - floor.elevation;
+            if (y <= reservation.sill + 0.05 || y >= reservation.sill + reservation.height - 0.05) continue;
+            const dx = positions[i]! - reservation.position[0];
+            const dz = positions[i + 2]! - reservation.position[1];
+            const depth = dx * reservation.inward[0] + dz * reservation.inward[1];
+            const along = dx * -reservation.inward[1] + dz * reservation.inward[0];
+            const inside = depth > 0.02 && depth < reservation.depth - 0.02
+              && Math.abs(along) < clearHalfWidth;
+            expect(inside, `${node.getName()} enters ${reservation.opening}`).toBe(false);
+          }
+        }
+      }
+    }
+
+    const ajv = new Ajv2020({ allErrors: false, strict: false });
+    const check = ajv.compile(floorSchema);
+    expect(check(JSON.parse(JSON.stringify(floor))), JSON.stringify(check.errors)).toBe(true);
+  });
+
   it("rejects a malformed request with E_BLUEPRINT_INVALID", async () => {
     await expect(generateInterior({ nonsense: true })).rejects.toMatchObject({ code: "E_BLUEPRINT_INVALID" });
   });

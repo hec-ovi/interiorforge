@@ -60,6 +60,15 @@ export interface Opening {
   portal?: OpeningPortal;
   /** primary navigation role; present exactly on openFront */
   accessRole?: "main";
+  /** fitted moving-door assembly, when this opening carries one */
+  door?: {
+    frameWidth?: number;
+    frameDepth?: number;
+    recessDepth?: number;
+    thresholdHeight?: number;
+    motion?: { clearDepth: number; [extra: string]: unknown };
+    [extra: string]: unknown;
+  };
   [extra: string]: unknown;
 }
 
@@ -77,9 +86,18 @@ export interface BlueprintFloor {
 
 /** Exterior facade: `wallDepth` is the measured inward reach of the shell wall (reveals,
  *  frames, glazing, closed leaves); without it the style picks a per-style depth. */
+export interface FacadeGrid {
+  floor: number;
+  edge: number;
+  /** centre and complete usable width of an opening-free structural run */
+  partitionAnchors: { offset: number; width: number }[];
+  [extra: string]: unknown;
+}
+
 export interface Facade {
   style?: string;
   wallDepth?: number;
+  grids?: FacadeGrid[];
   [extra: string]: unknown;
 }
 
@@ -122,6 +140,8 @@ export interface RoomDoor extends RoomConnection {
   /** regular doors omit kind; the schema reserves it for open fronts */
   kind?: never;
   leaves: 1 | 2 | 3 | 4;
+  /** moving-leaf reservation consumed from an exterior connection */
+  clearDepth?: number;
 }
 
 /** Permanently open street connection. It has traversable dimensions and no leaves. */
@@ -221,9 +241,29 @@ export interface FloorInterior {
    *  in that frame, rotated about its own center by this angle for world corners */
   coreAngleDeg: number;
   core: FloorCore;
+  /** exact exterior opening volumes kept free of unrelated interior geometry */
+  openingReservations: OpeningReservation[];
   rooms: Room[];
   furniture: Furniture[];
   lights: LightFixture[];
+}
+
+export interface OpeningReservation {
+  opening: string;
+  kind: OpeningKind;
+  /** centre on the facade in building-local XZ meters */
+  position: Point;
+  /** wall run direction around +Y */
+  angleDeg: number;
+  /** unit vector from the facade into the floor */
+  inward: Point;
+  /** clear opening width plus the full partition safety allowance */
+  width: number;
+  /** opening bottom and height above this floor's walking surface */
+  sill: number;
+  height: number;
+  /** inward reservation through the shell and any moving leaf */
+  depth: number;
 }
 
 // ---- npc.schema.json ----

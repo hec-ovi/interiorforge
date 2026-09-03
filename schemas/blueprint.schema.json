@@ -22,7 +22,32 @@
       "additionalProperties": true,
       "properties": {
         "style": { "type": "string", "description": "exterior facade style (curtain-wall, glass, panel, megablock); picks the shell wall depth the interior keeps clear of when wallDepth is absent" },
-        "wallDepth": { "type": "number", "minimum": 0, "description": "measured inward reach of the shell wall in meters (reveals, frames, glazing, closed leaves); read ahead of the per-style table" }
+        "wallDepth": { "type": "number", "minimum": 0, "description": "measured inward reach of the shell wall in meters (reveals, frames, glazing, closed leaves); read ahead of the per-style table" },
+        "grids": {
+          "type": "array",
+          "description": "exact facade grids; partitionAnchors are the only full-thickness endpoints an interior partition may use",
+          "items": {
+            "type": "object",
+            "required": ["floor", "edge", "partitionAnchors"],
+            "additionalProperties": true,
+            "properties": {
+              "floor": { "type": "integer" },
+              "edge": { "type": "integer", "minimum": 0 },
+              "partitionAnchors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["offset", "width"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "offset": { "type": "number", "minimum": 0, "description": "centre along the outline edge" },
+                    "width": { "type": "number", "exclusiveMinimum": 0, "description": "complete opening-free structural width" }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "floors": {
@@ -74,6 +99,20 @@
                 "accessRole": {
                   "const": "main",
                   "description": "openFront only: the primary navigation connection, with no moving leaf"
+                },
+                "door": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "motion": {
+                      "type": "object",
+                      "required": ["clearDepth"],
+                      "additionalProperties": true,
+                      "properties": {
+                        "clearDepth": { "type": "number", "minimum": 0, "description": "inward space reserved for the moving leaf" }
+                      }
+                    }
+                  }
                 }
               },
               "allOf": [

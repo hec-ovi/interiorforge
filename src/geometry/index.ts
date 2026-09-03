@@ -11,7 +11,7 @@ import { STAIR, stairSlab } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import type { BuildingPlan } from "../layout/index.js";
 import type { PlanRoom } from "../layout/plan-types.js";
-import { SHELL_WALL, shellWallDepth } from "../layout/shell.js";
+import { facadeDepth, SHELL_WALL, shellWallDepth } from "../layout/shell.js";
 import type { UvRect } from "../layout/uv.js";
 import { toWorldPolygon } from "../layout/uv.js";
 import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorShaftWalls } from "./core-geo.js";
@@ -133,7 +133,8 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
     // never wear the same one
     const program = uv.rooms.reduce((best, r) => (r.rect.lu * r.rect.lv > best.rect.lu * best.rect.lv ? r : best)).kind;
     buildInteriorWalls(
-      mb, keys, [...uv.rooms, ...sealedAsRooms], uv.outline, wallPlate, core.frame, floor.elevation,
+      mb, keys, [...uv.rooms, ...sealedAsRooms], bpFloor, facade, uv.outline, wallPlate,
+      facadeDepth(facade), core.frame, floor.elevation,
       wallTop, ceilingY, program, holes, createRng(request.seed, "accent", floor.floor),
     );
     buildFacadeLining(mb, keys, bpFloor, wallDepth, wallTop, ceilingY, program);

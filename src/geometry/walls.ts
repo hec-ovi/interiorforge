@@ -1,13 +1,14 @@
 import type { Point } from "../core/geom.js";
 import { clipPolygonToRect, distanceToSegment } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
-import type { RoomKind } from "../core/types.js";
+import type { BlueprintFloor, Facade as BlueprintFacade, RoomKind } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { WALL } from "../layout/constants.js";
 import { doorUvPoint } from "../layout/plan-floor.js";
+import { Facade as FacadeReservations, PARTITION_HALF } from "../layout/openings.js";
 import type { EdgeName, PlanRoom } from "../layout/plan-types.js";
 import type { Frame, UvRect } from "../layout/uv.js";
-import { toWorldPolygon, uvRectCorners } from "../layout/uv.js";
+import { toWorldPolygon, uvRectCorners, uvToWorld } from "../layout/uv.js";
 import type { MaterialKeys } from "./materials.js";
 import type { Exposed, WallBands } from "./wall-detail.js";
 import { layerBands } from "./wall-detail.js";
@@ -65,11 +66,13 @@ export function doorHeadHeight(leaves: number, clearHeight: number): number {
  *  Extraction runs in uv space where rooms are axis-aligned; emission clips every band to
  *  `envelope` (the plate inside the facade lining) and rotates to world. */
 export function buildInteriorWalls(
-  mb: MeshBuilder, keys: MaterialKeys, rooms: PlanRoom[], uvOutline: Point[], envelope: Point[],
+  mb: MeshBuilder, keys: MaterialKeys, rooms: PlanRoom[], bpFloor: BlueprintFloor,
+  blueprintFacade: BlueprintFacade | undefined, uvOutline: Point[], envelope: Point[], facadeDepth: number,
   frame: Frame, elevation: number, wallTop: number, ceilingY: number,
   program: RoomKind, extraHoles: UvWallHole[], rng: Rng,
 ): void {
   const lines = new Map<string, WallLine>();
+  const facade = new FacadeReservations(bpFloor, blueprintFacade);
   const lineFor = (axis: "H" | "V", c: number): WallLine => {
     const key = `${axis}:${c.toFixed(3)}`;
     let line = lines.get(key);
@@ -81,7 +84,9 @@ export function buildInteriorWalls(
   };
 
   for (const room of rooms) {
-    const segments = roomSegments(room, uvOutline);
+    const segments = roomSegments(room, uvOutline)
+      .map((segment) => reserveFacadeEnds(segment, facade, frame, facadeDepth))
+      .filter((segment): segment is RoomSegment => segment !== null);
     const accent = accentEdge(room, segments, rng);
     for (const s of segments) {
       lineFor(s.axis, s.c).intervals.push({ a: s.a, b: s.b, accent: s.edge !== null && s.edge === accent });
@@ -118,6 +123,26 @@ export function buildInteriorWalls(
       }
     }
   }
+}
+
+/** A shaft-locked or minimum-size partition cannot always move as a whole. In that case its
+ *  last stretch joins the adjacent facade rooms as open space and stops before the reserved
+ *  opening or moving-leaf volume. */
+function reserveFacadeEnds(
+  segment: RoomSegment, facade: FacadeReservations, frame: Frame, facadeDepth: number,
+): RoomSegment | null {
+  const point = (along: number): Point => segment.axis === "H" ? [along, segment.c] : [segment.c, along];
+  const trim = (at: number): number => {
+    const reservation = facade.reservationAt(uvToWorld(point(at), frame));
+    if (!reservation) return 0;
+    const openingDepth = reservation.opening?.door?.motion?.clearDepth
+      ?? reservation.opening?.portal?.clearDepth
+      ?? 0;
+    return Math.max(facadeDepth, openingDepth) + PARTITION_HALF;
+  };
+  const a = segment.a + trim(segment.a);
+  const b = segment.b - trim(segment.b);
+  return b - a > 1e-3 ? { ...segment, a, b } : null;
 }
 
 /** A doorway is recorded by both adjoining rooms. Collapse those records before drawing,
