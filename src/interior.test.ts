@@ -321,42 +321,82 @@ describe("generateInterior", () => {
     await expectOpeningVolumesClear(result.floorGlbs.get(1)!, floor, opening.id);
   });
 
-  it("emits doorway casings as closed face trims without occupying the wall reveal", async () => {
+  it("emits doorway casings as closed face trims without duplicate faces or stretched mapping", async () => {
     const fixture = makeFixture({ seed: "casing-section", floors: 2, type: "offices" });
     const result = await generateFloorInteriors(fixture.request, {
       shellDoc: fixture.shellDoc, textures: { mode: "keys" },
     });
     const floor = result.floors.find((item) => item.floor === 0)!;
-    const door = floor.rooms.flatMap((room) => room.doors)
-      .find((item): item is RoomDoor => item.to !== "outside" && item.kind !== "openFront")!;
-    const angle = door.angleDeg * Math.PI / 180;
-    const along: [number, number] = [Math.cos(angle), Math.sin(angle)];
-    const inward: [number, number] = [-along[1], along[0]];
-    const head = floor.elevation + (door.leaves >= 3 ? 3 : 2.5);
     const document = await readGlbBytes(result.floorGlbs.get(0)!);
     const node = document.getRoot().listNodes()
       .find((item) => item.getName().includes("/door/"))!;
     const primitive = node.getMesh()!.listPrimitives()[0]!;
     const positions = primitive.getAttribute("POSITION")!.getArray()!;
+    const uvs = primitive.getAttribute("TEXCOORD_0")!.getArray()!;
     const indices = primitive.getIndices()!.getArray()!;
-    const depths: number[] = [];
-    for (let i = 0; i < indices.length; i += 3) {
-      const vertices = [0, 1, 2].map((offset) => {
-        const at = Number(indices[i + offset]) * 3;
-        return [positions[at]!, positions[at + 1]!, positions[at + 2]!] as const;
-      });
-      const center = vertices.reduce<[number, number, number]>((sum, vertex) => [
-        sum[0] + vertex[0] / 3, sum[1] + vertex[1] / 3, sum[2] + vertex[2] / 3,
-      ], [0, 0, 0]);
-      const dx = center[0] - door.position[0];
-      const dz = center[2] - door.position[1];
-      if (Math.abs(center[1] - head) > 0.09 || Math.abs(dx * along[0] + dz * along[1]) > door.width / 2) continue;
-      const projection = vertices.map((vertex) =>
-        (vertex[0] - door.position[0]) * inward[0] + (vertex[2] - door.position[1]) * inward[1]);
-      depths.push(Math.max(...projection) - Math.min(...projection));
+
+    const doors = floor.rooms.flatMap((room) => room.doors)
+      .filter((item): item is RoomDoor => item.to !== "outside" && item.kind !== "openFront");
+    const selected = [
+      doors.find((door) => door.leaves === 1)!,
+      doors.find((door) => door.leaves >= 3)!,
+    ];
+    expect(selected.map((door) => door.width)).toEqual([0.9, 3.6]);
+
+    for (const door of selected) {
+      const angle = door.angleDeg * Math.PI / 180;
+      const along: [number, number] = [Math.cos(angle), Math.sin(angle)];
+      const inward: [number, number] = [-along[1], along[0]];
+      const head = floor.elevation + (door.leaves >= 3 ? 3 : 2.5);
+      const triangles: { vertices: [number, number, number][]; uv: [number, number][] }[] = [];
+      for (let i = 0; i < indices.length; i += 3) {
+        const vertexIndices = [0, 1, 2].map((offset) => Number(indices[i + offset]));
+        const vertices = vertexIndices.map((index) => [
+          positions[index * 3]!, positions[index * 3 + 1]!, positions[index * 3 + 2]!,
+        ] as [number, number, number]);
+        const center = vertices.reduce<[number, number, number]>((sum, vertex) => [
+          sum[0] + vertex[0] / 3, sum[1] + vertex[1] / 3, sum[2] + vertex[2] / 3,
+        ], [0, 0, 0]);
+        const dx = center[0] - door.position[0];
+        const dz = center[2] - door.position[1];
+        if (center[1] < floor.elevation - 1e-3 || center[1] > head + 0.11
+          || Math.abs(dx * along[0] + dz * along[1]) > door.width / 2 + 0.11
+          || Math.abs(dx * inward[0] + dz * inward[1]) > 0.11) continue;
+        triangles.push({
+          vertices,
+          uv: vertexIndices.map((index) => [uvs[index * 2]!, uvs[index * 2 + 1]!] as [number, number]),
+        });
+      }
+      expect(triangles.length).toBeGreaterThan(0);
+
+      const faceKey = (vertices: [number, number, number][]): string => {
+        const points = vertices.map((vertex) => vertex.map((value) => value.toFixed(5)).join(","));
+        return points.sort().join(";");
+      };
+      expect(new Set(triangles.map((triangle) => faceKey(triangle.vertices))).size).toBe(triangles.length);
+
+      for (const triangle of triangles) {
+        for (let edge = 0; edge < 3; edge++) {
+          const a = triangle.vertices[edge]!;
+          const b = triangle.vertices[(edge + 1) % 3]!;
+          const auv = triangle.uv[edge]!;
+          const buv = triangle.uv[(edge + 1) % 3]!;
+          expect(Math.hypot(buv[0] - auv[0], buv[1] - auv[1])).toBeCloseTo(
+            Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), 4,
+          );
+        }
+      }
+
+      const headerDepths = triangles
+        .filter((triangle) => Math.abs(triangle.vertices.reduce((sum, vertex) => sum + vertex[1] / 3, 0) - head) < 0.09)
+        .map((triangle) => {
+          const projection = triangle.vertices.map((vertex) =>
+            (vertex[0] - door.position[0]) * inward[0] + (vertex[2] - door.position[1]) * inward[1]);
+          return Math.max(...projection) - Math.min(...projection);
+        });
+      expect(headerDepths.length).toBeGreaterThan(0);
+      expect(Math.max(...headerDepths)).toBeLessThanOrEqual(0.0201);
     }
-    expect(depths.length).toBeGreaterThan(0);
-    expect(Math.max(...depths)).toBeLessThanOrEqual(0.0201);
   });
 
   it("connects the last served floor to Exterior's roof threshold and nav surface", async () => {
