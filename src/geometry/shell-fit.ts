@@ -10,7 +10,8 @@ import { SHELL_WALL } from "../layout/shell.js";
  *  except the reveal returns inside an opening, which run back to the skin clearance and
  *  keep out of the neighbouring walls. */
 
-const EPS = 1e-6;
+/** GLB positions are Float32. At city-scale coordinates their rounding is below 0.1 mm. */
+const EPS = 1e-4;
 /** an edge's wall zone reaches this far out through its skin: everything outside counts */
 const OUTSIDE = 1e4;
 

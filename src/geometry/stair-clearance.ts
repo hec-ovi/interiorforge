@@ -7,6 +7,8 @@ import type { RunStep } from "./stairs.js";
 /** Reads stair headroom from the geometry that will actually ship. */
 const PROBE_INSET = 0.12;
 const MIN_SLOPE_NORMAL_Y = 0.3;
+/** GLB Float32 rounding at city-scale coordinates is below 0.1 mm. */
+const SURFACE_EPS = 1e-4;
 
 interface Tri {
   a: [number, number, number];
@@ -50,7 +52,7 @@ function clearAbove(faces: readonly Tri[], x: number, y: number, z: number): { c
     const l3 = 1 - l1 - l2;
     if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
     const hit = l1 * a[1] + l2 * b[1] + l3 * c[1] - y;
-    if (hit > 1e-6 && hit < best.clear) best = { clear: hit, material };
+    if (hit > SURFACE_EPS && hit < best.clear) best = { clear: hit, material };
   }
   return best;
 }

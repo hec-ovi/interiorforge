@@ -30,8 +30,7 @@ import { buildFloorSurfaces, buildShaftFloors } from "./surfaces.js";
 import { buildFacadeLining } from "./lining.js";
 import { buildInteriorWalls } from "./walls.js";
 
-export interface InteriorGeometry {
-  doc: Document;
+export interface InteriorBands {
   /** floor index -> stair id -> frame-space tread and landing tops (see coreAngleDeg) */
   stepsByFloor: Map<number, Record<string, Rect3[]>>;
   /** the same geometry split by floor band: what stands between a floor's slab and the
@@ -39,8 +38,24 @@ export interface InteriorGeometry {
   floorMeshes: Map<number, MeshBuilder>;
 }
 
+export interface InteriorGeometry extends InteriorBands {
+  doc: Document;
+}
+
 /** Completes the shell document with the full interior. Mutates and returns shellDoc. */
 export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shellDoc: Document): InteriorGeometry {
+  const bands = buildInteriorBands(plan, request);
+  const whole = new MeshBuilder();
+  for (const floor of [...plan.floors].sort((a, b) => a.floor - b.floor)) {
+    whole.merge(bands.floorMeshes.get(floor.floor)!);
+  }
+  removeShellSeparators(shellDoc);
+  appendToDocument(shellDoc, whole);
+  return { doc: shellDoc, ...bands };
+}
+
+/** Builds and validates each floor band without allocating the combined document. */
+export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest): InteriorBands {
   const keys = new MaterialKeys(request.materialTheme, request.building.tier);
   const core = plan.core;
   const floorMeshes = new Map<number, MeshBuilder>();
@@ -91,6 +106,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
 
     if (floor.rooms.length === 0) {
       emitOpenFloorShaftWalls(mb, keys, core, uv.sealed, floor.elevation, floor.elevation + floor.height);
+      mb.seal();
       continue;
     }
 
@@ -129,17 +145,15 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
       ...floorDoorways(uv.rooms, core.frame, floor.elevation, ceilingY),
       ...openFrontClearances(bpFloor, wallDepth),
     ], floor.floor);
+    if (floor !== lowest) mb.seal();
   }
 
-  buildShaftFloors(floorMeshes.get(lowest.floor)!, keys, core, lowest.elevation);
-  const whole = new MeshBuilder();
-  for (const floor of sorted) whole.merge(floorMeshes.get(floor.floor)!);
+  const lowestMesh = floorMeshes.get(lowest.floor)!;
+  buildShaftFloors(lowestMesh, keys, core, lowest.elevation);
+  lowestMesh.seal();
   assertStairFit(core, runs, sorted.map((floor) => ({ ...floor, mesh: floorMeshes.get(floor.floor)! })));
-  assertInsideShell(whole, request.blueprint.floors, wallDepth);
-
-  removeShellSeparators(shellDoc);
-  appendToDocument(shellDoc, whole);
-  return { doc: shellDoc, stepsByFloor, floorMeshes };
+  for (const mesh of floorMeshes.values()) assertInsideShell(mesh, request.blueprint.floors, wallDepth);
+  return { stepsByFloor, floorMeshes };
 }
 
 /** Validate both stair arithmetic and the geometry actually emitted around each run. */
