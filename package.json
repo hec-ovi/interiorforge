@@ -1,6 +1,6 @@
 {
   "name": "urbe-interior",
-  "version": "0.28.1",
+  "version": "0.28.2",
   "private": true,
   "type": "module",
   "description": "Deterministic building interior generator with rooms, stairs, elevators, shaped furniture and NPC routine data.",

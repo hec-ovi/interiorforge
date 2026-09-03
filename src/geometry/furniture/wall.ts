@@ -15,22 +15,25 @@ export function wallArt(p: Placer): void {
 function monitor(p: Placer): void {
   const radius = Math.min(0.09, p.hw * 0.22, p.height * 0.16);
   const z0 = -p.hd;
+  const mountDepth = Math.min(0.015, p.hd * 0.45);
+  const bodyBack = z0 + mountDepth;
   const z1 = p.hd - Math.min(0.025, p.hd * 0.25);
 
-  // Concealed mounting block stays behind the housing and inside the planned depth.
-  p.box("metal", -Math.min(0.14, p.hw * 0.35), Math.min(0.14, p.hw * 0.35), z0, z0 + Math.min(0.025, p.hd), p.height * 0.3, p.height * 0.7);
+  // The narrow central mount owns the rear plane and the housing starts ahead of it, keeping
+  // the two fitted volumes distinct.
+  p.box("metal", -Math.min(0.14, p.hw * 0.35), Math.min(0.14, p.hw * 0.35), z0, bodyBack, p.height * 0.3, p.height * 0.7);
 
-  p.box("metal", -p.hw + radius, p.hw - radius, z0, z1, 0, p.height);
-  p.box("metal", -p.hw, -p.hw + radius, z0, z1, radius, p.height - radius);
-  p.box("metal", p.hw - radius, p.hw, z0, z1, radius, p.height - radius);
+  p.box("metal", -p.hw + radius, p.hw - radius, bodyBack, z1, 0, p.height);
+  p.box("metal", -p.hw, -p.hw + radius, bodyBack, z1, radius, p.height - radius);
+  p.box("metal", p.hw - radius, p.hw, bodyBack, z1, radius, p.height - radius);
   for (let step = 0; step < 2; step++) {
     const y0 = radius * (step + 1) / 3;
     const y1 = radius * (step + 2) / 3;
     const reach = radius * (step + 1) / 3;
-    p.box("metal", -p.hw + radius - reach, -p.hw + radius, z0, z1, y0, y1);
-    p.box("metal", p.hw - radius, p.hw - radius + reach, z0, z1, y0, y1);
-    p.box("metal", -p.hw + radius - reach, -p.hw + radius, z0, z1, p.height - y1, p.height - y0);
-    p.box("metal", p.hw - radius, p.hw - radius + reach, z0, z1, p.height - y1, p.height - y0);
+    p.box("metal", -p.hw + radius - reach, -p.hw + radius, bodyBack, z1, y0, y1);
+    p.box("metal", p.hw - radius, p.hw - radius + reach, bodyBack, z1, y0, y1);
+    p.box("metal", -p.hw + radius - reach, -p.hw + radius, bodyBack, z1, p.height - y1, p.height - y0);
+    p.box("metal", p.hw - radius, p.hw - radius + reach, bodyBack, z1, p.height - y1, p.height - y0);
   }
 
   // Uniform inset preserves the planned display aspect ratio exactly.

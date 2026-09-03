@@ -42,7 +42,7 @@ Library surface: `generateInterior(request: unknown, options?: GenerateOptions)`
 
 ## How it works
 
-Layout runs in a principal-axis frame taken from the longest street-facing edge, so rotated plates keep square rooms. The core places first, then the corridor band scans for a position the plate actually holds; shallow plates use a single-loaded layout so units keep real room depth. Rooms come from per-kind templates with seeded variance, furniture prefers doorless walls, and a wall-aware nav grid is flood-validated for reachability before anything is written. Dimensions are recorded in [docs/RESEARCH.md](docs/RESEARCH.md).
+Layout runs in a principal-axis frame taken from the longest street-facing edge, so rotated plates keep square rooms. The core places first, then the corridor band scans for a position the plate actually holds; shallow plates use a single-loaded layout so units keep real room depth. Rooms come from per-kind templates with seeded variance, furniture prefers doorless walls, and electronic wall displays use a fitted stepped metal housing with a separate narrow central rear mount. A wall-aware nav grid is flood-validated for reachability before anything is written. Dimensions are recorded in [docs/RESEARCH.md](docs/RESEARCH.md).
 
 ## Using it from an agent or a pipeline
 

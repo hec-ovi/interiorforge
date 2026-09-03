@@ -27,10 +27,10 @@ function build(kind: FurnitureKind, rotationDeg: 0 | 90 = 0, angleDeg = 0): numb
   return mb.materials().reduce((n, m) => n + mb.getGroup(m)!.positions.length / 3, 0);
 }
 
-function mesh(kind: FurnitureKind, size: [number, number, number]): MeshBuilder {
+function mesh(kind: FurnitureKind, size: [number, number, number], rotationDeg: 0 | 90 = 0): MeshBuilder {
   const mb = new MeshBuilder();
   emitFurniture(mb, new MaterialKeys("cyberpunk", "mid"), [{
-    id: `review-${kind}`, kind, room: "r", at: [0, 0], rotationDeg: 0, size,
+    id: `review-${kind}`, kind, room: "r", at: [0, 0], rotationDeg, size,
   }], makeFrame(0), 0);
   return mb;
 }
@@ -94,20 +94,39 @@ describe("shaped furniture", () => {
   });
 
   it("uses one aspect-preserving screen family for displays and electronic art", () => {
-    const size: [number, number, number] = [0.9, 0.06, 0.7];
-    for (const kind of ["display_screen", "wall_art"] as FurnitureKind[]) {
-      const mb = mesh(kind, size);
+    const cases: { kind: FurnitureKind; size: [number, number, number]; rotation: 0 | 90 }[] = [
+      { kind: "display_screen", size: [1.2, 0.08, 0.7], rotation: 0 },
+      { kind: "wall_art", size: [0.9, 0.06, 0.7], rotation: 90 },
+    ];
+    for (const { kind, size, rotation } of cases) {
+      const mb = mesh(kind, size, rotation);
       expect(mb.materials().some((material) => material.includes("/wood/"))).toBe(false);
       const screen = mb.getGroup("cyberpunk/ad-screen/mid")!;
-      const xs: number[] = [], ys: number[] = [];
+      const xs: number[] = [], ys: number[] = [], zs: number[] = [];
       for (let i = 0; i < screen.positions.length; i += 3) {
         xs.push(screen.positions[i]!);
         ys.push(screen.positions[i + 1]!);
+        zs.push(screen.positions[i + 2]!);
       }
-      const aspect = (Math.max(...xs) - Math.min(...xs)) / (Math.max(...ys) - Math.min(...ys));
+      const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs));
+      const aspect = span / (Math.max(...ys) - Math.min(...ys));
       expect(aspect).toBeCloseTo(size[0] / size[2], 6);
-      expect(bounds(mb).x).toEqual([-0.45, 0.45]);
-      expect(bounds(mb).z).toEqual([-0.03, 0.03]);
+      const box = bounds(mb);
+      expect(Math.max(box.x[1] - box.x[0], box.z[1] - box.z[0])).toBeCloseTo(size[0], 6);
+      expect(Math.min(box.x[1] - box.x[0], box.z[1] - box.z[0])).toBeCloseTo(size[1], 6);
+
+      // In local orientation, only the narrow mount reaches the rear plane, proving that its
+      // volume stays distinct from the casing.
+      const straight = mesh(kind, size);
+      const metal = straight.getGroup("cyberpunk/metal/mid")!;
+      const rearX: number[] = [], rearY: number[] = [];
+      for (let i = 0; i < metal.positions.length; i += 3) {
+        if (Math.abs(metal.positions[i + 2]! + size[1] / 2) > 1e-6) continue;
+        rearX.push(metal.positions[i]!);
+        rearY.push(metal.positions[i + 1]!);
+      }
+      expect([Math.min(...rearX), Math.max(...rearX)]).toEqual([-0.14, 0.14]);
+      expect([Math.min(...rearY), Math.max(...rearY)]).toEqual([size[2] * 0.3, size[2] * 0.7]);
     }
   });
 });

@@ -1,5 +1,7 @@
 # Changelog
 
+0.28.2: electronic wall displays use a stepped metal housing with a separate narrow central rear mount inside their declared bounds. Public GLB checks cover doorway casing topology and world-meter material mapping across single-leaf and wide multi-leaf openings.
+
 0.28.1: facade-parallel room bands stay owned by the opening-aware lining after layout-grid fitting. Public GLB reservation checks clip every emitted triangle against the complete clear volume.
 
 0.28.0: exterior opening reservations govern facade-side walls, the complete vertical core and furniture footprints, including moving-door depth. Stair A connects the top floor to a fitted roof enclosure and roof nav surface. Interior wall bands and doorway casings are closed fitted solids. Wardrobes use a painted-steel carcass and separate leaves; wall screens use a dark metal stepped housing.
