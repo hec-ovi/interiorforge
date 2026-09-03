@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { MeshBuilder } from "./mesh-builder.js";
 import { createDocument, readGlbBytes, sceneBounds, writeGlb } from "./io.js";
 
-function faceNormalsOf(group: { positions: number[]; normals: number[]; indices: number[] }) {
+function faceNormalsOf(group: {
+  positions: ArrayLike<number>; normals: ArrayLike<number>; indices: ArrayLike<number>;
+}) {
   const out: [number, number, number][] = [];
   for (let i = 0; i < group.indices.length; i += 3) {
     const [a, b, c] = [group.indices[i]!, group.indices[i + 1]!, group.indices[i + 2]!];
@@ -57,6 +59,17 @@ describe("MeshBuilder", () => {
     expect(Math.max(...us) - Math.min(...us)).toBeCloseTo(4);
     expect(Math.max(...vs) - Math.min(...vs)).toBeCloseTo(2.5);
   });
+
+  it("seal compacts completed groups and rejects later geometry", () => {
+    const mb = new MeshBuilder();
+    mb.addBox("t/concrete/std", { x: 0, z: 0, w: 2, d: 3 }, 0, 1);
+    mb.seal();
+    const group = mb.getGroup("t/concrete/std")!;
+    expect(group.positions).toBeInstanceOf(Float32Array);
+    expect(group.indices).toBeInstanceOf(Uint32Array);
+    expect(() => mb.addBox("t/concrete/std", { x: 0, z: 0, w: 1, d: 1 }, 0, 1))
+      .toThrow("cannot add geometry to a sealed mesh");
+  });
 });
 
 describe("MeshBuilder unit faces", () => {
@@ -83,15 +96,18 @@ describe("MeshBuilder unit faces", () => {
 
 describe("glb io", () => {
   it("writes a GLB that reads back with material names and bounds intact, byte-identically", async () => {
-    const build = () => {
+    const build = (sealed = false) => {
       const mb = new MeshBuilder();
       mb.addBox("theme/concrete/poor", { x: 0, z: 0, w: 10, d: 8 }, 0, 3);
       mb.addHorizontalPolygon("theme/wood/rich", [[0, 0], [10, 0], [10, 8], [0, 8]], 0.02, "up");
+      if (sealed) mb.seal();
       return createDocument(mb);
     };
     const bytes1 = await writeGlb(build());
     const bytes2 = await writeGlb(build());
+    const sealedBytes = await writeGlb(build(true));
     expect(Buffer.from(bytes1).equals(Buffer.from(bytes2))).toBe(true);
+    expect(Buffer.from(bytes1).equals(Buffer.from(sealedBytes))).toBe(true);
 
     const doc = await readGlbBytes(bytes1);
     const names = doc.getRoot().listMaterials().map((m) => m.getName()).toSorted();

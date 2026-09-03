@@ -17,6 +17,13 @@ const UNIT_QUAD: [number, number][] = [[1, 1], [1, 0], [0, 0], [0, 1]];
 const ALL_FACES: BoxFace[] = ["top", "bottom", "north", "south", "east", "west"];
 
 export interface MeshGroup {
+  positions: number[] | Float32Array;
+  normals: number[] | Float32Array;
+  uvs: number[] | Float32Array;
+  indices: number[] | Uint32Array;
+}
+
+interface MutableMeshGroup {
   positions: number[];
   normals: number[];
   uvs: number[];
@@ -41,14 +48,16 @@ export class MeshBuilder {
   constructor(private readonly frame: UvFrame = WORLD_FRAME, private readonly origin: Point | null = null) {}
 
   private readonly groups = new Map<string, MeshGroup>();
+  private sealed = false;
 
-  private group(material: string): MeshGroup {
+  private group(material: string): MutableMeshGroup {
+    if (this.sealed) throw new Error("cannot add geometry to a sealed mesh");
     let g = this.groups.get(material);
     if (!g) {
       g = { positions: [], normals: [], uvs: [], indices: [] };
       this.groups.set(material, g);
     }
-    return g;
+    return g as MutableMeshGroup;
   }
 
   /** Quad with vertices CCW as seen from the front face. World UVs start at the quad's own first
@@ -171,6 +180,20 @@ export class MeshBuilder {
       for (const v of from.uvs) g.uvs.push(v);
       for (const index of from.indices) g.indices.push(base + index);
     }
+  }
+
+  /** Compacts completed geometry while retaining the same read-only contract for validation and IO. */
+  seal(): void {
+    if (this.sealed) return;
+    for (const [material, group] of this.groups) {
+      this.groups.set(material, {
+        positions: new Float32Array(group.positions),
+        normals: new Float32Array(group.normals),
+        uvs: new Float32Array(group.uvs),
+        indices: new Uint32Array(group.indices),
+      });
+    }
+    this.sealed = true;
   }
 
   isEmpty(): boolean {

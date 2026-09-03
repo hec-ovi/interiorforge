@@ -11,6 +11,7 @@ Purpose: the only place that touches GLB bytes: builds interior meshes with corr
   - `addBox(material, rect, y0, y1, faces?)`: axis-aligned box, outward normals; `faces` subset of `top bottom north south east west` (default all six).
   - `addPrism(material, corners, y0, y1, uv?, caps?)`: vertical prism over a plan polygon at any angle, caps optional.
   - `merge(other)`: appends another builder's groups after this one's, material by material, indices rebased.
+  - `seal()`: makes the builder read-only and compacts positions, normals, UVs and indices into glTF-width typed arrays. Further geometry additions fail.
   - `isEmpty()`, group access for tests.
 - `io.ts`
   - `createDocument(builder) -> Document`: fresh glTF document, one scene, one material per key (name = key, deterministic placeholder color), single-sided.
@@ -26,6 +27,7 @@ None of its own; propagates @gltf-transform I/O failures. Callers wrap into `Int
 ## Invariants
 
 - glTF conventions: CCW front faces, right-handed, +Y up, single-sided materials.
+- Sealing preserves material order and the values that are written to GLB.
 - Never mirrors geometry by negative scale; no coplanar duplicate faces emitted by construction.
 
 ## Depends on
