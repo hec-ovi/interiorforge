@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { getByRole, findByText, waitFor } from "@testing-library/dom";
 import userEvent from "@testing-library/user-event";
@@ -52,6 +53,24 @@ async function mountAndGenerate() {
 }
 
 describe("preview ui", () => {
+  it("renders native controls with the custom square appearance", async () => {
+    document.head.innerHTML = "";
+    const style = document.createElement("style");
+    style.textContent = readFileSync("src/ui/style.css", "utf8");
+    document.head.append(style);
+
+    const root = document.createElement("div");
+    document.body.replaceChildren(root);
+    const state = mountApp(root, fakeViewer());
+    await waitFor(() => expect(state.result).not.toBeNull(), { timeout: 30000 });
+
+    const controls = root.querySelectorAll("input, select, button");
+    expect(controls.length).toBeGreaterThan(0);
+    for (const control of Array.from(controls)) {
+      expect(getComputedStyle(control).appearance).toBe("none");
+    }
+  }, 40000);
+
   it("shows a building at first load, with no file picking", async () => {
     document.body.innerHTML = "";
     const root = document.createElement("div");

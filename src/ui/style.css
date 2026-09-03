@@ -1,6 +1,6 @@
 /* ==========================================================================
    URBE // INTERIORFORGE - DARK TECHNICAL DESIGN SYSTEM
-   Square corners everywhere (border-radius: 0), high-density technical aesthetic.
+   High-density technical interface.
    ========================================================================== */
 
 :root {
@@ -46,12 +46,11 @@
 }
 
 /* ==========================================================================
-   Global Reset & Square Corner Enforcement
+   Global Reset
    ========================================================================== */
 
 *, *::before, *::after {
   box-sizing: border-box;
-  border-radius: 0 !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -244,6 +243,8 @@ html, body {
 
 /* Inputs, Selects, Buttons */
 input, select, button {
+  appearance: none;
+  -webkit-appearance: none;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-primary);
@@ -280,8 +281,6 @@ select {
   background-repeat: no-repeat;
   background-position: right 8px center;
   padding-right: 22px;
-  appearance: none;
-  -webkit-appearance: none;
 }
 
 select option {
@@ -414,6 +413,8 @@ input[type="file"] {
 }
 
 input[type="file"]::file-selector-button {
+  appearance: none;
+  -webkit-appearance: none;
   background: var(--bg-control);
   border: 1px solid var(--border-standard);
   color: var(--text-primary);
