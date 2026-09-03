@@ -27,6 +27,25 @@ function build(kind: FurnitureKind, rotationDeg: 0 | 90 = 0, angleDeg = 0): numb
   return mb.materials().reduce((n, m) => n + mb.getGroup(m)!.positions.length / 3, 0);
 }
 
+function mesh(kind: FurnitureKind, size: [number, number, number]): MeshBuilder {
+  const mb = new MeshBuilder();
+  emitFurniture(mb, new MaterialKeys("cyberpunk", "mid"), [{
+    id: `review-${kind}`, kind, room: "r", at: [0, 0], rotationDeg: 0, size,
+  }], makeFrame(0), 0);
+  return mb;
+}
+
+function bounds(mb: MeshBuilder): { x: [number, number]; y: [number, number]; z: [number, number] } {
+  const points = mb.materials().flatMap((material) => Array.from(mb.getGroup(material)!.positions));
+  const xs: number[] = [], ys: number[] = [], zs: number[] = [];
+  for (let i = 0; i < points.length; i += 3) {
+    xs.push(points[i]!);
+    ys.push(points[i + 1]!);
+    zs.push(points[i + 2]!);
+  }
+  return { x: [Math.min(...xs), Math.max(...xs)], y: [Math.min(...ys), Math.max(...ys)], z: [Math.min(...zs), Math.max(...zs)] };
+}
+
 describe("shaped furniture", () => {
   it("builds every kind as a shaped assembly", () => {
     for (const kind of KINDS) {
@@ -63,5 +82,32 @@ describe("shaped furniture", () => {
     expect(Math.max(...xs)).toBeCloseTo(10.6, 6);
     expect(Math.min(...zs)).toBeCloseTo(3.6, 6);
     expect(Math.max(...ys)).toBeCloseTo(3.75, 6); // the floor's elevation plus the table top
+  });
+
+  it("builds a fitted steel wardrobe inside its declared collision bounds", () => {
+    const size: [number, number, number] = [1.6, 0.65, 2];
+    const mb = mesh("wardrobe", size);
+    expect(mb.materials()).toContain("cyberpunk/metal/mid");
+    expect(mb.materials()).toContain("cyberpunk/door/mid");
+    expect(mb.materials().some((material) => material.includes("/wood/"))).toBe(false);
+    expect(bounds(mb)).toEqual({ x: [-0.8, 0.8], y: [0, 2], z: [-0.325, 0.325] });
+  });
+
+  it("uses one aspect-preserving screen family for displays and electronic art", () => {
+    const size: [number, number, number] = [0.9, 0.06, 0.7];
+    for (const kind of ["display_screen", "wall_art"] as FurnitureKind[]) {
+      const mb = mesh(kind, size);
+      expect(mb.materials().some((material) => material.includes("/wood/"))).toBe(false);
+      const screen = mb.getGroup("cyberpunk/ad-screen/mid")!;
+      const xs: number[] = [], ys: number[] = [];
+      for (let i = 0; i < screen.positions.length; i += 3) {
+        xs.push(screen.positions[i]!);
+        ys.push(screen.positions[i + 1]!);
+      }
+      const aspect = (Math.max(...xs) - Math.min(...xs)) / (Math.max(...ys) - Math.min(...ys));
+      expect(aspect).toBeCloseTo(size[0] / size[2], 6);
+      expect(bounds(mb).x).toEqual([-0.45, 0.45]);
+      expect(bounds(mb).z).toEqual([-0.03, 0.03]);
+    }
   });
 });

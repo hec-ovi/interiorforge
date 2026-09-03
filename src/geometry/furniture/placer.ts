@@ -6,10 +6,10 @@ import { uvToWorld } from "../../layout/uv.js";
 import type { MaterialKeys } from "../materials.js";
 
 /** Material families a piece of furniture is built from. */
-export type Mat = "wood" | "metal" | "fabric" | "glass" | "tile" | "plaster" | "screen" | "accent";
+export type Mat = "wood" | "metal" | "door" | "fabric" | "glass" | "tile" | "plaster" | "screen" | "accent";
 
 const KIND: Record<Mat, string> = {
-  wood: "wood", metal: "metal", fabric: "fabric", glass: "glass", tile: "tile",
+  wood: "wood", metal: "metal", door: "door", fabric: "fabric", glass: "glass", tile: "tile",
   plaster: "plaster", screen: "ad-screen", accent: "tile",
 };
 

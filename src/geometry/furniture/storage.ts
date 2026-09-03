@@ -44,16 +44,44 @@ export function displayRack(p: Placer): void {
   }
 }
 
-/** Wardrobe: carcass on a plinth with two panelled doors. */
+/** Industrial wardrobe: closed steel carcass, recessed plinth, two fitted doors, vents and
+ *  raised handles. Every part stays inside the declared collision bounds. */
 export function wardrobe(p: Placer): void {
-  p.box("metal", -p.hw + 0.04, p.hw - 0.04, -p.hd + 0.04, p.hd - 0.04, 0, 0.07);
-  p.box("wood", -p.hw, p.hw, -p.hd, p.hd - 0.03, 0.07, p.height);
-  for (const sx of [-1, 1]) {
-    const x0 = sx < 0 ? -p.hw + 0.02 : 0.015;
-    const x1 = sx < 0 ? -0.015 : p.hw - 0.02;
-    p.box("wood", x0, x1, p.hd - 0.03, p.hd, 0.09, p.height - 0.02);
-    p.box("metal", sx < 0 ? -0.09 : 0.05, sx < 0 ? -0.05 : 0.09, p.hd, p.hd + 0.02, p.height * 0.5, p.height * 0.5 + 0.22);
+  const skin = Math.min(0.055, p.hw * 0.12, p.hd * 0.15);
+  const front0 = p.hd - skin;
+  const plinth = Math.min(0.11, p.height * 0.08);
+  const top = Math.min(0.08, p.height * 0.06);
+
+  // Recessed support and a complete carcass, including the back that closes the cabinet.
+  p.box("metal", -p.hw + skin, p.hw - skin, -p.hd + skin, p.hd - skin, 0, plinth);
+  p.box("metal", -p.hw, p.hw, -p.hd, -p.hd + skin, plinth, p.height);
+  p.box("metal", -p.hw, -p.hw + skin, -p.hd, front0, plinth, p.height);
+  p.box("metal", p.hw - skin, p.hw, -p.hd, front0, plinth, p.height);
+  p.box("metal", -p.hw, p.hw, -p.hd, front0, p.height - top, p.height);
+  p.box("metal", -p.hw, p.hw, -p.hd, front0, plinth, plinth + skin);
+
+  // Paired painted-steel leaves with a real centre reveal, not one textured slab.
+  const edge = skin * 0.65;
+  const seam = Math.min(0.025, p.hw * 0.04);
+  const doorY0 = plinth + skin;
+  const doorY1 = p.height - top - skin * 0.35;
+  p.box("door", -p.hw + edge, -seam, front0, p.hd - skin * 0.2, doorY0, doorY1);
+  p.box("door", seam, p.hw - edge, front0, p.hd - skin * 0.2, doorY0, doorY1);
+
+  // Vent slots read as separate fitted components and keep their scale on wide cabinets.
+  const ventY = doorY1 - Math.min(0.32, p.height * 0.18);
+  for (let i = 0; i < 3; i++) {
+    const y = ventY + i * 0.055;
+    for (const side of [-1, 1] as const) {
+      const x0 = side < 0 ? -p.hw + edge + 0.09 : seam + 0.09;
+      const x1 = side < 0 ? -seam - 0.09 : p.hw - edge - 0.09;
+      p.box("metal", x0, x1, p.hd - skin * 0.2, p.hd - skin * 0.05, y, y + 0.018);
+    }
   }
+  const handleY0 = doorY0 + (doorY1 - doorY0) * 0.42;
+  const handleY1 = handleY0 + Math.min(0.25, p.height * 0.14);
+  p.box("metal", -seam - 0.075, -seam - 0.035, p.hd - skin * 0.2, p.hd, handleY0, handleY1);
+  p.box("metal", seam + 0.035, seam + 0.075, p.hd - skin * 0.2, p.hd, handleY0, handleY1);
 }
 
 /** Fridge: body, door line and a handle. */
