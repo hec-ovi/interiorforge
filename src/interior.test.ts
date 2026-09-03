@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import floorSchema from "../schemas/floor.schema.json" with { type: "json" };
 import { readGlbBytes } from "./glb/io.js";
-import { findPath, generateInterior, makeFixture } from "./index.js";
+import { findPath, generateFloorInteriors, generateInterior, makeFixture } from "./index.js";
 
 const fix = makeFixture({ seed: 44, floors: 7, basements: 1 });
 
@@ -67,6 +67,27 @@ describe("generateInterior", () => {
       for (const prim of node.getMesh()!.listPrimitives()) interiorVertices += prim.getAttribute("POSITION")!.getCount();
     }
     expect(vertices).toBe(interiorVertices);
+  });
+
+  it("generates the same floor GLBs without a combined building allocation", async () => {
+    const streamedFixture = makeFixture({ seed: 1, floors: 16, basements: 1 });
+    const shellNodes = streamedFixture.shellDoc.getRoot().listNodes().map((node) => node.getName());
+    const streamed = await generateFloorInteriors(streamedFixture.request, {
+      shellDoc: streamedFixture.shellDoc, textures: { mode: "keys" },
+    });
+    expect(streamed).not.toHaveProperty("glb");
+    expect(streamed.floorGlbs.size).toBe(streamedFixture.request.blueprint.floors.length);
+    expect(streamedFixture.shellDoc.getRoot().listNodes().map((node) => node.getName())).toEqual(shellNodes);
+
+    const combinedFixture = makeFixture({ seed: 1, floors: 16, basements: 1 });
+    const combined = await generateInterior(combinedFixture.request, {
+      shellDoc: combinedFixture.shellDoc, textures: { mode: "keys" }, floorGlbs: true,
+    });
+    expect(streamed.floors).toEqual(combined.floors);
+    expect(streamed.npc).toEqual(combined.npc);
+    for (const [floor, bytes] of streamed.floorGlbs) {
+      expect(Buffer.from(bytes).equals(Buffer.from(combined.floorGlbs!.get(floor)!))).toBe(true);
+    }
   });
 
   it("builds a producer-shaped open shop front as a clear, reachable portal without leaves", async () => {

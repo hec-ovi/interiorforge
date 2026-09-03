@@ -14,6 +14,7 @@ npm test                                    # contract tests
 npm run generate -- --seed 1 --floors 12 --out out
 npm run generate -- --embed --out out       # one self-contained GLB, maps included
 npm run generate -- --keys-only --out out   # material keys, resolved by the consumer
+npm run generate -- --floor-glbs-only --out out # lower-memory per-floor GLBs, no combined building
 npm run preview                             # 3D building view plus a standalone floor editor
 ```
 
@@ -31,12 +32,12 @@ Units are meters, building-local, +Y up.
 
 ## Out
 
-- **`building.glb`**: the shell completed and furnished. Every material resolves through a PBR library ([pbrforge](../pbrforge) by default) into real maps: basecolor, normal, occlusion, emission where the entry has one, with its metallic and roughness factors and transmission and IOR for glass. Upholstery pins the flat fabric weave so chair and sofa scale does not turn a photographed pattern into moire. Tiled maps carry a `KHR_texture_transform` over world-meter UVs so nothing stretches. Three texture modes: `external` writes map URIs against a configurable base path, `--embed` packs everything into one self-contained GLB, `--keys-only` leaves the material keys for a runtime that resolves them itself. With no material database on disk the output falls back to keys, so the tool still runs standalone.
+- **`building.glb`**: the shell completed and furnished. Every material resolves through the [materials](../materials) library into real maps: basecolor, normal, occlusion, emission where the entry has one, with its metallic and roughness factors and transmission and IOR for glass. Upholstery pins the flat fabric weave so chair and sofa scale does not turn a photographed pattern into moire. Tiled maps carry a `KHR_texture_transform` over world-meter UVs so nothing stretches. Three texture modes: `external` writes map URIs against a configurable base path, `--embed` packs everything into one self-contained GLB, `--keys-only` leaves the material keys for a runtime that resolves them itself. With no material database on disk the output falls back to keys, so the tool still runs standalone.
 - **`floors/NNN.json`**: the vertical core (elevators, stairs with real tread geometry, shafts), rooms as polygons with door or open-front connections, and furniture placements. Doors carry one to four leaves; an open front carries clear dimensions and no leaves. Irregular footprints rotate the layout frame and publish the angle, so a triangular or decagonal plate lays out along its own axes.
-- **`floors/NNN.glb`** (with `--floor-glbs`): each floor band's interior as its own GLB next to its JSON, same materials and node scheme as the whole building, so a runtime can stream the floors near the player.
+- **`floors/NNN.glb`** (with `--floor-glbs` or `--floor-glbs-only`): each floor band's interior as its own GLB next to its JSON, same materials and node scheme as the whole building, so a runtime can stream the floors near the player. `--floor-glbs-only` seals completed floor buffers, writes one floor document at a time, and omits the combined building allocation.
 - **`npc.json`**: usable anchor positions, supported roles with min and max counts, routine loops (anchor, dwell range, animation), and nav data: a per-floor walkable grid plus stair and elevator connectors.
 
-Library surface: `generateInterior(request, options)`, `findPath(npc, from, to)` (an obstacle-avoiding route between any two walkable points, returned as same-floor legs and connector rides), `makeFixture(options)` for a stand-in shell, and `coreFeasibility(blueprint)`, a pre-check that answers whether a footprint can hold a vertical core and in which mode (standard, compact, stair-only walkup with a floor cap, or none), and when it cannot, which condition it misses: plate depth on its shallowest floor, the band along the corridor, the depth the compact stair columns need, or the walkup floor cap. The gate and the generator share one placement function, so `fits: true` means the building generates.
+Library surface: `generateInterior(request, options)` returns the combined building and can add floor GLBs. `generateFloorInteriors(request, options)` returns only the floor GLBs, floor JSON data, NPC data and texture report through the lower-memory path. `findPath(npc, from, to)` returns an obstacle-avoiding route as same-floor legs and connector rides. `makeFixture(options)` creates a stand-in shell. `coreFeasibility(blueprint)` checks whether a footprint can hold a vertical core and reports the fitting mode or missed condition. The gate and generator share one placement function, so `fits: true` means the building generates.
 
 ## How it works
 
@@ -48,4 +49,4 @@ JSON request in, GLB and JSON files out, offline and deterministic, so it fits a
 
 ## Consumers
 
-[urbe](../urbe) is a deterministic city sandbox that furnishes a whole city with it: [buildingforge](../buildingforge) produces the shells, this fills them, [pbrforge](../pbrforge) supplies the textures, and the NPC support files become the routines its population actually walks.
+[urbe](..) is a deterministic city sandbox that furnishes a whole city with it: [exterior](../exterior) produces the shells, this fills them, [materials](../materials) supplies the textures, and the NPC support files become the routines its population actually walks.

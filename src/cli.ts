@@ -3,7 +3,7 @@
  *  npm run generate -- [--out out] [--seed 1] [--floors 12] [--basements 0]
  *                      [--type offices] [--tier mid] [--theme cyberpunk] [--request path.json]
  *                      [--embed] [--keys-only] [--materials DIR] [--materials-base URI]
- *                      [--floor-glbs]
+ *                      [--floor-glbs | --floor-glbs-only]
  *
  *  Without --request, a fixture shell is fabricated (standalone mode); with it, the JSON
  *  file must be a full InteriorRequest whose shellGlb path resolves on disk.
@@ -12,13 +12,14 @@
  *  output directory. --embed packs the maps into one self-contained GLB; --keys-only leaves
  *  the material keys for a consumer that resolves them itself. --floor-glbs also writes
  *  each floor band's interior as floors/NNN.glb next to its JSON.
+ *  --floor-glbs-only omits building.glb and uses the lower-memory floor pipeline.
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { makeFixture } from "./blueprint/fixture.js";
 import type { BuildingType, InteriorRequest, Tier } from "./core/types.js";
 import { writeGlb } from "./glb/io.js";
-import { generateInterior, type TextureOptions } from "./index.js";
+import { generateFloorInteriors, generateInterior, type TextureOptions } from "./index.js";
 import { materialsDir } from "./materials/load.js";
 
 function arg(name: string, fallback: string): string {
@@ -65,12 +66,15 @@ async function main(): Promise<void> {
     request = { ...request, shellGlb: shellPath };
   }
 
-  const result = await generateInterior(request, {
+  const generationOptions = {
     ...(shellDoc ? { shellDoc } : {}),
     textures: textureOptions(out, request.materialTheme),
-    floorGlbs: flag("floor-glbs"),
-  });
-  await writeFile(join(out, "building.glb"), result.glb);
+  };
+  const floorOnly = flag("floor-glbs-only");
+  const result = floorOnly
+    ? await generateFloorInteriors(request, generationOptions)
+    : await generateInterior(request, { ...generationOptions, floorGlbs: flag("floor-glbs") });
+  if ("glb" in result) await writeFile(join(out, "building.glb"), result.glb);
   for (const floor of result.floors) {
     const tag = floor.floor < 0 ? `m${-floor.floor}` : String(floor.floor).padStart(3, "0");
     await writeFile(join(out, "floors", `${tag}.json`), JSON.stringify(floor, null, 1));
@@ -81,8 +85,11 @@ async function main(): Promise<void> {
   const textures = result.textures.mode === "keys"
     ? "material keys only"
     : `${result.textures.materials} materials ${result.textures.mode}${result.textures.baseUrl ? ` at ${result.textures.baseUrl}` : ""}`;
+  const primary = "glb" in result
+    ? `${out}/building.glb (${(result.glb.length / 1e6).toFixed(2)} MB)`
+    : `${result.floorGlbs.size} floor GLBs`;
   console.log(
-    `wrote ${out}/building.glb (${(result.glb.length / 1e6).toFixed(2)} MB, ${textures}), ` +
+    `wrote ${primary} (${textures}), ` +
     `${result.floors.length} floor JSONs, npc.json ` +
     `(${result.npc.anchors.length} anchors, ${result.npc.roles.length} roles)`,
   );

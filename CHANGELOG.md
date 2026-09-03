@@ -1,5 +1,7 @@
 # Changelog
 
+0.27.0: floor-only generation returns per-floor GLBs, floor data and NPC support without allocating a combined building document. Completed floor meshes use typed buffers and serialize one at a time.
+
 0.26.1: upholstered furniture requests the materials library's flat fabric variant, preserving the material key while carrying `flat` in glTF extras for resolvers that support named variants.
 
 0.26.0: permanently open shop fronts use the exterior portal's exact clear width, height and depth. They orient the ground-floor plan, connect the shop to the nav grid, reserve a wide furniture and NPC approach, meet the facade lining at the fixed surround, and publish an `openFront` room connection with no leaves. The full portal volume is checked against emitted interior geometry.

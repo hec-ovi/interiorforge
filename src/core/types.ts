@@ -301,12 +301,20 @@ export interface NpcSupport {
 
 // ---- result ----
 
-export interface InteriorResult {
-  glb: Uint8Array;
+export interface InteriorOutput {
   floors: FloorInterior[];
   npc: NpcSupport;
-  /** on request: the interior of each floor band as its own GLB, keyed by floor index */
-  floorGlbs?: Map<number, Uint8Array>;
   /** what the GLB carries: external map URIs, embedded maps, or material keys only */
   textures: { mode: "external" | "embedded" | "keys"; baseUrl?: string; materials: number };
+}
+
+export interface InteriorResult extends InteriorOutput {
+  glb: Uint8Array;
+  /** on request: the interior of each floor band as its own GLB, keyed by floor index */
+  floorGlbs?: Map<number, Uint8Array>;
+}
+
+/** Floor-streaming result. It intentionally has no combined building GLB. */
+export interface FloorInteriorResult extends InteriorOutput {
+  floorGlbs: Map<number, Uint8Array>;
 }
