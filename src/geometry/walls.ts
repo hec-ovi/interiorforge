@@ -84,8 +84,8 @@ export function buildInteriorWalls(
   };
 
   for (const room of rooms) {
-    const segments = roomSegments(room, uvOutline)
-      .map((segment) => reserveFacadeEnds(segment, facade, frame, facadeDepth))
+    const segments = roomSegments(room, uvOutline, facadeDepth)
+      .map((segment) => reserveFacadeEnds(segment, facade, bpFloor, frame, facadeDepth))
       .filter((segment): segment is RoomSegment => segment !== null);
     const accent = accentEdge(room, segments, rng);
     for (const s of segments) {
@@ -129,19 +129,36 @@ export function buildInteriorWalls(
  *  last stretch joins the adjacent facade rooms as open space and stops before the reserved
  *  opening or moving-leaf volume. */
 function reserveFacadeEnds(
-  segment: RoomSegment, facade: FacadeReservations, frame: Frame, facadeDepth: number,
+  segment: RoomSegment, facade: FacadeReservations, facadeFloor: BlueprintFloor,
+  frame: Frame, facadeDepth: number,
 ): RoomSegment | null {
   const point = (along: number): Point => segment.axis === "H" ? [along, segment.c] : [segment.c, along];
-  const trim = (at: number): number => {
-    const reservation = facade.reservationAt(uvToWorld(point(at), frame));
+  const facadeEdge = (edge: number): [Point, Point] => [
+    facadeFloor.outline[edge]!, facadeFloor.outline[(edge + 1) % facadeFloor.outline.length]!,
+  ];
+  const trim = (at: number, direction: -1 | 1): number => {
+    const world = uvToWorld(point(at), frame);
+    const reservation = facade.reservationAt(world, PARTITION_HALF, facadeDepth + PARTITION_HALF);
     if (!reservation) return 0;
     const openingDepth = reservation.opening?.door?.motion?.clearDepth
       ?? reservation.opening?.portal?.clearDepth
       ?? 0;
-    return Math.max(facadeDepth, openingDepth) + PARTITION_HALF;
+    const targetDepth = Math.max(facadeDepth, openingDepth) + PARTITION_HALF;
+    const remaining = Math.max(0, targetDepth - reservation.distance);
+    if (remaining === 0) return 0;
+    const next = uvToWorld(point(at + direction), frame);
+    const movement: Point = [next[0] - world[0], next[1] - world[1]];
+    const outline = facadeEdge(reservation.edge);
+    const edgeLength = Math.hypot(outline[1][0] - outline[0][0], outline[1][1] - outline[0][1]) || 1;
+    const inward: Point = [
+      -(outline[1][1] - outline[0][1]) / edgeLength,
+      (outline[1][0] - outline[0][0]) / edgeLength,
+    ];
+    const slope = movement[0] * inward[0] + movement[1] * inward[1];
+    return slope > 1e-3 ? remaining / slope : Infinity;
   };
-  const a = segment.a + trim(segment.a);
-  const b = segment.b - trim(segment.b);
+  const a = segment.a + trim(segment.a, 1);
+  const b = segment.b - trim(segment.b, -1);
   return b - a > 1e-3 ? { ...segment, a, b } : null;
 }
 
@@ -160,7 +177,7 @@ export function canonicalHoles(holes: readonly WallHole[]): WallHole[] {
 
 /** The interior segments of a room's outline: its clipped polygon edges off the facade,
  *  each tagged with the room edge it lies on (a clip cut lies on none). */
-function roomSegments(room: PlanRoom, uvOutline: readonly Point[]): RoomSegment[] {
+function roomSegments(room: PlanRoom, uvOutline: readonly Point[], facadeDepth: number): RoomSegment[] {
   const r = room.rect;
   const clipped = clipPolygonToRect(uvOutline, { x: r.u, z: r.v, w: r.lu, d: r.lv });
   const poly = clipped.length >= 3 ? clipped : uvRectCorners(r);
@@ -170,7 +187,7 @@ function roomSegments(room: PlanRoom, uvOutline: readonly Point[]): RoomSegment[
     const a = poly[i]!;
     const b = poly[(i + 1) % poly.length]!;
     const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    if (onBoundary(mid, uvOutline)) continue;
+    if (onFacadeBand(a, b, mid, uvOutline, facadeDepth)) continue;
     if (Math.abs(a[1] - b[1]) < 1e-6) {
       const edge = on(a[1], r.v) ? "v0" : on(a[1], r.v + r.lv) ? "v1" : null;
       out.push({ axis: "H", c: a[1], a: Math.min(a[0], b[0]), b: Math.max(a[0], b[0]), edge });
@@ -298,9 +315,25 @@ function mergeIntervals(intervals: WallInterval[]): [number, number][] {
   return out;
 }
 
-function onBoundary(p: Point, outline: readonly Point[]): boolean {
+/** The facade lining owns every room edge parallel to its inner face. Room rectangles are
+ *  inset by the complete shell depth, so testing only the outer outline would duplicate a
+ *  solid interior wall behind the lining and close its openings. */
+function onFacadeBand(
+  a: Point, b: Point, mid: Point, outline: readonly Point[], facadeDepth: number,
+): boolean {
+  const dx = b[0] - a[0];
+  const dz = b[1] - a[1];
+  const length = Math.hypot(dx, dz);
+  if (length < 1e-6) return false;
   for (let i = 0; i < outline.length; i++) {
-    if (distanceToSegment(p, outline[i]!, outline[(i + 1) % outline.length]!) < 0.04) return true;
+    const edgeA = outline[i]!;
+    const edgeB = outline[(i + 1) % outline.length]!;
+    const ex = edgeB[0] - edgeA[0];
+    const ez = edgeB[1] - edgeA[1];
+    const edgeLength = Math.hypot(ex, ez);
+    if (edgeLength < 1e-6) continue;
+    const parallel = Math.abs((dx * ex + dz * ez) / (length * edgeLength));
+    if (parallel > 0.999 && distanceToSegment(mid, edgeA, edgeB) <= facadeDepth + PARTITION_HALF) return true;
   }
   return false;
 }

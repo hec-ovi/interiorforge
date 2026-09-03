@@ -1,5 +1,7 @@
 # Changelog
 
+0.28.0: exterior opening reservations govern facade-side walls, the complete vertical core and furniture footprints, including moving-door depth. Stair A connects the top floor to a fitted roof enclosure and roof nav surface. Interior wall bands and doorway casings are closed fitted solids. Wardrobes use a painted-steel carcass and separate leaves; wall screens use a dark metal stepped housing.
+
 0.27.1: public generators report shell and material I/O through the closed `InteriorError` codes. The preview contains generation and import failures and restores its controls. Single-floor NPC data publishes no inter-floor connectors.
 
 0.27.0: floor-only generation returns per-floor GLBs, floor data and NPC support with one floor document in memory at a time.

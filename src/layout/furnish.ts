@@ -56,9 +56,10 @@ class RoomPlacer {
     private readonly ids: IdGen,
     private readonly out: PlanFurniture[],
     doorZones: UvRect[],
+    openingZones: readonly UvRect[],
     private readonly bounds: FloorBounds,
   ) {
-    this.blocked.push(...doorZones);
+    this.blocked.push(...doorZones, ...openingZones);
     this.rect = usableRect(room.rect, (edge) => this.isFacade(edge), bounds.facadeDepth);
   }
 
@@ -272,11 +273,14 @@ function edgeRotation(edge: Edge): 0 | 90 | 180 | 270 {
 
 export function furnish(
   rooms: PlanRoom[], floorKind: FloorKind, rng: Rng, ids: IdGen, bounds: FloorBounds,
+  openingZones: readonly UvRect[] = [],
 ): PlanFurniture[] {
   const out: PlanFurniture[] = [];
   const zones = doorZonesByRoom(rooms);
   for (const room of rooms) {
-    const p = new RoomPlacer(room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), bounds);
+    const p = new RoomPlacer(
+      room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), openingZones, bounds,
+    );
     const area = room.rect.lu * room.rect.lv;
     switch (room.kind) {
       case "studio_main":

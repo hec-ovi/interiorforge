@@ -1,11 +1,39 @@
 import { describe, expect, it } from "vitest";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import floorSchema from "../schemas/floor.schema.json" with { type: "json" };
-import type { RoomDoor } from "./core/types.js";
+import type { FloorInterior, RoomDoor } from "./core/types.js";
 import { readGlbBytes } from "./glb/io.js";
 import { findPath, generateFloorInteriors, generateInterior, makeFixture } from "./index.js";
 
 const fix = makeFixture({ seed: 44, floors: 7, basements: 1 });
+
+async function expectOpeningVolumesClear(
+  glb: Uint8Array, floor: FloorInterior, opening?: string,
+): Promise<void> {
+  const document = await readGlbBytes(glb);
+  const reservations = opening
+    ? floor.openingReservations.filter((item) => item.opening === opening)
+    : floor.openingReservations;
+  for (const reservation of reservations) {
+    const clearHalfWidth = (reservation.width - 0.14) / 2 - 0.03;
+    for (const node of document.getRoot().listNodes()) {
+      for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
+        const positions = primitive.getAttribute("POSITION")!.getArray()!;
+        for (let i = 0; i < positions.length; i += 3) {
+          const y = positions[i + 1]! - floor.elevation;
+          if (y <= reservation.sill + 0.05 || y >= reservation.sill + reservation.height - 0.05) continue;
+          const dx = positions[i]! - reservation.position[0];
+          const dz = positions[i + 2]! - reservation.position[1];
+          const depth = dx * reservation.inward[0] + dz * reservation.inward[1];
+          const along = dx * -reservation.inward[1] + dz * reservation.inward[0];
+          const inside = depth > 0.02 && depth < reservation.depth - 0.02
+            && Math.abs(along) < clearHalfWidth;
+          expect(inside, `${node.getName()} enters ${reservation.opening}`).toBe(false);
+        }
+      }
+    }
+  }
+}
 
 describe("generateInterior", () => {
   it("produces a GLB plus schema-valid floor JSONs, byte-identical across runs", async () => {
@@ -184,30 +212,39 @@ describe("generateInterior", () => {
       .find((door) => door.to === "outside" && door.width === entrance.width)!;
     expect(exteriorDoor).toMatchObject({ clearDepth: 2.2 });
 
-    const document = await readGlbBytes(result.floorGlbs!.get(0)!);
-    for (const reservation of floor.openingReservations) {
-      const clearHalfWidth = (reservation.width - 0.14) / 2 - 0.03;
-      for (const node of document.getRoot().listNodes()) {
-        for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
-          const positions = primitive.getAttribute("POSITION")!.getArray()!;
-          for (let i = 0; i < positions.length; i += 3) {
-            const y = positions[i + 1]! - floor.elevation;
-            if (y <= reservation.sill + 0.05 || y >= reservation.sill + reservation.height - 0.05) continue;
-            const dx = positions[i]! - reservation.position[0];
-            const dz = positions[i + 2]! - reservation.position[1];
-            const depth = dx * reservation.inward[0] + dz * reservation.inward[1];
-            const along = dx * -reservation.inward[1] + dz * reservation.inward[0];
-            const inside = depth > 0.02 && depth < reservation.depth - 0.02
-              && Math.abs(along) < clearHalfWidth;
-            expect(inside, `${node.getName()} enters ${reservation.opening}`).toBe(false);
-          }
-        }
-      }
-    }
+    await expectOpeningVolumesClear(result.floorGlbs!.get(0)!, floor);
 
     const ajv = new Ajv2020({ allErrors: false, strict: false });
     const check = ajv.compile(floorSchema);
     expect(check(JSON.parse(JSON.stringify(floor))), JSON.stringify(check.errors)).toBe(true);
+  });
+
+  it("moves the complete secondary stair behind a deep facade door reservation", async () => {
+    const source = makeFixture({
+      seed: "core-opening-reservation", floors: 10, type: "residential", width: 40, depth: 24,
+    });
+    const blueprint = structuredClone(source.request.blueprint);
+    const firstApartment = blueprint.floors.find((item) => item.index === 1)!;
+    const opening = firstApartment.openings.find(
+      (item) => item.edge === 1 && item.offset < 11 && item.offset + item.width > 10.5,
+    )!;
+    Object.assign(opening, {
+      kind: "balconyDoor", sill: 0, height: 2.2,
+      door: { motion: { clearDepth: 2 } },
+    });
+    const fixture = makeFixture({ seed: "core-opening-reservation", blueprint, type: "residential" });
+    const result = await generateFloorInteriors(fixture.request, {
+      shellDoc: fixture.shellDoc, textures: { mode: "keys" },
+    });
+    const floor = result.floors.find((item) => item.floor === 1)!;
+    const reservation = floor.openingReservations.find((item) => item.opening === opening.id)!;
+    const stair = floor.core.stairs.find((item) => item.id === "stair-b")!;
+
+    expect(floor.coreAngleDeg).toBe(0);
+    expect(stair.rect.x + stair.rect.w).toBeLessThanOrEqual(
+      reservation.position[0] - reservation.depth + 1e-6,
+    );
+    await expectOpeningVolumesClear(result.floorGlbs.get(1)!, floor, opening.id);
   });
 
   it("emits doorway casings as closed face trims without occupying the wall reveal", async () => {

@@ -42,5 +42,8 @@ describe("Facade.crossedBy on a glazed sheet", () => {
     expect(facade.crossedBy([1, 0])).toBe("w0"); // an opening boundary is not an anchor
     expect(facade.crossedBy([0.8, 0])).toBeNull(); // full partition plus safety fits the anchor
     expect(facade.crossedBy([0.8, 0], 0.11)).toBe("facade:0:0:unreserved"); // a thicker wall does not fit it
+    expect(facade.reservationAt([3, 0.48], 0.07, 0.55)).toMatchObject({
+      id: "w0", edge: 0, t: 3, distance: 0.48,
+    }); // room bounds sit behind the complete facade lining, not on the outer outline
   });
 });

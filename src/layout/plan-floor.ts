@@ -11,7 +11,7 @@ import { stairAccess } from "./core-plan.js";
 import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import { planLights } from "./lighting.js";
-import { isExteriorConnection } from "./openings.js";
+import { isExteriorConnection, openingKeepouts } from "./openings.js";
 import { PARTITION_HALF } from "./openings.js";
 import { alignPartitionsToPiers } from "./pier-align.js";
 import { fitPartitionsToGrid, refitDoors } from "./tile-fit.js";
@@ -172,7 +172,8 @@ export function planFloor(
     });
   attachOutsideDoors(rooms, exteriorDoors, ids);
 
-  const furniture = furnish(rooms, kind, rng, ids, bounds);
+  const facadeKeepouts = openingKeepouts(floor, frame, bounds.facadeDepth);
+  const furniture = furnish(rooms, kind, rng, ids, bounds, facadeKeepouts.map((item) => item.rect));
 
   const sealed = [...backing.sealed, ...extraSealed.filter((s) => clipRatio(s, uvOutline) > 0.05)];
   const ceilingElevation = round3(floor.elevation + ceilingUnder(floor.openings, spaceHeight));
