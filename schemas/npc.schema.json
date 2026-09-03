@@ -136,6 +136,35 @@
               }
             }
           }
+        },
+        "roofAccess": {
+          "type": "object",
+          "required": ["floor", "elevation", "stair", "landing", "door", "entry"],
+          "additionalProperties": false,
+          "properties": {
+            "floor": { "type": "integer", "description": "synthetic nav floor one above the highest blueprint floor" },
+            "elevation": { "type": "number" },
+            "stair": { "const": "stair-a" },
+            "landing": {
+              "type": "array",
+              "minItems": 4,
+              "items": { "$ref": "#/$defs/point2" },
+              "description": "roof-level platform from the stair arrival to the enclosure door"
+            },
+            "door": {
+              "type": "object",
+              "required": ["position", "normal", "width", "height", "thresholdElevation"],
+              "additionalProperties": false,
+              "properties": {
+                "position": { "$ref": "#/$defs/point2" },
+                "normal": { "$ref": "#/$defs/point2" },
+                "width": { "type": "number", "exclusiveMinimum": 0 },
+                "height": { "type": "number", "exclusiveMinimum": 0 },
+                "thresholdElevation": { "type": "number" }
+              }
+            },
+            "entry": { "$ref": "#/$defs/point2", "description": "walkable roof point outside the door" }
+          }
         }
       }
     }

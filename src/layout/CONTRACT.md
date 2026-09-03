@@ -15,6 +15,7 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
   - `uvFloors: Map<number, UvFloorData>`: frame-space rooms, furniture and sealed bands for the geometry and NPC passes.
   - `assignments: FloorAssignment[]`: the supplied assignments sorted by floor.
 - `coreFeasibility(blueprint) -> CoreFeasibility`: the root contract's pre-check, computed by the same frame, band scan and placement as `planCore`; when it does not fit, `blocker` names the nearest miss (`cross_depth` on the shallowest floor plate, `band`, `compact_depth`, `walkup_floors`) and the `E_FLOOR_TOO_SMALL` message quotes the same numbers.
+- `planRoofAccess(request, core) -> RoofAccessPlan | null`: resolves the enclosure against stair A, checks shared axis, cutout fit and 2.1 m door headroom, then publishes the roof threshold, landing, door and exterior entry in the same coordinates.
 - Pipeline ([research](../../docs/RESEARCH.md)): core, corridor, strip programs, furniture, then flood-fill validation with deterministic door repair.
 
 ## Errors
@@ -27,6 +28,7 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 
 - The same request and assignments produce the same plan. Each floor has an independent RNG stream, so consuming values on floor M does not shift floor N's random choices.
 - Core rects are identical across floors and placed behind the facade lining. Stairs are continuous, with 1.2 m clear flights, 0.16 to 0.18 m risers, 0.28 m treads and 1.2 m landings. Every occupied floor is served by every elevator.
+- When a fitted roof bulkhead exists, stair A climbs from the last served floor to `roof.elevation`. Its roof-level landing joins the enclosure door on `doorNormal`; mismatched axes, cutouts or headroom are rejected.
 - Every room is reachable from the floor's spine (corridor, elevator lobby or mall concourse) through its connections. Corridor and door widths follow [the research constants](../../docs/RESEARCH.md).
 - A ground-floor `openFront` connects its facade room to outside at `portal.clearWidth`, opens the nav grid across the lining and reserves its clear approach without a leaf swing. A moving exterior door consumes `door.motion.clearDepth`; the exported room connection repeats it and furniture and NPC anchors stay out of it.
 - Facade endpoints use `facade.grids[].partitionAnchors` as their sole full-thickness permission. Grid fitting runs before facade fitting. A movable partition lands on an anchor; a core-locked or minimum-room boundary stops before the reserved opening volume and joins the facade-side space instead of crossing the opening.

@@ -209,6 +209,49 @@ describe("generateInterior", () => {
     expect(check(JSON.parse(JSON.stringify(floor))), JSON.stringify(check.errors)).toBe(true);
   });
 
+  it("connects the last served floor to Exterior's roof threshold and nav surface", async () => {
+    const source = makeFixture({ seed: "roof-access", floors: 5, type: "hotel", width: 30, depth: 22 });
+    const blueprint = structuredClone(source.request.blueprint);
+    const top = blueprint.floors.at(-1)!;
+    const roofElevation = top.elevation + top.height;
+    blueprint.roof = {
+      elevation: roofElevation,
+      outline: top.outline,
+      parapetHeight: 1,
+      bulkhead: {
+        center: [15, 11], axis: [-1, 0], width: 8, depth: 8,
+        housingHeight: 2.7, doorNormal: [0, -1], doorWidth: 1, doorHeight: 2.1,
+      },
+      artifacts: [{ kind: "hvac", center: [23, 15], size: [1.5, 1, 1], rotationDeg: 0 }],
+    };
+    const fixture = makeFixture({ seed: "roof-access", blueprint, type: "hotel" });
+    const result = await generateFloorInteriors(fixture.request, {
+      shellDoc: fixture.shellDoc, textures: { mode: "keys" },
+    });
+
+    const access = result.npc.nav.roofAccess!;
+    expect(access).toMatchObject({
+      floor: top.index + 1,
+      elevation: roofElevation,
+      stair: "stair-a",
+      door: { thresholdElevation: roofElevation, width: 1, height: 2.1 },
+    });
+    expect(access.landing).toHaveLength(4);
+    expect(result.npc.nav.floors.some((floor) => floor.floor === access.floor)).toBe(true);
+
+    const topInterior = result.floors.find((floor) => floor.floor === top.index)!;
+    const stair = topInterior.core.stairs.find((item) => item.id === "stair-a")!;
+    expect(Math.max(...stair.steps!.map((step) => step.y))).toBeCloseTo(roofElevation, 6);
+    const start = result.npc.anchors.find((anchor) =>
+      anchor.floor === top.index && anchor.kind === "stair_entry")!;
+    const path = findPath(
+      result.npc,
+      { floor: start.floor, position: start.position },
+      { floor: access.floor, position: access.entry },
+    )!;
+    expect(path.some((leg) => leg.kind === "ride" && leg.connector === "stair-a")).toBe(true);
+  });
+
   it("rejects a malformed request with E_BLUEPRINT_INVALID", async () => {
     await expect(generateInterior({ nonsense: true })).rejects.toMatchObject({ code: "E_BLUEPRINT_INVALID" });
   });

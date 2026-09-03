@@ -10,6 +10,7 @@ import { appendToDocument } from "../glb/io.js";
 import { STAIR, stairSlab } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import type { BuildingPlan } from "../layout/index.js";
+import { planRoofAccess } from "../layout/roof-access.js";
 import type { PlanRoom } from "../layout/plan-types.js";
 import { facadeDepth, SHELL_WALL, shellWallDepth } from "../layout/shell.js";
 import type { UvRect } from "../layout/uv.js";
@@ -19,6 +20,7 @@ import { assertDoorwaysClear, floorDoorways, openFrontClearances } from "./door-
 import { emitFurniture } from "./furniture/index.js";
 import { emitLightFixtures } from "./lights.js";
 import { MaterialKeys } from "./materials.js";
+import { emitRoofLanding } from "./roof-access.js";
 import { stairClearance } from "./stair-clearance.js";
 import type { RunStep, UvStep } from "./stairs.js";
 import {
@@ -68,6 +70,8 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
   const runs = new Map<string, Map<number, RunStep[]>>();
   const facade = request.blueprint.facade;
   const wallDepth = shellWallDepth(facade);
+  const roofAccess = planRoofAccess(request, core);
+  const highestServed = [...sorted].reverse().find((floor) => floor.rooms.length > 0)!;
 
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
@@ -81,16 +85,19 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
     // stairs climb to the next floor that has a slab
     const target = sorted.slice(i + 1).find((f) => f.rooms.length > 0);
     if (floor.rooms.length > 0) {
-      const climb = target ? target.elevation - floor.elevation : 0;
-      const slab = stairSlab(climb > 0 ? climb : floor.height);
       for (const which of stairIds) {
+        const roofClimb = which === "a" && floor === highestServed && roofAccess
+          ? roofAccess.access.elevation - floor.elevation
+          : 0;
+        const climb = target ? target.elevation - floor.elevation : roofClimb;
+        const slab = stairSlab(climb > 0 ? climb : floor.height);
         const shaft = which === "a" ? core.stairA : core.stairB!;
         const entryLow = entryAtLowEnd(core, which);
         const steps: UvStep[] = [];
         // the lowest served floor stands on its own landing; every floor above stands on the
         // landing the climb below arrives on
         if (floor === lowest) steps.push(baseLanding(shaft, entryLow, floor.elevation));
-        if (target) steps.push(...computeStairSteps(shaft, entryLow, floor.elevation, climb));
+        if (climb > 0) steps.push(...computeStairSteps(shaft, entryLow, floor.elevation, climb));
         if (steps.length === 0) continue;
         const id = `stair-${which}`;
         const frameRects = steps.map((s) => stepToFrameRect(s, core.frame));
@@ -101,6 +108,7 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
         run.set(floor.floor, steps.map((s) => ({ ...s, slab })));
         runs.set(id, run);
         emitStairMeshes(mb, keys, core.frame, steps, slab);
+        if (roofClimb > 0) emitRoofLanding(mb, keys, core, roofAccess!);
       }
     }
 

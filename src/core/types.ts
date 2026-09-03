@@ -105,8 +105,24 @@ export interface Blueprint {
   buildingId: string;
   bounds?: { footprint: Point[]; height: number };
   facade?: Facade;
-  /** the exterior's roof: the housing over the stair head, when the roof holds one */
-  roof?: { bulkhead?: { center: Point; axis: Point; width: number; depth: number } | null; [extra: string]: unknown };
+  /** the exterior's roof and fitted housing over the stair head */
+  roof?: {
+    elevation?: number;
+    outline?: Point[];
+    parapetHeight?: number;
+    bulkhead?: {
+      center: Point;
+      axis: Point;
+      width: number;
+      depth: number;
+      housingHeight?: number;
+      doorNormal?: Point;
+      doorWidth?: number;
+      doorHeight?: number;
+    } | null;
+    artifacts?: { center: Point; size: [number, number, number]; rotationDeg: number; [extra: string]: unknown }[];
+    [extra: string]: unknown;
+  };
   floors: BlueprintFloor[];
   [extra: string]: unknown;
 }
@@ -329,6 +345,26 @@ export interface Nav {
   cellSize: number;
   floors: NavFloor[];
   connectors: NavConnector[];
+  /** fitted last-floor stair connection and synthetic nav level for a usable roof */
+  roofAccess?: RoofAccess;
+}
+
+export interface RoofAccess {
+  /** synthetic nav floor, one above the highest blueprint floor */
+  floor: number;
+  elevation: number;
+  stair: "stair-a";
+  /** roof-level platform from the stair arrival to the enclosure door */
+  landing: Point[];
+  door: {
+    position: Point;
+    normal: Point;
+    width: number;
+    height: number;
+    thresholdElevation: number;
+  };
+  /** walkable point just outside the enclosure door */
+  entry: Point;
 }
 
 export interface NpcSupport {

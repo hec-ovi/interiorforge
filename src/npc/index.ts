@@ -42,6 +42,6 @@ export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): N
     anchors,
     roles,
     routines,
-    nav: buildNav(plan.floors, plan.navGrids, plan.core),
+    nav: buildNav(plan.floors, plan.navGrids, plan.core, request),
   };
 }

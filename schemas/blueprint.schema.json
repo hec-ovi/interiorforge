@@ -50,6 +50,53 @@
         }
       }
     },
+    "roof": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "elevation": { "type": "number", "description": "roof walking surface and enclosure-door threshold" },
+        "outline": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point2" } },
+        "parapetHeight": { "type": "number", "minimum": 0 },
+        "bulkhead": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["center", "axis", "width", "depth", "housingHeight", "doorNormal", "doorWidth", "doorHeight"],
+              "additionalProperties": true,
+              "properties": {
+                "center": { "$ref": "#/$defs/point2" },
+                "axis": { "$ref": "#/$defs/point2" },
+                "width": { "type": "number", "exclusiveMinimum": 0 },
+                "depth": { "type": "number", "exclusiveMinimum": 0 },
+                "housingHeight": { "type": "number", "exclusiveMinimum": 0 },
+                "doorNormal": { "$ref": "#/$defs/point2" },
+                "doorWidth": { "type": "number", "exclusiveMinimum": 0 },
+                "doorHeight": { "type": "number", "exclusiveMinimum": 0 }
+              }
+            }
+          ]
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["center", "size", "rotationDeg"],
+            "additionalProperties": true,
+            "properties": {
+              "center": { "$ref": "#/$defs/point2" },
+              "size": {
+                "type": "array",
+                "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }],
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "rotationDeg": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
     "floors": {
       "type": "array",
       "minItems": 1,
