@@ -53,7 +53,9 @@ export function planRoofAccess(request: InteriorRequest, core: CorePlan): RoofAc
 
   const side = normalDot < 0 ? -1 : 1;
   const doorV = centerV + side * bulkhead.depth / 2;
-  const shaftV = side < 0 ? shaft.v : shaft.v + shaft.lv;
+  // Stair geometry starts half a wall inside the shaft. Meet that finished edge so the
+  // platform and arrival landing share a full-width boundary instead of a narrow void.
+  const shaftV = side < 0 ? shaft.v + WALL / 2 : shaft.v + shaft.lv - WALL / 2;
   const v0 = Math.min(doorV, shaftV);
   const v1 = Math.max(doorV, shaftV);
   const landingUv: Rect = {

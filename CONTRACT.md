@@ -2,7 +2,7 @@
 
 Purpose: deterministically fills one building shell with furnished interiors and exports floor, NPC routine and navigation data.
 
-Status: implemented at 0.28.2. Simulation consumes [schemas/npc.schema.json](schemas/npc.schema.json).
+Status: implemented at 0.28.3. Simulation consumes [schemas/npc.schema.json](schemas/npc.schema.json).
 
 ## In
 
@@ -55,7 +55,7 @@ Closed domain set, thrown as `InteriorError { code, floor?, message }`:
 - `E_MATERIAL_UNRESOLVED`: a material key is absent, a theme index or map cannot be read, or embedding uses a preloaded theme without a disk map reader
 
 ## Invariants
-- The core block is centred under the exterior's roof housing (`blueprint.roof.bulkhead`) along its band. Stair A continues from the last served floor to `roof.elevation`; a closed platform joins its arrival landing to the enclosure door threshold, and the roof nav surface routes outside around the enclosure and published artifacts. Shared axis, cutout fit and 2.1 m door headroom are validated before output.
+- The core block is centred under the exterior's roof housing (`blueprint.roof.bulkhead`) along its band. Stair A continues from the last served floor to `roof.elevation`; a closed platform meets the stair's finished inside edge across the capsule-width arrival landing and reaches the enclosure door threshold. The roof nav surface routes outside around the enclosure and published artifacts. Shared axis, cutout fit and 2.1 m door headroom are validated before output.
 - Every doorway carries one casing (two jambs and a head, 8 cm) in the door material. Each member is a closed 2 cm face trim on both wall faces; the closed wall end owns the reveal between them, so casing and reveal never occupy the same visible plane. The two adjoining room records resolve to that same casing before geometry is emitted. Every window carries a casing on the room side (jambs, head, stool) in the window-frame material, standing 3 cm proud of the lining and never past its own facade.
 - Doors follow their walls: after the pier and grid passes every room door sits inside the stretch its two rooms still share on the plate, centered when needed and narrowed to a 0.7 m minimum. A pair sharing no usable stretch loses the door and the reachability pass cuts a working one elsewhere.
 - Every doorway is 0.9 m clear, bathrooms included, and keeps the corner bands out of the opening: a doorway sits at least half a wall plus its bands (0.09 m) from each end of its stretch, and only a wall too short for that carries a narrower leaf, down to 0.7 m. Door heads stand at 2.5 m (3 m for three or more leaves) or one casing band below a lower ceiling.

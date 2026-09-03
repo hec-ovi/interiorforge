@@ -1,5 +1,7 @@
 # Changelog
 
+0.28.3: the fitted roof platform meets the stair's finished inside edge and carries capsule-width support from the final tread to the enclosure threshold. Public floor GLB checks inspect the rotated transition geometry.
+
 0.28.2: electronic wall displays use a stepped metal housing with a separate narrow central rear mount inside their declared bounds. Public GLB checks cover doorway casing topology and world-meter material mapping across single-leaf and wide multi-leaf openings.
 
 0.28.1: facade-parallel room bands stay owned by the opening-aware lining after layout-grid fitting. Public GLB reservation checks clip every emitted triangle against the complete clear volume.
