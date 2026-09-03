@@ -5,10 +5,10 @@ import { planBuilding } from "../layout/index.js";
 import { writeGlb } from "../glb/io.js";
 import { buildInterior } from "./index.js";
 
-/** Variants the interior may ask for: joint-free surface patterns and the lamp shapes. A
+/** Variants the interior may ask for: joint-free surface patterns, flat upholstery and lamp shapes. A
  *  texture whose module repeats (panel, slab, hex, bond) would cut mid-tile against rooms on
  *  the half-metre grid, so every grid the interior shows is geometry it placed itself. */
-const ALLOWED_VARIANTS = new Set(["plain", "lamp", "strip"]);
+const ALLOWED_VARIANTS = new Set(["plain", "flat", "lamp", "strip"]);
 
 describe("buildInterior", () => {
   it("asks for no tiling pattern that would cut against the room grid", () => {

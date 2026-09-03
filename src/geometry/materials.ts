@@ -1,4 +1,4 @@
-import type { FurnitureKind, RoomKind } from "../core/types.js";
+import type { RoomKind } from "../core/types.js";
 
 /** Material keys are theme/kind/tier slugs; the materials box resolves them. */
 
@@ -9,15 +9,6 @@ const FLOOR_BY_ROOM: Partial<Record<RoomKind, string>> = {
   bedroom: "wood", living: "wood", studio_main: "wood", bathroom: "tile", toilets: "tile",
   gym_floor: "rubber", locker_room: "tile", storage: "concrete", mechanical_room: "concrete",
   terrace_open: "concrete", parking_area: "concrete",
-};
-
-const FURNITURE_FAMILY: Partial<Record<FurnitureKind, string>> = {
-  desk: "wood", meeting_table: "wood", dining_table: "wood", low_table: "wood",
-  wardrobe: "wood", shelf: "metal", kitchen_block: "metal", fridge: "metal",
-  counter: "metal", reception_desk: "wood", bar_counter: "wood", display_rack: "metal",
-  bed_single: "fabric", bed_double: "fabric", sofa: "fabric", office_chair: "fabric",
-  chair: "wood", stool: "wood", bench: "wood", toilet: "tile", sink: "tile", shower: "tile",
-  gym_machine: "metal", plant: "fabric",
 };
 
 /** Walls and ceilings take the pattern class, and only its joint-free members: a texture
@@ -41,10 +32,6 @@ export class MaterialKeys {
 
   floorOf(room: RoomKind): string {
     return this.key(FLOOR_BY_ROOM[room] ?? "concrete");
-  }
-
-  furnitureOf(kind: FurnitureKind): string {
-    return this.key(FURNITURE_FAMILY[kind] ?? "wood");
   }
 
   /** Walls are flat: the plain plaster everywhere, so a pattern only ever reads as a border. */

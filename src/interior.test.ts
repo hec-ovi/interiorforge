@@ -16,6 +16,12 @@ describe("generateInterior", () => {
     expect(JSON.stringify(a.floors)).toBe(JSON.stringify(b.floors));
     expect(JSON.stringify(a.npc)).toBe(JSON.stringify(b.npc));
 
+    const document = await readGlbBytes(a.glb);
+    const fabric = document.getRoot().listMaterials()
+      .filter((material) => material.getName() === "cyberpunk/fabric/mid");
+    expect(fabric.length).toBeGreaterThan(0);
+    expect(fabric.every((material) => material.getExtras().materialVariant === "flat")).toBe(true);
+
     const ajv = new Ajv2020({ allErrors: false, strict: false });
     const check = ajv.compile(floorSchema);
     for (const floor of a.floors) {

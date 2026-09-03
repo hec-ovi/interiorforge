@@ -31,7 +31,8 @@ function writeThemeDatabase(kinds: string[] = KINDS): string {
   for (const kind of kinds) {
     const key = `${THEME}/${kind}/${TIER}`;
     const maps = { basecolor: "basecolor.png", normal: "normal.png", ao: "ao.png" };
-    const assets = join(themeDir, "assets", kind, TIER, "1");
+    const variant = kind === "fabric" ? "flat" : "1";
+    const assets = join(themeDir, "assets", kind, TIER, variant);
     mkdirSync(assets, { recursive: true });
     for (const file of Object.values(maps)) writeFileSync(join(assets, file), PNG);
     entries[key] = {
@@ -40,10 +41,10 @@ function writeThemeDatabase(kinds: string[] = KINDS): string {
       ...(kind === "elevator_door" || kind === "ad-screen" ? {} : { tiling: { worldSize: TILE_SIZE } }),
       physical: { metallicFactor: kind === "metal" ? 1 : 0, roughnessFactor: 0.6 },
       variants: [{
-        id: "1",
+        id: variant,
         resolution: [64, 64],
         maps: Object.fromEntries(
-          Object.entries(maps).map(([slot, file]) => [slot, `assets/${kind}/${TIER}/1/${file}`]),
+          Object.entries(maps).map(([slot, file]) => [slot, `assets/${kind}/${TIER}/${variant}/${file}`]),
         ) as MaterialEntry["variants"][number]["maps"],
       }],
     };
@@ -79,7 +80,7 @@ describe("finished interior", () => {
     const json = glbJson(result.glb) as GlbImages;
     expect(json.images!.length).toBeGreaterThan(0);
     for (const image of json.images!) {
-      expect(image.uri).toMatch(/^\/materials\/themes\/cyberpunk\/assets\/[a-z_-]+\/mid\/1\/\w+\.png$/);
+      expect(image.uri).toMatch(/^\/materials\/themes\/cyberpunk\/assets\/[a-z_-]+\/mid\/[a-z0-9_-]+\/\w+\.png$/);
       expect(image.bufferView).toBeUndefined();
     }
     // world-meter UVs: a tiled map repeats once per worldSize meters, an exact one is 0..1
@@ -88,6 +89,7 @@ describe("finished interior", () => {
       .toEqual([1 / TILE_SIZE[0], 1 / TILE_SIZE[1]]);
     const exact = json.materials!.find((m) => m.name.endsWith("/elevator_door/mid"))!;
     expect(exact.pbrMetallicRoughness!.baseColorTexture!.extensions).toBeUndefined();
+    expect(json.images!.some((image) => image.uri?.includes("/fabric/mid/flat/"))).toBe(true);
 
     const again = fixture();
     const twice = await generateInterior(again.request, {

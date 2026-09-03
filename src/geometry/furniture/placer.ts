@@ -52,7 +52,8 @@ export class Placer {
     if (x1 - x0 < 1e-4 || z1 - z0 < 1e-4 || y1 - y0 < 1e-4) return;
     const corners: Point[] = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([x, z]) => this.toWorld(x!, z!));
     this.mb.addPrism(
-      this.keys.key(KIND[mat]), corners, this.base + y0, this.base + y1,
+      this.keys.key(KIND[mat], mat === "fabric" ? "flat" : undefined),
+      corners, this.base + y0, this.base + y1,
       mat === "screen" ? "unit" : "world",
       y0 <= 1e-3 ? "top" : "both",
     );
