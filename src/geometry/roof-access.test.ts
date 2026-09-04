@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Point } from "../core/geom.js";
 import type { Rect3 } from "../core/types.js";
-import { readGlbBytes } from "../glb/io.js";
 import { generateFloorInteriors, makeFixture } from "../index.js";
-
-type Point3 = [number, number, number];
-type Triangle = [Point3, Point3, Point3];
+import {
+  supportsPoint, toFrame, toWorld, upwardSurfaceTriangles, type Triangle,
+} from "./surface-support.test-helper.js";
 
 interface Bounds {
   u0: number;
@@ -23,18 +22,6 @@ interface EdgeJoin {
   bEdge: number;
   aInside: number;
   bInside: number;
-}
-
-function toFrame([x, z]: Point, angleDeg: number): Point {
-  const angle = angleDeg * Math.PI / 180;
-  const cos = Math.cos(angle), sin = Math.sin(angle);
-  return [x * cos + z * sin, -x * sin + z * cos];
-}
-
-function toWorld([u, v]: Point, angleDeg: number): Point {
-  const angle = angleDeg * Math.PI / 180;
-  const cos = Math.cos(angle), sin = Math.sin(angle);
-  return [u * cos - v * sin, u * sin + v * cos];
 }
 
 function stepBounds(step: Rect3, angleDeg: number): Bounds {
@@ -64,51 +51,8 @@ function closestJoin(a: Bounds, b: Bounds): EdgeJoin {
     .sort((left, right) => left.gap - right.gap)[0]!;
 }
 
-function transformPoint(position: ArrayLike<number>, index: number, matrix: readonly number[]): Point3 {
-  const x = Number(position[index * 3]);
-  const y = Number(position[index * 3 + 1]);
-  const z = Number(position[index * 3 + 2]);
-  return [
-    matrix[0]! * x + matrix[4]! * y + matrix[8]! * z + matrix[12]!,
-    matrix[1]! * x + matrix[5]! * y + matrix[9]! * z + matrix[13]!,
-    matrix[2]! * x + matrix[6]! * y + matrix[10]! * z + matrix[14]!,
-  ];
-}
-
-async function roofTriangles(glb: Uint8Array, elevation: number): Promise<Triangle[]> {
-  const document = await readGlbBytes(glb);
-  const triangles: Triangle[] = [];
-  for (const node of document.getRoot().listNodes()) {
-    const matrix = node.getWorldMatrix();
-    for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
-      const positions = primitive.getAttribute("POSITION")!.getArray()!;
-      const indices = primitive.getIndices()?.getArray();
-      const count = indices?.length ?? primitive.getAttribute("POSITION")!.getCount();
-      for (let i = 0; i + 2 < count; i += 3) {
-        const triangle = [0, 1, 2].map((offset) =>
-          transformPoint(positions, Number(indices?.[i + offset] ?? i + offset), matrix)) as Triangle;
-        const [a, b, c] = triangle;
-        const normalY = (b![2] - a![2]) * (c![0] - a![0]) - (b![0] - a![0]) * (c![2] - a![2]);
-        if (normalY > 0 && triangle.every((point) => Math.abs(point[1] - elevation) < 0.002)) {
-          triangles.push(triangle);
-        }
-      }
-    }
-  }
-  return triangles;
-}
-
-function containsXZ([a, b, c]: Triangle, [x, z]: Point): boolean {
-  const divisor = (b[2] - c[2]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[2] - c[2]);
-  if (Math.abs(divisor) < 1e-12) return false;
-  const l1 = ((b[2] - c[2]) * (x - c[0]) + (c[0] - b[0]) * (z - c[2])) / divisor;
-  const l2 = ((c[2] - a[2]) * (x - c[0]) + (a[0] - c[0]) * (z - c[2])) / divisor;
-  const l3 = 1 - l1 - l2;
-  return l1 >= -1e-5 && l2 >= -1e-5 && l3 >= -1e-5;
-}
-
 function expectSupported(triangles: Triangle[], point: Point, label: string): void {
-  expect(triangles.some((triangle) => containsXZ(triangle, point)), label).toBe(true);
+  expect(triangles.some((triangle) => supportsPoint(triangle, point)), label).toBe(true);
 }
 
 function exactRotatedRoofFixture(): ReturnType<typeof makeFixture> {
@@ -171,7 +115,7 @@ describe("roof access geometry", () => {
     expect(treadJoin.overlap1 - treadJoin.overlap0).toBeGreaterThanOrEqual(0.7);
     expect(platformJoin.overlap1 - platformJoin.overlap0).toBeGreaterThanOrEqual(0.7);
 
-    const triangles = await roofTriangles(result.floorGlbs.get(0)!, access.elevation);
+    const triangles = await upwardSurfaceTriangles(result.floorGlbs.get(0)!, access.elevation);
     for (const [name, join] of [["final tread", treadJoin], ["roof platform", platformJoin]] as const) {
       const center = (join.overlap0 + join.overlap1) / 2;
       for (const across of [-0.35, 0, 0.35]) {

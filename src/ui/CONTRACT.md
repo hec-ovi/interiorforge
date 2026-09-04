@@ -2,7 +2,7 @@
 
 Purpose: renders the generated building, one-floor inspection, room details and walk-path checks in a browser.
 
-Status: implemented at 0.28.3. Run with `npm run preview`.
+Status: implemented at 0.28.4. Run with `npm run preview`.
 
 ## Inputs
 

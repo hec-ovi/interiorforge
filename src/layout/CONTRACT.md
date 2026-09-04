@@ -32,7 +32,7 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 - Every room is reachable from the floor's spine (corridor, elevator lobby or mall concourse) through its connections. Corridor and door widths follow [the research constants](../../docs/RESEARCH.md).
 - A ground-floor `openFront` connects its facade room to outside at `portal.clearWidth`, opens the nav grid across the lining and reserves its clear approach without a leaf swing. A moving exterior door consumes `door.motion.clearDepth`; the exported room connection repeats it and furniture and NPC anchors stay out of it.
 - Facade endpoints use `facade.grids[].partitionAnchors` as their sole full-thickness permission. Grid fitting runs before facade fitting. A movable partition lands on an anchor; a core-locked or minimum-room boundary stops before the reserved opening volume and joins the facade-side space instead of crossing the opening. Every furniture footprint is tested against the same reservations.
-- Rooms, corridors, sealed shafts and core occupy the usable inner plate without an interior gap band.
+- Rooms, corridors, sealed shafts and core occupy the usable inner plate without an interior gap band. A doorway-width full-depth plate after inline stair B is a corridor landing to the facade slab edge and joins a reachable adjacent room around the stair; a narrower remainder is sealed.
 
 ## Depends on
 

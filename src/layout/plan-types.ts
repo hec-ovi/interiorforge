@@ -63,6 +63,8 @@ export interface FloorFrame {
   corridorU: [number, number];
   /** corridor band rect (u range excludes an inline stair B shaft) */
   corridor: UvRect;
+  /** usable landing between an inline stair B shaft and the facade, when that tail exists */
+  corridorTail?: UvRect;
   /** stair B shaft in uv, when the building has one */
   stairB?: UvRect;
   /** south strip: from the south facade to the corridor */

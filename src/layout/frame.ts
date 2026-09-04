@@ -17,10 +17,29 @@ export const VENUE_KINDS: ReadonlySet<FloorKind> = new Set([...HALL_FLOOR_KINDS,
 /** Usable u range of a v band: bounds of the outline clipped to that band. Partial-depth
  *  slivers are included; rooms there get clipped polygons. */
 export function usableU(uvOutline: readonly Point[], v0: number, v1: number): [number, number] {
-  const clipped = clipPolygonToRect(uvOutline, { x: -1e7, z: v0, w: 2e7, d: v1 - v0 });
-  if (clipped.length === 0) return [0, 0];
-  const b = polygonBounds(clipped);
+  const b = usableBounds(uvOutline, v0, v1);
+  if (!b) return [0, 0];
   return [snapUp(b.x), snapDown(b.x + b.w)];
+}
+
+function usableBounds(uvOutline: readonly Point[], v0: number, v1: number) {
+  const clipped = clipPolygonToRect(uvOutline, { x: -1e7, z: v0, w: 2e7, d: v1 - v0 });
+  return clipped.length === 0 ? null : polygonBounds(clipped);
+}
+
+/** Exact right edge of the full-depth plate joined to `start`. Rooms stay on the snapped
+ *  grid, but a landing beside an inline stair must meet the facade without a floor seam. */
+function coveredRightEdge(plate: readonly Point[], start: number, v0: number, v1: number): number {
+  const bounds = usableBounds(plate, v0, v1);
+  if (!bounds || bounds.x + bounds.w <= start) return start;
+  let low = start;
+  let high = bounds.x + bounds.w;
+  for (let i = 0; i < 32; i++) {
+    const mid = (low + high) / 2;
+    if (coversRect(plate, { u: start, v: v0, lu: mid - start, lv: v1 - v0 })) low = mid;
+    else high = mid;
+  }
+  return low;
 }
 
 /** Longest u run where the band's FULL depth is inside the outline. Shafts and corridors
@@ -46,7 +65,7 @@ export function fullCoverageU(uvOutline: readonly Point[], v0: number, v1: numbe
 }
 
 /** Structural bands of one floor around the building-wide core, uv space. */
-export function buildFrame(core: CorePlan, floor: BlueprintFloor): FloorFrame {
+export function buildFrame(core: CorePlan, floor: BlueprintFloor, slabPlate = toUvPolygon(floor.outline, core.frame)): FloorFrame {
   const uvOutline = toUvPolygon(floor.outline, core.frame);
   const b = polygonBounds(uvOutline);
   const v0 = snapUp(b.z);
@@ -60,6 +79,11 @@ export function buildFrame(core: CorePlan, floor: BlueprintFloor): FloorFrame {
   const stairB = core.mode !== "compact" ? core.stairB : undefined;
   const corridorEnd = stairB ? Math.min(cu1, stairB.u) : cu1;
   const corridor = { u: cu0, v: vFace - w, lu: corridorEnd - cu0, lv: w };
+  const tailStart = stairB ? stairB.u + stairB.lu : cu1;
+  const tailEnd = stairB ? coveredRightEdge(slabPlate, tailStart, vFace - w, vFace) : tailStart;
+  const corridorTail = tailEnd - tailStart > 1e-4
+    ? { u: tailStart, v: vFace - w, lu: tailEnd - tailStart, lv: w }
+    : undefined;
 
   const [su0, su1] = usableU(uvOutline, v0, vFace - w);
   const south = vFace - w - v0 >= 1.6
@@ -74,6 +98,7 @@ export function buildFrame(core: CorePlan, floor: BlueprintFloor): FloorFrame {
   return {
     corridorU: [cu0, cu1],
     corridor,
+    ...(corridorTail ? { corridorTail } : {}),
     stairB,
     south,
     northSegments,

@@ -1,5 +1,5 @@
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, isCcw, polygonBounds } from "../core/geom.js";
+import { clipPolygonToRect, insetPolygon, isCcw, polygonBounds } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
 import { createRng } from "../core/rng.js";
 import type {
@@ -18,9 +18,9 @@ import { fitPartitionsToGrid, refitDoors } from "./tile-fit.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
 import {
   attachOutsideDoors, clipRatio, fillCoreBacking, fillOfficeStrip, fillServiceSegment,
-  fillShopStrip, fillUnitStrip, fillVenue, idGen,
+  fillShopStrip, fillUnitStrip, fillVenue, idGen, MIN_STRETCH,
 } from "./rooms.js";
-import { floorBounds } from "./shell.js";
+import { floorBounds, shellWallDepth } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { toWorldPolygon, uvRectToFrameRect, uvToWorld, worldToUv } from "./uv.js";
 import { validateAndRepair } from "./validate-floor.js";
@@ -67,7 +67,8 @@ export function planFloor(
     };
   }
 
-  const floorFrame = buildFrame(core, floor);
+  const slabPlate = insetPolygon(uvOutline, shellWallDepth(request.blueprint.facade));
+  const floorFrame = buildFrame(core, floor, slabPlate);
   const isHall = HALL_FLOOR_KINDS.has(kind);
   const isMall = kind === "mall_floor";
   const isOffice = kind === "office" || kind === "corpo_office";
@@ -75,6 +76,9 @@ export function planFloor(
   // strip segments with no corridor contact (e.g. behind the inline stair) are enclaves:
   // sealed service voids, never rooms
   const extraSealed: UvRect[] = [];
+  if (floorFrame.corridorTail && floorFrame.corridorTail.lu < MIN_STRETCH) {
+    extraSealed.push(floorFrame.corridorTail);
+  }
   const corridorU = floorFrame.corridor;
   floorFrame.northSegments = floorFrame.northSegments.filter((seg) => {
     const contact = Math.min(seg.u + seg.lu, corridorU.u + corridorU.lu) - Math.max(seg.u, corridorU.u);
@@ -91,7 +95,16 @@ export function planFloor(
     rect: floorFrame.corridor,
     doors: [],
   };
-  let rooms: PlanRoom[] = [corridorRoom];
+  const tail = floorFrame.corridorTail;
+  const corridorTail: PlanRoom | undefined = tail && tail.lu >= MIN_STRETCH
+    ? {
+        id: `f${floor.index < 0 ? `m${-floor.index}` : floor.index}-corridor-tail`,
+        kind: corridorRoom.kind,
+        rect: tail,
+        doors: [],
+      }
+    : undefined;
+  let rooms: PlanRoom[] = [corridorRoom, ...(corridorTail ? [corridorTail] : [])];
 
   const backing = fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
   rooms.push(...backing.rooms);

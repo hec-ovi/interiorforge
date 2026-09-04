@@ -1,5 +1,7 @@
 # Changelog
 
+0.28.4: an inline secondary stair leaves a fitted corridor landing on the remaining facade-side plate. Exterior doors on that landing have continuous capsule-width floor support and a reachable lateral connection around the stair.
+
 0.28.3: the fitted roof platform meets the stair's finished inside edge and carries capsule-width support from the final tread to the enclosure threshold. Public floor GLB checks inspect the rotated transition geometry.
 
 0.28.2: electronic wall displays use a stepped metal housing with a separate narrow central rear mount inside their declared bounds. Public GLB checks cover doorway casing topology and world-meter material mapping across single-leaf and wide multi-leaf openings.

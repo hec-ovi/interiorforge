@@ -4,7 +4,7 @@ Deterministic interior generator for buildings. Give it a GLB shell and its per-
 
 Same seed and inputs, byte-identical output. No LLM calls, no wall clock, no ambient randomness.
 
-Every floor is real: stairs are continuous walkable geometry from the ground through a fitted roof enclosure, elevators serve every floor they span, and every room is reachable from the entrance. Exterior opening reservations keep partitions, the vertical core and furniture out of windows, portals and moving-door space. Permanently open shop fronts use the exterior's exact portal dimensions and stay open through the lining. The geometry is watertight for play, with no gap at a floor edge and no spot where a character gets stuck, and it stays inside the shell: nothing reaches the exterior wall plane, checked on every vertex before the GLB is written.
+Every floor is real: stairs are continuous walkable geometry from the ground through a fitted roof enclosure, elevators serve every floor they span, and every room is reachable from the entrance. A secondary stair beside the facade leaves a supported corridor landing with a lateral route around the shaft. Exterior opening reservations keep partitions, the vertical core and furniture out of windows, portals and moving-door space. Permanently open shop fronts use the exterior's exact portal dimensions and stay open through the lining. The geometry is watertight for play, with no gap at a floor edge and no spot where a character gets stuck, and it stays inside the shell: nothing reaches the exterior wall plane, checked on every vertex before the GLB is written.
 
 ## Run
 
