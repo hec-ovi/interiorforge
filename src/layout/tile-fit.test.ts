@@ -41,6 +41,26 @@ describe("fitPartitionsToGrid", () => {
     expect(rooms[0]!.rect.u).toBe(0.3);
     expect(rooms[1]!.rect.u + rooms[1]!.rect.lu).toBeCloseTo(12.3, 6);
   });
+
+  it("preserves an exact core boundary between grid lines without quantizing its ownership", () => {
+    const { outline, rooms, core, floor } = fixture();
+    const wall = 5.670123456;
+    rooms[0]!.rect.lu = wall - rooms[0]!.rect.u;
+    rooms[1]!.rect.u = wall;
+    rooms[1]!.rect.lu = 12.3 - wall;
+    core.stairA = { u: wall, v: 2, lu: 3, lv: 2 };
+    const before = structuredClone(rooms);
+    expect(fitPartitionsToGrid(rooms, [], floor, core, outline).moved).toBe(0);
+    expect(rooms).toEqual(before);
+  });
+
+  it("retains untouched boundary precision when a shared free wall moves", () => {
+    const { outline, rooms, core, floor } = fixture();
+    const end = 12.300123456;
+    rooms[1]!.rect.lu = end - rooms[1]!.rect.u;
+    expect(fitPartitionsToGrid(rooms, [], floor, core, outline).moved).toBe(1);
+    expect(rooms[1]!.rect.u + rooms[1]!.rect.lu).toBeCloseTo(end, 12);
+  });
 });
 
 describe("refitDoors", () => {

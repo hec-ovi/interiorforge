@@ -76,7 +76,7 @@ export function collectLines(rooms: PlanRoom[], sealed: UvRect[]): WallLine[] {
     const key = `${axis}:${round(c).toFixed(3)}`;
     let line = lines.get(key);
     if (!line) {
-      line = { axis, c: round(c), edges: [] };
+      line = { axis, c, edges: [] };
       lines.set(key, line);
     }
     line.edges.push(edge);
@@ -93,8 +93,8 @@ export function collectLines(rooms: PlanRoom[], sealed: UvRect[]): WallLine[] {
       if (!edge.edge) continue;
       const axis = edge.edge.startsWith("u") ? "u" : "v";
       const cross = axis === "u" ? 0 : 1, along = 1 - cross;
-      const c = round(edge.a[cross]!);
-      const key = `${axis}:${c.toFixed(3)}`;
+      const c = edge.a[cross]!;
+      const key = `${axis}:${round(c).toFixed(3)}`;
       const line = lines.get(key) ?? { axis, c, edges: [] };
       line.fixed = true;
       (line.fixedEnds ??= []).push(edge.a[along]!, edge.b[along]!);
@@ -122,6 +122,25 @@ export function endsOf(line: WallLine): number[] {
 
 export function pointOn(line: WallLine, c: number, along: number): Point {
   return line.axis === "u" ? [c, along] : [along, c];
+}
+
+/** Move one shared boundary while retaining every opposite boundary at full precision. */
+export function moveWallLine(line: WallLine, coordinate: number): void {
+  for (const edge of line.edges) {
+    const rect = edge.rect;
+    if (line.axis === "u") {
+      if (edge.side === "lo") {
+        const end = rect.u + rect.lu;
+        rect.u = coordinate;
+        rect.lu = end - coordinate;
+      } else rect.lu = coordinate - rect.u;
+    } else if (edge.side === "lo") {
+      const end = rect.v + rect.lv;
+      rect.v = coordinate;
+      rect.lv = end - coordinate;
+    } else rect.lv = coordinate - rect.v;
+  }
+  line.c = coordinate;
 }
 
 export interface PierAlignment {
@@ -205,22 +224,7 @@ export function alignPartitionsToPiers(
     }
     unresolved += bestScore;
     if (best === null) continue;
-    for (const e of line.edges) {
-      if (line.axis === "u") {
-        if (e.side === "lo") {
-          e.rect.u = round(e.rect.u + best);
-          e.rect.lu = round(e.rect.lu - best);
-        } else {
-          e.rect.lu = round(e.rect.lu + best);
-        }
-      } else if (e.side === "lo") {
-        e.rect.v = round(e.rect.v + best);
-        e.rect.lv = round(e.rect.lv - best);
-      } else {
-        e.rect.lv = round(e.rect.lv + best);
-      }
-    }
-    line.c = round(line.c + best);
+    moveWallLine(line, round(line.c + best));
     moved++;
   }
 

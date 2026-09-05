@@ -332,7 +332,7 @@ function selectEnvelope(blueprint: InteriorRequest["blueprint"]): CoreChoice {
   }
   const bulkUv = (frame: Frame): Point | null => (bulkhead ? worldToUv(bulkhead.center, frame) : null);
   const angles = allowed ?? frameAngles(base);
-  const firstFrame = roofAngle === undefined ? frameAt(angles[0]!, ground) : makeFrame(roofAngle);
+  const firstFrame = frameAt(roofAngle ?? angles[0]!, ground);
   const first = envelopeOf(blueprint, firstFrame, depth, bulkUv(firstFrame));
   const firstPlacement = first.crossDepthOk ? selectPlacement(first) : null;
   if (firstPlacement && withinCap(first, firstPlacement)) return { env: first, placement: firstPlacement };

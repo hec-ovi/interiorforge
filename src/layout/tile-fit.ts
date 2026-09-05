@@ -2,7 +2,7 @@ import type { Point } from "../core/geom.js";
 import type { BlueprintFloor } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
 import { Facade } from "./openings.js";
-import { collectLines, coreRectsOf, endsOf, frozen, pointOn, type WallLine } from "./pier-align.js";
+import { collectLines, coreRectsOf, endsOf, frozen, moveWallLine, pointOn, type WallLine } from "./pier-align.js";
 import type { PlanDoor, PlanRoom } from "./plan-types.js";
 import { BAND_CLEAR, MIN_STRETCH, doorWidthOn, sharedStretch } from "./rooms.js";
 import { sharedRoomEdges, type RoomShape } from "./room-shape.js";
@@ -49,7 +49,8 @@ export function fitPartitionsToGrid(
     if (frozen(line, ends, coreRects)) continue;
 
     const from = line.axis === "u" ? origin[0] : origin[1];
-    const delta = round(from + Math.round((line.c - from) / TILE) * TILE - line.c);
+    const target = from + Math.round((line.c - from) / TILE) * TILE;
+    const delta = target - line.c;
     if (Math.abs(delta) < 1e-4) continue;
 
     const keeps = line.edges.every((e) => {
@@ -57,15 +58,8 @@ export function fitPartitionsToGrid(
       return span >= e.minSpan;
     });
     if (!keeps) continue;
-    if (crossings(line, round(line.c + delta), ends) > crossings(line, line.c, ends)) continue;
-
-    for (const e of line.edges) {
-      if (line.axis === "u") {
-        if (e.side === "lo") { e.rect.u = round(e.rect.u + delta); e.rect.lu = round(e.rect.lu - delta); }
-        else e.rect.lu = round(e.rect.lu + delta);
-      } else if (e.side === "lo") { e.rect.v = round(e.rect.v + delta); e.rect.lv = round(e.rect.lv - delta); }
-      else e.rect.lv = round(e.rect.lv + delta);
-    }
+    if (crossings(line, target, ends) > crossings(line, line.c, ends)) continue;
+    moveWallLine(line, target);
     moved++;
   }
   return { moved };
