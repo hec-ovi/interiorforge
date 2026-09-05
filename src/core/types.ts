@@ -332,9 +332,9 @@ export interface OpeningReservation {
   angleDeg: number;
   /** unit vector from the facade into the floor */
   inward: Point;
-  /** clear opening width plus the full partition safety allowance */
+  /** Reserved assembly width plus partition safety; pocket doors reserve their complete cassette. */
   width: number;
-  /** opening bottom and height above this floor's walking surface */
+  /** Reserved opening or cassette bottom and height above this floor's walking surface. */
   sill: number;
   height: number;
   /** inward reservation through the shell and any moving leaf */

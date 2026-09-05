@@ -129,7 +129,7 @@
     },
     "openingReservations": {
       "type": "array",
-      "description": "exterior opening volumes reserved before room, wall, fixture and furniture placement",
+      "description": "exterior opening volumes reserved before placement; pocket doors reserve the complete cassette envelope while room door connections retain the usable passage dimensions",
       "items": {
         "type": "object",
         "required": ["opening", "kind", "position", "angleDeg", "inward", "width", "sill", "height", "depth"],
