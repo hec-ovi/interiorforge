@@ -1,5 +1,6 @@
 import type { Point } from "../core/geom.js";
 import { pointInPolygon } from "../core/geom.js";
+import { InteriorError } from "../core/errors.js";
 import type { Rng } from "../core/rng.js";
 import type { FloorKind, FurnitureKind } from "../core/types.js";
 import { doorZonesByRoom } from "./clearance.js";
@@ -8,6 +9,7 @@ import type { IdGen } from "./rooms.js";
 import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
 import { roomArea, roomCoversRect, roomEdges } from "./room-shape.js";
+import { BATHROOM_WALL_CLEARANCE, fitBathroomRecipe } from "./bathroom-recipe.js";
 
 type Size3 = [number, number, number];
 type Edge = "v0" | "v1" | "u0" | "u1";
@@ -91,6 +93,16 @@ class RoomPlacer {
       if (placed) return placed;
     }
     return null;
+  }
+
+  bathroom(): boolean {
+    const recipe = fitBathroomRecipe(this.room, SIZES, this.rng,
+      (footprint, kind) => this.fits(footprint, kind),
+      operation => roomCoversRect(this.room, operation, BATHROOM_WALL_CLEARANCE)
+        && roomCoversRect({ rect: this.rect, polygon: this.bounds.inner }, operation));
+    if (!recipe) return false;
+    for (const item of recipe) this.commit(item.kind, item.footprint, item.rotationDeg);
+    return true;
   }
 
   /** Wall piece: hung on a solid wall, never across the facade glass. */
@@ -355,6 +367,12 @@ export function furnish(
         p.wallPiece("wall_shelf");
         break;
       case "bathroom":
+        if (area >= 9 - 1e-6) {
+          if (!p.bathroom()) {
+            throw new InteriorError("E_FLOOR_TOO_SMALL", `${room.id} cannot fit the complete bathroom recipe and fixture clearances`);
+          }
+          break;
+        }
         p.anyEdge("toilet");
         p.anyEdge("sink");
         if (area >= 3.6) p.anyEdge("shower");
