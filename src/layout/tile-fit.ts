@@ -109,7 +109,7 @@ export function fitDoorToStretch(
 ): "kept" | "moved" | null {
   const owner = "rect" in from ? from : { rect: from };
   const target = "rect" in to ? to : { rect: to };
-  const polygonal = owner.polygon || target.polygon;
+  const polygonal = owner.polygon || owner.holes?.length || target.polygon || target.holes?.length;
   const stretches = polygonal ? sharedRoomEdges(owner, target, plate).filter(s => s.hi - s.lo >= MIN_STRETCH) : [];
   const stretch = polygonal
     ? stretches.find(s => s.edge === door.edge && door.at >= s.lo && door.at <= s.hi

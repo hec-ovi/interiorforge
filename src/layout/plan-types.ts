@@ -45,6 +45,8 @@ export interface PlanRoom {
   /** Authoritative CCW simple UV footprint, already fitted inside the slab plate.
    *  The rectangle remains its bounds. Absence retains the outline-clipped rectangle. */
   polygon?: Point[];
+  /** Clockwise disjoint interior rings, strictly inside the outer footprint. */
+  holes?: Point[][];
   unit?: string;
   doors: PlanDoor[];
 }

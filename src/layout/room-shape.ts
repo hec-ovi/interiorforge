@@ -1,11 +1,12 @@
 import type { Point } from "../core/geom.js";
-import { boundaryDistance, clipPolygonToRect, polygonArea, polygonCentroid } from "../core/geom.js";
+import { boundaryDistance, clipPolygonToRect, pointInRect, polygonArea, polygonCentroid, rectCorners } from "../core/geom.js";
+import { roomFootprintAnchor, roomFootprintArea, roomFootprintClearance, roomFootprintContains } from "../core/room-footprint.js";
 import { triangulate } from "../core/triangulate.js";
 import type { EdgeName, PlanRoom } from "./plan-types.js";
 import type { UvRect } from "./uv.js";
 import { pointInUvRect, uvRectCenter, uvRectCorners } from "./uv.js";
 
-export type RoomShape = Pick<PlanRoom, "rect" | "polygon">;
+export type RoomShape = Pick<PlanRoom, "rect" | "polygon" | "holes">;
 
 export interface RoomEdge {
   a: Point;
@@ -22,34 +23,51 @@ export function roomPolygon(room: RoomShape, outline?: readonly Point[]): Point[
 }
 
 export function roomContains(room: RoomShape, point: Point): boolean {
-  return room.polygon ? boundaryDistance(point, room.polygon) >= -1e-8 : pointInUvRect(point, room.rect);
+  return room.polygon || room.holes?.length
+    ? roomFootprintContains({ polygon: roomPolygon(room), holes: room.holes }, point)
+    : pointInUvRect(point, room.rect);
+}
+
+export function roomRings(room: RoomShape, outline?: readonly Point[]): Point[][] {
+  return [roomPolygon(room, outline), ...(room.holes ?? [])];
+}
+
+export function roomArea(room: RoomShape, outline?: readonly Point[]): number {
+  return roomFootprintArea({ polygon: roomPolygon(room, outline), holes: room.holes });
+}
+
+export function roomClearance(room: RoomShape, point: Point): number {
+  return roomFootprintClearance({ polygon: roomPolygon(room), holes: room.holes }, point);
 }
 
 export function roomEdges(room: RoomShape, outline?: readonly Point[]): RoomEdge[] {
-  const polygon = roomPolygon(room, outline);
-  return polygon.flatMap((a, i) => {
+  return roomRings(room, outline).flatMap(polygon => polygon.flatMap((a, i) => {
     const b = polygon[(i + 1) % polygon.length]!;
     const du = b[0] - a[0], dv = b[1] - a[1];
     if (Math.hypot(du, dv) < 1e-8) return [];
     const edge: EdgeName | null = Math.abs(dv) < 1e-7 ? du > 0 ? "v0" : "v1"
       : Math.abs(du) < 1e-7 ? dv > 0 ? "u1" : "u0" : null;
     return [{ a, b, edge }];
-  });
+  }));
 }
 
 /** A rectangle cannot span a concave notch even when its corners happen to fit. */
 export function roomCoversRect(room: RoomShape, rect: UvRect, margin = 0): boolean {
-  if (!room.polygon) return rect.u - margin >= room.rect.u - 1e-8 && rect.v - margin >= room.rect.v - 1e-8
+  if (!room.polygon && !room.holes?.length) return rect.u - margin >= room.rect.u - 1e-8 && rect.v - margin >= room.rect.v - 1e-8
     && rect.u + rect.lu + margin <= room.rect.u + room.rect.lu + 1e-8
     && rect.v + rect.lv + margin <= room.rect.v + room.rect.lv + 1e-8;
   const grown = { x: rect.u - margin, z: rect.v - margin, w: rect.lu + 2 * margin, d: rect.lv + 2 * margin };
-  const clipped = clipPolygonToRect(room.polygon, grown);
+  const clipped = clipPolygonToRect(roomPolygon(room), grown);
   const wanted = grown.w * grown.d;
-  return clipped.length >= 3 && Math.abs(polygonArea(clipped)) >= wanted - Math.max(1e-8, wanted * 1e-8);
+  if (clipped.length < 3 || Math.abs(polygonArea(clipped)) < wanted - Math.max(1e-8, wanted * 1e-8)) return false;
+  if (!rectCorners(grown).every(point => roomContains(room, point))) return false;
+  return (room.holes ?? []).every(hole => !hole.some(point => pointInRect(point, grown, 1e-8))
+    && Math.abs(polygonArea(clipPolygonToRect(hole, grown))) < 1e-8);
 }
 
 /** Interior target for a room whose bounds center may lie inside its service-room notch. */
 export function roomAnchor(room: RoomShape): Point {
+  if (room.holes?.length) return roomFootprintAnchor({ polygon: roomPolygon(room), holes: room.holes });
   if (!room.polygon) return uvRectCenter(room.rect);
   const centroid = polygonCentroid(room.polygon);
   if (roomContains(room, centroid)) return centroid;

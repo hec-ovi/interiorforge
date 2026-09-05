@@ -1,7 +1,7 @@
 import { STAIR, WALL } from "./constants.js";
 import { stairAccess } from "./core-plan.js";
 import type { Point } from "../core/geom.js";
-import { boundaryDistance, clipPolygonToRect, insetPolygon, pointInPolygon, polygonBounds } from "../core/geom.js";
+import { clipPolygonToRect, insetPolygon, pointInPolygon, polygonBounds } from "../core/geom.js";
 import type { LightFixture, RoomKind } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
 import { doorUvPoint } from "./plan-floor.js";
@@ -9,7 +9,7 @@ import type { PlanRoom } from "./plan-types.js";
 import type { IdGen } from "./rooms.js";
 import type { Frame, UvRect } from "./uv.js";
 import { uvToWorld } from "./uv.js";
-import { roomAnchor, roomCoversRect, roomEdges } from "./room-shape.js";
+import { roomAnchor, roomClearance, roomCoversRect, roomEdges } from "./room-shape.js";
 
 /** Every room, corridor and stairwell emits its own light fixtures: the engine instantiates
  *  real lights from them and the geometry pass builds the matching emissive housings. */
@@ -258,7 +258,7 @@ class FloorLighting {
   /** Emissive line where wall meets ceiling: the venue look from the reference. */
   private cove(room: PlanRoom, style: LightStyle): void {
     const r = room.rect;
-    const sides: { wall: number; angleDeg: 0 | 90; from: number; to: number }[] = room.polygon
+    const sides: { wall: number; angleDeg: 0 | 90; from: number; to: number }[] = room.polygon || room.holes?.length
       ? roomEdges(room).flatMap(segment => {
         if (!segment.edge) return [];
         const along = segment.edge.startsWith("v") ? 0 : 1, cross = 1 - along;
@@ -329,11 +329,12 @@ class FloorLighting {
 
   private inside(p: Point): boolean {
     return pointInPolygon(p, this.uvOutline)
-      && (!this.activeRoom?.polygon || boundaryDistance(p, this.activeRoom.polygon) >= 0.05);
+      && (!this.activeRoom || !(this.activeRoom.polygon || this.activeRoom.holes?.length)
+        || roomClearance(this.activeRoom, p) >= 0.05);
   }
 
   private coversSegment(room: PlanRoom, [a, b]: [Point, Point]): boolean {
-    return !room.polygon || roomCoversRect(room, { u: Math.min(a[0], b[0]), v: Math.min(a[1], b[1]),
+    return !(room.polygon || room.holes?.length) || roomCoversRect(room, { u: Math.min(a[0], b[0]), v: Math.min(a[1], b[1]),
       lu: Math.abs(a[0] - b[0]), lv: Math.abs(a[1] - b[1]) }, 0.04);
   }
 
@@ -341,7 +342,7 @@ class FloorLighting {
    *  Null when the room has no floor behind the lining at all. */
   private insideCenter(room: PlanRoom): Point | null {
     const r = room.rect;
-    if (room.polygon) {
+    if (room.polygon || room.holes?.length) {
       const anchor = roomAnchor(room);
       if (this.inside(anchor)) return anchor;
       let best: Point | null = null, clearance = -Infinity;
@@ -349,7 +350,7 @@ class FloorLighting {
         for (let u = r.u + FIXTURE_MARGIN; u < r.u + r.lu; u += FIXTURE_MARGIN) {
           const point: Point = [u, v];
           if (!this.inside(point)) continue;
-          const distance = boundaryDistance(point, room.polygon);
+          const distance = roomClearance(room, point);
           if (distance > clearance) { clearance = distance; best = point; }
         }
       }

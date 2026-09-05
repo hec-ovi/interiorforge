@@ -269,6 +269,10 @@ function roomToWorld(room: PlanRoom, uvOutline: Point[], frame: Frame): Room {
     id: room.id,
     kind: room.kind,
     polygon,
+    ...(room.holes?.length ? { holes: room.holes.map(hole => {
+      const ring = toWorldPolygon(hole, frame).map(roundPoint);
+      return isCcw(ring) ? ring.reverse() : ring;
+    }) } : {}),
     ...(room.unit ? { unit: room.unit } : {}),
     doors: room.doors.map((d) => doorToWorld(d, room, frame)),
   };

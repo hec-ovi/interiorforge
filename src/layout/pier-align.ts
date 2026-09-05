@@ -88,7 +88,7 @@ export function collectLines(rooms: PlanRoom[], sealed: UvRect[]): WallLine[] {
     add("v", rect.v + rect.lv, { rect, side: "hi", minSpan });
   };
   for (const room of rooms) {
-    if (!room.polygon) { forRect(room.rect, minSpanOf(room)); continue; }
+    if (!room.polygon && !room.holes?.length) { forRect(room.rect, minSpanOf(room)); continue; }
     for (const edge of roomEdges(room)) {
       if (!edge.edge) continue;
       const axis = edge.edge.startsWith("u") ? "u" : "v";
@@ -231,7 +231,7 @@ export function alignPartitionsToPiers(
 /** A moved wall may leave a door hanging past the end of its edge: pull it back inside. */
 function clampDoors(rooms: PlanRoom[]): void {
   for (const room of rooms) {
-    if (room.polygon) continue;
+    if (room.polygon || room.holes?.length) continue;
     const r = room.rect;
     for (const door of room.doors) {
       const [lo, hi] = door.edge.startsWith("v") ? [r.u, r.u + r.lu] : [r.v, r.v + r.lv];

@@ -7,8 +7,7 @@ import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import type { IdGen } from "./rooms.js";
 import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
-import { roomCoversRect, roomEdges } from "./room-shape.js";
-import { polygonArea } from "../core/geom.js";
+import { roomArea, roomCoversRect, roomEdges } from "./room-shape.js";
 
 type Size3 = [number, number, number];
 type Edge = "v0" | "v1" | "u0" | "u1";
@@ -67,7 +66,7 @@ class RoomPlacer {
 
   /** Item with its back against a room edge; walks the edge from a seeded start. */
   alongEdge(kind: FurnitureKind, edge: Edge): PlanFurniture | null {
-    if (this.room.polygon) return this.alongPolygonEdge(kind, edge);
+    if (this.room.polygon || this.room.holes?.length) return this.alongPolygonEdge(kind, edge);
     const [su, sv] = [SIZES[kind][0], SIZES[kind][1]];
     const r = this.rect;
     const inset = 0.06 + (STANDOFF[kind] ?? 0);
@@ -97,7 +96,7 @@ class RoomPlacer {
   /** Wall piece: hung on a solid wall, never across the facade glass. */
   wallPiece(kind: FurnitureKind, edges: Edge[] = ["v1", "u0", "u1", "v0"]): PlanFurniture | null {
     for (const e of edges) {
-      if (this.room.polygon) {
+      if (this.room.polygon || this.room.holes?.length) {
         const placed = this.alongPolygonEdge(kind, e, true);
         if (placed) return placed;
         continue;
@@ -315,7 +314,7 @@ export function furnish(
     const p = new RoomPlacer(
       room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), openingZones, bounds,
     );
-    const area = room.polygon ? Math.abs(polygonArea(room.polygon)) : room.rect.lu * room.rect.lv;
+    const area = roomArea(room);
     switch (room.kind) {
       case "studio_main":
         // clipped wedge rooms often have no straight wall for the bed: fall back to open floor

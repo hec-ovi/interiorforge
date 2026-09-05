@@ -9,7 +9,7 @@ import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import type { FloorBounds } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { pointInUvRect, uvRectCorners, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
-import { roomEdges } from "./room-shape.js";
+import { roomContains, roomEdges } from "./room-shape.js";
 
 const WALL_BAND = WALL / 2 + AGENT_RADIUS; // blocked distance either side of a wall line
 const FURNITURE_MARGIN = 0.15;
@@ -36,6 +36,20 @@ export function buildNavGrid(
   for (const room of rooms) {
     for (const [a, b] of roomWallSegments(room, uvOutline)) {
       blockSegment(grid, uvToWorld(a, frame), uvToWorld(b, frame), WALL_BAND);
+    }
+  }
+
+  // An exclusion can be occupied by another room or a stair. Unassigned exclusions are
+  // void, including their interior cells, rather than isolated walkable islands.
+  const stairRects = [core.stairA, core.stairB].filter(Boolean) as UvRect[];
+  for (const room of rooms) {
+    for (const hole of room.holes ?? []) {
+      const b = polygonBounds(hole);
+      forCellsInUvRect(grid, frame, { u: b.x, v: b.z, lu: b.w, lv: b.d }, 0, (c, r, center) => {
+        const uv = worldToUv(center, frame);
+        if (!pointInPolygon(uv, hole) || stairRects.some(rect => pointInUvRect(uv, rect))) return;
+        if (!rooms.some(other => other !== room && roomContains(other, uv))) grid.set(c, r, false);
+      });
     }
   }
 

@@ -111,7 +111,7 @@ export function doorBetween(
   leaves: 1 | 2 | 3 | 4 = 1, width = DOOR.single, fraction = 0.5,
 ): PlanDoor | null {
   const target = "rect" in to ? to : { rect: to };
-  const polygonal = owner.polygon || target.polygon;
+  const polygonal = owner.polygon || owner.holes?.length || target.polygon || target.holes?.length;
   const shared = polygonal ? sharedRoomEdges(owner, target)[0] : sharedEdge(owner.rect, target.rect);
   if (!shared || shared.hi - shared.lo < MIN_STRETCH) return null;
   const { edge, lo, hi } = shared;
@@ -578,10 +578,10 @@ export function attachOutsideDoors(
     const probe = opening.openFront
       ? [u + opening.openFront.inward[0] * 0.5, v + opening.openFront.inward[1] * 0.5] as Point
       : null;
-    const owner = probe ? rooms.find((room) => room.polygon ? roomContains(room, probe) : pointInUvRect(probe, room.rect, 0.01)) : undefined;
+    const owner = probe ? rooms.find((room) => room.polygon || room.holes?.length ? roomContains(room, probe) : pointInUvRect(probe, room.rect, 0.01)) : undefined;
     let best: { room: PlanRoom; edge: PlanDoor["edge"]; dist: number; position?: Point } | null = null;
     for (const room of owner ? [owner] : rooms) {
-      if (room.polygon) {
+      if (room.polygon || room.holes?.length) {
         for (const segment of roomEdges(room)) {
           if (!segment.edge) continue;
           const position = footOnSegment([u, v], segment.a, segment.b);
