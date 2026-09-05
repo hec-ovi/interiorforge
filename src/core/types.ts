@@ -137,6 +137,7 @@ export interface CoreAdjacencyFailure {
 
 export interface Blueprint {
   buildingId: string;
+  coreFrame?: { anglesDeg: number[] };
   bounds?: { footprint: Point[]; height: number };
   facade?: Facade;
   /** the exterior's roof and fitted housing over the stair head */

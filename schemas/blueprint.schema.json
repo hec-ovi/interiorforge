@@ -8,6 +8,13 @@
   "additionalProperties": true,
   "properties": {
     "buildingId": { "type": "string" },
+    "coreFrame": {
+      "type": "object", "required": ["anglesDeg"], "additionalProperties": false,
+      "description": "Allowed core frame axes in degrees. Axes must be unique modulo 180; entrance orientation may flip an axis. Absence permits the standard frame search. A published roof bulkhead locks one allowed axis and its exact center.",
+      "properties": {
+        "anglesDeg": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "number" } }
+      }
+    },
     "bounds": {
       "type": "object",
       "required": ["footprint", "height"],

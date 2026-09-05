@@ -23,6 +23,13 @@ function blueprint(coreAdjacency?: unknown): Blueprint {
 }
 
 describe("core-adjacency policy schema", () => {
+  it("accepts persisted degree axes and rejects empty or nonnumeric frame constraints", () => {
+    expect(validate({ ...blueprint(), coreFrame: { anglesDeg: [0, 90] } })).toBe(true);
+    for (const anglesDeg of [[], [0, 0], ["90"]]) {
+      expect(validate({ ...blueprint(), coreFrame: { anglesDeg } })).toBe(false);
+    }
+  });
+
   it("accepts the published game-design default, explicit overrides and structural compatibility", () => {
     expect(validate(blueprint(policy))).toBe(true);
     expect(validate(blueprint({ glazing: { role: "structure", clearDepth: 0 } }))).toBe(true);
