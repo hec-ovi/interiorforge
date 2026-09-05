@@ -118,13 +118,17 @@ export function distance(a: Point, b: Point): number {
 /** Sutherland-Hodgman clip of a polygon by an axis-aligned rect.
  *  Returns the clipped polygon (CCW preserved), or [] when fully outside. */
 export function clipPolygonToRect(poly: readonly Point[], r: Rect): Point[] {
-  return clipPolygonToConvex(poly, rectCorners(r));
+  return clipPolygon(poly, rectCorners(r), true);
 }
 
 /** Sutherland-Hodgman clip of any simple polygon by a convex CCW polygon. CCW preserved;
  *  [] when fully outside. Where the result would be two lobes joined by a zero-width
  *  bridge, the bridge's dangling spikes are pruned. */
 export function clipPolygonToConvex(poly: readonly Point[], clipper: readonly Point[]): Point[] {
+  return clipPolygon(poly, clipper, false);
+}
+
+function clipPolygon(poly: readonly Point[], clipper: readonly Point[], rectangle: boolean): Point[] {
   let out: Point[] = [...poly];
   for (let i = 0; i < clipper.length; i++) {
     const a = clipper[i]!;
@@ -137,12 +141,15 @@ export function clipPolygonToConvex(poly: readonly Point[], clipper: readonly Po
       const prev = input[(j + input.length - 1) % input.length]!;
       const sc = side(cur);
       const sp = side(prev);
-      if (sc >= 0) {
-        if (sp < 0) out.push(lerp(prev, cur, sp / (sp - sc)));
-        out.push(cur);
-      } else if (sp >= 0) {
-        out.push(lerp(prev, cur, sp / (sp - sc)));
+      if ((sc >= 0) !== (sp >= 0)) {
+        const crossing = lerp(prev, cur, sp / (sp - sc));
+        if (rectangle) {
+          const axis = a[0] === b[0] ? 0 : 1;
+          crossing[axis] = a[axis];
+        }
+        out.push(crossing);
       }
+      if (sc >= 0) out.push(cur);
     }
     if (out.length === 0) return [];
   }
