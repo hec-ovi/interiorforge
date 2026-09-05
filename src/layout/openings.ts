@@ -4,14 +4,14 @@ import { WALL } from "./constants.js";
 import { facadeDepth, shellWallDepth } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { worldToUv } from "./uv.js";
+import { openingVolume, PARTITION_HALF } from "./opening-volume.js";
+export { PARTITION_HALF } from "./opening-volume.js";
 
 /** Facade openings as a keep-off rule for interior walls: a partition may only meet the
  *  facade on a pier, never across a window or a door. */
 
 /** Half the width of a legacy opening jamb. Explicit facade grids supersede this fallback. */
 const MEMBER_HALF = 0.06;
-/** Half the partition plus Exterior's required safety space on each side. */
-export const PARTITION_HALF = WALL / 2 + 0.02;
 /** A wall end this close to an outline edge is touching the facade. */
 const CONTACT_EPS = 0.12;
 
@@ -26,19 +26,18 @@ export function openingKeepouts(
   floor: BlueprintFloor, frame: Frame, facadeDepth: number,
 ): OpeningKeepout[] {
   return floor.openings.map((opening) => {
+    const volume = openingVolume(opening, facadeDepth);
     const a = floor.outline[opening.edge]!;
     const b = floor.outline[(opening.edge + 1) % floor.outline.length]!;
     const edgeLength = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
     const along: Point = [(b[0] - a[0]) / edgeLength, (b[1] - a[1]) / edgeLength];
     const inward: Point = [-along[1], along[0]];
-    const centerAlong = opening.offset + opening.width / 2;
+    const centerAlong = volume.offset + volume.width / 2;
     const center: Point = [a[0] + along[0] * centerAlong, a[1] + along[1] * centerAlong];
-    const halfWidth = opening.width / 2 + PARTITION_HALF;
-    const motion = opening.door?.motion?.clearDepth ?? opening.portal?.clearDepth ?? 0;
-    const depth = Math.max(facadeDepth, motion) + PARTITION_HALF;
+    const halfWidth = volume.width / 2;
     const corners: Point[] = [];
     for (const side of [-1, 1]) {
-      for (const d of [0, depth]) {
+      for (const d of [0, volume.depth]) {
         corners.push(worldToUv([
           center[0] + along[0] * halfWidth * side + inward[0] * d,
           center[1] + along[1] * halfWidth * side + inward[1] * d,

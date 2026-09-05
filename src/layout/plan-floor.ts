@@ -13,7 +13,7 @@ import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import { planLights } from "./lighting.js";
 import { isExteriorConnection, openingKeepouts, partitionConflicts } from "./openings.js";
-import { PARTITION_HALF } from "./openings.js";
+import { openingVolume } from "./opening-volume.js";
 import { alignPartitionsToPiers } from "./pier-align.js";
 import { fitPartitionsToGrid, refitDoors } from "./tile-fit.js";
 import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
@@ -330,21 +330,21 @@ function doorToWorld(door: PlanDoor, room: PlanRoom, frame: Frame): Door {
  *  allowance; depth includes the lining and any moving-leaf envelope. */
 function reserveOpenings(floor: BlueprintFloor, facadeDepth: number): OpeningReservation[] {
   return floor.openings.map((opening) => {
+    const volume = openingVolume(opening, facadeDepth);
     const p0 = floor.outline[opening.edge]!;
     const p1 = floor.outline[(opening.edge + 1) % floor.outline.length]!;
     const edgeLength = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
     const along: Point = [(p1[0] - p0[0]) / edgeLength, (p1[1] - p0[1]) / edgeLength];
-    const motion = opening.door?.motion?.clearDepth ?? opening.portal?.clearDepth ?? 0;
     return {
       opening: opening.id,
       kind: opening.kind,
-      position: roundPoint(doorWorldPoint(floor, opening.edge, opening.offset + opening.width / 2)),
+      position: roundPoint(doorWorldPoint(floor, opening.edge, volume.offset + volume.width / 2)),
       angleDeg: norm360((Math.atan2(along[1], along[0]) * 180) / Math.PI),
       inward: roundPoint([-along[1], along[0]]),
-      width: round3(opening.width + 2 * PARTITION_HALF),
-      sill: opening.sill,
-      height: opening.height,
-      depth: round3(Math.max(facadeDepth, motion) + PARTITION_HALF),
+      width: round3(volume.width),
+      sill: volume.sill,
+      height: volume.height,
+      depth: round3(volume.depth),
     };
   });
 }
