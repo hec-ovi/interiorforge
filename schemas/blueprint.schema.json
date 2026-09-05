@@ -23,6 +23,7 @@
       "properties": {
         "style": { "type": "string", "description": "exterior facade style (curtain-wall, glass, panel, megablock); picks the shell wall depth the interior keeps clear of when wallDepth is absent" },
         "wallDepth": { "type": "number", "minimum": 0, "description": "measured inward reach of the shell wall in meters (reveals, frames, glazing, closed leaves); read ahead of the per-style table" },
+        "coreAdjacency": { "$ref": "#/$defs/coreAdjacency" },
         "grids": {
           "type": "array",
           "description": "exact facade grids; partitionAnchors are the only full-thickness endpoints an interior partition may use",
@@ -188,6 +189,38 @@
     }
   },
   "$defs": {
+    "coreAdjacencyRule": {
+      "type": "object",
+      "required": ["role", "clearDepth"],
+      "additionalProperties": false,
+      "properties": {
+        "role": { "enum": ["structure", "circulation", "room"] },
+        "clearDepth": { "type": "number", "minimum": 0 }
+      }
+    },
+    "coreAdjacency": {
+      "type": "object",
+      "required": ["glazing"],
+      "additionalProperties": false,
+      "description": "Core-only clearance after the full facade lining. Glazing defaults apply to windows and openings with a glazing field. Unique floor/opening overrides replace the default for that opening. Absence retains structural-only fit. Actual stairs, elevators and risers participate; room ownership and service-stub reservations do not expand.",
+      "properties": {
+        "glazing": { "$ref": "#/$defs/coreAdjacencyRule" },
+        "overrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["floor", "opening", "role", "clearDepth"],
+            "additionalProperties": false,
+            "properties": {
+              "floor": { "type": "integer" },
+              "opening": { "type": "string", "minLength": 1 },
+              "role": { "enum": ["structure", "circulation", "room"] },
+              "clearDepth": { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
     "point2": {
       "type": "array",
       "prefixItems": [{ "type": "number" }, { "type": "number" }],

@@ -18,6 +18,9 @@
     "12. block span for n cars: len = (compact ? stairColumnWidth : stairShaftDepth) + n * elevatorShaft + riserShaft + serviceStub + (compact and twoStairs ? stairColumnWidth : 0); u0 = snap(bandStart + (band - len) / 2), row cores with twoStairs also clamp u0 <= snapDown(snapDown(bandEnd) - stairShaftDepth - len), and a roof bulkhead clamps stair A under its center; finally u0 = max(u0, snapUp(bandStart)). A row core's secondary stair scans inward from the far band end in 0.5 m steps, keeping the core margin, until its whole rect clears every opening reservation."
   ],
   "constants": {
+    "coreAdjacency": {
+      "glazing": { "role": "circulation", "clearDepth": 1.2 }
+    },
     "snap": 0.5,
     "corridorWidth": 2.5,
     "elevatorShaft": 2.5,

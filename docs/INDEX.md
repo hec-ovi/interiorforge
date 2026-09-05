@@ -2,7 +2,7 @@
 
 Root box: the [interior generator](../CONTRACT.md). Inner boxes, one folder each:
 
-- [`src/core`](../src/core/CONTRACT.md): seeded RNG, 2D geometry, walkable grid, shared types and errors; room interior rings and Exterior opening clear fields. Depends on the Exterior blueprint contract.
+- [`src/core`](../src/core/CONTRACT.md): seeded RNG, 2D geometry, walkable grid, shared types and errors; room interior rings, opening clear fields and core-facade adjacency policy. Depends on the Exterior blueprint contract.
 - [`src/glb`](../src/glb/CONTRACT.md): GLB I/O and mesh construction with winding, UV and sealed-buffer rules. Depends on core.
 - [`src/blueprint`](../src/blueprint/CONTRACT.md): request validation including window clear-field fit, assignment resolution and fixture shells. Depends on core and glb.
 - [`src/layout`](../src/layout/CONTRACT.md): shell wall model, vertical core, facade-led rooms with exact interior exclusions, fitted contents, light grids, navigation and reachability. Depends on core.

@@ -111,7 +111,28 @@ export interface Facade {
   style?: string;
   wallDepth?: number;
   grids?: FacadeGrid[];
+  coreAdjacency?: CoreAdjacency;
   [extra: string]: unknown;
+}
+
+/** Requested usable depth behind the complete facade lining, before an actual core solid. */
+export interface CoreAdjacencyRule {
+  role: "structure" | "circulation" | "room";
+  clearDepth: number;
+}
+
+export interface CoreAdjacency {
+  glazing: CoreAdjacencyRule;
+  overrides?: (CoreAdjacencyRule & { floor: number; opening: string })[];
+}
+
+export interface CoreAdjacencyFailure {
+  floor: number;
+  opening: string;
+  coreSolid: string;
+  role: CoreAdjacencyRule["role"];
+  requiredDepth: number;
+  availableDepth: number;
 }
 
 export interface Blueprint {
