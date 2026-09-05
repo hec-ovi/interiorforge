@@ -15,7 +15,6 @@ export interface CoreComponents {
 /** One component recipe for feasibility, final placement and occupied-solid checks. */
 export function coreComponents(
   mode: CoreMode, u0: number, vFace: number, stairDepth: number, twoStairs: boolean, elevatorCount: number,
-  inlineStair?: UvRect,
 ): CoreComponents {
   const col = snapUp(SHAFT_WIDTH);
   const stairA: UvRect = { u: u0, v: vFace, lu: mode === "compact" ? col : stairDepth, lv: mode === "compact" ? stairDepth : col };
@@ -29,7 +28,7 @@ export function coreComponents(
   u += RISER_SHAFT.w;
   const stub: UvRect = { u, v: vFace, lu: CORRIDOR.serviceStub, lv: ELEVATOR.shaft };
   u += CORRIDOR.serviceStub;
-  let stairB = inlineStair;
+  let stairB: UvRect | undefined;
   if (twoStairs && mode === "compact") {
     stairB = { u, v: vFace, lu: col, lv: stairDepth };
     u += col;

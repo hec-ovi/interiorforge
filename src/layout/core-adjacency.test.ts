@@ -4,9 +4,10 @@ import defaults from "../../schemas/core-feasibility.json" with { type: "json" }
 import { resolveAssignments } from "../blueprint/validate.js";
 import type { CoreAdjacency } from "../core/types.js";
 import { broadFacadeFixture } from "./facade-plan.fixture.js";
+import { CoreFacadeClearance } from "./core-adjacency.js";
 import { coreFeasibility, planBuilding } from "./index.js";
 import { facadeDepth } from "./shell.js";
-import { uvToWorld } from "./uv.js";
+import { makeFrame, uvToWorld } from "./uv.js";
 import resultSchema from "./schema/core-feasibility.schema.json" with { type: "json" };
 
 const validateResult = new Ajv2020({ strict: false }).compile(resultSchema);
@@ -42,10 +43,24 @@ it("reports the same explicit no-fit for an opening-specific furnished-depth req
   expect(feasibility.fits).toBe(false);
   expect(feasibility.blocker).toBe("opening_reservations");
   expect(feasibility.placement).toBeUndefined();
-  expect(feasibility.adjacencyFailure).toMatchObject({ floor: 2, opening: "w:2:1:1", role: "room", requiredDepth: 100 });
-  expect(feasibility.adjacencyFailure!.availableDepth).toBeLessThan(100);
+  expect(feasibility.adjacencyFailure).toEqual({
+    floor: 2, opening: "w:2:1:1", coreSolid: "stair-b", role: "room",
+    requiredDepth: 100, availableDepth: 26.829999999999995,
+  });
   expect(() => planBuilding(f.request, resolveAssignments(f.request)))
-    .toThrow(/E_FLOOR_TOO_SMALL.*floor 2 opening w:2:1:1 requires 100.000m of room depth/);
+    .toThrow("E_FLOOR_TOO_SMALL: core stair-b beside floor 2 opening w:2:1:1 requires 100.000m of room depth after the full lining; candidate provides 26.830m");
+});
+
+it("remeasures moved solids while keeping opening and solid order for equal deficits", () => {
+  const bp = fixture().request.blueprint;
+  const clearance = new CoreFacadeClearance(bp, makeFrame(0), facadeDepth(bp.facade));
+  const rect = { u: 57.9, v: 12, lu: 5.6, lv: 2.5 };
+  expect(clearance.conflict([["first", rect], ["second", rect]])).toMatchObject({
+    floor: 0, opening: "w:0:1:1", coreSolid: "first",
+  });
+  expect(clearance.conflict([["second", rect], ["first", rect]])!.coreSolid).toBe("second");
+  rect.u -= 2;
+  expect(clearance.conflict([["first", rect]])).toBeUndefined();
 });
 
 it("locks the reported actual stair footprint when Exterior publishes its roof frame and center", () => {

@@ -13,9 +13,15 @@ interface FacadeSpan {
   rule: CoreAdjacencyRule;
 }
 
+interface RectClearance {
+  rect: UvRect;
+  depths: readonly (number | undefined)[];
+}
+
 /** Exact directional depth from complete lining to actual occupied core rectangles. */
 export class CoreFacadeClearance {
   private readonly spans: FacadeSpan[] = [];
+  private readonly measurements = new WeakMap<UvRect, RectClearance>();
 
   constructor(blueprint: Blueprint, frame: Frame, private readonly liningDepth: number) {
     const policy = blueprint.facade?.coreAdjacency;
@@ -45,20 +51,13 @@ export class CoreFacadeClearance {
   }
 
   conflict(solids: readonly (readonly [string, UvRect])[]): CoreAdjacencyFailure | undefined {
+    if (this.spans.length === 0) return undefined;
+    const measured = solids.map(([coreSolid, rect]) => ({ coreSolid, depths: this.depthsFor(rect) }));
     let failure: CoreAdjacencyFailure | undefined;
-    for (const span of this.spans) for (const [coreSolid, rect] of solids) {
-      const projected = uvRectCorners(rect).map(([u, v]): Point => {
-        const du = u - span.origin[0], dv = v - span.origin[1];
-        return [du * span.along[0] + dv * span.along[1], du * span.inward[0] + dv * span.inward[1]];
-      });
-      const maxDepth = Math.max(...projected.map((point) => point[1]));
-      if (maxDepth <= this.liningDepth) continue;
-      const clipped = clipPolygonToRect(projected, { x: 0, z: this.liningDepth, w: span.width, d: maxDepth - this.liningDepth });
-      if (clipped.length < 3) continue;
-      const minAlong = Math.min(...clipped.map((point) => point[0]));
-      const maxAlong = Math.max(...clipped.map((point) => point[0]));
-      if (maxAlong - minAlong <= 1e-6) continue;
-      const availableDepth = Math.min(...clipped.map((point) => point[1])) - this.liningDepth;
+    // Span, then solid order also decides which equal-deficit failure is reported.
+    for (const [i, span] of this.spans.entries()) for (const { coreSolid, depths } of measured) {
+      const availableDepth = depths[i];
+      if (availableDepth === undefined) continue;
       if (availableDepth + 1e-6 < span.rule.clearDepth
         && (!failure || span.rule.clearDepth - availableDepth > failure.requiredDepth - failure.availableDepth)) failure = {
         floor: span.floor, opening: span.opening, coreSolid, role: span.rule.role,
@@ -66,5 +65,29 @@ export class CoreFacadeClearance {
       };
     }
     return failure;
+  }
+
+  private depthsFor(rect: UvRect): readonly (number | undefined)[] {
+    const cached = this.measurements.get(rect);
+    if (cached && cached.rect.u === rect.u && cached.rect.v === rect.v
+      && cached.rect.lu === rect.lu && cached.rect.lv === rect.lv) return cached.depths;
+    const depths = this.spans.map((span) => this.availableDepth(span, rect));
+    this.measurements.set(rect, { rect: { ...rect }, depths });
+    return depths;
+  }
+
+  private availableDepth(span: FacadeSpan, rect: UvRect): number | undefined {
+    const projected = uvRectCorners(rect).map(([u, v]): Point => {
+      const du = u - span.origin[0], dv = v - span.origin[1];
+      return [du * span.along[0] + dv * span.along[1], du * span.inward[0] + dv * span.inward[1]];
+    });
+    const maxDepth = Math.max(...projected.map((point) => point[1]));
+    if (maxDepth <= this.liningDepth) return undefined;
+    const clipped = clipPolygonToRect(projected, { x: 0, z: this.liningDepth, w: span.width, d: maxDepth - this.liningDepth });
+    if (clipped.length < 3) return undefined;
+    const minAlong = Math.min(...clipped.map((point) => point[0]));
+    const maxAlong = Math.max(...clipped.map((point) => point[0]));
+    if (maxAlong - minAlong <= 1e-6) return undefined;
+    return Math.min(...clipped.map((point) => point[1])) - this.liningDepth;
   }
 }

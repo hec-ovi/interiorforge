@@ -197,19 +197,21 @@ function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number, resp
   const u0 = env.bulkheadUv
     ? env.bulkheadUv[0] - (p.mode === "compact" ? snapUp(SHAFT_WIDTH) : env.stairDepth) / 2
     : span.u0;
+  const parts = coreComponents(p.mode, u0, p.vFace, env.stairDepth, env.twoStairs, elevatorCount);
+  const solids = coreSolids(parts);
+  const fitsPlates = (rect: UvRect): boolean => env.uvFloors.every((plate) => coversRect(plate, rect));
+  if (![...solids, ["stub", parts.stub] as [string, UvRect]].every(([, rect]) => fitsPlates(rect))) return null;
+  if (respectReservations && !solids.every(([, rect]) => clearOfOpenings(rect, env))) return null;
   const fitted = (stairB?: UvRect): CoreLayout | null => {
-    const parts = coreComponents(p.mode, u0, p.vFace, env.stairDepth, env.twoStairs, elevatorCount, stairB);
-    const solids = coreSolids(parts);
-    if (![...solids, ["stub", parts.stub] as [string, UvRect]]
-      .every(([, rect]) => env.uvFloors.every((plate) => coversRect(plate, rect)))) return null;
-    if (respectReservations && !solids.every(([, rect]) => clearOfOpenings(rect, env))) return null;
-    const conflict = respectReservations ? env.adjacency.conflict(solids) : undefined;
+    if (stairB && (!fitsPlates(stairB) || respectReservations && !clearOfOpenings(stairB, env))) return null;
+    const actualSolids: [string, UvRect][] = stairB ? [...solids, ["stair-b", stairB]] : solids;
+    const conflict = respectReservations ? env.adjacency.conflict(actualSolids) : undefined;
     if (conflict) {
       if (!env.adjacencyFailure || conflict.requiredDepth - conflict.availableDepth
         < env.adjacencyFailure.requiredDepth - env.adjacencyFailure.availableDepth) env.adjacencyFailure = conflict;
       return null;
     }
-    return { u0, ...parts };
+    return { u0, ...parts, ...(stairB ? { stairB } : {}) };
   };
   if (!env.twoStairs || p.mode === "compact") return fitted();
   const minU = snapUp(u0 + span.len + MARGIN);
