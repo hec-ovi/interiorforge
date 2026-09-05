@@ -5,7 +5,8 @@ import { AGENT_RADIUS, DOOR, SPINE_KINDS } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { doorUvPoint, elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
 import type { PlanRoom } from "./plan-types.js";
-import { pointInUvRect, uvRectCenter, uvToWorld, worldToUv, type Frame, type UvRect } from "./uv.js";
+import { roomAnchor, roomContains } from "./room-shape.js";
+import { uvToWorld, worldToUv, type Frame, type UvRect } from "./uv.js";
 
 export interface CirculationEndpoint {
   id: string;
@@ -33,7 +34,7 @@ export function reserveCirculation(
   const narrow = rooms.flatMap((room) => room.doors).find((door) => door.width < 2 * AGENT_RADIUS);
   if (narrow) throw new InteriorError("E_UNREACHABLE_SPACE", `door ${narrow.id} width ${narrow.width} is below body width ${2 * AGENT_RADIUS}`, floor);
   const spine = rooms.find((room) => SPINE_KINDS.has(room.kind))!;
-  const root = closestCell(grid, uvToWorld(uvRectCenter(spine.rect), core.frame), spine, core.frame);
+  const root = closestCell(grid, uvToWorld(roomAnchor(spine), core.frame), spine, core.frame);
   const previous = new Int32Array(grid.cols * grid.rows).fill(-1);
   const queue = new Int32Array(previous.length);
   const neighbors = [[1, 0], [0, 1], [-1, 0], [0, -1]] as const;
@@ -69,7 +70,7 @@ export function reserveCirculation(
     routes.push({ to: id, points });
   };
   for (const room of rooms) {
-    add(`room:${room.id}`, "room", room.id, uvToWorld(uvRectCenter(room.rect), core.frame), room);
+    add(`room:${room.id}`, "room", room.id, uvToWorld(roomAnchor(room), core.frame), room);
     for (const door of room.doors) {
       const p = doorUvPoint(door, room);
       const inward: Point = door.openFront?.inward
@@ -100,7 +101,7 @@ function closestCell(grid: WalkGrid, point: Point, room: PlanRoom | undefined, f
       for (let c = Math.max(0, c0 - ring); c <= Math.min(grid.cols - 1, c0 + ring); c++) {
         if (Math.max(Math.abs(c - c0), Math.abs(r - r0)) !== ring || !grid.isWalkable(c, r)) continue;
         const p = grid.center(c, r);
-        if (room && !pointInUvRect(worldToUv(p, frame), room.rect)) continue;
+        if (room && !roomContains(room, worldToUv(p, frame))) continue;
         const d = Math.hypot(p[0] - point[0], p[1] - point[1]);
         if (maxDisplacement !== null && d > maxDisplacement) continue;
         if (d < distance) { distance = d; best = r * grid.cols + c; }

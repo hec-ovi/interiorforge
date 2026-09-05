@@ -7,6 +7,8 @@ import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import type { IdGen } from "./rooms.js";
 import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
+import { roomCoversRect, roomEdges } from "./room-shape.js";
+import { polygonArea } from "../core/geom.js";
 
 type Size3 = [number, number, number];
 type Edge = "v0" | "v1" | "u0" | "u1";
@@ -65,6 +67,7 @@ class RoomPlacer {
 
   /** Item with its back against a room edge; walks the edge from a seeded start. */
   alongEdge(kind: FurnitureKind, edge: Edge): PlanFurniture | null {
+    if (this.room.polygon) return this.alongPolygonEdge(kind, edge);
     const [su, sv] = [SIZES[kind][0], SIZES[kind][1]];
     const r = this.rect;
     const inset = 0.06 + (STANDOFF[kind] ?? 0);
@@ -94,9 +97,39 @@ class RoomPlacer {
   /** Wall piece: hung on a solid wall, never across the facade glass. */
   wallPiece(kind: FurnitureKind, edges: Edge[] = ["v1", "u0", "u1", "v0"]): PlanFurniture | null {
     for (const e of edges) {
+      if (this.room.polygon) {
+        const placed = this.alongPolygonEdge(kind, e, true);
+        if (placed) return placed;
+        continue;
+      }
       if (this.isFacade(e)) continue;
       const placed = this.alongEdge(kind, e);
       if (placed) return placed;
+    }
+    return null;
+  }
+
+  private alongPolygonEdge(kind: FurnitureKind, edge: Edge, solidOnly = false): PlanFurniture | null {
+    const [width, depth] = SIZES[kind];
+    const horizontal = edge.startsWith("v"), along = horizontal ? 0 : 1, cross = 1 - along;
+    for (const segment of roomEdges(this.room)) {
+      if (segment.edge !== edge) continue;
+      const lo = Math.min(segment.a[along]!, segment.b[along]!);
+      const hi = Math.max(segment.a[along]!, segment.b[along]!);
+      const wall = segment.a[cross]!;
+      const mid: Point = horizontal ? [(lo + hi) / 2, wall] : [wall, (lo + hi) / 2];
+      const facade = nearBoundary(mid, this.bounds.outline, this.bounds.facadeDepth + 0.05);
+      if (solidOnly && facade || hi - lo < width + 0.2) continue;
+      const inset = 0.06 + (STANDOFF[kind] ?? 0) + (facade ? this.bounds.facadeDepth : 0);
+      const virtual: UvRect = horizontal
+        ? { u: lo, v: edge === "v0" ? wall : wall - depth - inset, lu: hi - lo, lv: depth + inset }
+        : { u: edge === "u0" ? wall : wall - depth - inset, v: lo, lu: depth + inset, lv: hi - lo };
+      const available = hi - lo - width - 0.1;
+      const start = this.rng.range(0, available);
+      for (let offset = 0; offset <= available; offset += 0.25) {
+        const fp = edgeFootprint(virtual, edge, (start + offset) % available + 0.1, width, depth, inset);
+        if (this.fits(fp, kind)) return this.commit(kind, fp, edgeRotation(edge));
+      }
     }
     return null;
   }
@@ -176,6 +209,7 @@ class RoomPlacer {
       [fp.u, fp.v], [fp.u + fp.lu, fp.v], [fp.u + fp.lu, fp.v + fp.lv], [fp.u, fp.v + fp.lv],
     ];
     if (!corners.every((c) => pointInPolygon(c, this.bounds.inner))) return false;
+    if (!roomCoversRect(this.room, fp, 0.05)) return false;
     const gap = MOUNT[kind] ? 0.05 : SEATS.has(kind) ? 0.06 : 0.15;
     return this.blocked.every(
       (b) => b === except
@@ -281,7 +315,7 @@ export function furnish(
     const p = new RoomPlacer(
       room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), openingZones, bounds,
     );
-    const area = room.rect.lu * room.rect.lv;
+    const area = room.polygon ? Math.abs(polygonArea(room.polygon)) : room.rect.lu * room.rect.lv;
     switch (room.kind) {
       case "studio_main":
         // clipped wedge rooms often have no straight wall for the bed: fall back to open floor

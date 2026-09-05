@@ -1,5 +1,5 @@
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, pointInPolygon, polygonBounds } from "../core/geom.js";
+import { pointInPolygon, polygonBounds } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
 import { AGENT_RADIUS, CELL, WALL } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
@@ -9,6 +9,7 @@ import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import type { FloorBounds } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { pointInUvRect, uvRectCorners, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
+import { roomEdges } from "./room-shape.js";
 
 const WALL_BAND = WALL / 2 + AGENT_RADIUS; // blocked distance either side of a wall line
 const FURNITURE_MARGIN = 0.15;
@@ -91,14 +92,8 @@ export function blockPhysicalFurniture(grid: WalkGrid, frame: Frame, furniture: 
 
 /** Interior wall segments of a room in uv space: its clipped polygon edges off the facade. */
 function roomWallSegments(room: PlanRoom, uvOutline: readonly Point[]): [Point, Point][] {
-  const clipped = clipPolygonToRect(uvOutline, {
-    x: room.rect.u, z: room.rect.v, w: room.rect.lu, d: room.rect.lv,
-  });
-  const poly = clipped.length >= 3 ? clipped : uvRectCorners(room.rect);
   const out: [Point, Point][] = [];
-  for (let i = 0; i < poly.length; i++) {
-    const a = poly[i]!;
-    const b = poly[(i + 1) % poly.length]!;
+  for (const { a, b } of roomEdges(room, uvOutline)) {
     const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     if (!onBoundary(mid, uvOutline)) out.push([a, b]);
   }

@@ -10,9 +10,11 @@ export type EdgeName = "v0" | "v1" | "u0" | "u1";
 interface PlanConnection {
   id: string;
   width: number;
-  /** which edge of the owning room's rect the door sits on, and the u or v coordinate along it */
+  /** Outward wall direction and the u or v coordinate along it. */
   edge: EdgeName;
   at: number;
+  /** Exact UV mounting point when the wall is an inset edge of a polygon room. */
+  position?: Point;
 }
 
 export type PlanDoor = PlanConnection & ({
@@ -40,6 +42,9 @@ export interface PlanRoom {
   id: string;
   kind: RoomKind;
   rect: UvRect;
+  /** Authoritative CCW simple UV footprint, already fitted inside the slab plate.
+   *  The rectangle remains its bounds. Absence retains the outline-clipped rectangle. */
+  polygon?: Point[];
   unit?: string;
   doors: PlanDoor[];
 }

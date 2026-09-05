@@ -1,5 +1,5 @@
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, insetPolygon, isCcw, polygonBounds } from "../core/geom.js";
+import { insetPolygon, isCcw, polygonBounds } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
 import { createRng } from "../core/rng.js";
 import type {
@@ -26,6 +26,7 @@ import { toWorldPolygon, uvRectToFrameRect, uvToWorld, worldToUv } from "./uv.js
 import { validateArchitecture } from "./validate-floor.js";
 import { circulationKeepouts, reserveCirculation, verifyCirculation, type FloorCirculation } from "./circulation.js";
 import { buildNavGrid, blockPhysicalFurniture } from "./navgrid.js";
+import { roomPolygon } from "./room-shape.js";
 
 /** uv-space working data a floor keeps for geometry and npc passes */
 export interface UvFloorData {
@@ -261,10 +262,7 @@ function coreToWorld(core: CorePlan, sealed: UvRect[]): FloorInterior["core"] {
 }
 
 function roomToWorld(room: PlanRoom, uvOutline: Point[], frame: Frame): Room {
-  const clipped = clipPolygonToRect(uvOutline, {
-    x: room.rect.u, z: room.rect.v, w: room.rect.lu, d: room.rect.lv,
-  });
-  const polyUv = clipped.length >= 3 ? clipped : rectPoly(room.rect);
+  const polyUv = roomPolygon(room, uvOutline);
   let polygon = toWorldPolygon(polyUv, frame).map(roundPoint);
   if (!isCcw(polygon)) polygon = polygon.reverse();
   return {
@@ -276,12 +274,9 @@ function roomToWorld(room: PlanRoom, uvOutline: Point[], frame: Frame): Room {
   };
 }
 
-function rectPoly(r: UvRect): Point[] {
-  return [[r.u, r.v], [r.u + r.lu, r.v], [r.u + r.lu, r.v + r.lv], [r.u, r.v + r.lv]];
-}
-
 export function doorUvPoint(door: PlanDoor, room: PlanRoom): Point {
   if (door.openFront) return door.openFront.position;
+  if (door.position) return door.position;
   const r = room.rect;
   switch (door.edge) {
     case "v0": return [door.at, r.v];

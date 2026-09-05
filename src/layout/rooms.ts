@@ -1,5 +1,5 @@
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, polygonArea } from "../core/geom.js";
+import { clipPolygonToRect, footOnSegment, polygonArea } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
 import type { FloorKind, RoomKind } from "../core/types.js";
 import { CORRIDOR, DOOR, ELEVATOR, ROOM, WALL } from "./constants.js";
@@ -9,6 +9,7 @@ import type { FloorFrame, PlanDoor, PlanRoom } from "./plan-types.js";
 import { VENUE_KINDS } from "./frame.js";
 import { pointInUvRect, snap } from "./uv.js";
 import type { UvRect } from "./uv.js";
+import { roomContains, roomEdges, sharedRoomEdges, type RoomShape } from "./room-shape.js";
 
 /** Fraction of a uv rect actually inside the floor outline; irregular parcels cut
  *  diagonals into the plate and rooms must not be created in the void. */
@@ -106,10 +107,12 @@ function lineRuns(poly: readonly Point[], alongU: boolean, c: number): [number, 
  *  contact interval is too short for even the narrowest leaf. `fraction` shifts the door
  *  along the interval (repair probes several positions). */
 export function doorBetween(
-  owner: PlanRoom, toId: string, toRect: UvRect, ids: IdGen,
+  owner: PlanRoom, toId: string, to: UvRect | RoomShape, ids: IdGen,
   leaves: 1 | 2 | 3 | 4 = 1, width = DOOR.single, fraction = 0.5,
 ): PlanDoor | null {
-  const shared = sharedEdge(owner.rect, toRect);
+  const target = "rect" in to ? to : { rect: to };
+  const polygonal = owner.polygon || target.polygon;
+  const shared = polygonal ? sharedRoomEdges(owner, target)[0] : sharedEdge(owner.rect, target.rect);
   if (!shared || shared.hi - shared.lo < MIN_STRETCH) return null;
   const { edge, lo, hi } = shared;
   let w = doorWidthOn(hi - lo, width);
@@ -119,6 +122,7 @@ export function doorBetween(
   const door: PlanDoor = { id: ids.door(), to: toId, leaves, width: w, edge, at: snap(center) };
   // snapping may push the door off-interval on short walls; recenter unclamped then
   if (door.at - w / 2 < lo + BAND_CLEAR || door.at + w / 2 > hi - BAND_CLEAR) door.at = center;
+  if ("c" in shared && typeof shared.c === "number") door.position = edge.startsWith("v") ? [door.at, shared.c] : [shared.c, door.at];
   owner.doors.push(door);
   return door;
 }
@@ -574,9 +578,18 @@ export function attachOutsideDoors(
     const probe = opening.openFront
       ? [u + opening.openFront.inward[0] * 0.5, v + opening.openFront.inward[1] * 0.5] as Point
       : null;
-    const owner = probe ? rooms.find((room) => pointInUvRect(probe, room.rect, 0.01)) : undefined;
-    let best: { room: PlanRoom; edge: PlanDoor["edge"]; dist: number } | null = null;
+    const owner = probe ? rooms.find((room) => room.polygon ? roomContains(room, probe) : pointInUvRect(probe, room.rect, 0.01)) : undefined;
+    let best: { room: PlanRoom; edge: PlanDoor["edge"]; dist: number; position?: Point } | null = null;
     for (const room of owner ? [owner] : rooms) {
+      if (room.polygon) {
+        for (const segment of roomEdges(room)) {
+          if (!segment.edge) continue;
+          const position = footOnSegment([u, v], segment.a, segment.b);
+          const dist = Math.hypot(u - position[0], v - position[1]);
+          if (!best || dist < best.dist) best = { room, edge: segment.edge, dist, position };
+        }
+        continue;
+      }
       const r = room.rect;
       // strips snap inward from the true facade, so allow a generous band
       if (!owner && (u < r.u - 0.7 || u > r.u + r.lu + 0.7 || v < r.v - 0.7 || v > r.v + r.lv + 0.7)) continue;
@@ -598,6 +611,7 @@ export function attachOutsideDoors(
         : {
             id: ids.door(), to: "outside", leaves: opening.leaves, width: opening.width,
             edge: best.edge, at: best.edge.startsWith("v") ? u : v,
+            ...(best.position ? { position: best.position } : {}),
             ...(opening.clearDepth === undefined ? {} : { clearDepth: opening.clearDepth }),
           };
       best.room.doors.push(connection);

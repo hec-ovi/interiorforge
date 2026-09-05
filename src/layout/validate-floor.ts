@@ -10,7 +10,8 @@ import { doorBetween, type IdGen } from "./rooms.js";
 import { fitDoorToStretch } from "./tile-fit.js";
 import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
-import { pointInUvRect, uvRectCenter, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
+import { uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
+import { roomAnchor, roomContains } from "./room-shape.js";
 
 const MAX_REPAIRS = 20;
 
@@ -23,7 +24,7 @@ export function validateArchitecture(
 ): WalkGrid {
   const corridor = rooms.find((r) => SPINE_KINDS.has(r.kind));
   if (!corridor) throw new InteriorError("E_UNREACHABLE_SPACE", "floor has no corridor room", floorIndex);
-  const start = uvToWorld(uvRectCenter(corridor.rect), core.frame);
+  const start = uvToWorld(roomAnchor(corridor), core.frame);
 
   for (let attempt = 0; ; attempt++) {
     const grid = buildNavGrid(worldOutline, bounds, rooms, [], sealed, core, true);
@@ -53,20 +54,20 @@ export function validateArchitecture(
 }
 
 function roomReached(grid: WalkGrid, visited: Uint8Array, room: PlanRoom, core: CorePlan): boolean {
-  return sampleCells(grid, room.rect, core, (c, r) => visited[r * grid.cols + c] === 1);
+  return sampleCells(grid, room, core, (c, r) => visited[r * grid.cols + c] === 1);
 }
 
-/** True when any walkable-and-matching cell whose center falls inside the uv rect exists. */
+/** True when any walkable-and-matching cell falls inside the room footprint. */
 function sampleCells(
-  grid: WalkGrid, rect: UvRect, core: CorePlan, match: (c: number, r: number) => boolean,
+  grid: WalkGrid, room: PlanRoom, core: CorePlan, match: (c: number, r: number) => boolean,
 ): boolean {
-  const bbox = uvRectWorldBounds(rect, core.frame);
+  const bbox = uvRectWorldBounds(room.rect, core.frame);
   const [c0, r0] = grid.cellAt([bbox.x, bbox.z]);
   const [c1, r1] = grid.cellAt([bbox.x + bbox.w, bbox.z + bbox.d]);
   for (let r = Math.max(0, r0); r <= Math.min(grid.rows - 1, r1); r++) {
     for (let c = Math.max(0, c0); c <= Math.min(grid.cols - 1, c1); c++) {
       if (!grid.isWalkable(c, r)) continue;
-      if (!pointInUvRect(worldToUv(grid.center(c, r), core.frame), rect)) continue;
+      if (!roomContains(room, worldToUv(grid.center(c, r), core.frame))) continue;
       if (match(c, r)) return true;
     }
   }
@@ -117,10 +118,10 @@ function repairOne(
       ];
       if (existing.length >= 3) continue;
       for (const fraction of [0.5, 0.1, 0.9, 0.3, 0.7]) {
-        const door = doorBetween(room, target.id, target.rect, ids, 1, DOOR.single, fraction);
+        const door = doorBetween(room, target.id, target, ids, 1, DOOR.single, fraction);
         if (!door) break;
         // a repair door lands after the refit pass, so it takes the plate test itself
-        if (fitDoorToStretch(door, room.rect, target.rect, plate) === null) {
+        if (fitDoorToStretch(door, room, target, plate) === null) {
           room.doors.pop();
           break;
         }

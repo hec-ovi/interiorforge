@@ -7,6 +7,7 @@ import { Facade } from "./openings.js";
 import type { PlanRoom } from "./plan-types.js";
 import type { UvRect } from "./uv.js";
 import { uvToWorld } from "./uv.js";
+import { roomEdges } from "./room-shape.js";
 
 /** Partitions land on the piers between the facade's windows and doors. A wall line whose
  *  end falls inside an opening slides sideways to the nearest position that clears every
@@ -32,6 +33,9 @@ export interface WallLine {
   axis: Axis;
   c: number;
   edges: Edge[];
+  /** Explicit polygon allocations already share fitted boundaries. */
+  fixed?: boolean;
+  fixedEnds?: number[];
 }
 
 function minSpanOf(room: PlanRoom): number {
@@ -50,6 +54,7 @@ export function coreRectsOf(core: CorePlan): UvRect[] {
  *  the shaft row hang off it. Coordinate alone is not enough; the line has to actually reach
  *  along that rect. */
 export function frozen(line: WallLine, ends: number[], rects: UvRect[]): boolean {
+  if (line.fixed) return true;
   const lo = ends[0]!;
   const hi = ends.at(-1)!;
   return rects.some((r) => {
@@ -82,7 +87,20 @@ export function collectLines(rooms: PlanRoom[], sealed: UvRect[]): WallLine[] {
     add("v", rect.v, { rect, side: "lo", minSpan });
     add("v", rect.v + rect.lv, { rect, side: "hi", minSpan });
   };
-  for (const room of rooms) forRect(room.rect, minSpanOf(room));
+  for (const room of rooms) {
+    if (!room.polygon) { forRect(room.rect, minSpanOf(room)); continue; }
+    for (const edge of roomEdges(room)) {
+      if (!edge.edge) continue;
+      const axis = edge.edge.startsWith("u") ? "u" : "v";
+      const cross = axis === "u" ? 0 : 1, along = 1 - cross;
+      const c = round(edge.a[cross]!);
+      const key = `${axis}:${c.toFixed(3)}`;
+      const line = lines.get(key) ?? { axis, c, edges: [] };
+      line.fixed = true;
+      (line.fixedEnds ??= []).push(edge.a[along]!, edge.b[along]!);
+      lines.set(key, line);
+    }
+  }
   for (const rect of sealed) forRect(rect, SEALED_MIN_SPAN);
   return [...lines.values()].sort((a, b) => a.axis.localeCompare(b.axis) || a.c - b.c);
 }
@@ -94,7 +112,7 @@ export function endsOf(line: WallLine): number[] {
       ? [e.rect.v, e.rect.v + e.rect.lv]
       : [e.rect.u, e.rect.u + e.rect.lu],
   );
-  const ends = new Set<number>();
+  const ends = new Set<number>(line.fixedEnds?.map(round));
   for (const [lo, hi] of spans) {
     ends.add(round(lo!));
     ends.add(round(hi!));
@@ -213,6 +231,7 @@ export function alignPartitionsToPiers(
 /** A moved wall may leave a door hanging past the end of its edge: pull it back inside. */
 function clampDoors(rooms: PlanRoom[]): void {
   for (const room of rooms) {
+    if (room.polygon) continue;
     const r = room.rect;
     for (const door of room.doors) {
       const [lo, hi] = door.edge.startsWith("v") ? [r.u, r.u + r.lu] : [r.v, r.v + r.lv];

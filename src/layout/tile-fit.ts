@@ -4,7 +4,8 @@ import type { CorePlan } from "./core-plan.js";
 import { Facade } from "./openings.js";
 import { collectLines, coreRectsOf, endsOf, frozen, pointOn, type WallLine } from "./pier-align.js";
 import type { PlanDoor, PlanRoom } from "./plan-types.js";
-import { BAND_CLEAR, doorWidthOn, sharedStretch } from "./rooms.js";
+import { BAND_CLEAR, MIN_STRETCH, doorWidthOn, sharedStretch } from "./rooms.js";
+import { sharedRoomEdges, type RoomShape } from "./room-shape.js";
 import type { UvRect } from "./uv.js";
 import { uvToWorld } from "./uv.js";
 
@@ -92,7 +93,7 @@ export function refitDoors(rooms: PlanRoom[], plate: readonly Point[]): number {
     room.doors = room.doors.filter((door) => {
       const other = byId.get(door.to);
       if (!other) return true;
-      const fit = fitDoorToStretch(door, room.rect, other.rect, plate);
+      const fit = fitDoorToStretch(door, room, other, plate);
       if (fit !== "kept") refit++;
       return fit !== null;
     });
@@ -104,18 +105,29 @@ export function refitDoors(rooms: PlanRoom[], plate: readonly Point[]): number {
  *  to the 0.7 m minimum. `null` when the pair shares no such
  *  stretch: no wall stands there to hole. */
 export function fitDoorToStretch(
-  door: PlanDoor, from: UvRect, to: UvRect, plate: readonly Point[],
+  door: PlanDoor, from: UvRect | RoomShape, to: UvRect | RoomShape, plate: readonly Point[],
 ): "kept" | "moved" | null {
-  const stretch = sharedStretch(from, to, plate, door.at);
+  const owner = "rect" in from ? from : { rect: from };
+  const target = "rect" in to ? to : { rect: to };
+  const polygonal = owner.polygon || target.polygon;
+  const stretches = polygonal ? sharedRoomEdges(owner, target, plate).filter(s => s.hi - s.lo >= MIN_STRETCH) : [];
+  const stretch = polygonal
+    ? stretches.find(s => s.edge === door.edge && door.at >= s.lo && door.at <= s.hi
+      && (!door.position || Math.abs(door.position[s.edge.startsWith("v") ? 1 : 0] - s.c) < 1e-6)) ?? stretches[0]
+    : sharedStretch(owner.rect, target.rect, plate, door.at);
   if (!stretch) return null;
   const { edge, lo, hi } = stretch;
   // use the full clear width where the wall carries it, with the contract minimum on short walls
   const width = doorWidthOn(hi - lo, door.width);
   const inside = door.edge === edge && door.at - width / 2 >= lo + BAND_CLEAR - 1e-6
     && door.at + width / 2 <= hi - BAND_CLEAR + 1e-6;
-  if (inside && width === door.width) return "kept";
+  const c = "c" in stretch && typeof stretch.c === "number" ? stretch.c : undefined;
+  const position = c === undefined ? undefined : edge.startsWith("v") ? [door.at, c] as Point : [c, door.at] as Point;
+  const samePosition = position === undefined || !!door.position && position.every((n, i) => Math.abs(n - door.position![i]!) < 1e-6);
+  if (inside && width === door.width && samePosition) return "kept";
   door.edge = edge;
   door.width = round(width);
   door.at = round((lo + hi) / 2);
+  if (c !== undefined) door.position = edge.startsWith("v") ? [door.at, c] : [c, door.at];
   return "moved";
 }

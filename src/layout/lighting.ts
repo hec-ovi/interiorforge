@@ -1,7 +1,7 @@
 import { STAIR, WALL } from "./constants.js";
 import { stairAccess } from "./core-plan.js";
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, insetPolygon, pointInPolygon, polygonBounds } from "../core/geom.js";
+import { boundaryDistance, clipPolygonToRect, insetPolygon, pointInPolygon, polygonBounds } from "../core/geom.js";
 import type { LightFixture, RoomKind } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
 import { doorUvPoint } from "./plan-floor.js";
@@ -9,6 +9,7 @@ import type { PlanRoom } from "./plan-types.js";
 import type { IdGen } from "./rooms.js";
 import type { Frame, UvRect } from "./uv.js";
 import { uvToWorld } from "./uv.js";
+import { roomAnchor, roomCoversRect, roomEdges } from "./room-shape.js";
 
 /** Every room, corridor and stairwell emits its own light fixtures: the engine instantiates
  *  real lights from them and the geometry pass builds the matching emissive housings. */
@@ -140,6 +141,7 @@ class FloorLighting {
   private readonly uvOutline: readonly Point[];
 
   private gaps: DoorGap[] = [];
+  private activeRoom?: PlanRoom;
 
   constructor(
     private readonly ids: IdGen,
@@ -170,15 +172,17 @@ class FloorLighting {
   room(room: PlanRoom): void {
     const style = STYLE[room.kind];
     if (!style) return;
+    this.activeRoom = room;
     const before = this.out.length;
     if (style.fixture === "strip") this.strips(room, style);
     else this.spots(room, style);
     if (style.cove) this.cove(room, style);
     // no room stays dark: a clipped plate still gets one downlight where it has floor
     if (this.out.length === before) {
-      const at = this.insideCenter(room.rect);
+      const at = this.insideCenter(room);
       if (at) this.spotAt(room.id, at, style.lumens, style.colorTemperatureK, true);
     }
+    this.activeRoom = undefined;
   }
 
   /** One flush downlight embedded in the arrival landing above the entry, preserving the
@@ -220,7 +224,7 @@ class FloorLighting {
         const ends: [Point, Point] = alongU
           ? [[runMid - half, cross], [runMid + half, cross]]
           : [[cross, runMid - half], [cross, runMid + half]];
-        if (!this.inside(ends[0]) || !this.inside(ends[1])) {
+        if (!this.inside(ends[0]) || !this.inside(ends[1]) || !this.coversSegment(room, ends)) {
           this.spotAt(room.id, at, style.lumens / 2, style.colorTemperatureK);
           continue;
         }
@@ -254,7 +258,15 @@ class FloorLighting {
   /** Emissive line where wall meets ceiling: the venue look from the reference. */
   private cove(room: PlanRoom, style: LightStyle): void {
     const r = room.rect;
-    const sides: { wall: number; angleDeg: 0 | 90; from: number; to: number }[] = [
+    const sides: { wall: number; angleDeg: 0 | 90; from: number; to: number }[] = room.polygon
+      ? roomEdges(room).flatMap(segment => {
+        if (!segment.edge) return [];
+        const along = segment.edge.startsWith("v") ? 0 : 1, cross = 1 - along;
+        const inward = segment.edge.endsWith("0") ? COVE_INSET : -COVE_INSET;
+        return [{ wall: segment.a[cross]! + inward, angleDeg: along === 0 ? 0 as const : 90 as const,
+          from: Math.min(segment.a[along]!, segment.b[along]!) + COVE_INSET,
+          to: Math.max(segment.a[along]!, segment.b[along]!) - COVE_INSET }];
+      }) : [
       { wall: r.v + COVE_INSET, angleDeg: 0, from: r.u + COVE_INSET, to: r.u + r.lu - COVE_INSET },
       { wall: r.v + r.lv - COVE_INSET, angleDeg: 0, from: r.u + COVE_INSET, to: r.u + r.lu - COVE_INSET },
       { wall: r.u + COVE_INSET, angleDeg: 90, from: r.v + COVE_INSET, to: r.v + r.lv - COVE_INSET },
@@ -284,7 +296,7 @@ class FloorLighting {
       const ends: [Point, Point] = angleDeg === 0
         ? [[mid - half, wall], [mid + half, wall]]
         : [[wall, mid - half], [wall, mid + half]];
-      if (!this.inside(ends[0]) || !this.inside(ends[1])) continue;
+      if (!this.inside(ends[0]) || !this.inside(ends[1]) || !this.coversSegment(room, ends)) continue;
       this.push({
         kind: "cove", room: room.id, at, y: this.ceilingY - COVE_DROP, length, angleDeg,
         lumens: Math.round(length * 220), colorTemperatureK: style.colorTemperatureK,
@@ -316,12 +328,33 @@ class FloorLighting {
   }
 
   private inside(p: Point): boolean {
-    return pointInPolygon(p, this.uvOutline);
+    return pointInPolygon(p, this.uvOutline)
+      && (!this.activeRoom?.polygon || boundaryDistance(p, this.activeRoom.polygon) >= 0.05);
+  }
+
+  private coversSegment(room: PlanRoom, [a, b]: [Point, Point]): boolean {
+    return !room.polygon || roomCoversRect(room, { u: Math.min(a[0], b[0]), v: Math.min(a[1], b[1]),
+      lu: Math.abs(a[0] - b[0]), lv: Math.abs(a[1] - b[1]) }, 0.04);
   }
 
   /** A point of the rect that is really inside the plate; irregular plates cut room rects.
    *  Null when the room has no floor behind the lining at all. */
-  private insideCenter(r: UvRect): Point | null {
+  private insideCenter(room: PlanRoom): Point | null {
+    const r = room.rect;
+    if (room.polygon) {
+      const anchor = roomAnchor(room);
+      if (this.inside(anchor)) return anchor;
+      let best: Point | null = null, clearance = -Infinity;
+      for (let v = r.v + FIXTURE_MARGIN; v < r.v + r.lv; v += FIXTURE_MARGIN) {
+        for (let u = r.u + FIXTURE_MARGIN; u < r.u + r.lu; u += FIXTURE_MARGIN) {
+          const point: Point = [u, v];
+          if (!this.inside(point)) continue;
+          const distance = boundaryDistance(point, room.polygon);
+          if (distance > clearance) { clearance = distance; best = point; }
+        }
+      }
+      return best;
+    }
     const c = center(r);
     if (this.inside(c)) return c;
     const clipped = clipPolygonToRect(this.uvOutline, { x: r.u, z: r.v, w: r.lu, d: r.lv });
