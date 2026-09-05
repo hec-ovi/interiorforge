@@ -9,6 +9,7 @@ Purpose: deterministic primitives shared by every box in this repo: seeded RNG, 
   - `Rng.next() -> float [0,1)`, `Rng.int(min, max) -> int inclusive`, `Rng.range(min, max) -> float`, `Rng.pick(array)`, `Rng.shuffle(array) -> new array`.
   - Pure 32-bit integer ops (sfc32 core, splitmix32 seeding): identical output on every platform.
 - `geom.ts`: `Point` is `[x, z]`, `Rect` is `{x, z, w, d}` (min corner). Polygon area/centroid/bounds, CCW test, point-in-polygon, point-in-rect, rect overlap/containment, rect-to-polygon containment, edge length, point along edge.
+- `triangulate.ts`: `triangulate(poly: readonly Point[]) -> [number, number, number][]` returns deterministic CCW XZ index triples for a simple nondegenerate ring, accepting either input winding. Fewer than three points returns an empty list. Degenerate input or the 10,000-iteration guard can return a partial triangulation; consumers requiring complete coverage must verify its area.
 - `types.ts`: `InteriorRequest`, `Blueprint`, `FloorInterior`, `NpcSupport` and their parts, mirroring `../../schemas/*.schema.json`. Schemas are the source of truth; these types restate them for the compiler.
 - `errors.ts`: `new InteriorError(code, detail, floor?)` produces `InteriorError { code, floor?, message }` from the closed code set in the root contract.
 - `grid.ts`: `WalkGrid(origin: Point, cellSize, cols, rows)` starts blocked; `forPolygon(outline, cellSize, bounds: Rect)` opens cells whose centers are inside the polygon. Cell size and dimensions must be positive.
