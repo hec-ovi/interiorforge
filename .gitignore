@@ -1,10 +1,22 @@
-docs/REQUIREMENTS.md
-docs/FEEDBACK.md
-docs/ISSUES.md
 node_modules/
 dist/
 .env
-docs/FULL-REQUIREMENTS.md
 out/
 CLAUDE.md
 session
+
+# Local authoring data; public technical docs are listed explicitly.
+/docs/*
+!/docs/INDEX.md
+!/docs/RESEARCH.md
+inbox/
+.research/
+
+# Local preview and reference captures.
+[Ss]creenshots/
+[Ss]creenshot*.png
+[Ss]creenshot*.jpg
+[Ss]creenshot*.jpeg
+[Ss]creenshot*.webp
+preview-captures/
+review-captures/
