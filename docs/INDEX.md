@@ -2,6 +2,8 @@
 
 Root box: the [interior generator](../CONTRACT.md). Inner boxes, one folder each:
 
+Browser-safe boundary: [`src/feasibility.ts`](../src/feasibility.ts) exposes Layout's actual core solver and selected stair footprint to Exterior, independent of rendering and filesystem code.
+
 - [`src/core`](../src/core/CONTRACT.md): seeded RNG, 2D geometry, walkable grid, shared types and errors; room interior rings, opening clear fields and core-facade adjacency policy. Depends on the Exterior blueprint contract.
 - [`src/glb`](../src/glb/CONTRACT.md): GLB I/O and mesh construction with winding, UV and sealed-buffer rules. Depends on core.
 - [`src/blueprint`](../src/blueprint/CONTRACT.md): request validation including window clear-field fit, assignment resolution and fixture shells. Depends on core and glb.
