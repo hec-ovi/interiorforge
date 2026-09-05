@@ -1,15 +1,17 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
 import { insetPolygon, polygonArea, polygonBounds } from "../core/geom.js";
-import type { FloorAssignment, InteriorRequest } from "../core/types.js";
+import type { CoreAdjacencyFailure, FloorAssignment, InteriorRequest } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
 import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
 import { isStreetAccess, openingKeepouts, type OpeningKeepout } from "./openings.js";
 import { facadeDepth } from "./shell.js";
 import { SHAFT_WIDTH, shaftDepthFor } from "./stair-plan.js";
+import { CoreFacadeClearance } from "./core-adjacency.js";
+import { coreComponents, coreSolids, type CoreComponents } from "./core-solids.js";
 import type { Frame, UvRect } from "./uv.js";
-import { coversRect, makeFrame, snap, snapDown, snapUp, toUvPolygon, worldToUv } from "./uv.js";
+import { coversRect, makeFrame, snap, snapDown, snapUp, toUvPolygon, uvToWorld, worldToUv } from "./uv.js";
 
 /** standard: elevator core in the shaft row. compact: stairs turn into columns reaching
  *  into the rear strip so near-miss bands keep elevators. walkup: stair-only, capped. */
@@ -58,6 +60,8 @@ interface CoreEnvelope {
   candidates: number[];
   bulkheadUv: Point | null;
   openingKeepouts: OpeningKeepout[];
+  adjacency: CoreFacadeClearance;
+  adjacencyFailure?: CoreAdjacencyFailure;
 }
 
 /** Plate depth every floor needs across the frame: one room strip, the corridor, the shaft
@@ -76,9 +80,10 @@ function platesOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame, 
 }
 
 function envelopeOf(
-  floors: InteriorRequest["blueprint"]["floors"], frame: Frame, depth: number,
+  blueprint: InteriorRequest["blueprint"], frame: Frame, depth: number,
   bulkheadUv: Point | null = null,
 ): CoreEnvelope {
+  const floors = blueprint.floors;
   const uvFloors = platesOf(floors, frame, depth);
   const groundIndex = floors.findIndex((f) => f.index === 0);
   const bounds = polygonBounds(uvFloors[groundIndex]!);
@@ -119,6 +124,7 @@ function envelopeOf(
     plateDepth, plateDepthFloor,
     idealVFace, candidates, bulkheadUv,
     openingKeepouts: floors.flatMap((floor) => openingKeepouts(floor, frame, depth)),
+    adjacency: new CoreFacadeClearance(blueprint, frame, depth),
   };
 }
 
@@ -170,9 +176,8 @@ function inlineStairU(env: CoreEnvelope, p: Placement): number {
   return snapDown(p.bandU1) - env.stairDepth;
 }
 
-interface CoreLayout {
+interface CoreLayout extends CoreComponents {
   u0: number;
-  stairB?: UvRect;
 }
 
 function overlapsOpening(rect: UvRect, keepout: UvRect): boolean {
@@ -187,23 +192,26 @@ function clearOfOpenings(rect: UvRect, env: CoreEnvelope): boolean {
 
 /** Resolves the actual block and secondary stair position for one capacity. Door and window
  *  volumes are held across every floor because the shared core rises through every floor. */
-function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number): CoreLayout | null {
+function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number, respectReservations = true): CoreLayout | null {
   const span = blockSpan(env, p, elevatorCount);
   const u0 = env.bulkheadUv
-    ? Math.min(
-        snapDown(p.bandU1 - span.len),
-        Math.max(snapUp(p.bandU0), snap(env.bulkheadUv[0] - (p.mode === "compact" ? snapUp(SHAFT_WIDTH) : env.stairDepth) / 2)),
-      )
+    ? env.bulkheadUv[0] - (p.mode === "compact" ? snapUp(SHAFT_WIDTH) : env.stairDepth) / 2
     : span.u0;
-  const main: UvRect = {
-    u: u0,
-    v: p.vFace,
-    lu: span.len,
-    lv: p.mode === "compact" ? env.stairDepth : ELEVATOR.shaft,
+  const fitted = (stairB?: UvRect): CoreLayout | null => {
+    const parts = coreComponents(p.mode, u0, p.vFace, env.stairDepth, env.twoStairs, elevatorCount, stairB);
+    const solids = coreSolids(parts);
+    if (![...solids, ["stub", parts.stub] as [string, UvRect]]
+      .every(([, rect]) => env.uvFloors.every((plate) => coversRect(plate, rect)))) return null;
+    if (respectReservations && !solids.every(([, rect]) => clearOfOpenings(rect, env))) return null;
+    const conflict = respectReservations ? env.adjacency.conflict(solids) : undefined;
+    if (conflict) {
+      if (!env.adjacencyFailure || conflict.requiredDepth - conflict.availableDepth
+        < env.adjacencyFailure.requiredDepth - env.adjacencyFailure.availableDepth) env.adjacencyFailure = conflict;
+      return null;
+    }
+    return { u0, ...parts };
   };
-  if (!clearOfOpenings(main, env)) return null;
-
-  if (!env.twoStairs || p.mode === "compact") return { u0 };
+  if (!env.twoStairs || p.mode === "compact") return fitted();
   const minU = snapUp(u0 + span.len + MARGIN);
   for (let u = inlineStairU(env, p); u >= minU - 1e-6; u -= 0.5) {
     const stairB: UvRect = {
@@ -212,16 +220,17 @@ function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number): Cor
       lu: env.stairDepth,
       lv: CORRIDOR.width,
     };
-    if (clearOfOpenings(stairB, env)) return { u0, stairB };
+    const layout = fitted(stairB);
+    if (layout) return layout;
   }
   return null;
 }
 
 /** Keeps the greatest elevator capacity whose complete core avoids all facade reservations. */
-function openingSafePlacement(env: CoreEnvelope, p: Placement): Placement | null {
-  if (p.mode === "walkup") return coreLayout(env, p, 0) ? p : null;
+function openingSafePlacement(env: CoreEnvelope, p: Placement, respectReservations = true): Placement | null {
+  if (p.mode === "walkup") return coreLayout(env, p, 0, respectReservations) ? p : null;
   for (let count = p.maxElevators; count >= 1; count--) {
-    if (coreLayout(env, p, count)) return { ...p, maxElevators: count };
+    if (coreLayout(env, p, count, respectReservations)) return { ...p, maxElevators: count };
   }
   return null;
 }
@@ -233,41 +242,38 @@ function placeAt(mode: CoreMode, vFace: number, bandU0: number, bandU1: number, 
   };
 }
 
-/** Compact stair columns reach past the shaft row into the rear strip: that depth has to be
- *  inside every floor over the whole block, whatever car count the building asks for. */
-function compactColumnsFit(env: CoreEnvelope, candidate: Placement): boolean {
-  const span = blockSpan(env, candidate, candidate.maxElevators);
-  const columns: UvRect = { u: span.u0, v: candidate.vFace, lu: span.len, lv: env.stairDepth };
-  return env.uvFloors.every((poly) => coversRect(poly, columns));
-}
-
 /** The compact placement at one corridor position, when its band and column depth hold. */
 function compactAt(env: CoreEnvelope, vFace: number, respectOpenings = true): Placement | null {
   const fixed = compactFixedLen(env);
   const [u0, u1] = bandAt(env, vFace);
   if (u1 - u0 < fixed + ELEVATOR.shaft) return null;
   const candidate = placeAt("compact", vFace, u0, u1, fixed);
-  if (!compactColumnsFit(env, candidate)) return null;
-  return respectOpenings ? openingSafePlacement(env, candidate) : candidate;
+  return openingSafePlacement(env, candidate, respectOpenings);
+}
+
+function candidatesFor(env: CoreEnvelope, mode: CoreMode): number[] {
+  if (!env.bulkheadUv) return env.candidates;
+  const vFace = env.bulkheadUv[1] - (mode === "compact" ? env.stairDepth : snapUp(SHAFT_WIDTH)) / 2;
+  return vFace >= env.vMin - 1e-6 && vFace <= env.vMax + 1e-6 ? [vFace] : [];
 }
 
 /** The single mode-and-position selector shared by planCore and coreFeasibility. */
 function selectPlacement(env: CoreEnvelope, respectOpenings = true): Placement | null {
   const safe = (candidate: Placement): Placement | null =>
-    respectOpenings ? openingSafePlacement(env, candidate) : candidate;
+    openingSafePlacement(env, candidate, respectOpenings);
   const rowFixed = rowFixedLen(env);
-  for (const vFace of env.candidates) {
+  for (const vFace of candidatesFor(env, "standard")) {
     const [u0, u1] = bandAt(env, vFace);
     if (u1 - u0 < rowFixed + ELEVATOR.shaft) continue;
     const candidate = safe(placeAt("standard", vFace, u0, u1, rowFixed));
     if (candidate) return candidate;
   }
-  for (const vFace of env.candidates) {
+  for (const vFace of candidatesFor(env, "compact")) {
     const compact = compactAt(env, vFace, respectOpenings);
     if (compact) return compact;
   }
   const walkups: Placement[] = [];
-  for (const vFace of env.candidates) {
+  for (const vFace of candidatesFor(env, "walkup")) {
     const [u0, u1] = bandAt(env, vFace);
     if (u1 - u0 >= rowFixed) walkups.push(placeAt("walkup", vFace, u0, u1, rowFixed));
   }
@@ -311,19 +317,32 @@ function selectEnvelope(blueprint: InteriorRequest["blueprint"]): CoreChoice {
   const depth = facadeDepth(blueprint.facade);
   const ground = floors.find((f) => f.index === 0)! as Ground;
   const base = principalAngle(ground.outline);
+  const allowed = blueprint.coreFrame?.anglesDeg;
+  const canonical = (angle: number): number => ((angle % 180) + 180) % 180;
+  if (allowed && (allowed.length === 0 || allowed.some((angle, i) => !Number.isFinite(angle)
+    || allowed.slice(0, i).some((other) => Math.abs(canonical(angle) - canonical(other)) < 1e-6)))) {
+    throw new InteriorError("E_BLUEPRINT_INVALID", "coreFrame.anglesDeg must contain finite axes unique modulo 180");
+  }
   // the roof housing's row in a frame, when the exterior published one
   const bulkhead = blueprint.roof?.bulkhead;
+  const roofAngle = bulkhead ? Math.atan2(bulkhead.axis[1], bulkhead.axis[0]) * 180 / Math.PI : undefined;
+  if (roofAngle !== undefined && allowed && !allowed.some((angle) =>
+    Math.abs(Math.sin((angle - roofAngle) * Math.PI / 180)) < 1e-6)) {
+    throw new InteriorError("E_BLUEPRINT_INVALID", "roof bulkhead axis is outside coreFrame.anglesDeg");
+  }
   const bulkUv = (frame: Frame): Point | null => (bulkhead ? worldToUv(bulkhead.center, frame) : null);
-  const firstFrame = frameAt(base, ground);
-  const first = envelopeOf(floors, firstFrame, depth, bulkUv(firstFrame));
+  const angles = allowed ?? frameAngles(base);
+  const firstFrame = roofAngle === undefined ? frameAt(angles[0]!, ground) : makeFrame(roofAngle);
+  const first = envelopeOf(blueprint, firstFrame, depth, bulkUv(firstFrame));
   const firstPlacement = first.crossDepthOk ? selectPlacement(first) : null;
   if (firstPlacement && withinCap(first, firstPlacement)) return { env: first, placement: firstPlacement };
+  if (bulkhead) return { env: first, placement: firstPlacement };
 
   let best: CoreChoice | null = null;
   let bestRank = Infinity;
-  for (const angle of frameAngles(base).slice(1)) {
+  for (const angle of angles.slice(1)) {
     const frame = frameAt(angle, ground);
-    const env = envelopeOf(floors, frame, depth, bulkUv(frame));
+    const env = envelopeOf(blueprint, frame, depth, bulkUv(frame));
     if (!env.crossDepthOk) continue;
     const placement = selectPlacement(env);
     if (!placement || !withinCap(env, placement)) continue;
@@ -385,6 +404,10 @@ export interface CoreFeasibility {
    *  stairShaftDepth for its columns; compactDepthOk is the exact per-floor column test */
   minCompactDepth: number;
   compactDepthOk: boolean;
+  adjacencyFailure?: CoreAdjacencyFailure;
+  placement?: {
+    stairA: { center: Point; axis: Point; width: number; depth: number };
+  };
 }
 
 function blockerOf(env: CoreEnvelope, placement: Placement | null): CoreBlocker | undefined {
@@ -399,7 +422,7 @@ function blockerOf(env: CoreEnvelope, placement: Placement | null): CoreBlocker 
 
 /** Whether some corridor position holds the compact core with its column depth (step 8). */
 function compactDepthOk(env: CoreEnvelope): boolean {
-  return env.crossDepthOk && env.candidates.some((vFace) => compactAt(env, vFace, false) !== null);
+  return env.crossDepthOk && candidatesFor(env, "compact").some((vFace) => compactAt(env, vFace, false) !== null);
 }
 
 /** The gate's message for an unfit blueprint, quoting the recipe's own numbers. */
@@ -415,10 +438,16 @@ function unfitDetail(env: CoreEnvelope, blocker: CoreBlocker, placement: Placeme
     case "walkup_floors":
       return `walkup core (band ${band}, ${mins}) allows at most ${WALKUP.maxFloors} floors, blueprint has ${env.aboveFloors}`;
     case "opening_reservations":
-      return `the fitting core bands overlap exterior opening clear volumes on one or more floors (${mins})`;
+      return env.adjacencyFailure
+        ? adjacencyDetail(env.adjacencyFailure)
+        : `the fitting core bands overlap exterior opening clear volumes on one or more floors (${mins})`;
     case "band":
-      return `no corridor position holds a core: best band ${band} is below the walkup minimum ${m(rowFixedLen(env))} (${mins})`;
+      return `no permitted corridor and core placement fits: best band ${band}, walkup minimum ${m(rowFixedLen(env))} (${mins})`;
   }
+}
+
+function adjacencyDetail(failure: CoreAdjacencyFailure): string {
+  return `core ${failure.coreSolid} beside floor ${failure.floor} opening ${failure.opening} requires ${failure.requiredDepth.toFixed(3)}m of ${failure.role} depth after the full lining; candidate provides ${failure.availableDepth.toFixed(3)}m`;
 }
 
 function round2(v: number): number {
@@ -430,10 +459,16 @@ function round2(v: number): number {
 export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFeasibility {
   const { env, placement } = selectEnvelope(blueprint);
   const blocker = blockerOf(env, placement);
+  const layout = placement && !blocker ? coreLayout(env, placement, placement.maxElevators) : null;
   return {
     fits: blocker === undefined,
     mode: placement?.mode ?? "none",
     ...(blocker ? { blocker } : {}),
+    ...(blocker === "opening_reservations" && env.adjacencyFailure ? { adjacencyFailure: env.adjacencyFailure } : {}),
+    ...(layout ? { placement: { stairA: {
+      center: uvToWorld([layout.stairA.u + layout.stairA.lu / 2, layout.stairA.v + layout.stairA.lv / 2], env.frame),
+      axis: [env.frame.cos, env.frame.sin] as Point, width: layout.stairA.lu, depth: layout.stairA.lv,
+    } } } : {}),
     frameAngleDeg: env.frame.angleDeg,
     bandLength: round2(placement ? placement.bandLen : bestBandLen(env)),
     minCoreLength: round2(rowFixedLen(env) + ELEVATOR.shaft),
@@ -453,7 +488,7 @@ export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFe
 /** Places the vertical core once per building; every floor reuses these rects. */
 export function planCore(request: InteriorRequest, assignments: FloorAssignment[]): CorePlan {
   const { env, placement } = selectEnvelope(request.blueprint);
-  const { frame, twoStairs, stairDepth } = env;
+  const { frame, stairDepth } = env;
 
   const blocker = blockerOf(env, placement);
   if (!placement || blocker) {
@@ -469,36 +504,10 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
     throw new InteriorError("E_FLOOR_TOO_SMALL", "no vertical core placement clears the exterior opening reservations");
   }
 
-  const stairColW = snapUp(SHAFT_WIDTH);
   const u0 = layout.u0;
-
-  let u = u0;
-  const stairA: UvRect = mode === "compact"
-    ? { u, v: vFace, lu: stairColW, lv: stairDepth }
-    : { u, v: vFace, lu: stairDepth, lv: stairColW };
-  u += stairA.lu;
-  const elevators: CorePlan["elevators"] = [];
-  for (let i = 0; i < elevatorCount; i++) {
-    elevators.push({ id: `elev-${i}`, rect: { u, v: vFace, lu: ELEVATOR.shaft, lv: ELEVATOR.shaft } });
-    u += ELEVATOR.shaft;
-  }
-  const riser: UvRect = { u, v: vFace, lu: RISER_SHAFT.w, lv: RISER_SHAFT.d };
-  u += RISER_SHAFT.w;
-  const stub: UvRect = { u, v: vFace, lu: CORRIDOR.serviceStub, lv: ELEVATOR.shaft };
-  u += CORRIDOR.serviceStub;
-
-  let stairB = layout.stairB;
-  if (twoStairs) {
-    if (mode === "compact") {
-      stairB = { u, v: vFace, lu: stairColW, lv: stairDepth };
-      u += stairColW;
-    }
-  }
-
   const plan: CorePlan = {
-    frame, mode, vFace, u0, u1: u, depth: ELEVATOR.shaft,
+    frame, mode, vFace, ...layout, u0, depth: ELEVATOR.shaft,
     stairStyle: "u_return", stairDepth, elevatorCount,
-    stairA, stairB, elevators, riser, stub,
   };
   ensureCoreFitsAllFloors(request, plan);
   return plan;
@@ -598,13 +607,11 @@ function elevatorsFor(request: InteriorRequest, area: number, aboveFloors: numbe
  *  with the same predicate on the same band, so a throw here means a layout bug, not a
  *  parcel the gate approved. */
 function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan): void {
-  const named: [string, UvRect][] = [
-    ["stair-a", plan.stairA], ["riser", plan.riser], ["service stub", plan.stub],
-    ...plan.elevators.map((e) => [e.id, e.rect] as [string, UvRect]),
-    ...(plan.stairB ? [["stair-b", plan.stairB] as [string, UvRect]] : []),
-  ];
+  const named: [string, UvRect][] = [...coreSolids(plan), ["service stub", plan.stub]];
   const depth = facadeDepth(request.blueprint.facade);
   const plates = platesOf(request.blueprint.floors, plan.frame, depth);
+  const failure = new CoreFacadeClearance(request.blueprint, plan.frame, depth).conflict(coreSolids(plan));
+  if (failure) throw new InteriorError("E_FLOOR_TOO_SMALL", adjacencyDetail(failure), failure.floor);
   for (const [i, floor] of request.blueprint.floors.entries()) {
     const keepouts = openingKeepouts(floor, plan.frame, depth);
     for (const [id, rect] of named) {
@@ -615,7 +622,7 @@ function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan): void
           floor.index,
         );
       }
-      const conflict = keepouts.find((keepout) => overlapsOpening(rect, keepout.rect));
+      const conflict = id === "service stub" ? undefined : keepouts.find((keepout) => overlapsOpening(rect, keepout.rect));
       if (conflict) {
         throw new InteriorError(
           "E_FLOOR_TOO_SMALL",

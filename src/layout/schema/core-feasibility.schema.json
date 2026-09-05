@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urbe/interior/core-feasibility",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fits", "mode", "frameAngleDeg", "bandLength", "minCoreLength", "minCompactCoreLength", "minWalkupCoreLength", "walkupMaxFloors", "maxElevators", "plateDepth", "plateDepthFloor", "minCrossDepth", "crossDepthOk", "minCompactDepth", "compactDepthOk"],
+  "properties": {
+    "fits": { "type": "boolean" },
+    "mode": { "enum": ["standard", "compact", "walkup", "none"] },
+    "blocker": { "enum": ["cross_depth", "band", "compact_depth", "walkup_floors", "opening_reservations"] },
+    "frameAngleDeg": { "type": "number" },
+    "bandLength": { "type": "number" },
+    "minCoreLength": { "type": "number" },
+    "minCompactCoreLength": { "type": "number" },
+    "minWalkupCoreLength": { "type": "number" },
+    "walkupMaxFloors": { "type": "integer" },
+    "maxElevators": { "type": "integer" },
+    "plateDepth": { "type": "number" },
+    "plateDepthFloor": { "type": "integer" },
+    "minCrossDepth": { "type": "number" },
+    "crossDepthOk": { "type": "boolean" },
+    "minCompactDepth": { "type": "number" },
+    "compactDepthOk": { "type": "boolean" },
+    "placement": {
+      "type": "object", "required": ["stairA"], "additionalProperties": false,
+      "properties": {
+        "stairA": {
+          "type": "object", "required": ["center", "axis", "width", "depth"], "additionalProperties": false,
+          "properties": {
+            "center": { "$ref": "#/$defs/point" }, "axis": { "$ref": "#/$defs/point" },
+            "width": { "type": "number", "exclusiveMinimum": 0 }, "depth": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "adjacencyFailure": {
+      "type": "object", "required": ["floor", "opening", "coreSolid", "role", "requiredDepth", "availableDepth"], "additionalProperties": false,
+      "properties": {
+        "floor": { "type": "integer" }, "opening": { "type": "string" }, "coreSolid": { "type": "string" },
+        "role": { "enum": ["structure", "circulation", "room"] },
+        "requiredDepth": { "type": "number", "minimum": 0 }, "availableDepth": { "type": "number", "minimum": 0 }
+      }
+    }
+  },
+  "allOf": [{
+    "if": { "properties": { "fits": { "const": true } } },
+    "then": { "required": ["placement"], "not": { "anyOf": [{ "required": ["blocker"] }, { "required": ["adjacencyFailure"] }] } },
+    "else": { "required": ["blocker"], "not": { "required": ["placement"] } }
+  }],
+  "$defs": {
+    "point": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }
+  }
+}
