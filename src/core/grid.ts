@@ -1,5 +1,4 @@
 import type { Point, Rect } from "./geom.js";
-import { pointInPolygon } from "./geom.js";
 
 /** Walkable occupancy grid for one floor. Cell (c, r) covers
  *  [origin + c*cell, origin + (c+1)*cell) on each axis; walkability is sampled at cell centers. */
@@ -22,12 +21,35 @@ export class WalkGrid {
     const cols = Math.ceil(bounds.w / cellSize);
     const rows = Math.ceil(bounds.d / cellSize);
     const grid = new WalkGrid([bounds.x, bounds.z], cellSize, cols, rows);
+    const crossings: number[] = [];
     for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (pointInPolygon(grid.center(c, r), outline)) grid.cells[r * cols + c] = 1;
+      const z = bounds.z + (r + 0.5) * cellSize;
+      crossings.length = 0;
+      for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+        const [xi, zi] = outline[i]!;
+        const [xj, zj] = outline[j]!;
+        // Keep pointInPolygon's edge orientation, arithmetic and vertex convention.
+        if (zi > z !== zj > z) crossings.push(((xj - xi) * (z - zi)) / (zj - zi) + xi);
+      }
+      crossings.sort((a, b) => a - b);
+      for (let i = 0; i < crossings.length; i += 2) {
+        const start = grid.firstColumnAtOrAfter(crossings[i]!);
+        const end = grid.firstColumnAtOrAfter(crossings[i + 1]!);
+        grid.cells.fill(1, r * cols + start, r * cols + end);
       }
     }
     return grid;
+  }
+
+  private firstColumnAtOrAfter(x: number): number {
+    let lo = 0, hi = this.cols;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      // Compare actual centers: dividing x into a cell index can round across an edge.
+      if (this.origin[0] + (mid + 0.5) * this.cellSize < x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
   }
 
   center(c: number, r: number): Point {
