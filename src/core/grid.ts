@@ -1,4 +1,6 @@
 import type { Point, Rect } from "./geom.js";
+import { GridBoundary, gridCenterBound } from "./grid-boundary.js";
+import { ROOM_FOOTPRINT_EPS, type RoomFootprint } from "./room-footprint.js";
 
 /** Walkable occupancy grid for one floor. Cell (c, r) covers
  *  [origin + c*cell, origin + (c+1)*cell) on each axis; walkability is sampled at cell centers. */
@@ -21,9 +23,25 @@ export class WalkGrid {
     const cols = Math.ceil(bounds.w / cellSize);
     const rows = Math.ceil(bounds.d / cellSize);
     const grid = new WalkGrid([bounds.x, bounds.z], cellSize, cols, rows);
+    grid.fillPolygon(outline, 1);
+    return grid;
+  }
+
+  static forRoomFootprint(footprint: RoomFootprint, cellSize: number, bounds: Rect): WalkGrid {
+    const grid = WalkGrid.forPolygon(footprint.polygon, cellSize, bounds);
+    const boundary = new GridBoundary(grid, ROOM_FOOTPRINT_EPS);
+    boundary.fill(footprint.polygon, true);
+    for (const hole of footprint.holes ?? []) {
+      grid.fillPolygon(hole, 0);
+      boundary.fill(hole, false);
+    }
+    return grid;
+  }
+
+  private fillPolygon(outline: readonly Point[], value: 0 | 1): void {
     const crossings: number[] = [];
-    for (let r = 0; r < rows; r++) {
-      const z = bounds.z + (r + 0.5) * cellSize;
+    for (let r = 0; r < this.rows; r++) {
+      const z = this.origin[1] + (r + 0.5) * this.cellSize;
       crossings.length = 0;
       for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
         const [xi, zi] = outline[i]!;
@@ -33,23 +51,11 @@ export class WalkGrid {
       }
       crossings.sort((a, b) => a - b);
       for (let i = 0; i < crossings.length; i += 2) {
-        const start = grid.firstColumnAtOrAfter(crossings[i]!);
-        const end = grid.firstColumnAtOrAfter(crossings[i + 1]!);
-        grid.cells.fill(1, r * cols + start, r * cols + end);
+        const start = gridCenterBound(this, crossings[i]!, 0);
+        const end = gridCenterBound(this, crossings[i + 1]!, 0);
+        this.cells.fill(value, r * this.cols + start, r * this.cols + end);
       }
     }
-    return grid;
-  }
-
-  private firstColumnAtOrAfter(x: number): number {
-    let lo = 0, hi = this.cols;
-    while (lo < hi) {
-      const mid = Math.floor((lo + hi) / 2);
-      // Compare actual centers: dividing x into a cell index can round across an edge.
-      if (this.origin[0] + (mid + 0.5) * this.cellSize < x) lo = mid + 1;
-      else hi = mid;
-    }
-    return lo;
   }
 
   center(c: number, r: number): Point {
