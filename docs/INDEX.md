@@ -9,7 +9,7 @@ Root box: the [interior generator](../CONTRACT.md). Inner boxes, one folder each
 - [`src/layout/schema/circulation.schema.json`](../src/layout/schema/circulation.schema.json): sampled architectural routes reserved before grounded furniture placement; separate from NPC seat-use navigation.
 - [`src/npc`](../src/npc/CONTRACT.md): anchors, roles, routines, nav export and pathfinding. Depends on core and layout.
 - [`src/materials`](../src/materials/CONTRACT.md): resolves material keys through the sibling [Materials](https://github.com/hec-ovi/pbrforge/blob/main/CONTRACT.md) database and textures a glTF document. Depends on core, Materials and glTF Transform.
-- [`src/geometry`](../src/geometry/CONTRACT.md): floor-band and combined interior meshes, shaped furniture and shell-fit checks. Depends on core, glb and layout.
+- [`src/geometry`](../src/geometry/CONTRACT.md): floor-band and combined interior meshes, shared ceiling/soffit ownership, shaped furniture and shell-fit checks. Depends on core, glb and layout.
 - [`src/ui`](../src/ui/CONTRACT.md): Three.js building preview and floor inspector. Depends on the root surface, core, glb, materials, npc and Three.js.
 
 Root `src/index.ts` wires blueprint -> layout -> npc -> geometry -> materials. `generateInterior` returns the combined building; `generateFloorInteriors` serializes and releases one floor at a time without a combined document. `src/cli.ts` runs either path from the terminal.

@@ -31,6 +31,7 @@ import { assertInsideShell } from "./shell-fit.js";
 import { buildFloorSurfaces, buildShaftFloors } from "./surfaces.js";
 import { buildFacadeLining } from "./lining.js";
 import { buildInteriorWalls } from "./walls.js";
+import { CeilingCoverage } from "./ceiling-coverage.js";
 
 export interface InteriorBands {
   /** floor index -> stair id -> frame-space tread and landing tops (see coreAngleDeg) */
@@ -72,6 +73,7 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
   const wallDepth = shellWallDepth(facade);
   const roofAccess = planRoofAccess(request, core);
   const highestServed = [...sorted].reverse().find((floor) => floor.rooms.length > 0)!;
+  const ceilings = new CeilingCoverage();
 
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
@@ -136,7 +138,7 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
     const roomPlans = uv.rooms.map((r) => ({ kind: r.kind, polygon: cut(r.rect, slabPlate) }));
     const sealedPolys = uv.sealed.map((rect) => cut(rect, slabPlate));
     const ceilingY = floor.ceilingElevation;
-    buildFloorSurfaces(mb, keys, roomPlans.filter((r) => r.polygon.length >= 3), floor.elevation, ceilingY, sealedPolys.filter((p) => p.length >= 3));
+    buildFloorSurfaces(mb, keys, roomPlans.filter((r) => r.polygon.length >= 3), floor.elevation, ceilingY, sealedPolys.filter((p) => p.length >= 3), ceilings);
     // the floor's biggest room sets the wall pattern, so a venue floor and an office floor
     // never wear the same one
     const program = uv.rooms.reduce((best, r) => (r.rect.lu * r.rect.lv > best.rect.lu * best.rect.lv ? r : best)).kind;
