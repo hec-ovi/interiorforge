@@ -129,6 +129,19 @@
                 "width": { "type": "number", "exclusiveMinimum": 0 },
                 "height": { "type": "number", "exclusiveMinimum": 0 },
                 "sill": { "type": "number", "minimum": 0, "description": "bottom of opening above floor surface" },
+                "glazing": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["offset", "sill", "width", "height", "glassDepth", "housingBackDepth"],
+                  "description": "Exterior-authored clear field excluding frames and opaque spandrels. Offset is face-local U, sill is floor-relative Y, and depths point inward from the facade skin.",
+                  "properties": {
+                    "offset": { "type": "number", "minimum": 0 },
+                    "sill": { "type": "number", "minimum": 0 },
+                    "width": { "type": "number", "exclusiveMinimum": 0 },
+                    "height": { "type": "number", "exclusiveMinimum": 0 },
+                    "glassDepth": { "type": "number", "minimum": 0 },
+                    "housingBackDepth": { "type": "number", "minimum": 0 }
+                  }
+                },
                 "portal": {
                   "type": "object",
                   "required": ["frameWidth", "frameDepth", "recessDepth", "clearWidth", "clearHeight", "clearDepth"],

@@ -46,6 +46,17 @@ export interface OpeningPortal {
   clearDepth: number;
 }
 
+/** Exterior-authored clear field; U is face-local and Y is floor-relative. */
+export interface OpeningGlazing {
+  offset: number;
+  sill: number;
+  width: number;
+  height: number;
+  /** Depths point inward from the facade skin. */
+  glassDepth: number;
+  housingBackDepth: number;
+}
+
 export interface Opening {
   id: string;
   kind: OpeningKind;
@@ -54,6 +65,8 @@ export interface Opening {
   width: number;
   height: number;
   sill: number;
+  /** Clear vision field excluding frames and opaque spandrels, when published. */
+  glazing?: OpeningGlazing;
   /** present on exterior doors and balcony doors */
   leaves?: 1 | 2 | 3 | 4;
   /** fitted, permanently open connection; present exactly on openFront */

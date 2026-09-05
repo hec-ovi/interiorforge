@@ -11,6 +11,7 @@ Purpose: deterministic primitives shared by every box in this repo: seeded RNG, 
 - `geom.ts`: `Point` is `[x, z]`, `Rect` is `{x, z, w, d}` (min corner). Polygon area/centroid/bounds, CCW test, point-in-polygon, point-in-rect, rect overlap/containment, rect-to-polygon containment, edge length, point along edge.
 - `triangulate.ts`: `triangulate(poly: readonly Point[]) -> [number, number, number][]` returns deterministic CCW XZ index triples for a simple nondegenerate ring, accepting either input winding. Fewer than three points returns an empty list. Degenerate input or the 10,000-iteration guard can return a partial triangulation; consumers requiring complete coverage must verify its area.
 - `types.ts`: `InteriorRequest`, `Blueprint`, `FloorInterior`, `NpcSupport` and their parts, mirroring `../../schemas/*.schema.json`. Schemas are the source of truth; these types restate them for the compiler.
+  - `Opening.glazing?: OpeningGlazing` mirrors the [Exterior clear field](../../../exterior/schemas/blueprint.schema.json): face-local `offset`, floor-relative `sill`, positive `width` and `height`, and inward `glassDepth` and `housingBackDepth`. All other fields are nonnegative. The field excludes frames and opaque spandrels; its absence leaves the overall opening available to consumers.
 - `errors.ts`: `new InteriorError(code, detail, floor?)` produces `InteriorError { code, floor?, message }` from the closed code set in the root contract.
 - `grid.ts`: `WalkGrid(origin: Point, cellSize, cols, rows)` starts blocked; `forPolygon(outline, cellSize, bounds: Rect)` opens cells whose centers are inside the polygon. Cell size and dimensions must be positive.
   - `center(col, row) -> Point`, `cellAt(Point) -> [col, row]`, `inBounds`, `isWalkable`, and `isWalkableAt` expose the grid. Outside cells are blocked; `set` outside bounds does nothing.
@@ -25,4 +26,4 @@ Purpose: deterministic primitives shared by every box in this repo: seeded RNG, 
 
 ## Depends on
 
-Nothing.
+- [Exterior blueprint schema](../../../exterior/schemas/blueprint.schema.json), for the consumed opening clear field.
