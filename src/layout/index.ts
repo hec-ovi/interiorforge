@@ -5,6 +5,8 @@ import type { CorePlan } from "./core-plan.js";
 import { planCore } from "./core-plan.js";
 import type { UvFloorData } from "./plan-floor.js";
 import { planFloor } from "./plan-floor.js";
+import type { FloorCirculation } from "./circulation.js";
+export type { FloorCirculation, CirculationEndpoint } from "./circulation.js";
 
 export type { CorePlan, CoreFeasibility } from "./core-plan.js";
 export { coreFeasibility } from "./core-plan.js";
@@ -12,6 +14,7 @@ export type { PlannedFloor, UvFloorData } from "./plan-floor.js";
 export { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
 
 export interface BuildingPlan {
+  circulation: Map<number, FloorCirculation>;
   floors: FloorInterior[];
   core: CorePlan;
   navGrids: Map<number, WalkGrid>;
@@ -28,6 +31,7 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
   const sorted = [...assignments].sort((a, b) => a.floor - b.floor);
 
   const floors: FloorInterior[] = [];
+  const circulation = new Map<number, FloorCirculation>();
   const navGrids = new Map<number, WalkGrid>();
   const uvFloors = new Map<number, UvFloorData>();
   for (const assignment of sorted) {
@@ -41,10 +45,11 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
         throw new InteriorError("E_ASSIGNMENT_INVALID", `assignment references missing floor ${assignment.floor + i}`);
       }
       const planned = planFloor(request, core, bpFloor, assignment.kind, i > 0, spaceHeight);
+      if (planned.circulation) circulation.set(bpFloor.index, planned.circulation);
       floors.push(planned.interior);
       navGrids.set(bpFloor.index, planned.grid);
       uvFloors.set(bpFloor.index, planned.uv);
     }
   }
-  return { floors, core, navGrids, uvFloors, assignments: sorted };
+  return { floors, core, navGrids, uvFloors, circulation, assignments: sorted };
 }

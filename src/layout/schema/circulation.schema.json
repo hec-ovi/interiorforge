@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urbe/interior/layout/circulation",
+  "title": "FloorCirculation",
+  "description": "Route reservations in the blueprint's XZ coordinate frame, made before furnishing. Architecture is sampled at cellSize with body-radius wall erosion and inset door throats. Grounded furniture, including chairs, stays outside the full bodyWidth swept routes. This is not a continuous architecture collision or accessibility certificate; elevated objects and NPC seat-use approaches are outside this output.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["floor", "bodyWidth", "minimumDoorWidth", "cellSize", "origin", "endpoints", "routes"],
+  "properties": {
+    "floor": { "type": "integer" },
+    "bodyWidth": { "type": "number", "exclusiveMinimum": 0 },
+    "minimumDoorWidth": { "type": "number", "exclusiveMinimum": 0, "description": "Smallest published room door or 1 m stair channel width on this floor, independent of the body width." },
+    "cellSize": { "type": "number", "exclusiveMinimum": 0 },
+    "origin": { "$ref": "#/$defs/point", "description": "Shared circulation route start in the floor spine, not the grid origin." },
+    "endpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "source", "position", "intendedPosition", "maxDisplacement"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["room", "door", "entrance", "stair", "elevator"] },
+          "source": { "type": "string", "description": "Room, door, stair or elevator ID." },
+          "position": { "$ref": "#/$defs/point" },
+          "intendedPosition": { "$ref": "#/$defs/point" },
+          "maxDisplacement": { "type": ["number", "null"], "minimum": 0, "description": "Approaches stay within this radius of their intended point. Room-door approaches also stay in their owning room; core approaches have no room constraint. Null permits a clipped room hub to move only within that room." }
+        }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["to", "points"],
+        "properties": {
+          "to": { "type": "string", "description": "Endpoint ID." },
+          "points": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/point" } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "point": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+  }
+}

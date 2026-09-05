@@ -20,11 +20,11 @@ const NON_BLOCKING: ReadonlySet<string> = new Set(["chair", "stool", "office_cha
  *  frames produce diagonal wall segments, blocked by true distance. */
 export function buildNavGrid(
   worldOutline: readonly Point[], bounds: FloorBounds, rooms: PlanRoom[],
-  furniture: PlanFurniture[], sealed: UvRect[], core: CorePlan,
+  furniture: PlanFurniture[], sealed: UvRect[], core: CorePlan, physical = false,
 ): WalkGrid {
   const frame = core.frame;
   const uvOutline = bounds.outline;
-  const grid = WalkGrid.forPolygon(worldOutline, CELL, polygonBounds(worldOutline));
+  const grid = WalkGrid.forPolygon(worldOutline, physical ? CELL / 4 : CELL, polygonBounds(worldOutline));
 
   // the facade lining stands inside the outline; walkable space starts behind it
   const facadeBand = bounds.facadeDepth + AGENT_RADIUS;
@@ -51,20 +51,42 @@ export function buildNavGrid(
   }
 
   for (const f of furniture) {
-    if (NON_BLOCKING.has(f.kind) || (f.elevation ?? 0) > 0) continue;
+    if (physical || NON_BLOCKING.has(f.kind) || (f.elevation ?? 0) > 0) continue;
     blockUvRect(grid, frame, furnitureUvRect(f), FURNITURE_MARGIN);
   }
 
   for (const room of rooms) {
     for (const door of room.doors) {
       const band = door.to === "outside" ? facadeBand : WALL_BAND;
-      if (door.openFront) openOpenFrontChannel(grid, frame, door, room, band, worldOutline);
-      else openUvRect(grid, frame, doorChannelUv(door, room, band), worldOutline);
+      if (door.openFront) openOpenFrontChannel(grid, frame, door, room, band, worldOutline, physical ? AGENT_RADIUS : 0);
+      else {
+        const channel = doorChannelUv(door, room, band);
+        if (physical) {
+          if (door.edge.startsWith("v")) { channel.u += AGENT_RADIUS; channel.lu -= 2 * AGENT_RADIUS; }
+          else { channel.v += AGENT_RADIUS; channel.lv -= 2 * AGENT_RADIUS; }
+        }
+        if (channel.lu > 0 && channel.lv > 0) openUvRect(grid, frame, channel, worldOutline);
+      }
     }
   }
-  for (const channel of stairDoorChannelsUv(core)) openUvRect(grid, frame, channel, worldOutline);
+  for (const channel of stairDoorChannelsUv(core)) {
+    if (physical) {
+      if (channel.lu < channel.lv) { channel.u += AGENT_RADIUS; channel.lu -= 2 * AGENT_RADIUS; }
+      else { channel.v += AGENT_RADIUS; channel.lv -= 2 * AGENT_RADIUS; }
+    }
+    openUvRect(grid, frame, channel, worldOutline);
+  }
+  if (physical) blockPhysicalFurniture(grid, frame, furniture);
 
   return grid;
+}
+
+/** Consumes the architecture-only route grid after its reservations have been saved. */
+export function blockPhysicalFurniture(grid: WalkGrid, frame: Frame, furniture: readonly PlanFurniture[]): void {
+  for (const item of furniture) {
+    if ((item.elevation ?? 0) > 0) continue;
+    blockUvRect(grid, frame, furnitureUvRect(item), AGENT_RADIUS);
+  }
 }
 
 /** Interior wall segments of a room in uv space: its clipped polygon edges off the facade. */
@@ -114,14 +136,14 @@ export function stairDoorChannelsUv(core: CorePlan): UvRect[] {
  *  scan; projection against the portal axes keeps diagonal fronts from opening extra wall. */
 function openOpenFrontChannel(
   grid: WalkGrid, frame: Frame, door: PlanRoom["doors"][number], room: PlanRoom,
-  band: number, worldOutline: readonly Point[],
+  band: number, worldOutline: readonly Point[], inset = 0,
 ): void {
   if (!door.openFront) return;
   const [u, v] = doorUvPoint(door, room);
   const rad = (door.openFront.angleDeg * Math.PI) / 180;
   const along: Point = [Math.cos(rad), Math.sin(rad)];
   const across: Point = [-along[1], along[0]];
-  const halfAlong = door.width / 2;
+  const halfAlong = door.width / 2 - inset;
   const halfAcross = band + 2 * CELL;
   const du = Math.abs(along[0]) * halfAlong + Math.abs(across[0]) * halfAcross;
   const dv = Math.abs(along[1]) * halfAlong + Math.abs(across[1]) * halfAcross;
@@ -170,9 +192,29 @@ function blockSegment(grid: WalkGrid, p0: Point, p1: Point, band: number): void 
   const maxZ = Math.max(p0[1], p1[1]) + band;
   const [c0, r0] = grid.cellAt([minX, minZ]);
   const [c1, r1] = grid.cellAt([maxX, maxZ]);
+  const dx = p1[0] - p0[0], dz = p1[1] - p0[1];
+  const lengthSquared = dx * dx + dz * dz;
+  const bandSquared = band * band;
   for (let r = Math.max(0, r0); r <= Math.min(grid.rows - 1, r1); r++) {
-    for (let c = Math.max(0, c0); c <= Math.min(grid.cols - 1, c1); c++) {
-      if (distToSegment(grid.center(c, r), p0, p1) <= band) grid.set(c, r, false);
+    const [baseX, z] = grid.center(0, r);
+    let lo = 0, hi = 1;
+    if (dz === 0) {
+      if (Math.abs(z - p0[1]) > band) continue;
+    } else {
+      const a = (z - band - p0[1]) / dz, b = (z + band - p0[1]) / dz;
+      lo = Math.max(0, Math.min(a, b));
+      hi = Math.min(1, Math.max(a, b));
+      if (lo > hi) continue;
+    }
+    // Any closest segment point within the band also lies within this row's z strip.
+    const x0 = p0[0] + dx * lo, x1 = p0[0] + dx * hi;
+    const first = Math.max(0, c0, grid.cellAt([Math.min(x0, x1) - band, z])[0]);
+    const last = Math.min(grid.cols - 1, c1, grid.cellAt([Math.max(x0, x1) + band, z])[0]);
+    for (let c = first; c <= last; c++) {
+      const x = baseX + c * grid.cellSize;
+      const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((x - p0[0]) * dx + (z - p0[1]) * dz) / lengthSquared));
+      const ex = x - (p0[0] + dx * t), ez = z - (p0[1] + dz * t);
+      if (ex * ex + ez * ez <= bandSquared) grid.set(c, r, false);
     }
   }
 }

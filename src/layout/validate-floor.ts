@@ -1,12 +1,11 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
-import { clearanceConflicts, clearDoorZones } from "./clearance.js";
 import { DOOR, SPINE_KINDS } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildNavGrid } from "./navgrid.js";
 import { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
-import type { PlanFurniture, PlanRoom } from "./plan-types.js";
+import type { PlanRoom } from "./plan-types.js";
 import { doorBetween, type IdGen } from "./rooms.js";
 import { fitDoorToStretch } from "./tile-fit.js";
 import type { FloorBounds } from "./shell.js";
@@ -15,35 +14,24 @@ import { pointInUvRect, uvRectCenter, uvRectWorldBounds, uvToWorld, worldToUv } 
 
 const MAX_REPAIRS = 20;
 
-/** Builds the nav grid, proves every room, stair and elevator front is reachable from the
+/** Builds the architecture grid, proves every room, stair and elevator front is reachable from the
  *  corridor, and repairs unreached rooms by adding a door to a reached neighbor.
  *  Deterministic; throws E_UNREACHABLE_SPACE when repair cannot fix the floor. */
-export function validateAndRepair(
+export function validateArchitecture(
   worldOutline: readonly Point[], bounds: FloorBounds, rooms: PlanRoom[],
-  furniture: PlanFurniture[], sealed: UvRect[], core: CorePlan, floorIndex: number, ids: IdGen,
+  sealed: UvRect[], core: CorePlan, floorIndex: number, ids: IdGen,
 ): WalkGrid {
   const corridor = rooms.find((r) => SPINE_KINDS.has(r.kind));
   if (!corridor) throw new InteriorError("E_UNREACHABLE_SPACE", "floor has no corridor room", floorIndex);
   const start = uvToWorld(uvRectCenter(corridor.rect), core.frame);
 
   for (let attempt = 0; ; attempt++) {
-    // repair doors land after furnishing: clear whatever now stands in a doorway, then read
-    // the grid back with that space open
-    clearDoorZones(rooms, furniture);
-    const grid = buildNavGrid(worldOutline, bounds, rooms, furniture, sealed, core);
+    const grid = buildNavGrid(worldOutline, bounds, rooms, [], sealed, core, true);
     const visited = grid.flood(start);
     const unreached = rooms.filter((room) => !roomReached(grid, visited, room, core));
 
     if (unreached.length === 0) {
       ensureCoreReached(grid, visited, core, floorIndex);
-      const blocked = clearanceConflicts(rooms, furniture);
-      if (blocked.length > 0) {
-        throw new InteriorError(
-          "E_UNREACHABLE_SPACE",
-          `door ${blocked[0]!.door} is blocked by ${blocked[0]!.item}`,
-          floorIndex,
-        );
-      }
       return grid;
     }
     if (attempt >= MAX_REPAIRS) {
@@ -122,8 +110,7 @@ function repairOne(
     // prefer public rooms so the repair door lands somewhere sensible
     reachedRooms.sort((a, b) => publicRank(a) - publicRank(b));
     for (const target of reachedRooms) {
-      // furniture can strand an existing door in a pocket: probe positions away from this
-      // pair's existing doors and avoid duplicate doors on the same spot
+      // Probe another fitted opening when the existing door does not connect the sampled plate.
       const existing = [
         ...room.doors.filter((d) => d.to === target.id),
         ...target.doors.filter((d) => d.to === room.id),

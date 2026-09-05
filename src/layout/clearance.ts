@@ -84,14 +84,3 @@ export function clearanceConflicts(
   }
   return out;
 }
-
-/** Drops whatever stands in a doorway. Returns how many pieces went; repair doors land after
- *  furnishing, so this runs again every time the validator adds one. */
-export function clearDoorZones(rooms: PlanRoom[], furniture: PlanFurniture[]): number {
-  const conflicts = new Set(clearanceConflicts(rooms, furniture).map((c) => c.item));
-  if (conflicts.size === 0) return 0;
-  for (let i = furniture.length - 1; i >= 0; i--) {
-    if (conflicts.has(furniture[i]!.id)) furniture.splice(i, 1);
-  }
-  return conflicts.size;
-}

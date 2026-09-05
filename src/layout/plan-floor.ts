@@ -23,7 +23,9 @@ import {
 import { floorBounds, shellWallDepth } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { toWorldPolygon, uvRectToFrameRect, uvToWorld, worldToUv } from "./uv.js";
-import { validateAndRepair } from "./validate-floor.js";
+import { validateArchitecture } from "./validate-floor.js";
+import { circulationKeepouts, reserveCirculation, verifyCirculation, type FloorCirculation } from "./circulation.js";
+import { buildNavGrid, blockPhysicalFurniture } from "./navgrid.js";
 
 /** uv-space working data a floor keeps for geometry and npc passes */
 export interface UvFloorData {
@@ -34,6 +36,7 @@ export interface UvFloorData {
 }
 
 export interface PlannedFloor {
+  circulation?: FloorCirculation;
   interior: FloorInterior;
   /** wall-aware walkable grid, world space */
   grid: WalkGrid;
@@ -186,15 +189,18 @@ export function planFloor(
   attachOutsideDoors(rooms, exteriorDoors, ids);
 
   const facadeKeepouts = openingKeepouts(floor, frame, bounds.facadeDepth);
-  const furniture = furnish(rooms, kind, rng, ids, bounds, facadeKeepouts.map((item) => item.rect));
-
   const sealed = [...backing.sealed, ...extraSealed.filter((s) => clipRatio(s, uvOutline) > 0.05)];
+  const architecture = validateArchitecture(floor.outline, bounds, rooms, sealed, core, floor.index, ids);
+  const circulation = reserveCirculation(architecture, rooms, core, floor.index);
+  const furniture = furnish(rooms, kind, rng, ids, bounds,
+    [...facadeKeepouts.map((item) => item.rect), ...circulationKeepouts(circulation, frame)]);
+  blockPhysicalFurniture(architecture, frame, furniture);
+  verifyCirculation(circulation, architecture);
   const ceilingElevation = round3(floor.elevation + ceilingUnder(floor.openings, spaceHeight));
-  const grid = validateAndRepair(
-    floor.outline, bounds, rooms, furniture, sealed, core, floor.index, ids,
-  );
+  const grid = buildNavGrid(floor.outline, bounds, rooms, furniture, sealed, core);
 
   return {
+    circulation,
     interior: {
       floor: floor.index, kind, elevation: floor.elevation, height: floor.height, ceilingElevation,
       coreAngleDeg: frame.angleDeg,

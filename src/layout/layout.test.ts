@@ -106,6 +106,8 @@ describe("planBuilding", () => {
     const tplan = planBuilding(twin.request, merged);
     const upper = tplan.floors.find((f) => f.floor === 2)!;
     expect(upper.rooms).toEqual([]);
+    expect(tplan.circulation.has(2)).toBe(false);
+    expect(tplan.circulation.has(1)).toBe(true);
     expect(upper.core.elevators.length).toBeGreaterThan(0);
   });
 
