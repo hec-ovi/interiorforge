@@ -1,5 +1,7 @@
 # Changelog
 
+0.29.0: layout publishes seeded route reservations before furnishing. Grounded furniture, including chairs, stays outside the reserved body-width sweeps; doorway and core approaches retain bounded displacement. Architecture reachability uses a body-eroded sampled grid. Budgeted ceiling spotlights form complete centered grids across each room.
+
 0.28.4: an inline secondary stair leaves a fitted corridor landing on the remaining facade-side plate. Exterior doors on that landing have continuous capsule-width floor support and a reachable lateral connection around the stair.
 
 0.28.3: the fitted roof platform meets the stair's finished inside edge and carries capsule-width support from the final tread to the enclosure threshold. Public floor GLB checks inspect the rotated transition geometry.
