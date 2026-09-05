@@ -6,10 +6,14 @@ export class GridBoundary {
   constructor(private readonly grid: WalkGrid, private readonly epsilon: number) {}
 
   fill(ring: readonly Point[], walkable: boolean): void {
-    for (let i = 0; i < ring.length; i++) this.fillEdge(ring[i]!, ring[(i + 1) % ring.length]!, walkable);
+    this.forEach(ring, (c, r) => this.grid.set(c, r, walkable));
   }
 
-  private fillEdge(a: Point, b: Point, walkable: boolean): void {
+  forEach(ring: readonly Point[], visit: (col: number, row: number) => void): void {
+    for (let i = 0; i < ring.length; i++) this.visitEdge(ring[i]!, ring[(i + 1) % ring.length]!, visit);
+  }
+
+  private visitEdge(a: Point, b: Point, visit: (col: number, row: number) => void): void {
     const [ax, az] = a, [bx, bz] = b;
     const dx = bx - ax, dz = bz - az;
     // A full cell and floating-point enclosure broaden candidates, never membership.
@@ -30,7 +34,7 @@ export class GridBoundary {
       const c0 = gridCenterBound(this.grid, Math.min(x0, x1) - halo, 0);
       const c1 = gridCenterBound(this.grid, Math.max(x0, x1) + halo, 0, true);
       for (let c = c0; c < c1; c++) {
-        if (distanceToSegment(this.grid.center(c, r), a, b) <= this.epsilon) this.grid.set(c, r, walkable);
+        if (distanceToSegment(this.grid.center(c, r), a, b) <= this.epsilon) visit(c, r);
       }
     }
   }

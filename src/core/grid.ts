@@ -1,6 +1,7 @@
 import type { Point, Rect } from "./geom.js";
 import { GridBoundary, gridCenterBound } from "./grid-boundary.js";
-import { ROOM_FOOTPRINT_EPS, type RoomFootprint } from "./room-footprint.js";
+import { ROOM_FOOTPRINT_EPS, roomFootprintContains, type RoomFootprint } from "./room-footprint.js";
+import type { RigidFrame2D } from "./rigid-frame.js";
 
 export type GridTransition = (fromIndex: number, toIndex: number) => boolean;
 
@@ -32,7 +33,8 @@ export class WalkGrid {
     return grid;
   }
 
-  static forRoomFootprint(footprint: RoomFootprint, cellSize: number, bounds: Rect): WalkGrid {
+  static forRoomFootprint(footprint: RoomFootprint, cellSize: number, bounds: Rect, frame?: RigidFrame2D): WalkGrid {
+    if (frame) return WalkGrid.forFramedFootprint(footprint, cellSize, bounds, frame);
     const grid = WalkGrid.forPolygon(footprint.polygon, cellSize, bounds);
     const boundary = new GridBoundary(grid, ROOM_FOOTPRINT_EPS);
     boundary.fill(footprint.polygon, true);
@@ -40,6 +42,24 @@ export class WalkGrid {
       grid.fillPolygon(hole, 0);
       boundary.fill(hole, false);
     }
+    return grid;
+  }
+
+  private static forFramedFootprint(footprint: RoomFootprint, cellSize: number, bounds: Rect, frame: RigidFrame2D): WalkGrid {
+    const sourceRings = [footprint.polygon, ...(footprint.holes ?? [])];
+    const worldRings = sourceRings.map(ring => ring.map(point => frame.toWorld(point)));
+    const grid = WalkGrid.forRoomFootprint({ polygon: worldRings[0]!, holes: worldRings.slice(1) }, cellSize, bounds);
+    let magnitude = Math.max(1, Math.abs(frame.origin[0]), Math.abs(frame.origin[1]));
+    for (const ring of [...sourceRings, ...worldRings]) for (const [x, z] of ring) {
+      magnitude = Math.max(magnitude, Math.abs(x), Math.abs(z));
+    }
+    // Enclose forward/inverse products, sums and translation. Membership keeps its own EPS.
+    const enclosure = 64 * Number.EPSILON * magnitude;
+    const boundary = new GridBoundary(grid, ROOM_FOOTPRINT_EPS + enclosure);
+    const correct = (c: number, r: number): void => {
+      grid.set(c, r, roomFootprintContains(footprint, frame.toLocal(grid.center(c, r))));
+    };
+    for (const ring of worldRings) boundary.forEach(ring, correct);
     return grid;
   }
 
