@@ -75,3 +75,15 @@ it("rejects ambiguous policy references and invalid persisted frame constraints"
   bp.coreFrame = { anglesDeg: [0, 180] };
   expect(() => coreFeasibility(bp)).toThrow(/E_BLUEPRINT_INVALID.*unique modulo 180/);
 });
+
+it("round-trips an exact allowed axis through an entrance flip and roof placement", () => {
+  const angle = 174.80557109226515, f = fixture(angle), bp = f.request.blueprint;
+  bp.floors[0]!.openings.find(opening => opening.kind === "door")!.edge = 2;
+  const first = coreFeasibility(bp);
+  expect(first.fits).toBe(true);
+  const stair = first.placement!.stairA;
+  const reported = Math.atan2(stair.axis[1], stair.axis[0]) * 180 / Math.PI;
+  expect(Math.abs(Math.sin((reported - angle) * Math.PI / 180))).toBeLessThan(1e-12);
+  bp.roof = { elevation: 11.7, bulkhead: stair };
+  expect(coreFeasibility(bp).fits).toBe(true);
+});

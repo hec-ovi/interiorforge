@@ -568,7 +568,7 @@ function frameAt(angle: number, ground: Ground): Frame {
     const vs = outline.map((p) => worldToUv(p, frame)[1]);
     if (uvAccess[1] > (Math.min(...vs) + Math.max(...vs)) / 2) {
       const flipped = angle > 0 ? angle - 180 : angle + 180;
-      frame = makeFrame(Math.round(flipped * 100) / 100);
+      frame = makeFrame(flipped);
     }
   }
   return frame;
