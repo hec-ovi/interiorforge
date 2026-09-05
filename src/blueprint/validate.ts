@@ -7,6 +7,7 @@ import { edgeLength, isCcw, polygonArea, polygonBounds } from "../core/geom.js";
 import { createRng, type Rng } from "../core/rng.js";
 import type { BuildingType, FloorAssignment, FloorKind, InteriorRequest } from "../core/types.js";
 import { sceneBounds } from "../glb/io.js";
+import { validateWindowGlazing } from "./validate-glazing.js";
 
 const ajv = new Ajv2020({ allErrors: false, strict: false });
 ajv.addSchema(blueprintSchema);
@@ -48,7 +49,7 @@ function validateBlueprint({ blueprint }: InteriorRequest): void {
     if (polygonArea(floor.outline) < 9) {
       throw new InteriorError("E_BLUEPRINT_INVALID", "outline area below 9 m2", floor.index);
     }
-    validateOpenings(floor.outline, floor.openings, floor.height, floor.index);
+    validateOpenings(floor.outline, floor.openings, floor.height, floor.index, blueprint.facade?.wallDepth);
   });
 }
 
@@ -57,6 +58,7 @@ function validateOpenings(
   openings: InteriorRequest["blueprint"]["floors"][number]["openings"],
   floorHeight: number,
   floor: number,
+  wallDepth: number | undefined,
 ): void {
   const byEdge = new Map<number, { start: number; end: number; id: string }[]>();
   for (const o of openings) {
@@ -70,6 +72,7 @@ function validateOpenings(
     if (o.sill + o.height > floorHeight + 1e-6) {
       throw new InteriorError("E_BLUEPRINT_INVALID", `opening ${o.id} taller than the floor`, floor);
     }
+    validateWindowGlazing(o, wallDepth, floor);
     if (o.kind === "openFront") {
       if (floor !== 0 || o.sill !== 0) {
         throw new InteriorError("E_BLUEPRINT_INVALID", `open front ${o.id} must start at street level on floor 0`, floor);
