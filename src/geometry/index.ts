@@ -1,7 +1,8 @@
 import type { Document } from "@gltf-transform/core";
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, insetPolygon, polygonArea } from "../core/geom.js";
+import { clipPolygonToRect, insetPolygon } from "../core/geom.js";
+import { roomFootprintArea } from "../core/room-footprint.js";
 import { createRng } from "../core/rng.js";
 import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
@@ -138,6 +139,7 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
       toWorldPolygon(clipPolygonToRect(plate, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }), core.frame);
     const roomPlans = uv.rooms.map((room) => ({
       kind: room.kind, polygon: toWorldPolygon(roomPolygon(room, slabPlate), core.frame),
+      holes: room.holes?.map((hole) => toWorldPolygon(hole, core.frame)),
     }));
     const sealedPolys = uv.sealed.map((rect) => cut(rect, slabPlate));
     const ceilingY = floor.ceilingElevation;
@@ -145,7 +147,7 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
     // the floor's biggest room sets the wall pattern, so a venue floor and an office floor
     // never wear the same one
     const program = roomPlans.reduce((best, room) =>
-      Math.abs(polygonArea(room.polygon)) > Math.abs(polygonArea(best.polygon)) ? room : best).kind;
+      roomFootprintArea(room) > roomFootprintArea(best) ? room : best).kind;
     buildInteriorWalls(
       mb, keys, [...uv.rooms, ...sealedAsRooms], bpFloor, facade, uv.outline, wallPlate,
       facadeDepth(facade), core.frame, floor.elevation,

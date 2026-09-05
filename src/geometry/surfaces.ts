@@ -7,6 +7,7 @@ import { coreRects } from "./core-geo.js";
 import type { MaterialKeys } from "./materials.js";
 import { SOFFIT_DEPTH } from "../layout/constants.js";
 import type { CeilingCoverage } from "./ceiling-coverage.js";
+import { PolygonCoverage } from "./polygon-coverage.js";
 
 /** Rooms without a dropped ceiling: raw soffit or open air reads right there. */
 const OPEN_CEILING: ReadonlySet<RoomKind> = new Set([
@@ -17,6 +18,7 @@ const OPEN_CEILING: ReadonlySet<RoomKind> = new Set([
 export interface RoomPlan {
   kind: RoomKind;
   polygon: Point[];
+  holes?: Point[][];
 }
 
 /** Finish floor, slab soffit and ceiling per room; sealed voids carry the slab only. */
@@ -30,11 +32,15 @@ export function buildFloorSurfaces(
     }
   };
   for (const room of rooms) {
-    mb.addHorizontalPolygon(keys.floorOf(room.kind), room.polygon, elevation, "up");
-    soffit(room.polygon);
-    if (!OPEN_CEILING.has(room.kind)) {
-      mb.addHorizontalPolygon(keys.ceiling(), room.polygon, ceilingY, "down");
-      ceilings.add(room.polygon, ceilingY);
+    const exclusions = new PolygonCoverage();
+    for (const hole of room.holes ?? []) exclusions.add(hole);
+    for (const polygon of exclusions.exposed(room.polygon)) {
+      mb.addHorizontalPolygon(keys.floorOf(room.kind), polygon, elevation, "up");
+      soffit(polygon);
+      if (!OPEN_CEILING.has(room.kind)) {
+        mb.addHorizontalPolygon(keys.ceiling(), polygon, ceilingY, "down");
+        ceilings.add(polygon, ceilingY);
+      }
     }
   }
   for (const poly of sealedPolys) {

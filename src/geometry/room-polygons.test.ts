@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { makeFixture } from "../blueprint/fixture.js";
 import { resolveAssignments } from "../blueprint/validate.js";
 import type { Point } from "../core/geom.js";
 import { clipPolygonToRect, insetPolygon, polygonArea, polygonBounds } from "../core/geom.js";
-import { readGlbBytes, writeGlb } from "../glb/io.js";
+import { createDocument, readGlbBytes, writeGlb } from "../glb/io.js";
 import { planBuilding } from "../layout/index.js";
 import type { PlanRoom } from "../layout/plan-types.js";
 import { roomPolygon } from "../layout/room-shape.js";
 import { shellWallDepth } from "../layout/shell.js";
-import { buildInterior } from "./index.js";
+import { buildInterior, buildInteriorBands } from "./index.js";
 
 type Vertex = [number, number, number];
 type Triangle = { material: string; points: [Vertex, Vertex, Vertex] };
@@ -45,6 +46,95 @@ function crossings(triangles: Triangle[], x: number, y: number, z0: number, z1: 
 }
 
 describe("room polygon geometry", () => {
+  it("keeps actual core and service ownership inside a surrounding room in merged and streamed bands", async () => {
+    const fixture = makeFixture({ seed: 8, floors: 2, width: 30, depth: 20, type: "offices", rotationDeg: 0 });
+    const plan = planBuilding(fixture.request, resolveAssignments(fixture.request));
+    const { core } = plan;
+    const rectRing = (u: number, v: number, lu: number, lv: number): Point[] =>
+      [[u, v], [u + lu, v], [u + lu, v + lv], [u, v + lv]];
+    const coreEnd = core.riser.u + core.riser.lu;
+    const coreHole = rectRing(core.stairA.u, core.vFace, coreEnd - core.stairA.u, core.depth).reverse();
+    const stair = core.stairB!;
+    const stairHole = rectRing(stair.u, stair.v, stair.lu, stair.lv).reverse();
+    const service = rectRing(4, 3, 4, 3);
+    const lower = plan.floors[0]!, upper = plan.floors[1]!;
+    lower.ceilingElevation = upper.elevation - 0.15;
+    let expectedArea = 0;
+    for (const floor of plan.floors) {
+      const uv = plan.uvFloors.get(floor.floor)!;
+      const polygon = insetPolygon(uv.outline, shellWallDepth(fixture.request.blueprint.facade));
+      const bounds = polygonBounds(polygon);
+      const main: PlanRoom = {
+        id: `f${floor.floor}-main`, kind: "living", polygon,
+        holes: [coreHole, stairHole, [...service].reverse()],
+        rect: { u: bounds.x, v: bounds.z, lu: bounds.w, lv: bounds.d },
+        doors: uv.rooms.flatMap((room) => room.doors.filter((door) => door.to === "outside")),
+      };
+      const utility: PlanRoom = {
+        id: `f${floor.floor}-service`, kind: "mechanical_room", polygon: service,
+        rect: { u: 4, v: 3, lu: 4, lv: 3 }, doors: [],
+      };
+      const door = {
+        id: `f${floor.floor}-service-door`, leaves: 1 as const, width: 1,
+        at: 6, position: [6, 3] as Point,
+      };
+      main.doors.push({ ...door, to: utility.id, edge: "v1" });
+      utility.doors.push({ ...door, to: main.id, edge: "v0" });
+      uv.rooms = [main, utility];
+      uv.sealed = [];
+      uv.furniture = [];
+      floor.lights = [];
+      floor.rooms = uv.rooms.map((room) => ({
+        ...floor.rooms[0]!, id: room.id, kind: room.kind, polygon: room.polygon!, holes: room.holes,
+        connections: [],
+      }));
+      expectedArea = polygonArea(polygon) - [coreHole, stairHole, service]
+        .reduce((area, ring) => area + Math.abs(polygonArea(ring)), 0);
+    }
+
+    const streamed = buildInteriorBands(plan, fixture.request);
+    const bands = await Promise.all([...streamed.floorMeshes.values()].map(async (mesh) =>
+      trianglesOf(await writeGlb(createDocument(mesh)))));
+    const merged = buildInterior(plan, fixture.request, fixture.shellDoc);
+    const combined = await trianglesOf(await writeGlb(merged.doc));
+    const signature = (triangles: Triangle[]): string => createHash("sha256")
+      .update(triangles.map((triangle) => JSON.stringify(triangle)).sort().join("\n")).digest("hex");
+    expect(signature(combined)).toBe(signature(bands.flat()));
+
+    const surfaces = (triangles: Triangle[], kind: string, y: number, down = false): Triangle[] =>
+      triangles.filter((triangle) => triangle.material.includes(`/${kind}/`)
+        && triangle.points.every((point) => point[1] === Math.fround(y))
+        && polygonArea(triangle.points.map((p): Point => [p[0], p[2]])) * (down ? 1 : -1) > 1e-8);
+    const area = (triangles: Triangle[], mask?: Point[]): number => triangles.reduce((sum, triangle) => {
+      const polygon = triangle.points.map((p): Point => [p[0], p[2]]);
+      return sum + Math.abs(polygonArea(mask ? clipPolygonToRect(polygon, polygonBounds(mask)) : polygon));
+    }, 0);
+    for (const output of [bands.flat(), combined]) {
+      for (const floor of plan.floors) {
+        const wood = surfaces(output, "wood", floor.elevation);
+        expect(area(wood)).toBeCloseTo(expectedArea, 3);
+        for (const hole of [coreHole, stairHole, service]) expect(area(wood, hole)).toBeLessThan(0.0001);
+        const ceiling = surfaces(output, "ceiling", floor.ceilingElevation, true);
+        expect(area(ceiling)).toBeCloseTo(expectedArea, 3);
+        for (const hole of [coreHole, stairHole, service]) expect(area(ceiling, hole)).toBeLessThan(0.0001);
+        expect(area(surfaces(output, "concrete", floor.elevation), rectRing(4.2, 3.2, 3.6, 2.6)))
+          .toBeCloseTo(3.6 * 2.6, 4);
+        // The shared service boundary has two wall faces, not two overlapping walls.
+        expect(crossings(output, 4.5, floor.elevation + 1.5, 2.8, 3.2)).toHaveLength(2);
+        expect(crossings(output, 6, floor.elevation + 1.5, 2.8, 3.2)).toEqual([]);
+        expect(crossings(output, 5.46, floor.elevation + 1.5, 2.8, 3.2)
+          .some((triangle) => triangle.material.includes("/door/"))).toBe(true);
+      }
+      const concrete = surfaces(output, "concrete", lower.ceilingElevation, true);
+      expect(area(concrete, rectRing(4.2, 3.2, 3.6, 2.6))).toBeCloseTo(3.6 * 2.6, 4);
+      // The unused core stub is floor space, not part of the actual shaft exclusion.
+      expect(area(surfaces(output, "wood", upper.elevation),
+        rectRing(coreEnd + 0.2, core.vFace + 0.2, 0.6, 1))).toBeCloseTo(0.6, 4);
+      expect(area(surfaces(output, "concrete", lower.elevation),
+        rectRing(core.riser.u + 0.2, core.riser.v + 0.2, 0.6, 1))).toBeCloseTo(0.6, 4);
+    }
+  });
+
   it("preserves concave floor coverage and notch doors without a bounding-box wall through the bathroom", async () => {
     const fixture = makeFixture({ seed: 8, floors: 1, width: 30, depth: 20, type: "offices", rotationDeg: 0 });
     const plan = planBuilding(fixture.request, resolveAssignments(fixture.request));

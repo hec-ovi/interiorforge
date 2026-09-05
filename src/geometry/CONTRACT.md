@@ -8,7 +8,7 @@ Purpose: turns a building plan into interior meshes and completes the shell GLB 
 - `buildInterior(plan: BuildingPlan, request: InteriorRequest, shellDoc: Document) -> { doc, stepsByFloor, floorMeshes }`: mutates and returns the supplied shell document after merging the floor bands.
   - Deletes the shell's separator-plane nodes (exterior naming `floor:<index>/slab`) and re-emits per-room finish floors, soffits and shaft floor plates so stairs and elevators pass through real holes. A doorway-width corridor landing beside inline stair B reaches the facade threshold and carries the capsule-width turn into the adjacent floor.
   - Finished ceilings own their exposed plane. At a matching exported height, the upper floor's concrete soffit is clipped to the area outside those ceilings, retaining concrete above unfinished rooms and uncovered plate regions. Combined and streamed floor bands have the same ownership, without depth offsets.
-  - Explicit Layout room polygons own floor and ceiling coverage, interior boundary segments and floor-program area. Notches retain their actual walls and exact mounted door positions. Rectangular rooms retain outline clipping; shaft cutouts and facade lining keep their separate ownership.
+  - Explicit Layout room polygons and clockwise interior exclusions own floor and ceiling coverage, interior boundary segments and floor-program area. Each hole leaves its actual core or service-room geometry intact. Notches and holes retain one shared wall and exact mounted door positions. Rectangular rooms retain outline clipping; shaft cutouts and facade lining keep their separate ownership.
   - Interior walls between rooms with door openings and lintels at 2.5 m, 3 m for three or more leaves, or one casing band below a lower ceiling. A shared doorway produces one casing. Its closed face trims stand outside the wall faces while the closed wall end owns the reveal, leaving no overlapping visible planes. Baseboard, dado, field and ceiling trim are closed solids with a hidden 2 mm overlap at thickness changes. Every band is cut flush with the facade lining.
   - The facade lining (`lining.ts`) is the ring between the shell wall depth and one lining deeper, divided at the corner bisectors. A fitted window uses the published `glazing` U/Y field and joins its perimeter at `housingBackDepth`, closing opaque heads and sills. Corner walls can narrow that field. Window casings remain above the floor. Windows without `glazing` retain the inset opening and skin-clearance returns. Doors, balcony doors and apertures keep their complete opening cut; an `openFront` uses the exact `portal.clearWidth` and `portal.clearHeight`, with no leaf or panel.
   - Shell fit check (`shell-fit.ts`): every vertex is measured against its floor's outline before the document is written; a vertex inside the shell wall depth that is not an opening's reveal lining, or a reveal vertex standing in another edge's wall, throws `E_SHELL_BREACH` naming the floor that holds it (the upper floor on a slab line).
@@ -22,7 +22,7 @@ Purpose: turns a building plan into interior meshes and completes the shell GLB 
 ## Errors
 
 - `E_UNREACHABLE_SPACE`: a stair run cannot keep the player's clear width or headroom, or emitted geometry blocks a room doorway or open-front portal.
-- `E_SHELL_BREACH`: interior geometry reaches the shell wall, or a ceiling coverage polygon cannot be fully triangulated.
+- `E_SHELL_BREACH`: interior geometry reaches the shell wall, or a surface coverage polygon cannot be fully triangulated.
 
 ## Depends on
 
