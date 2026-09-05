@@ -57,6 +57,35 @@ export interface OpeningGlazing {
   housingBackDepth: number;
 }
 
+/** Face-local U, floor-relative Y, and positive inward attachment depth. */
+export interface DoorEnvelope {
+  offset: number;
+  sill: number;
+  width: number;
+  height: number;
+  backDepth: number;
+}
+
+export interface PocketDoorMotion {
+  kind: "pocket";
+  maxTravel: number;
+  clearDepth: 0;
+  leaves: { leaf: 0 | 1; travelU: number; pocket: DoorEnvelope & { frontDepth: number } }[];
+}
+
+export interface OpeningDoor {
+  frameWidth?: number;
+  frameDepth?: number;
+  recessDepth?: number;
+  thresholdHeight?: number;
+  /** Usable passage and complete cassette back-skin attachment plane. */
+  clearance?: DoorEnvelope;
+  /** Complete fixed assembly envelope, including lateral chambers and opaque skins. */
+  cassette?: DoorEnvelope;
+  motion?: PocketDoorMotion | { kind?: "swing" | "roller"; clearDepth: number; [extra: string]: unknown };
+  [extra: string]: unknown;
+}
+
 export interface Opening {
   id: string;
   kind: OpeningKind;
@@ -74,14 +103,7 @@ export interface Opening {
   /** primary navigation role; present exactly on openFront */
   accessRole?: "main";
   /** fitted moving-door assembly, when this opening carries one */
-  door?: {
-    frameWidth?: number;
-    frameDepth?: number;
-    recessDepth?: number;
-    thresholdHeight?: number;
-    motion?: { clearDepth: number; [extra: string]: unknown };
-    [extra: string]: unknown;
-  };
+  door?: OpeningDoor;
   [extra: string]: unknown;
 }
 
