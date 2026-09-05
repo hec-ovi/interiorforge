@@ -5,7 +5,8 @@ import { MeshBuilder } from "../glb/mesh-builder.js";
 import { SHELL_WALL } from "../layout/shell.js";
 import type { MaterialKeys } from "./materials.js";
 import type { OpeningHole } from "./shell-fit.js";
-import { edgeFrame, edgePoint, openingHole } from "./shell-fit.js";
+import { edgeFrame, edgePoint, openingHole, openingReturnDepth } from "./shell-fit.js";
+import { InteriorError } from "../core/errors.js";
 import type { Exposed, WallBands } from "./wall-detail.js";
 import { bandMaterial, layerBands } from "./wall-detail.js";
 
@@ -13,7 +14,7 @@ import { bandMaterial, layerBands } from "./wall-detail.js";
  *  wall depth and the plate at the wall depth plus the lining (per band), so it follows the
  *  true inset of any outline, tiny steps and sharp corners included. Each outline edge owns
  *  the sector between the corner bisectors; openings cut the sector at their jambs, and the
- *  hole is lined back to the skin clearance so no cavity shows. */
+ *  hole meets the fitted window housing, or the skin clearance of another opening. */
 
 /** how far the sectors reach into the room: past every plate corner they must cut */
 const SECTOR_DEPTH = 3;
@@ -74,12 +75,16 @@ export function buildFacadeLining(
     let cursor = 0;
     for (const o of openings) {
       const hole = openingHole(bpFloor, o, wallDepth);
+      const returnDepth = openingReturnDepth(o);
+      if (returnDepth > wallDepth + EPS) {
+        throw new InteriorError("E_SHELL_BREACH", `${o.id} window housing reaches beyond the facade wall depth`, bpFloor.index);
+      }
       // the corner walls close the whole opening: the lining runs on behind it
       if (hole.t1 - hole.t0 < 1e-3) continue;
       piece(cursor, hole.t0, y0, wallTop);
       if (hole.y0 > 0) piece(hole.t0, hole.t1, y0, y0 + hole.y0, { top: true });
       if (hole.y1 < wallTop - y0) piece(hole.t0, hole.t1, y0 + hole.y1, wallTop, { bottom: true });
-      emitReveal(mb, bands, at, hole, y0, wallDepth, hole.y1 < wallTop - y0, len);
+      emitReveal(mb, bands, at, hole, y0, wallDepth, returnDepth, hole.y1 < wallTop - y0, len);
       cursor = hole.t1;
     }
     piece(cursor, len, y0, wallTop);
@@ -143,24 +148,25 @@ function lineDistance(p: Point, a: Point, b: Point): number {
 /** Window casing on the room side: this wide, standing this proud of the lining face. */
 const WINDOW_CASING = { width: 0.08, proud: 0.03 };
 
-/** The four faces lining an opening between the shell's skin and the lining: jambs, sill (a
+/** The four faces joining an opening's exterior interface to the lining: jambs, sill (a
  *  threshold at floor level) and head, each in the band it continues. */
 function emitReveal(
   mb: MeshBuilder, bands: WallBands, at: (t: number, depth: number) => Point,
-  hole: OpeningHole, y0: number, wallDepth: number, hasHead: boolean, len: number,
+  hole: OpeningHole, y0: number, wallDepth: number, near: number, hasHead: boolean, len: number,
 ): void {
-  const near = SHELL_WALL.skinClear;
   const v = (p: Point, y: number): [number, number, number] => [p[0], y, p[1]];
-  layerBands(bands, y0 + hole.y0, y0 + hole.y1, (material, _proud, by0, by1) => {
-    const a = at(hole.t0, near), b = at(hole.t0, wallDepth);
-    const c = at(hole.t1, wallDepth), d = at(hole.t1, near);
-    mb.addQuad(material, [v(a, by0), v(a, by1), v(b, by1), v(b, by0)]);
-    mb.addQuad(material, [v(c, by0), v(c, by1), v(d, by1), v(d, by0)]);
-  });
-  const sillMaterial = hole.y0 > 0 ? bandMaterial(bands, y0 + hole.y0) : bands.trim;
-  const plan = [at(hole.t0, near), at(hole.t1, near), at(hole.t1, wallDepth), at(hole.t0, wallDepth)];
-  mb.addHorizontalPolygon(sillMaterial, plan, y0 + hole.y0, "up");
-  if (hasHead) mb.addHorizontalPolygon(bandMaterial(bands, y0 + hole.y1 - 1e-3), plan, y0 + hole.y1, "down");
+  if (wallDepth - near > EPS) {
+    layerBands(bands, y0 + hole.y0, y0 + hole.y1, (material, _proud, by0, by1) => {
+      const a = at(hole.t0, near), b = at(hole.t0, wallDepth);
+      const c = at(hole.t1, wallDepth), d = at(hole.t1, near);
+      mb.addQuad(material, [v(a, by0), v(a, by1), v(b, by1), v(b, by0)]);
+      mb.addQuad(material, [v(c, by0), v(c, by1), v(d, by1), v(d, by0)]);
+    });
+    const sillMaterial = hole.y0 > 0 ? bandMaterial(bands, y0 + hole.y0) : bands.trim;
+    const plan = [at(hole.t0, near), at(hole.t1, near), at(hole.t1, wallDepth), at(hole.t0, wallDepth)];
+    mb.addHorizontalPolygon(sillMaterial, plan, y0 + hole.y0, "up");
+    if (hasHead) mb.addHorizontalPolygon(bandMaterial(bands, y0 + hole.y1 - 1e-3), plan, y0 + hole.y1, "down");
+  }
   // the room-side casing: jambs, head and (over a sill) a stool, standing proud of the lining face
   const face = wallDepth + SHELL_WALL.lining; // the lining's room face
   const box = (t0: number, t1: number, by0: number, by1: number) => {
@@ -169,7 +175,7 @@ function emitReveal(
   };
   const w = WINDOW_CASING.width;
   const top = y0 + hole.y1 + (hasHead ? w : 0);
-  const bottom = y0 + hole.y0 - (hole.y0 > 0 ? w : 0);
+  const bottom = y0 + Math.max(0, hole.y0 - w);
   // a casing stays on its own facade: at a corner the jamb stops where the next wall's lining begins
   const edge = face + WINDOW_CASING.proud;
   box(Math.max(edge, hole.t0 - w), hole.t0, bottom, top);

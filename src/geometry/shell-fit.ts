@@ -43,9 +43,8 @@ function across(f: EdgeFrame, p: Point): number {
   return (p[0] - f.a[0]) * f.inward[0] + (p[1] - f.a[1]) * f.inward[1];
 }
 
-/** The lining's hole for one opening, along its edge (t) and above the floor (y): the shell's
- *  opening shrunk by the recess, closed from either end where its reveal would stand in
- *  another edge's wall. A sill at floor level and a head at the ceiling stay put. */
+/** The lining's hole in edge U and floor-relative Y: the fitted glazed field for a window,
+ *  otherwise the traversable or inset opening. Neighbouring corner walls can narrow it. */
 export interface OpeningHole {
   t0: number;
   t1: number;
@@ -65,6 +64,16 @@ export function openingHole(floor: BlueprintFloor, o: Opening, wallDepth: number
       y1: portal.clearHeight,
     };
   }
+  if (o.kind === "window" && o.glazing) {
+    const glass = o.glazing;
+    const [r0, r1] = revealRun(floor.outline, o.edge, wallDepth);
+    return {
+      t0: Math.max(glass.offset, r0),
+      t1: Math.min(glass.offset + glass.width, r1),
+      y0: glass.sill,
+      y1: glass.sill + glass.height,
+    };
+  }
   const top = o.sill + o.height;
   const [r0, r1] = revealRun(floor.outline, o.edge, wallDepth);
   return {
@@ -73,6 +82,12 @@ export function openingHole(floor: BlueprintFloor, o: Opening, wallDepth: number
     y0: o.sill > EPS ? o.sill + SHELL_WALL.recess : 0,
     y1: top < floor.height - EPS ? top - SHELL_WALL.recess : floor.height,
   };
+}
+
+/** A fitted window's perimeter housing owns the pane and covering depth. Interior returns
+ *  join its back edge; openings without a fitted glazed field retain the skin clearance. */
+export function openingReturnDepth(o: Opening): number {
+  return o.kind === "window" && o.glazing ? o.glazing.housingBackDepth : SHELL_WALL.skinClear;
 }
 
 /** Along edge `e`, the run where a reveal may stand: its jamb, square to the edge from the
@@ -130,11 +145,11 @@ function inHole(f: EdgeFrame, p: Point, y: number, hole: OpeningHole): boolean {
  *  leave in the lining. */
 class FloorShell {
   private readonly frames: EdgeFrame[];
-  private readonly holes: { edge: number; hole: OpeningHole }[];
+  private readonly holes: { edge: number; hole: OpeningHole; returnDepth: number }[];
 
   constructor(readonly floor: BlueprintFloor, private readonly wallDepth: number) {
     this.frames = floor.outline.map((_, e) => edgeFrame(floor.outline, e));
-    this.holes = floor.openings.map((o) => ({ edge: o.edge, hole: openingHole(floor, o, wallDepth) }));
+    this.holes = floor.openings.map((o) => ({ edge: o.edge, hole: openingHole(floor, o, wallDepth), returnDepth: openingReturnDepth(o) }));
   }
 
   /** True when a point `y` above the floor stands behind the shell wall, or in an opening's
@@ -142,9 +157,10 @@ class FloorShell {
   holds(p: Point, y: number): boolean {
     const d = boundaryDistance(p, this.floor.outline);
     if (d >= this.wallDepth - EPS) return true;
-    if (d < SHELL_WALL.skinClear - EPS) return false;
-    return this.holes.some(({ edge, hole }) =>
-      inHole(this.frames[edge]!, p, y, hole)
+    if (d < -EPS) return false;
+    return this.holes.some(({ edge, hole, returnDepth }) =>
+      across(this.frames[edge]!, p) >= returnDepth - EPS
+      && inHole(this.frames[edge]!, p, y, hole)
       && this.frames.every((f, k) => k === edge || !inWallZone(f, p, this.wallDepth)));
   }
 }
