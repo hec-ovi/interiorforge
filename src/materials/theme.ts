@@ -1,7 +1,7 @@
 /** Consumer view of the sibling Materials theme index and material-entry schema. Only the
  *  fields this box needs to texture a glTF document. */
 
-export type MapSlot = "basecolor" | "normal" | "roughness" | "metallic" | "height" | "ao" | "emission";
+export type MapSlot = "basecolor" | "normal" | "roughness" | "metallic" | "metallicRoughness" | "height" | "ao" | "emission";
 
 export interface MaterialVariant {
   id: string;

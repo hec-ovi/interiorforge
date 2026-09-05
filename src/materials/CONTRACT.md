@@ -20,9 +20,12 @@ Purpose: resolves the material keys in a glTF document through the materials dat
 
 `TextureReport { mode: "external" | "embedded" | "keys", baseUrl?, materials }`.
 
-What lands on each material: basecolor, normal and ao maps (occlusion), emission where the
-entry has one, plus its metallic and roughness factors, transmission and IOR for glass, and
-emissive strength. Tiled entries get a `KHR_texture_transform` scale of `1 / worldSize`, since
+What lands on each material: basecolor, normal and ao maps (occlusion), optional packed
+metallic-roughness and emission maps, transmission and IOR for glass, and emissive strength.
+The selected variant's `maps.metallicRoughness` binds to glTF's linear metallic-roughness slot,
+with roughness in G, metallic in B and both factors 1. Its PNG bytes remain unchanged when
+embedded. A variant without that map retains the entry's metallic and roughness scalar factors.
+Tiled entries get a `KHR_texture_transform` scale of `1 / worldSize`, since
 this box lays UVs in world meters; `exact` entries get none, their faces carry 0..1 UVs.
 
 ## Errors

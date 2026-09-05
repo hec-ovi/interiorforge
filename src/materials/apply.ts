@@ -63,6 +63,11 @@ function dressMaterial(
   };
 
   attach("basecolor", (t) => material.setBaseColorTexture(t), () => material.getBaseColorTextureInfo());
+  if (variant.maps.metallicRoughness) {
+    attach("metallicRoughness", (t) => material.setMetallicRoughnessTexture(t), () => material.getMetallicRoughnessTextureInfo());
+    // The packed linear channels contain the final response, not scalar multipliers.
+    material.setMetallicFactor(1).setRoughnessFactor(1);
+  }
   attach("normal", (t) => material.setNormalTexture(t), () => material.getNormalTextureInfo());
   attach("ao", (t) => material.setOcclusionTexture(t), () => material.getOcclusionTextureInfo());
   if (variant.maps.emission) {
