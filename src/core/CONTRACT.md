@@ -11,6 +11,11 @@ Purpose: deterministic primitives shared by every box in this repo: seeded RNG, 
 - `geom.ts`: `Point` is `[x, z]`, `Rect` is `{x, z, w, d}` (min corner). Polygon area/centroid/bounds, CCW test, point-in-polygon, point-in-rect, rect overlap/containment, rect-to-polygon containment, edge length, point along edge.
 - `types.ts`: `InteriorRequest`, `Blueprint`, `FloorInterior`, `NpcSupport` and their parts, mirroring `../../schemas/*.schema.json`. Schemas are the source of truth; these types restate them for the compiler.
 - `errors.ts`: `new InteriorError(code, detail, floor?)` produces `InteriorError { code, floor?, message }` from the closed code set in the root contract.
+- `grid.ts`: `WalkGrid(origin: Point, cellSize, cols, rows)` starts blocked; `forPolygon(outline, cellSize, bounds: Rect)` opens cells whose centers are inside the polygon. Cell size and dimensions must be positive.
+  - `center(col, row) -> Point`, `cellAt(Point) -> [col, row]`, `inBounds`, `isWalkable`, and `isWalkableAt` expose the grid. Outside cells are blocked; `set` outside bounds does nothing.
+  - `blockRect(Rect, margin = 0)` and `openRect(Rect)` change cells by center containment. These operations do not establish continuous body clearance.
+  - `flood(Point) -> Uint8Array` returns row-major four-neighbor reachability, empty when the starting cell is blocked; `reaches(mask, Point)` queries that mask. `walkableCount()` counts open cells.
+  - `toBase64()` packs row-major walkability bits; `fromBase64(encoded, origin, cellSize, cols, rows)` restores them with the supplied grid geometry.
 
 ## Errors
 
