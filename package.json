@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Deterministic building interior generator with rooms, stairs, elevators, shaped furniture and NPC routine data.",
   "scripts": {
+    "build:feasibility": "tsc -p tsconfig.feasibility.json",
     "generate": "tsx src/cli.ts",
     "preview": "vite --config src/ui/vite.config.ts",
     "test": "vitest run",
