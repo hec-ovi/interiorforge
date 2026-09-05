@@ -2,6 +2,11 @@ import type { Point, Rect } from "./geom.js";
 import { GridBoundary, gridCenterBound } from "./grid-boundary.js";
 import { ROOM_FOOTPRINT_EPS, type RoomFootprint } from "./room-footprint.js";
 
+export type GridTransition = (fromIndex: number, toIndex: number) => boolean;
+
+const CARDINAL = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
+const CERTIFIED = [...CARDINAL, [1, 1], [-1, 1], [1, -1], [-1, -1]] as const;
+
 /** Walkable occupancy grid for one floor. Cell (c, r) covers
  *  [origin + c*cell, origin + (c+1)*cell) on each axis; walkability is sampled at cell centers. */
 export class WalkGrid {
@@ -112,26 +117,38 @@ export class WalkGrid {
     }
   }
 
-  /** 4-connected flood fill from a start point; returns the visited mask. */
-  flood(from: Point): Uint8Array {
+  /** Cardinal adjacency by default; every optional diagonal needs an explicit certificate. */
+  neighbors(index: number, transition?: GridTransition): number[] {
+    const result: number[] = [];
+    this.visitNeighbors(index, next => result.push(next), transition);
+    return result;
+  }
+
+  private visitNeighbors(index: number, visit: (next: number) => void, transition?: GridTransition): void {
+    if (this.cells[index] !== 1) return;
+    const c = index % this.cols, r = (index - c) / this.cols;
+    for (const [dc, dr] of transition ? CERTIFIED : CARDINAL) {
+      const nc = c + dc, nr = r + dr, next = nr * this.cols + nc;
+      if (this.isWalkable(nc, nr) && (!transition || transition(index, next))) visit(next);
+    }
+  }
+
+  /** Flood fill through the same neighbor authority used for route reconstruction. */
+  flood(from: Point, transition?: GridTransition): Uint8Array {
     const visited = new Uint8Array(this.cols * this.rows);
     const [sc, sr] = this.cellAt(from);
     if (!this.isWalkable(sc, sr)) return visited;
     const queue: number[] = [sr * this.cols + sc];
     visited[sr * this.cols + sc] = 1;
+    const visit = (next: number): void => {
+      if (visited[next] === 0) {
+        visited[next] = 1;
+        queue.push(next);
+      }
+    };
     while (queue.length > 0) {
       const idx = queue.pop()!;
-      const c = idx % this.cols;
-      const r = (idx - c) / this.cols;
-      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-        const nc = c + dc;
-        const nr = r + dr;
-        const nIdx = nr * this.cols + nc;
-        if (this.isWalkable(nc, nr) && visited[nIdx] === 0) {
-          visited[nIdx] = 1;
-          queue.push(nIdx);
-        }
-      }
+      this.visitNeighbors(idx, visit, transition);
     }
     return visited;
   }
