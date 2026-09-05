@@ -3,6 +3,7 @@ import { GridBoundary, gridCenterBound } from "./grid-boundary.js";
 import { ROOM_FOOTPRINT_EPS, roomFootprintContains, type RoomFootprint } from "./room-footprint.js";
 import type { RigidFrame2D } from "./rigid-frame.js";
 
+/** Stable directed-edge certificate; traversal may skip already-reached targets. */
 export type GridTransition = (fromIndex: number, toIndex: number) => boolean;
 
 const CARDINAL = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
@@ -144,33 +145,50 @@ export class WalkGrid {
     return result;
   }
 
-  private visitNeighbors(index: number, visit: (next: number) => void, transition?: GridTransition): void {
+  private visitNeighbors(
+    index: number, visit: (next: number) => void, transition?: GridTransition,
+    reached?: Uint8Array,
+  ): void {
     if (this.cells[index] !== 1) return;
     const c = index % this.cols, r = (index - c) / this.cols;
     for (const [dc, dr] of transition ? CERTIFIED : CARDINAL) {
       const nc = c + dc, nr = r + dr, next = nr * this.cols + nc;
-      if (this.isWalkable(nc, nr) && (!transition || transition(index, next))) visit(next);
+      if (this.isWalkable(nc, nr) && (!reached || reached[next] === 0)
+        && (!transition || transition(index, next))) visit(next);
     }
   }
 
   /** Flood fill through the same neighbor authority used for route reconstruction. */
   flood(from: Point, transition?: GridTransition): Uint8Array {
-    const visited = new Uint8Array(this.cols * this.rows);
+    return this.traverse(from, transition);
+  }
+
+  /** First-discovery BFS parents; unreachable cells are -1 and the root points to itself. */
+  predecessors(from: Point, transition?: GridTransition): Int32Array {
+    const parents = new Int32Array(this.cols * this.rows).fill(-1);
+    this.traverse(from, transition, parents);
+    return parents;
+  }
+
+  private traverse(from: Point, transition?: GridTransition, parents?: Int32Array): Uint8Array {
+    const reached = new Uint8Array(this.cols * this.rows);
     const [sc, sr] = this.cellAt(from);
-    if (!this.isWalkable(sc, sr)) return visited;
-    const queue: number[] = [sr * this.cols + sc];
-    visited[sr * this.cols + sc] = 1;
+    if (!this.isWalkable(sc, sr)) return reached;
+    const queue = new Int32Array(reached.length);
+    let current = sr * this.cols + sc, tail = 1;
+    queue[0] = current;
+    reached[current] = 1;
+    if (parents) parents[current] = current;
     const visit = (next: number): void => {
-      if (visited[next] === 0) {
-        visited[next] = 1;
-        queue.push(next);
-      }
+      reached[next] = 1;
+      if (parents) parents[next] = current;
+      queue[tail++] = next;
     };
-    while (queue.length > 0) {
-      const idx = queue.pop()!;
-      this.visitNeighbors(idx, visit, transition);
+    for (let head = 0; head < tail; head++) {
+      current = queue[head]!;
+      this.visitNeighbors(current, visit, transition, reached);
     }
-    return visited;
+    return reached;
   }
 
   reaches(visited: Uint8Array, p: Point): boolean {
