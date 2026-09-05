@@ -1,35 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Point } from "../core/geom.js";
-import type { BlueprintFloor, Opening } from "../core/types.js";
-import { readGlbBytes } from "../glb/io.js";
 import { generateFloorInteriors, makeFixture } from "../index.js";
-
-type Vertex = [number, number, number];
-type Triangle = [Vertex, Vertex, Vertex];
-
-/** Read each exported triangle in the selected facade's U, floor-relative Y, inward depth. */
-async function facadeTriangles(glb: Uint8Array, floor: BlueprintFloor, opening: Opening): Promise<Triangle[]> {
-  const a = floor.outline[opening.edge]!, b = floor.outline[(opening.edge + 1) % floor.outline.length]!;
-  const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
-  const direction: Point = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
-  const doc = await readGlbBytes(glb);
-  const triangles: Triangle[] = [];
-  for (const node of doc.getRoot().listNodes()) {
-    for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
-      const positions = primitive.getAttribute("POSITION")!.getArray()!;
-      const indices = primitive.getIndices()!.getArray()!;
-      for (let i = 0; i < indices.length; i += 3) {
-        triangles.push([0, 1, 2].map((offset): Vertex => {
-          const k = indices[i + offset]! * 3;
-          const x = positions[k]! - a[0], z = positions[k + 2]! - a[1];
-          return [x * direction[0] + z * direction[1], positions[k + 1]! - floor.elevation,
-            -x * direction[1] + z * direction[0]];
-        }) as Triangle);
-      }
-    }
-  }
-  return triangles;
-}
+import { facadeTriangles, type Triangle } from "./facade-surface.test-helper.js";
 
 /** Depth intersections along the outward view ray, independent of triangle winding. */
 function depthsAt(triangles: Triangle[], u: number, y: number): number[] {

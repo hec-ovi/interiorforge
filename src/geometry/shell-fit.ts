@@ -53,6 +53,15 @@ export interface OpeningHole {
 }
 
 export function openingHole(floor: BlueprintFloor, o: Opening, wallDepth: number): OpeningHole {
+  if (o.door?.motion?.kind === "pocket") {
+    const passage = o.door.clearance!;
+    return {
+      t0: passage.offset,
+      t1: passage.offset + passage.width,
+      y0: passage.sill,
+      y1: passage.sill + passage.height,
+    };
+  }
   if (o.kind === "openFront") {
     const portal = o.portal!; // request validation requires it for this variant
     const side = (o.width - portal.clearWidth) / 2;
@@ -84,9 +93,10 @@ export function openingHole(floor: BlueprintFloor, o: Opening, wallDepth: number
   };
 }
 
-/** A fitted window's perimeter housing owns the pane and covering depth. Interior returns
- *  join its back edge; openings without a fitted glazed field retain the skin clearance. */
+/** Fitted window housings and pocket cassettes own everything before their back attachment
+ * plane, including lateral leaf slots. Other openings retain the skin-clearance return. */
 export function openingReturnDepth(o: Opening): number {
+  if (o.door?.motion?.kind === "pocket") return o.door.clearance!.backDepth;
   return o.kind === "window" && o.glazing ? o.glazing.housingBackDepth : SHELL_WALL.skinClear;
 }
 

@@ -14,7 +14,7 @@ import { bandMaterial, layerBands } from "./wall-detail.js";
  *  wall depth and the plate at the wall depth plus the lining (per band), so it follows the
  *  true inset of any outline, tiny steps and sharp corners included. Each outline edge owns
  *  the sector between the corner bisectors; openings cut the sector at their jambs, and the
- *  hole meets the fitted window housing, or the skin clearance of another opening. */
+ *  hole meets the fitted window housing, pocket cassette back skin, or skin clearance. */
 
 /** how far the sectors reach into the room: past every plate corner they must cut */
 const SECTOR_DEPTH = 3;
@@ -77,7 +77,7 @@ export function buildFacadeLining(
       const hole = openingHole(bpFloor, o, wallDepth);
       const returnDepth = openingReturnDepth(o);
       if (returnDepth > wallDepth + EPS) {
-        throw new InteriorError("E_SHELL_BREACH", `${o.id} window housing reaches beyond the facade wall depth`, bpFloor.index);
+        throw new InteriorError("E_SHELL_BREACH", `${o.id} opening attachment reaches beyond the facade wall depth`, bpFloor.index);
       }
       // the corner walls close the whole opening: the lining runs on behind it
       if (hole.t1 - hole.t0 < 1e-3) continue;
