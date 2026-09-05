@@ -6,7 +6,7 @@ Browser-safe boundary: [`src/feasibility.ts`](../src/feasibility.ts) exposes Lay
 
 - [`src/core`](../src/core/CONTRACT.md): seeded RNG, 2D geometry, walkable grid, shared types and errors; room rings, opening clear fields, pocket-door envelopes and core-facade policy. Depends on the Exterior blueprint contract.
 - [`src/glb`](../src/glb/CONTRACT.md): GLB I/O and mesh construction with winding, UV and sealed-buffer rules. Depends on core.
-- [`src/blueprint`](../src/blueprint/CONTRACT.md): request validation including window clear-field fit, assignment resolution and fixture shells. Depends on core and glb.
+- [`src/blueprint`](../src/blueprint/CONTRACT.md): request validation including window fields and pocket-door fit, assignment resolution and fixture shells. Depends on core and glb.
 - [`src/layout`](../src/layout/CONTRACT.md): measured core-facade clearance and roof-locked feasibility, shell walls, facade-led rooms with exact exclusions, fitted contents, light grids, navigation and reachability. Depends on core.
 - [`src/layout/schema/circulation.schema.json`](../src/layout/schema/circulation.schema.json): sampled architectural routes reserved before grounded furniture placement; separate from NPC seat-use navigation.
 - [`src/npc`](../src/npc/CONTRACT.md): room-footprint anchors, roles, routines, nav export and pathfinding. Depends on core and layout.
