@@ -186,6 +186,8 @@ export interface Room {
   id: string;
   kind: RoomKind;
   polygon: Point[];
+  /** Clockwise interior rings excluded from this room's floor and occupancy. */
+  holes?: Point[][];
   unit?: string;
   doors: Door[];
 }

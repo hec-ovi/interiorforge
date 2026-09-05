@@ -194,9 +194,19 @@
           },
           "polygon": {
             "type": "array",
+            "description": "Counterclockwise outer room boundary. Interior exclusions are supplied separately in holes.",
             "minItems": 3,
             "items": {
               "$ref": "#/$defs/point2"
+            }
+          },
+          "holes": {
+            "type": "array",
+            "description": "Clockwise simple interior rings excluded from the room. Rings lie strictly inside polygon, are pairwise disjoint, and do not touch. Absence means no exclusions.",
+            "items": {
+              "type": "array",
+              "minItems": 3,
+              "items": { "$ref": "#/$defs/point2" }
             }
           },
           "unit": {
