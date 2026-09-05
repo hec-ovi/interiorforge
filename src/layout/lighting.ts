@@ -95,6 +95,30 @@ function round3(v: number): number {
   return Math.round(v * 1000) / 1000;
 }
 
+/** Fit a complete grid to the fixture budget, minimizing the widest axis spacing. */
+function spotGrid(longSpan: number, shortSpan: number, spacing: number): [number, number] {
+  const maxLong = clamp(Math.round(longSpan / spacing), 1, MAX_PER_ROOM);
+  const maxShort = clamp(Math.round(shortSpan / spacing), 1, 3);
+  if (maxLong * maxShort <= MAX_PER_ROOM) return [maxLong, maxShort];
+  let selected: [number, number] = [1, 1];
+  let widest = Infinity;
+  let deviation = Infinity;
+  for (let long = 1; long <= maxLong; long++) {
+    for (let short = 1; short <= maxShort && long * short <= MAX_PER_ROOM; short++) {
+      const longStep = longSpan / long;
+      const shortStep = shortSpan / short;
+      const candidate = Math.max(longStep, shortStep);
+      const difference = Math.abs(longStep - spacing) + Math.abs(shortStep - spacing);
+      if (candidate < widest || (candidate === widest && difference < deviation)) {
+        selected = [long, short];
+        widest = candidate;
+        deviation = difference;
+      }
+    }
+  }
+  return selected;
+}
+
 /** Useful radius: a lumen budget spread over a hemisphere reads about this far. A cove
  *  washes further along its wall than its flux alone suggests. */
 function rangeOf(lumens: number, kind: LightFixture["kind"]): number {
@@ -212,21 +236,17 @@ class FloorLighting {
   private spots(room: PlanRoom, style: LightStyle): void {
     const r = room.rect;
     const alongU = r.lu >= r.lv;
-    const long = clamp(Math.round((alongU ? r.lu : r.lv) / style.spacing), 1, MAX_PER_ROOM);
-    const short = clamp(Math.round((alongU ? r.lv : r.lu) / style.spacing), 1, 3);
+    const [long, short] = spotGrid(alongU ? r.lu : r.lv, alongU ? r.lv : r.lu, style.spacing);
     const cols = alongU ? long : short;
     const rows = alongU ? short : long;
-    const total = Math.min(cols * rows, MAX_PER_ROOM);
-    let placed = 0;
-    for (let row = 0; row < rows && placed < total; row++) {
-      for (let col = 0; col < cols && placed < total; col++) {
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
         const at: Point = [
           r.u + (r.lu * (col + 0.5)) / cols,
           r.v + (r.lv * (row + 0.5)) / rows,
         ];
         if (!this.inside(at)) continue;
         this.spotAt(room.id, at, style.lumens, style.colorTemperatureK);
-        placed++;
       }
     }
   }

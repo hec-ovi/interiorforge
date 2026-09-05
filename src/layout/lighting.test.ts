@@ -4,12 +4,41 @@ import { resolveAssignments } from "../blueprint/validate.js";
 import { pointInPolygon } from "../core/geom.js";
 import { ceilingClear, stairSlab } from "./constants.js";
 import { planBuilding } from "./index.js";
+import { worldToUv } from "./uv.js";
 
 const fix = makeFixture({ seed: 31, floors: 8, basements: 1, type: "offices" });
 const plan = planBuilding(fix.request, resolveAssignments(fix.request));
 const outlines = new Map(fix.request.blueprint.floors.map((f) => [f.index, f.outline]));
 
 describe("floor lighting", () => {
+  it("spreads budgeted spot grids across elongated and wide rooms reproducibly", () => {
+    const fixture = makeFixture({ seed: 31, floors: 2, basements: 0, width: 50, depth: 30, type: "offices" });
+    const assignments = resolveAssignments(fixture.request).map(assignment => ({ ...assignment, kind: "mechanical" as const }));
+    const planned = planBuilding(fixture.request, assignments);
+    const floor = planned.floors[0]!;
+    const rooms = planned.uvFloors.get(floor.floor)!.rooms
+      .filter(room => room.kind === "mechanical_room" && Math.min(room.rect.lu, room.rect.lv) > 10);
+    expect(rooms).toHaveLength(2);
+    expect(rooms.some(room => room.rect.lu / room.rect.lv > 3)).toBe(true);
+    expect(rooms.some(room => room.rect.lu / room.rect.lv < 2)).toBe(true);
+    for (const room of rooms) {
+      const lights = floor.lights.filter(light => light.room === room.id && light.kind === "spot");
+      const positions = lights.map(light => worldToUv([light.position[0], light.position[2]], planned.core.frame));
+      const u = [...new Set(positions.map(point => point[0]))].sort((a, b) => a - b);
+      const v = [...new Set(positions.map(point => point[1]))].sort((a, b) => a - b);
+      expect(lights.length).toBeLessThanOrEqual(10);
+      expect(lights.length).toBe(u.length * v.length);
+      for (const [axis, from, span] of [[u, room.rect.u, room.rect.lu], [v, room.rect.v, room.rect.lv]] as const) {
+        expect(axis.length).toBeGreaterThan(1);
+        expect(axis[0]).toBeCloseTo(from + span / (2 * axis.length), 3);
+        expect(axis.at(-1)).toBeCloseTo(from + span - span / (2 * axis.length), 3);
+        expect(axis.at(-1)! - axis[0]!).toBeGreaterThanOrEqual(span * 0.49);
+      }
+    }
+    expect(planBuilding(fixture.request, assignments).floors.map(item => item.lights))
+      .toEqual(planned.floors.map(item => item.lights));
+  });
+
   it("lights every room, corridor and stairwell", () => {
     for (const floor of plan.floors) {
       if (floor.rooms.length === 0) continue;

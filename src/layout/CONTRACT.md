@@ -27,6 +27,7 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 ## Invariants
 
 - The same request and assignments produce the same plan. Each floor has an independent RNG stream, so consuming values on floor M does not shift floor N's random choices.
+- Ceiling spotlights use a complete centered grid of at most ten fixtures per room. When the requested grid exceeds that budget, row and column counts minimize the widest axis spacing, then deviation from the room style's spacing. Fixtures outside the usable floor inset are omitted; stair arrival lights retain their independent placement.
 - Core rects are identical across floors and placed behind the facade lining and every exterior opening reservation. Stairs are continuous, with 1.2 m clear flights, 0.16 to 0.18 m risers, 0.28 m treads and 1.2 m landings. Every occupied floor is served by every elevator.
 - When a fitted roof bulkhead exists, stair A climbs from the last served floor to `roof.elevation`. Its roof-level platform meets the stair's finished inside edge across the full arrival landing and reaches the enclosure door on `doorNormal`; mismatched axes, cutouts or headroom are rejected.
 - Every room is reachable from the floor's spine (corridor, elevator lobby or mall concourse) through its connections. Corridor and door widths follow [the research constants](../../docs/RESEARCH.md).
