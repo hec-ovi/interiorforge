@@ -1,6 +1,7 @@
 import type { Point } from "../core/geom.js";
 import type { BlueprintFloor, Facade as BlueprintFacade, FloorInterior, Opening } from "../core/types.js";
 import { WALL } from "./constants.js";
+import { facadeDepth, shellWallDepth } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { worldToUv } from "./uv.js";
 
@@ -143,28 +144,34 @@ export interface PartitionConflict {
 /** Interior walls that end inside a window or door of the facade. Empty on a good floor:
  *  partitions land on the piers between the blueprint's openings. */
 export function partitionConflicts(
-  floor: FloorInterior, bpFloor: BlueprintFloor, blueprintFacade?: BlueprintFacade,
+  floor: Pick<FloorInterior, "rooms">, bpFloor: BlueprintFloor, blueprintFacade?: BlueprintFacade,
 ): PartitionConflict[] {
   const facade = new Facade(bpFloor, blueprintFacade);
   const out: PartitionConflict[] = [];
   const seen = new Set<string>();
+  const reach = facadeDepth(blueprintFacade) + WALL / 2;
   for (const room of floor.rooms) {
-    const poly = room.polygon;
-    for (let i = 0; i < poly.length; i++) {
-      const a = poly[i]!;
-      const b = poly[(i + 1) % poly.length]!;
-      // a wall running along the facade is the facade lining, not a partition
-      const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-      const along = facade.contact(mid);
-      for (const end of [a, b]) {
-        const hit = facade.contact(end);
-        if (!hit || (along && along.edge === hit.edge)) continue;
-        const opening = facade.crossedBy(end, WALL / 2);
-        if (!opening) continue;
-        const key = `${room.id}|${opening}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push({ room: room.id, opening, at: end });
+    for (const poly of [room.polygon, ...(room.holes ?? [])]) {
+      for (let i = 0; i < poly.length; i++) {
+        const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+        // Facade-owned outer boundaries do not emit an interior partition.
+        const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        const along = facade.contact(mid, reach);
+        const faceA = along && bpFloor.outline[along.edge]!;
+        const faceB = along && bpFloor.outline[(along.edge + 1) % bpFloor.outline.length]!;
+        const parallel = !!faceA && !!faceB && Math.abs((b[0] - a[0]) * (faceB[1] - faceA[1])
+          - (b[1] - a[1]) * (faceB[0] - faceA[0]))
+          < 0.02 * Math.hypot(b[0] - a[0], b[1] - a[1]) * Math.hypot(faceB[0] - faceA[0], faceB[1] - faceA[1]);
+        if (parallel && along && (along.distance < 0.002
+          || Math.abs(along.distance - shellWallDepth(blueprintFacade)) < 0.002)) continue;
+        for (const end of [a, b]) {
+          const opening = facade.crossedBy(end, WALL / 2, reach);
+          if (!opening) continue;
+          const key = `${room.id}|${opening}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push({ room: room.id, opening, at: end });
+        }
       }
     }
   }

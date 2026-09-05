@@ -1,4 +1,5 @@
 import type { Point } from "../core/geom.js";
+import { InteriorError } from "../core/errors.js";
 import { insetPolygon, isCcw, polygonBounds } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
 import { createRng } from "../core/rng.js";
@@ -11,7 +12,7 @@ import { stairAccess } from "./core-plan.js";
 import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import { planLights } from "./lighting.js";
-import { isExteriorConnection, openingKeepouts } from "./openings.js";
+import { isExteriorConnection, openingKeepouts, partitionConflicts } from "./openings.js";
 import { PARTITION_HALF } from "./openings.js";
 import { alignPartitionsToPiers } from "./pier-align.js";
 import { fitPartitionsToGrid, refitDoors } from "./tile-fit.js";
@@ -27,6 +28,7 @@ import { validateArchitecture } from "./validate-floor.js";
 import { circulationKeepouts, reserveCirculation, verifyCirculation, type FloorCirculation } from "./circulation.js";
 import { buildNavGrid, blockPhysicalFurniture } from "./navgrid.js";
 import { roomPolygon } from "./room-shape.js";
+import { planFacadeRooms } from "./facade-plan.js";
 
 /** uv-space working data a floor keeps for geometry and npc passes */
 export interface UvFloorData {
@@ -110,7 +112,10 @@ export function planFloor(
     : undefined;
   let rooms: PlanRoom[] = [corridorRoom, ...(corridorTail ? [corridorTail] : [])];
 
-  const backing = fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
+  const facadePlan = request.blueprint.facade?.grids?.some(grid => grid.floor === floor.index)
+    ? planFacadeRooms(request, floor, kind, core, floorFrame, slabPlate, uvOutline, ids, rng) : null;
+  const backing = facadePlan ? { rooms: [], sealed: [] }
+    : fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
   rooms.push(...backing.rooms);
 
   // one strip of the floor: offices, shop units or homes, by floor kind
@@ -126,7 +131,11 @@ export function planFloor(
     extraSealed.push(...fill.sealed);
   };
 
-  if (isHall) {
+  if (facadePlan) {
+    rooms = facadePlan.rooms;
+    extraSealed.length = 0;
+    extraSealed.push(...facadePlan.sealed);
+  } else if (isHall) {
     rooms.push(...fillVenue(floorFrame, corridorRoom, kind, rng, ids));
   } else {
     fillStrip(floorFrame.south, "v1", `f${floor.index}-s`, kind === "corpo_office");
@@ -192,6 +201,12 @@ export function planFloor(
   const facadeKeepouts = openingKeepouts(floor, frame, bounds.facadeDepth);
   const sealed = [...backing.sealed, ...extraSealed.filter((s) => clipRatio(s, uvOutline) > 0.05)];
   const architecture = validateArchitecture(floor.outline, bounds, rooms, sealed, core, floor.index, ids);
+  const worldRooms = rooms.map(room => roomToWorld(room, uvOutline, frame));
+  if (facadePlan) {
+    const conflicts = partitionConflicts({ rooms: worldRooms }, floor, request.blueprint.facade);
+    if (conflicts.length) throw new InteriorError("E_FLOOR_TOO_SMALL",
+      `facade partition has no structural seat: ${conflicts[0]!.room} at ${conflicts[0]!.opening}`, floor.index);
+  }
   const circulation = reserveCirculation(architecture, rooms, core, floor.index);
   const furniture = furnish(rooms, kind, rng, ids, bounds,
     [...facadeKeepouts.map((item) => item.rect), ...circulationKeepouts(circulation, frame)]);
@@ -207,7 +222,7 @@ export function planFloor(
       coreAngleDeg: frame.angleDeg,
       core: coreToWorld(core, sealed),
       openingReservations: reserveOpenings(floor, bounds.facadeDepth),
-      rooms: rooms.map((r) => roomToWorld(r, uvOutline, frame)),
+      rooms: worldRooms,
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
       lights: planLights(
         rooms, core, bounds.inner, ceilingElevation,
