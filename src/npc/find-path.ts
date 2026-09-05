@@ -16,7 +16,7 @@ export interface PathQuery {
 export function findPath(npc: NpcSupport, from: PathQuery, to: PathQuery): PathLeg[] | null {
   const grids = gridCache(npc.nav);
   if (from.floor === to.floor) {
-    const points = walk(grids, npc.nav, from.floor, from.position, to.position);
+    const points = walk(grids, from.floor, from.position, to.position);
     return points ? [{ kind: "walk", floor: from.floor, points }] : null;
   }
 
@@ -34,8 +34,8 @@ export function findPath(npc: NpcSupport, from: PathQuery, to: PathQuery): PathL
   }
   if (!best) return null;
 
-  const legA = walk(grids, npc.nav, from.floor, from.position, best.entryFrom);
-  const legB = walk(grids, npc.nav, to.floor, best.entryTo, to.position);
+  const legA = walk(grids, from.floor, from.position, best.entryFrom);
+  const legB = walk(grids, to.floor, best.entryTo, to.position);
   if (!legA || !legB) return null;
   return [
     { kind: "walk", floor: from.floor, points: legA },
@@ -57,31 +57,16 @@ function gridCache(nav: Nav): Map<number, WalkGrid> {
 
 const cacheStore = new WeakMap<Nav, Map<number, WalkGrid>>();
 
-function walk(grids: Map<number, WalkGrid>, nav: Nav, floor: number, from: Point, to: Point): Point[] | null {
+function walk(grids: Map<number, WalkGrid>, floor: number, from: Point, to: Point): Point[] | null {
   const grid = grids.get(floor);
-  if (!grid) return null;
-  const start = nearestWalkable(grid, from);
-  const goal = nearestWalkable(grid, to);
-  if (!start || !goal) return null;
+  if (!grid || !grid.isWalkableAt(from) || !grid.isWalkableAt(to)) return null;
+  const start = grid.cellAt(from);
+  const goal = grid.cellAt(to);
   const cells = aStar(grid, start, goal);
   if (!cells) return null;
   const points = cells.map(([c, r]) => grid.center(c, r));
   const smoothed = smooth(grid, [from, ...points, to]);
   return smoothed.map(([x, z]) => [round2(x), round2(z)] as Point);
-}
-
-function nearestWalkable(grid: WalkGrid, p: Point): [number, number] | null {
-  const [c0, r0] = grid.cellAt(p);
-  if (grid.isWalkable(c0, r0)) return [c0, r0];
-  for (let radius = 1; radius <= 4; radius++) {
-    for (let dr = -radius; dr <= radius; dr++) {
-      for (let dc = -radius; dc <= radius; dc++) {
-        if (Math.max(Math.abs(dc), Math.abs(dr)) !== radius) continue;
-        if (grid.isWalkable(c0 + dc, r0 + dr)) return [c0 + dc, r0 + dr];
-      }
-    }
-  }
-  return null;
 }
 
 function aStar(grid: WalkGrid, start: [number, number], goal: [number, number]): [number, number][] | null {

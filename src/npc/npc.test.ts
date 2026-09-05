@@ -7,6 +7,7 @@ import cityP15 from "./fixtures/city-p15.request.json" with { type: "json" };
 import { planBuilding } from "../layout/index.js";
 import { buildNpcSupport, findPath } from "./index.js";
 import { anchorConflicts, ENTRANCE_STANDOFF } from "./keep-out.js";
+import { roomFootprintContains } from "../core/room-footprint.js";
 
 const fix = makeFixture({ seed: 33, floors: 8, basements: 1 });
 const plan = planBuilding(fix.request, resolveAssignments(fix.request));
@@ -71,6 +72,10 @@ describe("buildNpcSupport", () => {
       const stairs = npc.anchors.filter((a) => a.floor === floor.floor && a.kind === "stair_entry");
       expect(waits.length).toBe(floor.core.elevators.length);
       expect(stairs.length).toBe(floor.core.stairs.length);
+      for (const anchor of [...waits, ...stairs]) {
+        const room = floor.rooms.find((room) => room.id === anchor.room)!;
+        expect(roomFootprintContains(room, anchor.position), anchor.id).toBe(true);
+      }
     }
   });
 

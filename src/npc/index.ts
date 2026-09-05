@@ -1,8 +1,8 @@
 import type { InteriorRequest, NpcSupport } from "../core/types.js";
 import { SPINE_KINDS } from "../layout/constants.js";
 import type { BuildingPlan } from "../layout/index.js";
-import { uvRectCenter, uvToWorld } from "../layout/uv.js";
 import { InteriorError } from "../core/errors.js";
+import { roomFloodStart } from "./anchor-placement.js";
 import { coreAnchors, floorAnchors } from "./anchors.js";
 import { anchorConflicts } from "./keep-out.js";
 import { buildNav } from "./nav.js";
@@ -16,15 +16,12 @@ export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): N
     if (floor.rooms.length === 0) continue;
     const grid = plan.navGrids.get(floor.floor)!;
     const corridor = floor.rooms.find((r) => SPINE_KINDS.has(r.kind))!;
-    const uvRooms = plan.uvFloors.get(floor.floor)!.rooms;
-    const uvCorridor = uvRooms.find((r) => r.id === corridor.id)!;
-    const visited = grid.flood(uvToWorld(uvRectCenter(uvCorridor.rect), plan.core.frame));
-    const roomCenters = new Map(
-      uvRooms.map((r) => [r.id, uvToWorld(uvRectCenter(r.rect), plan.core.frame)]),
-    );
+    const start = roomFloodStart(grid, corridor);
+    if (!start) throw new InteriorError("E_UNREACHABLE_SPACE", `spine ${corridor.id} has no walkable cell`, floor.floor);
+    const visited = grid.flood(start);
     const floorAnchorList = [
-      ...floorAnchors(floor, grid, visited, roomCenters),
-      ...coreAnchors(floor, grid, visited, corridor.id, plan.core),
+      ...floorAnchors(floor, grid, visited),
+      ...coreAnchors(floor, grid, visited, plan.core),
     ];
     const blocked = anchorConflicts(floor, floorAnchorList);
     if (blocked.length > 0) {
