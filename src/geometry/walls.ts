@@ -7,9 +7,10 @@ import { WALL } from "../layout/constants.js";
 import { doorUvPoint } from "../layout/plan-floor.js";
 import { Facade as FacadeReservations, PARTITION_HALF } from "../layout/openings.js";
 import type { EdgeName, PlanRoom } from "../layout/plan-types.js";
+import { roomEdges } from "../layout/room-shape.js";
 import { TILE } from "../layout/tile-fit.js";
 import type { Frame, UvRect } from "../layout/uv.js";
-import { toWorldPolygon, uvRectCorners, uvToWorld } from "../layout/uv.js";
+import { toWorldPolygon, uvToWorld } from "../layout/uv.js";
 import type { MaterialKeys } from "./materials.js";
 import type { Exposed, WallBands } from "./wall-detail.js";
 import { layerBands } from "./wall-detail.js";
@@ -179,21 +180,13 @@ export function canonicalHoles(holes: readonly WallHole[]): WallHole[] {
 /** The interior segments of a room's outline: its clipped polygon edges off the facade,
  *  each tagged with the room edge it lies on (a clip cut lies on none). */
 function roomSegments(room: PlanRoom, uvOutline: readonly Point[], facadeDepth: number): RoomSegment[] {
-  const r = room.rect;
-  const clipped = clipPolygonToRect(uvOutline, { x: r.u, z: r.v, w: r.lu, d: r.lv });
-  const poly = clipped.length >= 3 ? clipped : uvRectCorners(r);
-  const on = (c: number, at: number): boolean => Math.abs(c - at) < 1e-6;
   const out: RoomSegment[] = [];
-  for (let i = 0; i < poly.length; i++) {
-    const a = poly[i]!;
-    const b = poly[(i + 1) % poly.length]!;
+  for (const { a, b, edge } of roomEdges(room, uvOutline)) {
     const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     if (onFacadeBand(a, b, mid, uvOutline, facadeDepth)) continue;
     if (Math.abs(a[1] - b[1]) < 1e-6) {
-      const edge = on(a[1], r.v) ? "v0" : on(a[1], r.v + r.lv) ? "v1" : null;
       out.push({ axis: "H", c: a[1], a: Math.min(a[0], b[0]), b: Math.max(a[0], b[0]), edge });
     } else if (Math.abs(a[0] - b[0]) < 1e-6) {
-      const edge = on(a[0], r.u) ? "u0" : on(a[0], r.u + r.lu) ? "u1" : null;
       out.push({ axis: "V", c: a[0], a: Math.min(a[1], b[1]), b: Math.max(a[1], b[1]), edge });
     }
     // other angles only occur on the facade, which the boundary test skipped

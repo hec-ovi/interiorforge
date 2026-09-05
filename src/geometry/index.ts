@@ -1,7 +1,7 @@
 import type { Document } from "@gltf-transform/core";
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, insetPolygon } from "../core/geom.js";
+import { clipPolygonToRect, insetPolygon, polygonArea } from "../core/geom.js";
 import { createRng } from "../core/rng.js";
 import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
@@ -12,6 +12,7 @@ import type { CorePlan } from "../layout/core-plan.js";
 import type { BuildingPlan } from "../layout/index.js";
 import { planRoofAccess } from "../layout/roof-access.js";
 import type { PlanRoom } from "../layout/plan-types.js";
+import { roomPolygon } from "../layout/room-shape.js";
 import { facadeDepth, SHELL_WALL, shellWallDepth } from "../layout/shell.js";
 import type { UvRect } from "../layout/uv.js";
 import { toWorldPolygon } from "../layout/uv.js";
@@ -135,13 +136,16 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
     const wallPlate = insetPolygon(uv.outline, wallDepth + SHELL_WALL.lining / 2);
     const cut = (rect: UvRect, plate: Point[]): Point[] =>
       toWorldPolygon(clipPolygonToRect(plate, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }), core.frame);
-    const roomPlans = uv.rooms.map((r) => ({ kind: r.kind, polygon: cut(r.rect, slabPlate) }));
+    const roomPlans = uv.rooms.map((room) => ({
+      kind: room.kind, polygon: toWorldPolygon(roomPolygon(room, slabPlate), core.frame),
+    }));
     const sealedPolys = uv.sealed.map((rect) => cut(rect, slabPlate));
     const ceilingY = floor.ceilingElevation;
     buildFloorSurfaces(mb, keys, roomPlans.filter((r) => r.polygon.length >= 3), floor.elevation, ceilingY, sealedPolys.filter((p) => p.length >= 3), ceilings);
     // the floor's biggest room sets the wall pattern, so a venue floor and an office floor
     // never wear the same one
-    const program = uv.rooms.reduce((best, r) => (r.rect.lu * r.rect.lv > best.rect.lu * best.rect.lv ? r : best)).kind;
+    const program = roomPlans.reduce((best, room) =>
+      Math.abs(polygonArea(room.polygon)) > Math.abs(polygonArea(best.polygon)) ? room : best).kind;
     buildInteriorWalls(
       mb, keys, [...uv.rooms, ...sealedAsRooms], bpFloor, facade, uv.outline, wallPlate,
       facadeDepth(facade), core.frame, floor.elevation,
