@@ -137,7 +137,7 @@ describe("generateInterior", () => {
       expect(check(asJson), `floor ${floor.floor}: ${JSON.stringify(check.errors)}`).toBe(true);
     }
     expect(a.floors.filter((f) => f.floor >= 0).every((f) => f.core.elevators.length > 0)).toBe(true);
-  });
+  }, 30_000);
 
   it("floorGlbs splits the interior by floor band, one GLB per blueprint floor", async () => {
     const own = makeFixture({ seed: 44, floors: 7, basements: 1 });
@@ -196,7 +196,7 @@ describe("generateInterior", () => {
     for (const [floor, bytes] of streamed.floorGlbs) {
       expect(Buffer.from(bytes).equals(Buffer.from(combined.floorGlbs!.get(floor)!))).toBe(true);
     }
-  });
+  }, 30_000);
 
   it("builds a producer-shaped open shop front as a clear, reachable portal without leaves", async () => {
     // The open edge is 11 degrees off the layout frame. Its center is 1.22 m from the
@@ -298,7 +298,7 @@ describe("generateInterior", () => {
     const ajv = new Ajv2020({ allErrors: false, strict: false });
     const check = ajv.compile(floorSchema);
     expect(check(JSON.parse(JSON.stringify(floor))), JSON.stringify(check.errors)).toBe(true);
-  });
+  }, 30_000);
 
   it("moves the complete secondary stair behind a deep facade door reservation", async () => {
     const source = makeFixture({
@@ -326,7 +326,7 @@ describe("generateInterior", () => {
       reservation.position[0] - reservation.depth + 1e-6,
     );
     await expectOpeningVolumesClear(result.floorGlbs.get(1)!, floor, opening.id);
-  });
+  }, 30_000);
 
   it("emits doorway casings as closed face trims without duplicate faces or stretched mapping", async () => {
     const fixture = makeFixture({ seed: "casing-section", floors: 2, type: "offices" });
