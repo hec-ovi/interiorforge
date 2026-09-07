@@ -170,10 +170,6 @@ class MinHeap {
   }
 }
 
-function distance(a: Point, b: Point): number {
-  return Math.hypot(b[0] - a[0], b[1] - a[1]);
-}
-
 function round2(v: number): number {
   return Math.round(v * 100) / 100;
 }
