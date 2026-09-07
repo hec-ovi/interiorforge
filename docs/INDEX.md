@@ -1,5 +1,7 @@
 # Box map
 
+- [Material inventory](../README.md#materials): interior selections, exterior overlap, native palettes and verified catalog variants.
+
 Root box: the [interior generator](../CONTRACT.md). Inner boxes, one folder each:
 
 Browser-safe boundary: [`src/feasibility.ts`](../src/feasibility.ts) exposes Layout's actual core solver and selected stair footprint to Exterior, independent of rendering and filesystem code.
