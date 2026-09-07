@@ -52,3 +52,13 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 ## Depends on
 
 - [core](../core/CONTRACT.md)
+
+Furnishing reserves 3 x 0.5 x 2 m wall ornaments in suitable rooms from 32 m² and 2.5 x 0.5 x 2 m freestanding dividers from 65 m². Wall ornaments require a solid interior edge. Both pass the same opening, door, footprint and circulation fit as other furniture before remaining furniture is placed.
+
+Mid-tier bedrooms and studios of at least 14 square metres try a fitted sleeping pod against a solid wall, with an ordinary bed when it cannot fit.
+
+Lit ornaments and sleeping pods publish a light fixture with their furniture ID, fitted lens height, orientation and lumen budget. Poor service racks have no light.
+
+Office chairs reserve 0.65 x 0.65 m for their five-star base and 1.15 m height.
+
+Poor occupied rooms and back rooms place one or two 0.8 m refuse groups along spare margins after furnishing, using the same ground clearance tests.

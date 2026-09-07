@@ -12,6 +12,7 @@ import { stairAccess } from "./core-plan.js";
 import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
 import { furnish } from "./furnish.js";
 import { planLights } from "./lighting.js";
+import { furnitureLights } from "./furniture-lights.js";
 import { isExteriorConnection, openingKeepouts, partitionConflicts } from "./openings.js";
 import { openingVolume } from "./opening-volume.js";
 import { alignPartitionsToPiers } from "./pier-align.js";
@@ -209,7 +210,7 @@ export function planFloor(
   }
   const circulation = reserveCirculation(architecture, rooms, core, floor.index);
   const furniture = furnish(rooms, kind, rng, ids, bounds,
-    [...facadeKeepouts.map((item) => item.rect), ...circulationKeepouts(circulation, frame)]);
+    [...facadeKeepouts.map((item) => item.rect), ...circulationKeepouts(circulation, frame)], request.building.tier);
   blockPhysicalFurniture(architecture, frame, furniture);
   verifyCirculation(circulation, architecture);
   const ceilingElevation = round3(floor.elevation + ceilingUnder(floor.openings, spaceHeight));
@@ -224,10 +225,10 @@ export function planFloor(
       openingReservations: reserveOpenings(floor, bounds.facadeDepth),
       rooms: worldRooms,
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
-      lights: planLights(
+      lights: [...planLights(
         rooms, core, bounds.inner, ceilingElevation,
         floor.elevation + spaceHeight - stairSlab(spaceHeight), ids,
-      ),
+      ), ...furnitureLights(furniture, frame, floor.elevation, request.building.tier)],
     },
     grid,
     uv: { outline: uvOutline, rooms, furniture, sealed },

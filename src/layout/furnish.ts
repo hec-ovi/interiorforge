@@ -19,12 +19,14 @@ const SIZES: Record<FurnitureKind, Size3> = {
   kitchen_block: [2.4, 0.65, 0.95], fridge: [0.7, 0.7, 1.8], sofa: [1.8, 0.85, 0.8],
   low_table: [0.9, 0.5, 0.4], dining_table: [0.9, 0.9, 0.75], chair: [0.45, 0.45, 0.9],
   toilet: [0.4, 0.65, 0.75], sink: [0.5, 0.45, 0.85], shower: [0.9, 0.9, 2.0],
-  desk: [1.6, 0.8, 0.75], office_chair: [0.5, 0.5, 0.9], meeting_table: [2.8, 1.2, 0.75],
+  desk: [1.6, 0.8, 0.75], office_chair: [0.65, 0.65, 1.15], meeting_table: [2.8, 1.2, 0.75],
   shelf: [1.8, 0.5, 2.0], counter: [2.0, 0.7, 0.9], reception_desk: [2.6, 0.9, 1.1],
   bar_counter: [3.0, 0.65, 1.1], stool: [0.4, 0.4, 0.65], gym_machine: [1.2, 2.0, 1.5],
   bench: [1.8, 0.4, 0.45], plant: [0.5, 0.5, 1.4], display_rack: [1.4, 0.6, 1.6],
   wall_shelf: [1.2, 0.28, 0.4], display_screen: [1.2, 0.08, 0.7], wall_art: [0.9, 0.06, 0.7],
-  crate: [0.62, 0.62, 0.55],
+  crate: [0.62, 0.62, 0.55], floor_clutter: [0.8, 0.8, 0.8],
+  sleeping_pod: [2.5, 1.5, 2.0],
+  ornament_wall: [3.0, 0.5, 2.0], room_divider: [2.5, 0.5, 2.0],
 };
 
 /** Pieces that hang on a wall, and how high their base sits. */
@@ -318,7 +320,7 @@ function edgeRotation(edge: Edge): 0 | 90 | 180 | 270 {
 
 export function furnish(
   rooms: PlanRoom[], floorKind: FloorKind, rng: Rng, ids: IdGen, bounds: FloorBounds,
-  openingZones: readonly UvRect[] = [],
+  openingZones: readonly UvRect[] = [], tier = "rich",
 ): PlanFurniture[] {
   const out: PlanFurniture[] = [];
   const zones = doorZonesByRoom(rooms);
@@ -327,10 +329,18 @@ export function furnish(
       room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), openingZones, bounds,
     );
     const area = roomArea(room);
+    if (area >= 32 && ["reception", "lounge", "office_open", "dining_area", "living", "studio_main"].includes(room.kind)) {
+      p.wallPiece("ornament_wall");
+    }
+    if (area >= 65 && ["reception", "office_open", "living", "studio_main", "lounge"].includes(room.kind)) {
+      p.grid("room_divider", 2.0, 1);
+    }
     switch (room.kind) {
       case "studio_main":
         // clipped wedge rooms often have no straight wall for the bed: fall back to open floor
-        if (!p.anyEdge("bed_double")) p.grid("bed_double", 0.6, 1);
+        if (!(tier === "mid" && area >= 14 && p.wallPiece("sleeping_pod"))) {
+          if (!p.anyEdge("bed_double")) p.grid("bed_double", 0.6, 1);
+        }
         p.anyEdge("kitchen_block");
         p.anyEdge("wardrobe");
         if (area >= 18) {
@@ -341,7 +351,9 @@ export function furnish(
         break;
       case "bedroom": {
         const bed = area >= 9 ? "bed_double" as const : "bed_single" as const;
-        if (!p.anyEdge(bed)) p.grid(bed, 0.6, 1);
+        if (!(tier === "mid" && area >= 14 && p.wallPiece("sleeping_pod"))) {
+          if (!p.anyEdge(bed)) p.grid(bed, 0.6, 1);
+        }
         p.anyEdge("wardrobe");
         p.wallPiece("wall_art");
         break;
@@ -474,6 +486,9 @@ export function furnish(
         break;
       default:
         break; // corridors, lobbies, halls without furniture, parking
+    }
+    if (tier === "poor" && area >= 12 && ["storage", "mechanical_room", "office_open", "studio_main", "living", "lounge"].includes(room.kind)) {
+      for (let i = 0; i < (area >= 32 ? 2 : 1); i++) p.anyEdge("floor_clutter");
     }
     void floorKind;
   }
