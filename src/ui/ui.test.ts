@@ -1,11 +1,42 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getByRole, findByText, waitFor } from "@testing-library/dom";
 import userEvent from "@testing-library/user-event";
 import { mountApp } from "./main.js";
 import { toast } from "./components/toast.js";
 import type { FloorSlice, Viewer3D } from "./views/viewer3d.js";
+
+vi.mock("../index.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../index.js")>();
+  const { createHash } = await import("node:crypto");
+  const { serialize, deserialize } = await import("node:v8");
+  const { writeGlb } = await import("../glb/io.js");
+  const snapshots = new Map<string, Promise<{ data: Buffer; glb: Uint8Array; floorGlbs?: Map<number, Uint8Array> }>>();
+  return {
+    ...actual,
+    async generateInterior(...[request, options = {}]: Parameters<typeof actual.generateInterior>) {
+      const { shellDoc, ...settings } = options;
+      if (!shellDoc) return actual.generateInterior(request, options);
+      const key = createHash("sha256").update(serialize({ request, settings }))
+        .update(await writeGlb(shellDoc)).digest("hex");
+      let snapshot = snapshots.get(key);
+      if (!snapshot) {
+        // Generate each fixture through the real root boundary; retain only a private snapshot.
+        snapshot = actual.generateInterior(request, options)
+          .then(({ glb, floorGlbs, ...data }) => ({ glb, floorGlbs, data: serialize(data) }));
+        snapshots.set(key, snapshot);
+      }
+      // Every mount receives new objects and GLB buffers, with no shared mutable app data.
+      const { data, glb, floorGlbs } = await snapshot;
+      return {
+        ...deserialize(data),
+        glb: new Uint8Array(glb),
+        ...(floorGlbs ? { floorGlbs: new Map([...floorGlbs].map(([floor, bytes]) => [floor, new Uint8Array(bytes)])) } : {}),
+      } as Awaited<ReturnType<typeof actual.generateInterior>>;
+    },
+  };
+});
 
 function fakeViewer(): Viewer3D & {
   glb: Uint8Array | null; slice: FloorSlice | null; lights: number; eye: number[] | null;
@@ -39,7 +70,11 @@ async function mountAndGenerate() {
   const viewer = fakeViewer();
   const state = mountApp(root, viewer);
   const user = userEvent.setup();
-  await waitFor(() => expect(state.result).not.toBeNull(), { timeout: 30000 });
+  await waitFor(() => {
+    expect(state.result).not.toBeNull();
+    expect(state.busy).toBe(false);
+  }, { timeout: 30000 });
+  const initial = state.result;
 
   const seed = root.querySelector<HTMLInputElement>('input[name="seed"]')!;
   await user.clear(seed);
@@ -48,7 +83,10 @@ async function mountAndGenerate() {
   await user.clear(floors);
   await user.type(floors, "5");
   await user.click(getByRole(root, "button", { name: "generate" }));
-  await waitFor(() => expect(state.result).not.toBeNull(), { timeout: 15000 });
+  await waitFor(() => {
+    expect(state.result).not.toBe(initial);
+    expect(state.busy).toBe(false);
+  }, { timeout: 30000 });
   return { root, viewer, state, user };
 }
 
@@ -78,6 +116,7 @@ describe("preview ui", () => {
     const viewer = fakeViewer();
     const state = mountApp(root, viewer);
     await waitFor(() => expect(state.result).not.toBeNull(), { timeout: 30000 });
+    expect(state.params).toEqual({ seed: 1, floors: 12, basements: 1, type: "offices", tier: "mid" });
     expect(viewer.glb).toBeInstanceOf(Uint8Array);
     expect(state.result!.floors.length).toBeGreaterThan(1);
   }, 40000);
@@ -102,6 +141,11 @@ describe("preview ui", () => {
 
     const roomShapes = root.querySelectorAll("[data-room]");
     expect(roomShapes.length).toBe(state.floorData()!.rooms.length);
+    const slots = (state.result!.npc.placements ?? []).filter(slot => slot.floor === state.floorIndex);
+    expect({
+      ids: Array.from(root.querySelectorAll(".npc-slot"), marker => marker.getAttribute("data-npc-slot")).sort(),
+      approaches: root.querySelectorAll(".npc-approach").length,
+    }).toEqual({ ids: slots.map(slot => slot.id).sort(), approaches: slots.length });
     await user.click(roomShapes[roomShapes.length - 1]!);
     expect(state.selectedRoom).not.toBeNull();
     const selected = state.floorData()!.rooms.find((r) => r.id === state.selectedRoom)!;

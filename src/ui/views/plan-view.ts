@@ -1,3 +1,4 @@
+import { npcPlacements } from "../components/npc-placements.js";
 import { polygonBounds } from "../../core/geom.js";
 import type { Point } from "../../core/geom.js";
 import { findPath } from "../../npc/index.js";
@@ -135,6 +136,8 @@ export function createPlanView(state: AppState): HTMLElement {
       dot.setAttribute("data-anchor", anchor.kind);
       svg.append(dot);
     }
+
+    svg.append(npcPlacements((result.npc.placements ?? []).filter(slot => slot.floor === floor.floor)));
 
     // Walk Paths
     const walkLegs = state.path?.filter((l) => l.kind === "walk") ?? [];

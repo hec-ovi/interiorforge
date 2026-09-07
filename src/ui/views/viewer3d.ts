@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { LightFixture } from "../../core/types.js";
+import { FixtureLighting } from "./fixture-lighting.js";
 import { el } from "../components/dom.js";
 
 export interface FloorSlice {
@@ -17,24 +18,6 @@ export interface Viewer3D {
   setLights(lights: readonly LightFixture[] | null): void;
   /** Stands the camera in a room at eye height, looking across it: what the player sees. */
   standIn(at: [number, number], eyeY: number, headingDeg: number): void;
-}
-
-/** How many lights the preview instantiates before it stops adding more. */
-const MAX_LIGHTS = 60;
-/** Lumens per three.js point-light unit at this scale. */
-const LUMEN_SCALE = 900;
-
-/** Approximate sRGB colour of a black body at that temperature. */
-function whiteAt(kelvin: number): THREE.Color {
-  const t = Math.max(1800, Math.min(8000, kelvin)) / 100;
-  const r = t <= 66 ? 255 : 329.7 * (t - 60) ** -0.1332;
-  const g = t <= 66 ? 99.47 * Math.log(t) - 161.12 : 288.12 * (t - 60) ** -0.0755;
-  const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.52 * Math.log(t - 10) - 305.04;
-  return new THREE.Color(
-    Math.min(1, Math.max(0, r / 255)),
-    Math.min(1, Math.max(0, g / 255)),
-    Math.min(1, Math.max(0, b / 255)),
-  );
 }
 
 export function createViewer3d(): Viewer3D {
@@ -61,6 +44,10 @@ export function createViewer3d(): Viewer3D {
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.localClippingEnabled = true;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = .024;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
   container.append(renderer.domElement, hudTop, hudBottom, busyOverlay);
@@ -78,8 +65,9 @@ export function createViewer3d(): Viewer3D {
   const sun = new THREE.DirectionalLight(0xffffff, 1.4);
   sun.position.set(60, 100, 40);
   scene.add(sun);
-  const fixtures = new THREE.Group();
-  scene.add(fixtures);
+  const fixtures = new FixtureLighting();
+  let publishedLights: readonly LightFixture[] = [];
+  scene.add(fixtures.group);
 
   let building: THREE.Group | null = null;
   const clipLow = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -105,6 +93,8 @@ export function createViewer3d(): Viewer3D {
     building.traverse((obj) => {
       const mesh = obj as THREE.Mesh;
       if (mesh.isMesh) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         const material = mesh.material as THREE.Material;
         material.clippingPlanes = clipping ? [clipLow, clipHigh] : null;
         material.clipIntersection = false;
@@ -139,39 +129,16 @@ export function createViewer3d(): Viewer3D {
       }
     },
     setLights(lights) {
-      fixtures.clear();
-      // the fixtures light the room; daylight drops back so what is seen is the interior's own
-      ambient.intensity = lights && lights.length > 0 ? 0.18 : 0.75;
-      sun.intensity = lights && lights.length > 0 ? 0.15 : 1.4;
-      if (!lights) return;
-      let budget = MAX_LIGHTS;
-      for (const fixture of lights) {
-        if (budget <= 0) break;
-        const points = fixture.length > 2 ? Math.min(3, Math.ceil(fixture.length / 3)) : 1;
-        const rad = (fixture.angleDeg * Math.PI) / 180;
-        for (let i = 0; i < points && budget > 0; i++) {
-          const t = points === 1 ? 0 : (i / (points - 1) - 0.5) * fixture.length;
-          const light = new THREE.PointLight(
-            whiteAt(fixture.colorTemperatureK),
-            fixture.intensity / LUMEN_SCALE / points,
-            fixture.range * (1 + fixture.diffuse),
-            1.4,
-          );
-          // an uplighting cove sits a little above its lip, where its wash starts
-          light.position.set(
-            fixture.position[0] + Math.cos(rad) * t,
-            fixture.position[1] + (fixture.facing === "up" ? 0.09 : -0.05),
-            fixture.position[2] + Math.sin(rad) * t,
-          );
-          fixtures.add(light);
-          budget--;
-        }
-      }
+      publishedLights = lights ?? [];
+      ambient.intensity = publishedLights.length ? .025 : .75;
+      sun.intensity = publishedLights.length ? 0 : 1.4;
+      fixtures.set(publishedLights, camera.position);
     },
     standIn(at, eyeY, headingDeg) {
       const rad = (headingDeg * Math.PI) / 180;
       hudModeText.textContent = "EYE VIEW (+1.65m)";
       camera.position.set(at[0], eyeY, at[1]);
+      fixtures.set(publishedLights, camera.position);
       controls.target.set(at[0] + Math.sin(rad) * 6, eyeY - 0.4, at[1] + Math.cos(rad) * 6);
       camera.near = 0.05;
       camera.far = 400;

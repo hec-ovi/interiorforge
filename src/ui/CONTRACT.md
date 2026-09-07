@@ -53,3 +53,7 @@ A material theme request that is unavailable yields key-only rendering.
 - [materials contract](../materials/CONTRACT.md)
 - [npc contract](../npc/CONTRACT.md)
 - Three.js 0.185, DOM, WebGL, `ResizeObserver`, Vite
+
+Fixture preview uses linear RGB when supplied, world lens axes and normals, inverse-square falloff, shadowed spot samples and ACES tone mapping. Eye view selects the nearest 24 fixtures. Interior fill is 0.025 with no unoccluded sun; emissive lenses retain their own material glow.
+
+The floor plan draws square NPC body slots and their approach lines from `npc.placements`; tooltips identify vendor, staff and unassigned story positions.
