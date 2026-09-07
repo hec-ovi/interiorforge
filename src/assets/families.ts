@@ -28,6 +28,7 @@ const FAMILY_BY_KIND: Partial<Record<FurnitureKind, AssetFamily>> = {
 
 const ASSETS_BY_KIND: Partial<Record<FurnitureKind, readonly string[]>> = {
   floor_clutter: ["sketchfab-animal-crossing-new-horizons-trash-bags"],
+  fridge: ["sketchfab-fridgemodern", "sketchfab-unbranded-conventional-fridge"],
 };
 
 export function assetFamilyForFurniture(kind: FurnitureKind): AssetFamily | null {

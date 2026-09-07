@@ -143,3 +143,15 @@ describe("asset catalog contract", () => {
     expect(roundtrip.getRoot().listNodes().some((node) => node.getName().startsWith(`asset:${asset.id}`))).toBe(true);
   });
 });
+
+
+it("uses the supplied shelf and refrigerator without substituting unrelated appliances", async () => {
+  const floors = [{floor:0,furniture:[
+    {id:"shelf",kind:"shelf",room:"living",position:[0,0],rotationDeg:0,size:[1.8,.5,2]},
+    {id:"fridge",kind:"fridge",room:"living",position:[3,0],rotationDeg:0,size:[.7,.7,1.8]},
+  ]}] as FloorInterior[];
+  const prepared=await prepareFurnitureAssets(floors,{seed:8},["damaged","poor"],async()=>new Document());
+  expect(prepared.byFloor.get(0)?.map(item=>item.asset.id)).toEqual([
+    "sketchfab-file-shelf","sketchfab-unbranded-conventional-fridge",
+  ]);
+});

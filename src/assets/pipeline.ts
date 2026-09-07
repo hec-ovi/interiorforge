@@ -29,7 +29,7 @@ export async function prepareFurnitureAssets(
   const documents = new Map<string, Document>();
   const attempts = new Map<string, Promise<Document | null>>();
   const chosen = new Map<string, AssetEntry>();
-  const activeFamilies = new Set(["chair", "desk", "sofa", "planter"]);
+  const activeFamilies = new Set(["chair", "desk", "sofa", "planter", "bed", "shelf", "appliance", "toilet", "sink", "bench"]);
   if (styles.includes("poor") || styles.includes("damaged")) activeFamilies.add("prop");
 
   for (const floor of [...floors].sort((a, b) => a.floor - b.floor)) {
