@@ -4,6 +4,9 @@ import type { PlanFurniture } from "../../layout/plan-types.js";
 import type { Frame } from "../../layout/uv.js";
 import type { MaterialKeys } from "../materials.js";
 import { crate } from "./clutter.js";
+import { debris } from "./debris.js";
+import { Assembly } from "../ornaments/assembly.js";
+import { emitOrnament } from "../ornaments/index.js";
 import { barCounter, counter, kitchenBlock, receptionDesk } from "./counters.js";
 import { gymMachine, plant, shower, sink, toilet } from "./fixtures.js";
 import { Placer } from "./placer.js";
@@ -14,7 +17,7 @@ import { displayScreen, wallArt } from "./wall.js";
 
 type Builder = (p: Placer) => void;
 
-const BUILDERS: Record<FurnitureKind, Builder> = {
+const BUILDERS: Record<Exclude<FurnitureKind, "ornament_wall" | "room_divider" | "sleeping_pod" | "floor_clutter">, Builder> = {
   dining_table: diningTable, low_table: lowTable, meeting_table: meetingTable, desk,
   chair, stool, office_chair: officeChair, sofa, bench,
   bed_single: bed, bed_double: bed,
@@ -31,6 +34,14 @@ export function emitFurniture(
 ): void {
   for (const item of furniture) {
     if (skipIds?.has(item.id)) continue;
+    if (item.kind === "floor_clutter") {
+      debris(new Assembly(mb, keys, item, frame, elevation));
+      continue;
+    }
+    if (item.kind === "ornament_wall" || item.kind === "room_divider" || item.kind === "sleeping_pod") {
+      emitOrnament(mb, keys, item, frame, elevation);
+      continue;
+    }
     const placer = new Placer(mb, keys, frame, item, elevation + (item.elevation ?? 0));
     BUILDERS[item.kind](placer);
   }

@@ -92,10 +92,11 @@ export function computeStairSteps(shaft: UvRect, entryLowEnd: boolean, elevation
 export function emitStairMeshes(
   mb: MeshBuilder, keys: MaterialKeys, frame: Frame, steps: UvStep[], slab: number,
 ): void {
-  const material = keys.concrete();
   for (const s of steps) {
     const corners = uvRectCorners({ u: s.u, v: s.v, lu: s.lu, lv: s.lv }).map((p) => uvToWorld(p, frame));
-    mb.addPrism(material, corners, s.y - slab, s.y);
+    mb.addPrism(keys.wall(), corners, s.y - slab, s.y, "world", "none");
+    mb.addHorizontalPolygon(keys.concrete(), corners, s.y - slab, "down");
+    mb.addHorizontalPolygon(keys.floorOf("corridor"), corners, s.y, "up");
   }
 }
 

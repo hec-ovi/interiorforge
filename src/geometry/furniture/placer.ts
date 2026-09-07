@@ -19,6 +19,7 @@ const KIND: Record<Mat, string> = {
 export class Placer {
   private readonly cos: number;
   private readonly sin: number;
+  private readonly fit: number;
   /** half extents, so a builder writes in terms of its own edges */
   readonly hw: number;
   readonly hd: number;
@@ -31,7 +32,12 @@ export class Placer {
     private readonly item: PlanFurniture,
     private readonly base: number,
   ) {
-    const rad = (item.rotationDeg * Math.PI) / 180;
+    const jitter = ["chair", "office_chair", "stool"].includes(item.kind) ? 6
+      : ["desk", "dining_table", "low_table"].includes(item.kind) ? 2.5 : 0;
+    const delta = (this.variant(93) * 2 - 1) * jitter * Math.PI / 180;
+    const [w, d] = item.size, c = Math.abs(Math.cos(delta)), s = Math.abs(Math.sin(delta));
+    this.fit = Math.min(1, w / (w * c + d * s), d / (w * s + d * c));
+    const rad = (item.rotationDeg * Math.PI) / 180 + delta;
     this.cos = Math.cos(rad);
     this.sin = Math.sin(rad);
     this.hw = item.size[0] / 2;
@@ -72,6 +78,7 @@ export class Placer {
   }
 
   private toWorld(x: number, z: number): Point {
+    x *= this.fit; z *= this.fit;
     const u = this.item.at[0] + x * this.cos + z * this.sin;
     const v = this.item.at[1] - x * this.sin + z * this.cos;
     return uvToWorld([u, v], this.frame);

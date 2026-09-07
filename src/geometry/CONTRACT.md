@@ -36,3 +36,7 @@ Purpose: turns a building plan into interior meshes and completes the shell GLB 
 `GeometryOptions.skipFurnitureIdsByFloor` suppresses procedural instances selected by the asset importer. It is an optional final argument to both geometry entrypoints; reservations and NPC data keep their published dimensions.
 
 [Panels](panels/CONTRACT.md) map rich/high_rich to luxury limestone, walnut and marble, poor to worn sage plaster and aggregate, mid to capsule composite and rubber. The 0.5 m nine-piece modules retain corner sizes, close large panel perimeters and preserve exact floor/ceiling coverage. One fitted square repair or service face appears on a suitable wall in each damaged/capsule floor. UVs preserve physical scale; exact faces map once.
+
+[Ornaments](ornaments/CONTRACT.md) build plants, fish, glass, pipes, cable loops and lit cases in reserved furniture envelopes. Furniture-owned fixtures use the assembly housing. Capsule sleeping pods reserve their full shell height. Loose procedural chairs and tables have seeded angular variation fitted inside their reserved footprint. Stair treads use the floor finish and risers use the wall finish, retaining structural thickness and headroom.
+
+`floor_clutter` has a bounded procedural refuse-sack and paper assembly when no imported prop fits.

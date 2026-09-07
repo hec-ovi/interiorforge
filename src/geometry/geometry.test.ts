@@ -48,7 +48,7 @@ describe("buildInterior", () => {
     const fix = makeFixture({ seed: 8, floors: 4 });
     const plan = planBuilding(fix.request, resolveAssignments(fix.request));
     const { doc } = buildInterior(plan, fix.request, fix.shellDoc);
-    const lights = plan.floors.flatMap((f) => f.lights);
+    const lights = plan.floors.flatMap((f) => f.lights).filter(light => !light.furniture);
     expect(lights.length).toBeGreaterThan(0);
     const lightMeshes = doc.getRoot().listMeshes().filter((m) => m.getName().includes("/light-fixture/"));
     const lenses = lightMeshes

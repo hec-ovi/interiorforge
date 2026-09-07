@@ -1,0 +1,18 @@
+{
+ "$schema":"https://json-schema.org/draft/2020-12/schema",
+ "title":"OrnamentFurniture",
+ "type":"object",
+ "required":["kind","id","room","at","rotationDeg","size"],
+ "properties":{
+   "kind":{"enum":["ornament_wall","room_divider", "sleeping_pod"]},
+   "id":{"type":"string"},"room":{"type":"string"},
+   "at":{"type":"array","items":{"type":"number"},"minItems":2,"maxItems":2},
+   "rotationDeg":{"enum":[0,90,180,270]},
+   "size":{"description":"Width, depth, height in metres.","type":"array","items":{"type":"number","exclusiveMinimum":0},"minItems":3,"maxItems":3}
+ },
+ "allOf":[{
+   "if":{"properties":{"kind":{"const":"sleeping_pod"}}},
+   "then":{"properties":{"size":{"prefixItems":[{"minimum":2.5},{"minimum":1.5},{"minimum":2}]}}},
+   "else":{"properties":{"size":{"prefixItems":[{"minimum":1},{"minimum":0.5},{"minimum":1.5}]}}}
+ }]
+}

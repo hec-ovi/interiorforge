@@ -21,6 +21,7 @@ const COVE_LIP_THICKNESS = 0.02;
  *  at the exact poses the floor JSON publishes. */
 export function emitLightFixtures(mb: MeshBuilder, keys: MaterialKeys, lights: LightFixture[]): void {
   for (const light of lights) {
+    if (light.furniture) continue;
     const shape = SHAPE[light.kind];
     const [x, y, z] = light.position;
     const rad = (light.angleDeg * Math.PI) / 180;

@@ -21,8 +21,8 @@ export class MaterialKeys {
 
   /** `theme/kind/tier`, plus an optional `#variant` preference the materials database
    *  resolves; a consumer that ignores the suffix still gets the entry's canonical variant. */
-  key(kind: string, variant?: string): string {
-    const base = `${this.theme}/${kind}/${this.tier}`;
+  key(kind: string, variant?: string, tier = this.tier): string {
+    const base = `${this.theme}/${kind}/${tier}`;
     return variant ? `${base}#${variant}` : base;
   }
 
@@ -40,6 +40,7 @@ export class MaterialKeys {
    *  any resolver, not only one that honours the variant preference. */
   accent(room?: RoomKind): string {
     if (this.theme === "cyberpunk" && this.panels.style === "luxury") {
+      if (["studio_main", "living"].includes(room ?? "")) return this.key("interior-loft-brick", undefined, "rich");
       return ["bathroom", "toilets", "kitchen"].includes(room ?? "")
         ? this.panels.surface("floor") : `${this.theme}/interior-luxury-timber/rich`;
     }
@@ -51,6 +52,7 @@ export class MaterialKeys {
   /** Baseboards, top trim and reveals. */
   /** Door casings: the painted steel every door and its frame wear. */
   door(): string {
+    if (this.theme === "cyberpunk" && this.panels.style === "damaged") return this.key("interior-damaged-steel");
     return this.key("door");
   }
 
