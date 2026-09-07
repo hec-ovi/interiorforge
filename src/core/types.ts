@@ -268,6 +268,11 @@ export interface LightFixture {
   /** luminous flux, lumens */
   intensity: number;
   colorTemperatureK: number;
+  /** Linear RGB overrides temperature for colored lenses. */
+  color?: [number, number, number];
+  /** Unit world vectors for the line axis and emitting face normal. */
+  axis?: [number, number, number];
+  direction?: [number, number, number];
   /** useful radius, meters */
   range: number;
   /** full spread of the light: a strip and a cove wash wide and soft, a spot throws down */

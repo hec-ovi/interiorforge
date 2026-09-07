@@ -393,6 +393,9 @@
         "additionalProperties": false,
         "properties": {
           "furniture": { "type": "string", "description": "ID of the furniture assembly owning this fixture housing." },
+          "color": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 3, "maxItems": 3, "description": "Linear RGB; overrides temperature for colored lenses." },
+          "axis": { "$ref": "#/$defs/point3", "description": "Unit world vector along the line. Defaults to angleDeg in XZ." },
+          "direction": { "$ref": "#/$defs/point3", "description": "Unit world vector normal to the emitting face. Defaults to facing." },
           "id": {
             "type": "string"
           },
