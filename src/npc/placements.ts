@@ -11,7 +11,7 @@ import { roomFloodStart } from "./anchor-placement.js";
 import { occupy } from "./placement-grid.js";
 
 const RADIUS=.3;
-const STORY_ROOMS=new Set(["reception","lounge","living","studio_main","office_open","executive_office","dining_area","bar","counter_area","sales_floor","gym_floor","bedroom"]);
+const STORY_ROOMS=new Set(["reception","lounge","living","studio_main","office_open","executive_office","dining_area","bar","counter_area","sales_floor","gym_floor","bedroom","kitchen","bathroom","toilets","locker_room","storage","mechanical_room","terrace_open","parking_area"]);
 
 export function buildPlacements(plan:BuildingPlan,anchors:readonly Anchor[],roles:readonly RoleSlot[]):NpcPlacement[] {
   const placements:NpcPlacement[]=[];

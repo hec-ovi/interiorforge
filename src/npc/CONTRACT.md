@@ -27,4 +27,4 @@ Purpose: derives everything the simulation layer needs from a building plan: anc
 
 Sleeping pods expose a bed anchor at their open long-side entrance.
 
-`placements` publishes stable vendor/staff and unassigned story slots with body radius, world position, facing and a reachable approach. Positions avoid doors, furniture, loft stair entries and reserved circulation sweeps. Each accepted body is tested together with prior slots; all original circulation endpoints and prior approaches stay connected on the occupied floor grid. Slots are optional spawn opportunities, not assigned story characters.
+`placements` publishes stable vendor/staff and unassigned story slots with body radius, world position, facing and a reachable approach. Positions avoid doors, furniture, loft stair entries and reserved circulation sweeps. Each accepted body is tested together with prior slots; all original circulation endpoints and prior approaches stay connected on the occupied floor grid. Story slots include service, storage and mechanical rooms wherever a standing body and approach fit. Slots are optional spawn opportunities, not assigned story characters.

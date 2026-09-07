@@ -36,3 +36,13 @@ it("keeps every loft story approach reachable with all standing bodies present",
       {floor:slot.floor,position:slot.approach}),`${tier}: ${slot.id}`).not.toBeNull();
   }
 },30000);
+
+
+it("publishes future story positions in service interiors without a vendor counter",()=>{
+  const {request}=makeFixture({seed:8,width:36,depth:28,floors:1,tier:"poor",type:"factory"});
+  const plan=planBuilding(request,[{floor:0,kind:"mechanical"}]);
+  const npc=buildNpcSupport(plan,request),entrance=npc.anchors.find(a=>a.kind==="entrance")!;
+  const slots=npc.placements!.filter(slot=>slot.purpose==="story");
+  expect(slots.length).toBeGreaterThan(0);
+  for(const slot of slots)expect(findPath(npc,{floor:0,position:entrance.position},{floor:slot.floor,position:slot.approach})).not.toBeNull();
+},30000);
