@@ -2,12 +2,12 @@ import { nineSlice, type PanelPiece } from "./nine-slice.js";
 export interface PanelRegion extends PanelPiece { joint: boolean }
 
 /** Fixed-width perimeter joints continue through adjacent nine-piece cells. */
-export function panelRegions(width: number, height: number, joint: number): PanelRegion[] {
+export function panelRegions(width: number, height: number, joint: number, bevel = 0): PanelRegion[] {
   const out: PanelRegion[] = [];
   const edge = Math.min(joint / 2, width / 4, height / 4);
   for (const cell of nineSlice(width, height).pieces) {
     const cuts = (start: number, size: number, limit: number): number[] =>
-      [start, ...[edge, limit - edge].filter(n => n > start + 1e-8 && n < start + size - 1e-8), start + size];
+      [start, ...[...new Set([edge, edge+bevel, limit-edge-bevel, limit-edge])].sort((a,b)=>a-b).filter(n => n > start + 1e-8 && n < start + size - 1e-8), start + size];
     const xs = cuts(cell.x, cell.width, width), ys = cuts(cell.y, cell.height, height);
     for (let y = 0; y < ys.length - 1; y++) for (let x = 0; x < xs.length - 1; x++) {
       const x0 = xs[x]!, x1 = xs[x + 1]!, y0 = ys[y]!, y1 = ys[y + 1]!;

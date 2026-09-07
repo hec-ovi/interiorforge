@@ -1,5 +1,6 @@
+import { panelRecess, reliefPolygons, reliefTriangle } from "./relief.js";
 import type { Point } from "../../core/geom.js";
-import { clipPolygonToRect, polygonArea, polygonBounds } from "../../core/geom.js";
+import { clipPolygonToConvex, clipPolygonToRect, polygonArea, polygonBounds } from "../../core/geom.js";
 import { triangulate } from "../../core/triangulate.js";
 import { MeshBuilder, type UvFrame, type UvMode, type Vec3 } from "../../glb/mesh-builder.js";
 import { PanelPalette } from "./palette.js";
@@ -27,20 +28,34 @@ export class PanelMeshBuilder extends MeshBuilder {
     const count = Math.max(1, Math.floor(width / pitch));
     // Keep end bays at least one metre; a narrow leftover expands the last field.
     const span = pitch;
-    const point = (x: number, y: number): Vec3 => [a[0] + (d[0] - a[0]) * x / width, a[1] + y, a[2] + (d[2] - a[2]) * x / width];
+    const depth = 0.012;
+    const point = (x: number, y: number, bayStart: number, bayWidth: number): Vec3 => {
+      const recess = panelRecess(x-bayStart,y,bayWidth,height,this.palette.data.joint,depth);
+      return [a[0]+(d[0]-a[0])*x/width-(d[2]-a[2])*recess/width,
+        a[1]+y,a[2]+(d[2]-a[2])*x/width+(d[0]-a[0])*recess/width];
+    };
     const artifact = this.palette.artifact();
     const insert: FaceInsert | undefined = !this.wallInsertUsed && artifact && width >= 1.5 && height >= 1.5
       ? { x: 0.25, y: 0.25, width: 1, height: 1, material: artifact } : undefined;
     if (insert) this.wallInsertUsed = true;
     for (let bay = 0; bay < count; bay++) {
       const bayWidth = bay === count - 1 ? width - bay * span : span;
-      for (const piece of panelRegions(bayWidth, height, this.palette.data.joint).flatMap(region => fitInsert(region, bay === 0 ? insert : undefined))) {
-        const x0 = bay * span + piece.x, x1 = x0 + piece.width, y0 = piece.y, y1 = y0 + piece.height;
+      for (const piece of panelRegions(bayWidth, height, this.palette.data.joint, depth).flatMap(region => fitInsert(region, bay === 0 ? insert : undefined))) {
         const tex = (x: number, y: number): [number, number] => piece.insert
-          ? [(x-piece.insert.x)/piece.insert.width, 1-(y-piece.insert.y)/piece.insert.height] : [x,y];
-        super.addQuadUv(piece.insert?.material ?? (piece.joint ? this.palette.trim() : material),
-          [point(x0, y0), point(x0, y1), point(x1, y1), point(x1, y0)],
-          [tex(x0,y0),tex(x0,y1),tex(x1,y1),tex(x1,y0)]);
+          ? [(x-piece.insert.x)/piece.insert.width, 1-(y-piece.insert.y)/piece.insert.height] : [x+bay*span,y];
+        const key=piece.insert?.material ?? (piece.joint ? this.palette.trim() : material);
+        for(const polygon of reliefPolygons(piece,bayWidth,height,this.palette.data.joint,depth)) {
+          const coords=[...polygon].reverse();
+          const vertices=coords.map(([x,y])=>point(x+bay*span,y,bay*span,bayWidth));
+          const uvs=coords.map(([x,y])=>tex(x,y));
+          if(coords.length===4) this.addQuadUv(key,vertices as [Vec3,Vec3,Vec3,Vec3],
+            uvs as [[number,number],[number,number],[number,number],[number,number]]);
+          else for(const indices of triangulate(polygon)) {
+            const order=[...indices].reverse();
+            reliefTriangle(this,key,order.map(i=>point(polygon[i]![0]+bay*span,polygon[i]![1],bay*span,bayWidth)) as [Vec3,Vec3,Vec3],
+              order.map(i=>tex(...polygon[i]!)) as [[number,number],[number,number],[number,number]]);
+          }
+        }
       }
     }
   }
@@ -55,15 +70,26 @@ export class PanelMeshBuilder extends MeshBuilder {
     const bounds = polygonBounds(local), [px, pz] = this.palette.pitch(role);
     const startX = this.grid[0] + Math.floor((bounds.x-this.grid[0])/px)*px;
     const startZ = this.grid[1] + Math.floor((bounds.z-this.grid[1])/pz)*pz;
-    const regions = panelRegions(px, pz, this.palette.data.joint);
+    const depth = role === "ceiling" ? .008 : 0;
+    const regions = panelRegions(px,pz,this.palette.data.joint,depth).flatMap(piece=>
+      reliefPolygons(piece,px,pz,this.palette.data.joint,depth).map(polygon=>({polygon,joint:piece.joint})));
     for (let z=startZ; z<bounds.z+bounds.d-1e-8; z+=pz) for (let x=startX; x<bounds.x+bounds.w-1e-8; x+=px) {
       for (const piece of regions) {
-        const box = {x:x+piece.x,z:z+piece.y,w:piece.width,d:piece.height};
+        const field=piece.polygon.map(([u,v]):Point=>[x+u,z+v]);
         for (const triangle of triangles) {
-          const clipped = clipPolygonToRect(triangle,box);
+          const clipped = depth ? clipPolygonToConvex(triangle,field) : clipPolygonToRect(triangle,polygonBounds(field));
           if(clipped.length<3 || Math.abs(polygonArea(clipped))<1e-10) continue;
-          const world = clipped.map(([u,v]): Point => [u*this.axes.cos-v*this.axes.sin,u*this.axes.sin+v*this.axes.cos]);
-          super.addHorizontalPolygon(piece.joint?this.palette.trim():material,world,y,facing);
+          const key = piece.joint?this.palette.trim():material;
+          if (!depth) {
+            const world = clipped.map(([u,v]): Point => [u*this.axes.cos-v*this.axes.sin,u*this.axes.sin+v*this.axes.cos]);
+            super.addHorizontalPolygon(key,world,y,facing);
+          } else for (const indices of triangulate(clipped)) {
+            const coords = indices.map(i=>clipped[i]!) as [Point,Point,Point];
+            if (facing === "up") coords.reverse();
+            const vertices=coords.map(([u,v]):Vec3=>[u*this.axes.cos-v*this.axes.sin,
+              y+panelRecess(u-x,v-z,px,pz,this.palette.data.joint,depth),u*this.axes.sin+v*this.axes.cos]) as [Vec3,Vec3,Vec3];
+            reliefTriangle(this,key,vertices,coords.map(([u,v]):Point=>[u-this.grid[0],v-this.grid[1]]) as [Point,Point,Point]);
+          }
         }
       }
     }
