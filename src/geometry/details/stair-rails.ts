@@ -1,4 +1,3 @@
-import type { Point } from "../../core/geom.js";
 import type { MeshBuilder, Vec3 } from "../../glb/mesh-builder.js";
 import type { Frame, UvRect } from "../../layout/uv.js";
 import { uvToWorld } from "../../layout/uv.js";
