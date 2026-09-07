@@ -24,3 +24,5 @@ Purpose: derives everything the simulation layer needs from a building plan: anc
 - [core](../core/CONTRACT.md)
 - [layout](../layout/CONTRACT.md) (`BuildingPlan`)
 - [NPC schema](../../schemas/npc.schema.json)
+
+Sleeping pods expose a bed anchor at their open long-side entrance.

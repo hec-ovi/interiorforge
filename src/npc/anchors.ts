@@ -21,6 +21,7 @@ const FURNITURE_ANCHORS: Record<string, { kind: AnchorKind; side: "front" | "beh
   bar_counter: { kind: "counter_spot", side: "behind" },
   counter: { kind: "counter_spot", side: "behind" },
   bed_double: { kind: "bed", side: "on" },
+  sleeping_pod: { kind: "bed", side: "front" },
   bed_single: { kind: "bed", side: "on" },
   toilet: { kind: "toilet", side: "front" },
   gym_machine: { kind: "machine_spot", side: "front" },
