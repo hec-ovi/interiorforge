@@ -1,3 +1,4 @@
+import { buildPlacements } from "./placements.js";
 import type { InteriorRequest, NpcSupport } from "../core/types.js";
 import { SPINE_KINDS } from "../layout/constants.js";
 import type { BuildingPlan } from "../layout/index.js";
@@ -16,12 +17,13 @@ export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): N
     if (floor.rooms.length === 0) continue;
     const grid = plan.navGrids.get(floor.floor)!;
     const corridor = floor.rooms.find((r) => SPINE_KINDS.has(r.kind))!;
-    const start = roomFloodStart(grid, corridor);
-    if (!start) throw new InteriorError("E_UNREACHABLE_SPACE", `spine ${corridor.id} has no walkable cell`, floor.floor);
+    const lower = floor.mezzanineOf === undefined ? undefined : plan.floors.find(f => f.floor === floor.mezzanineOf);
+    const start = lower?.loft?.stair.upperEntry ?? (corridor ? roomFloodStart(grid, corridor) : null);
+    if (!start) throw new InteriorError("E_UNREACHABLE_SPACE", `floor ${floor.floor} has no walkable entry`, floor.floor);
     const visited = grid.flood(start);
     const floorAnchorList = [
       ...floorAnchors(floor, grid, visited),
-      ...coreAnchors(floor, grid, visited, plan.core),
+      ...(floor.mezzanineOf === undefined ? coreAnchors(floor, grid, visited, plan.core) : []),
     ];
     const blocked = anchorConflicts(floor, floorAnchorList);
     if (blocked.length > 0) {
@@ -37,6 +39,7 @@ export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): N
   return {
     buildingId: request.building.id,
     anchors,
+    placements: buildPlacements(plan, anchors, roles),
     roles,
     routines,
     nav: buildNav(plan.floors, plan.navGrids, plan.core, request),

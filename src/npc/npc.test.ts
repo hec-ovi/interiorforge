@@ -117,6 +117,16 @@ describe("buildNpcSupport", () => {
     expect(npc.nav.connectors.find((c) => c.id === ride.connector)!.kind).toBe("elevator");
   });
 
+  it("uses the nearby stair for an adjacent floor without repeated rides", () => {
+    const stair = npc.nav.connectors.find(connector => connector.kind === "stair")!;
+    const legs = findPath(npc,
+      { floor: 0, position: stair.entryByFloor["0"]! },
+      { floor: 1, position: stair.entryByFloor["1"]! });
+    expect(legs?.filter(leg => leg.kind === "ride")).toEqual([
+      { kind: "ride", connector: stair.id, fromFloor: 0, toFloor: 1 },
+    ]);
+  });
+
   it("routes across floors on a rotated parcel", () => {
     const rot = makeFixture({ seed: 9, floors: 6, rotationDeg: -52 });
     const rplan = planBuilding(rot.request, resolveAssignments(rot.request));
@@ -136,7 +146,7 @@ describe("buildNpcSupport", () => {
   });
 
   it("walkup buildings route between floors on stairs alone, entrances stay at street level", () => {
-    const small = makeFixture({ seed: 3, floors: 4, width: 9, depth: 10, type: "residential" });
+    const small = makeFixture({ seed: 3, floors: 4, width: 9.5, depth: 10, type: "residential" });
     const splan = planBuilding(small.request, resolveAssignments(small.request));
     const snpc = buildNpcSupport(splan, small.request);
     expect(snpc.nav.connectors.every((c) => c.kind === "stair")).toBe(true);
@@ -147,6 +157,7 @@ describe("buildNpcSupport", () => {
     expect(legs).not.toBeNull();
     const ride = legs.find((l) => l.kind === "ride") as { connector: string };
     expect(snpc.nav.connectors.find((c) => c.id === ride.connector)!.kind).toBe("stair");
+    expect(legs.map(leg => leg.kind)).toEqual(["walk", "ride", "walk"]);
   });
 
   it("compact-core buildings route to every anchor through column stair entries", () => {

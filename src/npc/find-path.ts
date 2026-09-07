@@ -1,3 +1,4 @@
+import { connectorRoute } from "./connector-route.js";
 import type { Point } from "../core/geom.js";
 import { WalkGrid } from "../core/grid.js";
 import type { Nav, NpcSupport } from "../core/types.js";
@@ -12,7 +13,7 @@ export interface PathQuery {
 }
 
 /** Reference pathfinder over the exported npc.json alone: grid A* with line-of-sight
- *  smoothing per floor, one connector ride across floors. Null when no route exists. */
+ *  smoothing per floor, reachable connector transfers across floors. Null when no route exists. */
 export function findPath(npc: NpcSupport, from: PathQuery, to: PathQuery): PathLeg[] | null {
   const grids = gridCache(npc.nav);
   if (from.floor === to.floor) {
@@ -20,28 +21,8 @@ export function findPath(npc: NpcSupport, from: PathQuery, to: PathQuery): PathL
     return points ? [{ kind: "walk", floor: from.floor, points }] : null;
   }
 
-  // pick the connector minimizing walk distance on both ends; elevators win for long travel
-  const tall = Math.abs(to.floor - from.floor) > 1;
-  let best: { connector: string; entryFrom: Point; entryTo: Point; cost: number } | null = null;
-  for (const c of npc.nav.connectors) {
-    if (!c.floors.includes(from.floor) || !c.floors.includes(to.floor)) continue;
-    const entryFrom = c.entryByFloor[String(from.floor)];
-    const entryTo = c.entryByFloor[String(to.floor)];
-    if (!entryFrom || !entryTo) continue;
-    const dist = distance(from.position, entryFrom) + distance(entryTo, to.position);
-    const cost = dist + (tall && c.kind === "stair" ? 1000 : 0);
-    if (!best || cost < best.cost) best = { connector: c.id, entryFrom, entryTo, cost };
-  }
-  if (!best) return null;
-
-  const legA = walk(grids, from.floor, from.position, best.entryFrom);
-  const legB = walk(grids, to.floor, best.entryTo, to.position);
-  if (!legA || !legB) return null;
-  return [
-    { kind: "walk", floor: from.floor, points: legA },
-    { kind: "ride", connector: best.connector, fromFloor: from.floor, toFloor: to.floor },
-    { kind: "walk", floor: to.floor, points: legB },
-  ];
+  return connectorRoute(npc.nav.connectors, from, to,
+    (floor, a, b) => walk(grids, floor, a, b));
 }
 
 function gridCache(nav: Nav): Map<number, WalkGrid> {

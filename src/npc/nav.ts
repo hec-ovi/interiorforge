@@ -13,10 +13,11 @@ import { uvToWorld } from "../layout/uv.js";
 export function buildNav(
   floors: FloorInterior[], grids: Map<number, WalkGrid>, core: CorePlan, request: InteriorRequest,
 ): Nav {
-  const served = floors.filter((f) => f.rooms.length > 0).map((f) => f.floor).sort((a, b) => a - b);
+  const occupied = floors.filter(f => f.rooms.length > 0);
+  const served = occupied.filter(f => f.mezzanineOf === undefined).map((f) => f.floor).sort((a, b) => a - b);
   const roof = planRoofAccess(request, core);
 
-  const navFloors = served.map((index) => {
+  const navFloors = occupied.map(({floor: index}) => {
     const grid = grids.get(index)!;
     return {
       floor: index,
@@ -64,6 +65,10 @@ export function buildNav(
       },
     });
   }
+  for (const floor of floors) if (floor.loft) connectors.push({
+    id: floor.loft.id, kind: "stair", floors: [floor.floor, floor.loft.upperFloor],
+    entryByFloor: { [floor.floor]: floor.loft.stair.lowerEntry, [floor.loft.upperFloor]: floor.loft.stair.upperEntry },
+  });
   return {
     cellSize: CELL, floors: navFloors, connectors,
     ...(roof ? { roofAccess: roof.access } : {}),
