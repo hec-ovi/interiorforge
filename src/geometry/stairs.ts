@@ -49,7 +49,7 @@ function runOf(shaft: UvRect, entryLowEnd: boolean): Run {
 
 /** Clear width of one flight: what the player capsule has to pass through. */
 export function stairClearWidth(shaft: UvRect): number {
-  return (Math.min(shaft.lu, shaft.lv) - WALL) / 2;
+  return (Math.min(shaft.lu, shaft.lv) - WALL) / 2 - 2 * STAIR.railAllowance;
 }
 
 /** Landing at the walk-in end, at floor level, as deep as the climb leaving it allows. Only

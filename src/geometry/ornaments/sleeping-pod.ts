@@ -13,8 +13,10 @@ export function sleepingPod(a: Assembly): void {
   a.box(shell, -hw, hw, -hd + .09, hd, a.h - .1, a.h);
   for (const side of [-1, 1]) {
     const x = side * (hw - .055);
-    a.box(shell, x - .055, x + .055, -hd + .09, hd, .32, a.h - .1);
-    a.box(light, x - .012, x + .012, hd - .012, hd, .58, a.h - .38);
+    a.box(shell, x - .055, x + .055, -hd + .09, hd - .006, .32, a.h - .1);
+    for (const [low, high] of [[.58, 1.02], [1.12, a.h - .38]]) {
+      a.box(light, x - .012, x + .012, hd - .012, hd, low!, high!);
+    }
   }
   // Chamfer wedges join the side and ceiling around the open entrance.
   for (const side of [-1, 1]) {

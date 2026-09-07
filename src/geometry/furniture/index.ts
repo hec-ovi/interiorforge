@@ -1,3 +1,4 @@
+import { wardrobe } from "./wardrobe.js";
 import type { FurnitureKind } from "../../core/types.js";
 import { MeshBuilder } from "../../glb/mesh-builder.js";
 import type { PlanFurniture } from "../../layout/plan-types.js";
@@ -11,7 +12,7 @@ import { barCounter, counter, kitchenBlock, receptionDesk } from "./counters.js"
 import { gymMachine, plant, shower, sink, toilet } from "./fixtures.js";
 import { Placer } from "./placer.js";
 import { bed, bench, chair, officeChair, sofa, stool } from "./seating.js";
-import { displayRack, fridge, shelf, wallShelf, wardrobe } from "./storage.js";
+import { displayRack, fridge, shelf, wallShelf } from "./storage.js";
 import { desk, diningTable, lowTable, meetingTable } from "./tables.js";
 import { displayScreen, wallArt } from "./wall.js";
 

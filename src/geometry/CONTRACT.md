@@ -40,3 +40,7 @@ Purpose: turns a building plan into interior meshes and completes the shell GLB 
 [Ornaments](ornaments/CONTRACT.md) build plants, fish, glass, pipes, cable loops and lit cases in reserved furniture envelopes. Furniture-owned fixtures use the assembly housing. Capsule sleeping pods reserve their full shell height. Loose procedural chairs and tables have seeded angular variation fitted inside their reserved footprint. Stair treads use the floor finish and risers use the wall finish, retaining structural thickness and headroom.
 
 `floor_clutter` has a bounded procedural refuse-sack and paper assembly when no imported prop fits.
+
+[Architectural details](details/CONTRACT.md) build furnished loft platforms, open stairs, 1.2 m clear lanes between guards and overhead pipe/cable runs. Rail faces crossing a storey plane split between the two floor bands with shared UVs and no additional exposed cut face.
+
+Wardrobes have fixed 0.5 m closing bays, repeated fitted middle doors, upper cabinets and lower drawers. Counters and kitchen runs retain the same closing-bay widths and fitted middle panels. Cabinet faces use the tier's wall accent or door coating.

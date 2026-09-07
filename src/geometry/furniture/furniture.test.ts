@@ -102,12 +102,23 @@ describe("shaped furniture", () => {
   });
 
   it("builds a fitted steel wardrobe inside its declared collision bounds", () => {
-    const size: [number, number, number] = [1.6, 0.65, 2];
+    for (const width of [1.6, 3, 4.25]) {
+    const size: [number, number, number] = [width, 0.65, 2];
     const mb = mesh("wardrobe", size);
     expect(mb.materials()).toContain("cyberpunk/metal/mid");
     expect(mb.materials()).toContain("cyberpunk/door/mid");
     expect(mb.materials().some((material) => material.includes("/wood/"))).toBe(false);
-    expect(bounds(mb)).toEqual({ x: [-0.8, 0.8], y: [0, 2], z: [-0.325, 0.325] });
+    expect(bounds(mb)).toEqual({ x: [-width / 2, width / 2], y: [0, 2], z: [-0.325, 0.325] });
+    const doors = mb.getGroup("cyberpunk/door/mid")!;
+    const widths: number[] = [];
+    for (let i = 0; i < doors.positions.length; i += 12) {
+      if (Math.abs(doors.normals[i + 2]!) < .99) continue;
+      const xs = [0, 3, 6, 9].map(offset => doors.positions[i + offset]!);
+      widths.push(Math.max(...xs) - Math.min(...xs));
+    }
+    expect(Math.max(...widths)).toBeCloseTo(.484, 6);
+    expect(widths.length).toBeGreaterThanOrEqual(18);
+    }
   });
 
   it("uses one aspect-preserving screen family for displays and electronic art", () => {

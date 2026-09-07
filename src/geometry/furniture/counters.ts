@@ -1,5 +1,6 @@
 import { topware } from "./clutter.js";
 import type { Placer } from "./placer.js";
+import { cabinetBays, cabinetFront } from "./cabinet-bays.js";
 
 const KICK = 0.09; // recess under the front panel, so a counter does not read as a slab
 
@@ -7,16 +8,10 @@ const KICK = 0.09; // recess under the front panel, so a counter does not read a
  *  kick recess at the floor. */
 function serviceCounter(p: Placer, top: number, panel: "accent" | "wood"): void {
   const front = p.hd;
-  p.box(panel, -p.hw, p.hw, front - 0.05, front, KICK, top - 0.05);
+  cabinetFront(p, KICK, top - .05, panel);
   p.box("metal", -p.hw + 0.06, p.hw - 0.06, -p.hd + 0.06, front - 0.08, 0, KICK);
   p.box("metal", -p.hw, p.hw, -p.hd, front - 0.05, KICK, top - 0.05);
   p.box("wood", -p.hw, p.hw, -p.hd, front, top - 0.05, top);
-  // vertical joints across the front panel
-  const panels = Math.max(2, Math.round(2 * p.hw / 0.9));
-  for (let i = 1; i < panels; i++) {
-    const x = -p.hw + (2 * p.hw * i) / panels;
-    p.box("metal", x - 0.015, x + 0.015, front - 0.055, front + 0.005, KICK, top - 0.05);
-  }
 }
 
 export function counter(p: Placer): void {
@@ -36,7 +31,7 @@ export function barCounter(p: Placer): void {
 /** Reception desk: a low work top behind a raised transaction counter. */
 export function receptionDesk(p: Placer): void {
   const work = 0.75;
-  p.box("accent", -p.hw, p.hw, p.hd - 0.06, p.hd, KICK, p.height - 0.05);
+  cabinetFront(p, KICK, p.height - .05, "accent");
   p.box("metal", -p.hw, p.hw, -p.hd, p.hd - 0.06, KICK, work - 0.04);
   p.box("wood", -p.hw, p.hw, -p.hd, p.hd - 0.06, work - 0.04, work);
   p.box("wood", -p.hw, p.hw, p.hd - 0.24, p.hd + 0.02, p.height - 0.05, p.height);
@@ -48,10 +43,7 @@ export function kitchenBlock(p: Placer): void {
   const top = p.height;
   p.box("metal", -p.hw + 0.05, p.hw - 0.05, -p.hd + 0.05, p.hd - 0.06, 0, KICK);
   p.box("metal", -p.hw, p.hw, -p.hd, p.hd - 0.04, KICK, top - 0.05);
-  const doors = Math.max(2, Math.round(2 * p.hw / 0.6));
-  for (let i = 0; i < doors; i++) {
-    const x0 = -p.hw + (2 * p.hw * i) / doors;
-    const x1 = -p.hw + (2 * p.hw * (i + 1)) / doors;
+  for (const [x0, x1] of cabinetBays(p.hw * 2)) {
     p.box("wood", x0 + 0.01, x1 - 0.01, p.hd - 0.04, p.hd, KICK + 0.01, top - 0.06);
   }
   p.box("tile", -p.hw, p.hw, -p.hd, p.hd, top - 0.05, top);

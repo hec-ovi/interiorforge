@@ -1,3 +1,7 @@
+import { emitStairRails } from "./details/stair-rails.js";
+import { ElevationSplitMesh } from "./details/elevation-split.js";
+import { emitLoftStair, emitLoftPlatform } from "./details/loft.js";
+import { emitServices } from "./details/services.js";
 import type { Document } from "@gltf-transform/core";
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
@@ -16,7 +20,7 @@ import type { PlanRoom } from "../layout/plan-types.js";
 import { roomPolygon } from "../layout/room-shape.js";
 import { facadeDepth, SHELL_WALL, shellWallDepth } from "../layout/shell.js";
 import type { UvRect } from "../layout/uv.js";
-import { toWorldPolygon } from "../layout/uv.js";
+import { worldToUv, toWorldPolygon } from "../layout/uv.js";
 import { elevatorDoorHole, emitCoreDividers, emitElevatorDoors, emitOpenFloorShaftWalls } from "./core-geo.js";
 import { assertDoorwaysClear, floorDoorways, openFrontClearances } from "./door-clear.js";
 import { emitFurniture } from "./furniture/index.js";
@@ -73,27 +77,36 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest,
   const sorted = [...plan.floors].sort((a, b) => a.floor - b.floor);
   const bpByIndex = new Map(request.blueprint.floors.map((f) => [f.index, f]));
   const stairIds: ("a" | "b")[] = core.stairB ? ["a", "b"] : ["a"];
-  const lowest = sorted.find((f) => f.rooms.length > 0)!;
+  const lowest = sorted.find((f) => f.rooms.length > 0 && f.mezzanineOf === undefined)!;
   /** Every step of one stair, floor by floor, for geometry-level clearance checks. */
   const runs = new Map<string, Map<number, RunStep[]>>();
   const facade = request.blueprint.facade;
   const wallDepth = shellWallDepth(facade);
   const roofAccess = planRoofAccess(request, core);
-  const highestServed = [...sorted].reverse().find((floor) => floor.rooms.length > 0)!;
+  const highestServed = [...sorted].reverse().find((floor) => floor.rooms.length > 0 && floor.mezzanineOf === undefined)!;
   const ceilings = new CeilingCoverage();
+  const incomingDetails = new Map<number, MeshBuilder>();
+  const upperDetails = (floor: number): MeshBuilder => {
+    let mesh = incomingDetails.get(floor);
+    if (!mesh) { mesh = new MeshBuilder(core.frame); incomingDetails.set(floor, mesh); }
+    return mesh;
+  };
 
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
     const uv = plan.uvFloors.get(floor.floor)!;
     const mb = new PanelMeshBuilder(keys.panels, core.frame, gridOrigin(uv.outline));
     floorMeshes.set(floor.floor, mb);
+    const incoming = incomingDetails.get(floor.floor);
+    if (incoming) mb.merge(incoming);
     // the ceiling of a spans-2 floor sits at the top of its open upper half
-    const upper = sorted[i + 1]?.rooms.length === 0 ? sorted[i + 1] : undefined;
+    const next = sorted[i + 1];
+    const upper = next && (next.rooms.length === 0 || next.mezzanineOf === floor.floor) ? next : undefined;
     const wallTop = floor.elevation + floor.height + (upper?.height ?? 0);
 
     // stairs climb to the next floor that has a slab
-    const target = sorted.slice(i + 1).find((f) => f.rooms.length > 0);
-    if (floor.rooms.length > 0) {
+    const target = sorted.slice(i + 1).find((f) => f.rooms.length > 0 && f.mezzanineOf === undefined);
+    if (floor.rooms.length > 0 && floor.mezzanineOf === undefined) {
       for (const which of stairIds) {
         const roofClimb = which === "a" && floor === highestServed && roofAccess
           ? roofAccess.access.elevation - floor.elevation
@@ -117,8 +130,20 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest,
         run.set(floor.floor, steps.map((s) => ({ ...s, slab })));
         runs.set(id, run);
         emitStairMeshes(mb, keys, core.frame, steps, slab);
+        const rails = target ? new ElevationSplitMesh(mb, upperDetails(target.floor), target.elevation,
+          core.frame, gridOrigin(uv.outline)) : mb;
+        emitStairRails(rails, keys, core.frame, shaft, steps);
         if (roofClimb > 0) emitRoofLanding(mb, keys, core, roofAccess!);
       }
+    }
+
+    if (floor.mezzanineOf !== undefined) {
+      const lower = sorted.find(f => f.floor === floor.mezzanineOf)!;
+      emitLoftPlatform(mb, keys, lower.loft!);
+      emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation, options.skipFurnitureIdsByFloor?.get(floor.floor));
+      emitLightFixtures(mb, keys, floor.lights);
+      mb.seal();
+      continue;
     }
 
     if (floor.rooms.length === 0) {
@@ -163,6 +188,14 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest,
     emitElevatorDoors(mb, keys, core, floor.elevation);
     emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation, options.skipFurnitureIdsByFloor?.get(floor.floor));
     emitLightFixtures(mb, keys, floor.lights);
+    if (floor.loft) {
+      const stair = new ElevationSplitMesh(mb, upperDetails(floor.loft.upperFloor), floor.loft.elevation,
+        core.frame, gridOrigin(uv.outline));
+      emitLoftStair(stair, keys, floor.loft, floor.elevation);
+    }
+    const serviceFloor = [...request.blueprint.floors].reverse().find(f => f.elevation <= ceilingY)!;
+    const serviceOutline = insetPolygon(serviceFloor.outline, wallDepth + .01).map(p => worldToUv(p, core.frame));
+    emitServices(mb, keys, uv.rooms, core.frame, floor.elevation, ceilingY, serviceOutline);
     assertDoorwaysClear(mb, [
       ...floorDoorways(uv.rooms, core.frame, floor.elevation, ceilingY),
       ...openFrontClearances(bpFloor, wallDepth),

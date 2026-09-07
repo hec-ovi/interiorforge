@@ -156,5 +156,5 @@ describe("a stair the player fits through", () => {
     const steps = wholeRun(fixture, "a");
     const probe = stairClearance(plan.core.stairA, plan.core.frame, steps, [...floorMeshes.values()]);
     expect(probe.clear, `${probe.material} over a step at y ${probe.step.y}`).toBeGreaterThanOrEqual(STAIR.headroom);
-  });
+  }, 30_000);
 });

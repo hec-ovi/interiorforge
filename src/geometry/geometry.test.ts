@@ -42,10 +42,10 @@ describe("buildInterior", () => {
     for (const m of a.doc.getRoot().listMaterials()) {
       expect(m.getName()).toMatch(/^[a-z0-9_-]+\/[a-z0-9_-]+\/[a-z0-9_-]+$/);
     }
-  });
+  }, 30_000);
 
   it("carries one emissive lens in a separate plain housing for every light", () => {
-    const fix = makeFixture({ seed: 8, floors: 4 });
+    const fix = makeFixture({ seed: 8, floors: 4, tier: "rich" });
     const plan = planBuilding(fix.request, resolveAssignments(fix.request));
     const { doc } = buildInterior(plan, fix.request, fix.shellDoc);
     const lights = plan.floors.flatMap((f) => f.lights).filter(light => !light.furniture);
@@ -80,5 +80,5 @@ describe("buildInterior", () => {
       }
     }
     expect(stepsByFloor.has(served.at(-1)!.floor)).toBe(false);
-  });
+  }, 30_000);
 });

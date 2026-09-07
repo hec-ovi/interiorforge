@@ -3,6 +3,7 @@ import type { LightFixture } from "../core/types.js";
 import type { Vec3 } from "../glb/mesh-builder.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import type { MaterialKeys } from "./materials.js";
+import { emitLineLight } from "./details/line-light.js";
 
 /** A fixture is a plain metal housing with a separate emissive lens, not a glowing block. */
 const SHAPE = {
@@ -22,6 +23,10 @@ const COVE_LIP_THICKNESS = 0.02;
 export function emitLightFixtures(mb: MeshBuilder, keys: MaterialKeys, lights: LightFixture[]): void {
   for (const light of lights) {
     if (light.furniture) continue;
+    if (light.kind !== "spot" && light.axis && light.direction) {
+      emitLineLight(mb, keys, light);
+      continue;
+    }
     const shape = SHAPE[light.kind];
     const [x, y, z] = light.position;
     const rad = (light.angleDeg * Math.PI) / 180;
