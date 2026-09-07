@@ -329,7 +329,10 @@
               "wall_shelf",
               "display_screen",
               "wall_art",
-              "crate"
+              "crate",
+              "ornament_wall",
+              "room_divider",
+              "sleeping_pod"
             ]
           },
           "room": {
@@ -388,6 +391,7 @@
         ],
         "additionalProperties": false,
         "properties": {
+          "furniture": { "type": "string", "description": "ID of the furniture assembly owning this fixture housing." },
           "id": {
             "type": "string"
           },

@@ -40,3 +40,5 @@ Purpose: deterministic primitives shared by every box in this repo: seeded RNG, 
 ## Depends on
 
 - [Exterior blueprint schema](../../../exterior/schemas/blueprint.schema.json), for the consumed opening clear field.
+
+`FurnitureKind` includes `ornament_wall`, `room_divider` and `sleeping_pod`. All use the [floor furniture envelope](../../schemas/floor.schema.json), including a full 2 m pod height. `LightFixture.furniture` optionally identifies the assembly owning its physical housing.

@@ -199,7 +199,8 @@ export type FurnitureKind =
   | "bed_single" | "bed_double" | "wardrobe" | "kitchen_block" | "fridge" | "dining_table" | "chair"
   | "toilet" | "sink" | "shower" | "gym_machine" | "bench" | "reception_desk" | "plant"
   | "bar_counter" | "stool" | "display_rack"
-  | "wall_shelf" | "display_screen" | "wall_art" | "crate";
+  | "wall_shelf" | "display_screen" | "wall_art" | "crate"
+  | "ornament_wall" | "room_divider" | "sleeping_pod";
 
 interface RoomConnection {
   id: string;
@@ -253,6 +254,8 @@ export type LightKind = "strip" | "spot" | "cove";
  *  matching emissive housing at the same pose. */
 export interface LightFixture {
   id: string;
+  /** Furniture owning the physical housing, when built into an assembly. */
+  furniture?: string;
   kind: LightKind;
   /** room id, or a core element id (stair-a) for shaft lighting */
   room: string;
