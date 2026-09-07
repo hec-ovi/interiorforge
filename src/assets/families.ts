@@ -11,6 +11,7 @@ const FAMILY_BY_KIND: Partial<Record<FurnitureKind, AssetFamily>> = {
   display_rack: "shelf",
   desk: "desk",
   fridge: "appliance",
+  floor_clutter: "prop",
   low_table: "table",
   meeting_table: "table",
   office_chair: "chair",
@@ -23,6 +24,10 @@ const FAMILY_BY_KIND: Partial<Record<FurnitureKind, AssetFamily>> = {
   toilet: "toilet",
   wall_shelf: "shelf",
   wardrobe: "storage",
+};
+
+const ASSETS_BY_KIND: Partial<Record<FurnitureKind, readonly string[]>> = {
+  floor_clutter: ["sketchfab-animal-crossing-new-horizons-trash-bags"],
 };
 
 export function assetFamilyForFurniture(kind: FurnitureKind): AssetFamily | null {
@@ -38,11 +43,13 @@ export interface FurnitureAssetQuery {
 export function findFurnitureAssets(item: Furniture, query: FurnitureAssetQuery = {}): AssetEntry[] {
   const family = assetFamilyForFurniture(item.kind);
   if (!family || item.elevation) return [];
-  return findAssetCandidates({
+  const candidates = findAssetCandidates({
     family,
     styles: query.styles,
     maxBounds: item.size,
     rotationYDeg: query.variationDeg,
     modelsDir: query.modelsDir,
   });
+  const allowed = ASSETS_BY_KIND[item.kind];
+  return allowed ? candidates.filter((asset) => allowed.includes(asset.id)) : candidates;
 }

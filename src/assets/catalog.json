@@ -23,8 +23,11 @@
       "id": "sketchfab-animal-crossing-new-horizons-trash-bags",
       "family": "prop",
       "styles": [
+        "damaged",
         "game",
-        "residential"
+        "poor",
+        "residential",
+        "trash"
       ],
       "sourceDimensions": {
         "size": [
@@ -34,11 +37,18 @@
         ],
         "unit": "source-unit"
       },
-      "availability": "source-only",
+      "dimensionsMeters": [
+        0.7571,
+        0.7248,
+        0.55
+      ],
+      "modelUri": "models/sketchfab-animal-crossing-new-horizons-trash-bags.glb",
+      "availability": "local-only",
       "metrics": {
         "sourceBytes": 251788,
-        "triangles": 2356,
-        "vertices": 1476,
+        "modelBytes": 193448,
+        "triangles": 1178,
+        "vertices": 738,
         "materials": 1,
         "textures": 4
       }

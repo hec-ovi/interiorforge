@@ -36,6 +36,15 @@ describe("asset catalog contract", () => {
       id: "chair-1", kind: "office_chair", room: "office", position: [0, 0], rotationDeg: 0,
       size: [0.7, 0.75, 1.1],
     }, { styles: ["mid"], variationDeg: 6 }).map((asset) => asset.id)).toContain("polyhaven-school-chair-01");
+
+    const clutter = findFurnitureAssets({
+      id: "trash-1", kind: "floor_clutter", room: "living", position: [0, 0], rotationDeg: 0,
+      size: [0.8, 0.8, 0.8],
+    }, { styles: ["damaged"], variationDeg: 2 });
+    expect(clutter.map((asset) => asset.id)).toEqual([
+      "sketchfab-animal-crossing-new-horizons-trash-bags",
+    ]);
+    expect(clutter[0]?.dimensionsMeters).toEqual([0.7571, 0.7248, 0.55]);
   });
 
   it("reads and instances a model with source materials inside the promised bounds", async () => {
@@ -71,11 +80,11 @@ describe("asset catalog contract", () => {
   it("prefers one seeded local model per family and falls back to public CC0", async () => {
     const chair = (id: string): Furniture => ({
       id, kind: "office_chair", room: "office", position: [0, 0], rotationDeg: 0,
-      size: [0.7, 0.8, 1.2],
+      size: [0.65, 0.65, 1.15],
     });
     const floors = [{ floor: 0, furniture: [chair("a"), chair("b")] }] as FloorInterior[];
     const localReads: string[] = [];
-    const local = await prepareFurnitureAssets(floors, { seed: "catalog-choice" }, ["mid"], async (asset) => {
+    const local = await prepareFurnitureAssets(floors, { seed: "catalog-choice" }, ["capsule", "mid"], async (asset) => {
       localReads.push(asset.id);
       return new Document();
     });
@@ -91,5 +100,20 @@ describe("asset catalog contract", () => {
     expect(fallback.byFloor.get(0)?.map((item) => item.asset.id)).toEqual([
       "polyhaven-school-chair-01", "polyhaven-school-chair-01",
     ]);
+  });
+
+  it("activates only trash props for poor floor clutter", async () => {
+    const item: Furniture = {
+      id: "trash", kind: "floor_clutter", room: "living", position: [2, 3], rotationDeg: 0,
+      size: [0.8, 0.8, 0.8],
+    };
+    const floors = [{ floor: 0, furniture: [item] }] as FloorInterior[];
+    const poor = await prepareFurnitureAssets(floors, { seed: 4 }, ["damaged", "poor"], async () => new Document());
+    expect(poor.byFloor.get(0)?.[0]?.asset.id).toBe("sketchfab-animal-crossing-new-horizons-trash-bags");
+    expect(poor.skipIdsByFloor.get(0)?.has("trash")).toBe(true);
+
+    const mid = await prepareFurnitureAssets(floors, { seed: 4 }, ["capsule", "mid"], async () => new Document());
+    expect(mid.byFloor.size).toBe(0);
+    expect(mid.skipIdsByFloor.size).toBe(0);
   });
 });

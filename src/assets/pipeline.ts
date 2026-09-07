@@ -30,16 +30,19 @@ export async function prepareFurnitureAssets(
   const attempts = new Map<string, Promise<Document | null>>();
   const chosen = new Map<string, AssetEntry>();
   const activeFamilies = new Set(["chair", "desk", "sofa", "planter"]);
+  if (styles.includes("poor") || styles.includes("damaged")) activeFamilies.add("prop");
 
   for (const floor of [...floors].sort((a, b) => a.floor - b.floor)) {
     for (const furniture of floor.furniture) {
       const family = assetFamilyForFurniture(furniture.kind);
       if (!family || !activeFamilies.has(family)) continue;
       const variationDeg = variation(furniture, request.seed);
-      const styled = findFurnitureAssets(furniture, { styles, variationDeg });
+      const styled = unique(styles.flatMap((style) => findFurnitureAssets(furniture, {
+        styles: [style], variationDeg,
+      })));
       const fallback = findFurnitureAssets(furniture, { variationDeg });
       const candidates = unique([
-        ...candidateOrder(styled, `${String(request.seed)}/${family}/styled`),
+        ...orderedStyles(styled, styles, `${String(request.seed)}/${family}`),
         ...candidateOrder(fallback, `${String(request.seed)}/${family}/fallback`),
       ]);
       const existing = chosen.get(family);
@@ -110,6 +113,12 @@ function candidateOrder(assets: readonly AssetEntry[], seed: string): AssetEntry
     ...rotate(local, hash(`${seed}/local`)),
     ...rotate(publicModels, hash(`${seed}/public`)),
   ];
+}
+
+function orderedStyles(assets: readonly AssetEntry[], styles: readonly string[], seed: string): AssetEntry[] {
+  return unique(styles.flatMap((style, priority) => candidateOrder(
+    assets.filter((asset) => asset.styles.includes(style)), `${seed}/style-${priority}`,
+  )));
 }
 
 function rotate<T>(values: readonly T[], seed: number): T[] {

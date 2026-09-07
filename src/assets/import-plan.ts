@@ -21,7 +21,7 @@ const sketchfab = (sourceFile: string, family: AssetFamily, styles: string[], ta
 });
 
 export const SOURCE_PLAN: SourcePlan[] = [
-  sketchfab("animal_crossing_new_horizons_trash_bags.glb", "prop", ["game", "residential"]),
+  sketchfab("animal_crossing_new_horizons_trash_bags.glb", "prop", ["damaged", "game", "poor", "residential", "trash"], 0.55),
   sketchfab("bed_1.glb", "bed", ["contemporary", "residential"]),
   sketchfab("container_low.glb", "storage", ["industrial"]),
   sketchfab("dirty_toilet.glb", "toilet", ["damaged", "industrial", "poor"], 0.9),
