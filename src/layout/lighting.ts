@@ -148,6 +148,7 @@ class FloorLighting {
     private readonly frame: Frame,
     uvInner: readonly Point[],
     private readonly ceilingY: number,
+    private readonly tier?: string,
   ) {
     this.uvOutline = insetPolygon(uvInner, FIXTURE_MARGIN);
   }
@@ -170,7 +171,10 @@ class FloorLighting {
   }
 
   room(room: PlanRoom): void {
-    const style = STYLE[room.kind];
+    const base = STYLE[room.kind];
+    const style = this.tier === "poor" ? { ...base, spacing: 4.2, lumens: 520, colorTemperatureK: 3200, cove: false }
+      : this.tier === "mid" ? { ...base, spacing: 3.8, lumens: 420, colorTemperatureK: 2900, cove: false }
+      : this.tier ? { ...base, lumens: Math.round(base.lumens * .55), spacing: base.spacing * 1.2 } : base;
     if (!style) return;
     this.activeRoom = room;
     const before = this.out.length;
@@ -394,9 +398,9 @@ function center(r: UvRect): Point {
 /** Fixtures for one floor: every room by its kind, plus a downlight embedded in each stair's
  *  arrival landing (`landingY`). */
 export function planLights(
-  rooms: PlanRoom[], core: CorePlan, uvInner: readonly Point[], ceilingY: number, landingY: number, ids: IdGen,
+  rooms: PlanRoom[], core: CorePlan, uvInner: readonly Point[], ceilingY: number, landingY: number, ids: IdGen, tier?: string,
 ): LightFixture[] {
-  const lighting = new FloorLighting(ids, core.frame, uvInner, ceilingY);
+  const lighting = new FloorLighting(ids, core.frame, uvInner, ceilingY, tier);
   lighting.openings(rooms);
   for (const room of rooms) lighting.room(room);
   lighting.stairwell("stair-a", core.stairA, stairAccess(core, "a").entry, landingY);

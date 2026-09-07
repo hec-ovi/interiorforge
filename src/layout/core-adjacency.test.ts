@@ -45,10 +45,10 @@ it("reports the same explicit no-fit for an opening-specific furnished-depth req
   expect(feasibility.placement).toBeUndefined();
   expect(feasibility.adjacencyFailure).toEqual({
     floor: 2, opening: "w:2:1:1", coreSolid: "stair-b", role: "room",
-    requiredDepth: 100, availableDepth: 26.829999999999995,
+    requiredDepth: 100, availableDepth: 26.329999999999995,
   });
   expect(() => planBuilding(f.request, resolveAssignments(f.request)))
-    .toThrow("E_FLOOR_TOO_SMALL: core stair-b beside floor 2 opening w:2:1:1 requires 100.000m of room depth after the full lining; candidate provides 26.830m");
+    .toThrow("E_FLOOR_TOO_SMALL: core stair-b beside floor 2 opening w:2:1:1 requires 100.000m of room depth after the full lining; candidate provides 26.330m");
 });
 
 it("remeasures moved solids while keeping opening and solid order for equal deficits", () => {

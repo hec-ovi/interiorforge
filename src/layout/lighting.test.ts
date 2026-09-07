@@ -68,21 +68,46 @@ describe("floor lighting", () => {
     }
   });
 
-  it("fixtures hang under the ceiling and inside the building", () => {
+  it("fixtures fit the ceiling or their furniture envelope inside the building", () => {
+    let builtIns = 0;
     for (const floor of plan.floors) {
       const outline = outlines.get(floor.floor)!;
       const ceiling = floor.elevation + ceilingClear(floor.height);
       const stairs = new Set(floor.core.stairs.map((s) => s.id));
+      const furniture = new Map(floor.furniture.map((item) => [item.id, item]));
       for (const light of floor.lights) {
         const [x, y, z] = light.position;
-        expect(y).toBeGreaterThan(floor.elevation + 1.8);
-        const high = stairs.has(light.room)
-          ? floor.elevation + floor.height - stairSlab(floor.height)
-          : ceiling;
-        expect(y).toBeLessThanOrEqual(high + 1e-6);
+        if (light.furniture) {
+          builtIns++;
+          const owner = furniture.get(light.furniture)!;
+          expect(owner, `${light.id} has an owning assembly`).toBeDefined();
+          expect(light.room).toBe(owner.room);
+          const angle = owner.rotationDeg * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
+          const lightAngle = light.angleDeg * Math.PI / 180;
+          const axis = light.axis ?? [Math.cos(lightAngle), 0, Math.sin(lightAngle)];
+          const base = floor.elevation + (owner.elevation ?? 0);
+          // Published furniture centers round to centimetres.
+          const tolerance = .008;
+          for (const end of [-.5, .5]) {
+            const dx = x + axis[0]! * light.length * end - owner.position[0];
+            const dz = z + axis[2]! * light.length * end - owner.position[1];
+            const endY = y + axis[1]! * light.length * end;
+            expect(Math.abs(dx * cos + dz * sin)).toBeLessThanOrEqual(owner.size[0] / 2 + tolerance);
+            expect(Math.abs(-dx * sin + dz * cos)).toBeLessThanOrEqual(owner.size[1] / 2 + tolerance);
+            expect(endY).toBeGreaterThanOrEqual(base - tolerance);
+            expect(endY).toBeLessThanOrEqual(base + owner.size[2] + tolerance);
+          }
+        } else {
+          expect(y).toBeGreaterThan(floor.elevation + 1.8);
+          const high = stairs.has(light.room)
+            ? floor.elevation + floor.height - stairSlab(floor.height)
+            : ceiling;
+          expect(y).toBeLessThanOrEqual(high + 1e-6);
+        }
         expect(pointInPolygon([x, z], outline), `${light.id} outside the plate`).toBe(true);
       }
     }
+    expect(builtIns).toBeGreaterThan(0);
   });
 
   it("carries the kind, intensity and colour an engine light needs", () => {
@@ -94,17 +119,29 @@ describe("floor lighting", () => {
       expect(light.colorTemperatureK).toBeGreaterThanOrEqual(2000);
       expect(light.range).toBeGreaterThan(0);
       expect(light.kind === "spot" ? light.length === 0 : light.length > 0).toBe(true);
+      for (const vector of [light.axis, light.direction]) {
+        if (vector) expect(Math.hypot(...vector)).toBeCloseTo(1, 6);
+      }
+      if (light.color) {
+        expect(light.color).toHaveLength(3);
+        for (const channel of light.color) {
+          expect(channel).toBeGreaterThanOrEqual(0);
+          expect(channel).toBeLessThanOrEqual(1);
+        }
+      }
     }
     expect(new Set(lights.map((l) => l.id)).size).toBe(lights.length);
   });
 
-  it("venue rooms get cove lines, corridors get downlights", () => {
-    const lobby = plan.floors.find((f) => f.rooms.some((r) => r.kind === "reception"))!;
+  it("rich venue rooms get cove lines, corridors get downlights", () => {
+    const fixture = makeFixture({ seed: 31, floors: 2, type: "offices", tier: "rich" });
+    const venue = planBuilding(fixture.request, resolveAssignments(fixture.request));
+    const lobby = venue.floors.find((f) => f.rooms.some((r) => r.kind === "reception"))!;
     const hall = lobby.rooms.find((r) => r.kind === "reception")!;
     expect(lobby.lights.some((l) => l.room === hall.id && l.kind === "cove")).toBe(true);
     expect(lobby.lights.some((l) => l.room === hall.id && l.kind === "strip")).toBe(true);
 
-    const corridor = plan.floors
+    const corridor = venue.floors
       .flatMap((f) => f.lights.filter((l) => f.rooms.some((r) => r.id === l.room && r.kind === "corridor")));
     expect(corridor.some((l) => l.kind === "spot")).toBe(true);
   });

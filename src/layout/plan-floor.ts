@@ -1,3 +1,9 @@
+import { fitRoomCoreOwnership } from "./core-room-ownership.js";
+import { fitLoft } from "./lofts/fit.js";
+import { loftLights } from "./lofts/lighting.js";
+import { blockLoftSolids } from "./lofts/grid.js";
+import { doorZonesByRoom } from "./clearance.js";
+import { pointInPolygon } from "../core/geom.js";
 import type { Point } from "../core/geom.js";
 import { InteriorError } from "../core/errors.js";
 import { insetPolygon, isCcw, polygonBounds } from "../core/geom.js";
@@ -169,6 +175,7 @@ export function planFloor(
     rooms, [...backing.sealed, ...extraSealed], floor, core, uvOutline, request.blueprint.facade,
   );
   // walls moved twice since the doors were cut: every door goes back inside the stretch its rooms share
+  fitRoomCoreOwnership(rooms, [backing.sealed, extraSealed], core, slabPlate, floor.index);
   refitDoors(rooms, bounds.inner);
 
   // facade connections land on whichever room faces them. An open front uses the portal's
@@ -209,12 +216,21 @@ export function planFloor(
       `facade partition has no structural seat: ${conflicts[0]!.room} at ${conflicts[0]!.opening}`, floor.index);
   }
   const circulation = reserveCirculation(architecture, rooms, core, floor.index);
+  const placementKeepouts = [...facadeKeepouts.map(item => item.rect), ...circulationKeepouts(circulation, frame)];
+  const upperFloor = request.blueprint.floors.find(f => f.index === floor.index + 1);
+  const loft = spaceHeight > floor.height && upperFloor ? fitLoft(rooms,
+    [...placementKeepouts, ...[...doorZonesByRoom(rooms).values()].flat().map(zone => zone.rect)], frame,
+    floor.index, upperFloor.index, floor.elevation, upperFloor.elevation,
+    floor.elevation + ceilingUnder(floor.openings, spaceHeight),
+    insetPolygon(upperFloor.outline.map(p=>worldToUv(p,frame)),shellWallDepth(request.blueprint.facade)+.15)) : null;
   const furniture = furnish(rooms, kind, rng, ids, bounds,
-    [...facadeKeepouts.map((item) => item.rect), ...circulationKeepouts(circulation, frame)], request.building.tier);
+    [...placementKeepouts, ...(loft?.reserved ?? [])], request.building.tier);
   blockPhysicalFurniture(architecture, frame, furniture);
+  if (loft) blockLoftSolids(architecture, loft.solids, frame);
   verifyCirculation(circulation, architecture);
   const ceilingElevation = round3(floor.elevation + ceilingUnder(floor.openings, spaceHeight));
   const grid = buildNavGrid(floor.outline, bounds, rooms, furniture, sealed, core);
+  if (loft) blockLoftSolids(grid, loft.solids, frame);
 
   return {
     circulation,
@@ -223,12 +239,17 @@ export function planFloor(
       coreAngleDeg: frame.angleDeg,
       core: coreToWorld(core, sealed),
       openingReservations: reserveOpenings(floor, bounds.facadeDepth),
+      ...(loft ? { loft: loft.plan } : {}),
       rooms: worldRooms,
       furniture: furniture.map((f) => furnitureToWorld(f, frame)),
       lights: [...planLights(
         rooms, core, bounds.inner, ceilingElevation,
-        floor.elevation + spaceHeight - stairSlab(spaceHeight), ids,
-      ), ...furnitureLights(furniture, frame, floor.elevation, request.building.tier)],
+        floor.elevation + spaceHeight - stairSlab(spaceHeight), ids, request.building.tier,
+      ), ...furnitureLights(furniture, frame, floor.elevation, request.building.tier)].map(light =>
+        loft && !light.furniture && light.room === loft.plan.lowerRoom
+          && pointInPolygon([light.position[0], light.position[2]], loft.plan.platform)
+          ? {...light, position: [light.position[0],loft.plan.elevation-loft.plan.thickness-.04,light.position[2]] as [number,number,number]} : light)
+        .concat(loft ? loftLights(loft.plan, floor.elevation, ceilingElevation, request.building.tier) : []),
     },
     grid,
     uv: { outline: uvOutline, rooms, furniture, sealed },
@@ -350,13 +371,13 @@ function reserveOpenings(floor: BlueprintFloor, facadeDepth: number): OpeningRes
   });
 }
 
-function furnitureToWorld(f: PlanFurniture, frame: Frame) {
+export function furnitureToWorld(f: PlanFurniture, frame: Frame) {
   return {
     id: f.id,
     kind: f.kind,
     room: f.room,
     position: roundPoint(uvToWorld(f.at, frame)),
-    rotationDeg: norm360(f.rotationDeg + frame.angleDeg),
+    rotationDeg: norm360(f.rotationDeg - frame.angleDeg),
     size: f.size,
     ...(f.elevation === undefined ? {} : { elevation: f.elevation }),
   };

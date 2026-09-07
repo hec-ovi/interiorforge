@@ -30,6 +30,8 @@ export const STAIR = {
   tread: 0.28,
   /** clear wall-face to wall-face width for two people */
   flightWidth: 1.2,
+  /** Space outside each clear walking edge for handrails and brackets. */
+  railAllowance: 0.1,
   landing: 1.2,
   maxRisersPerFlight: 14,
   /** clear height over every tread and landing along the walk line */

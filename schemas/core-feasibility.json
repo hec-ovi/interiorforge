@@ -16,7 +16,7 @@
     "10. mode: standard when some candidate band >= minCoreLength and the resolved block clears openings; else compact when some candidate satisfies step 8 and clears openings; else walkup when a candidate band >= minWalkupCoreLength and clears openings (stair-only, cap aboveGroundFloors at walkupMaxFloors); else none. All modes need crossDepthOk.",
     "10b. blocker, present whenever fits is false, names the nearest miss: cross_depth (step 9 fails), compact_depth (a band holds minCompactCoreLength but step 8 fails), walkup_floors (only a walkup band fits and floor count exceeds its cap), opening_reservations (dimensionally fitting candidates all cross an opening or adjacency reservation), or band (no permitted core placement fits). adjacencyFailure optionally reports floor, opening, coreSolid, role, requiredDepth and availableDepth for the largest deficit of the nearest tested candidate in the reported frame. No requested depth is reduced.",
     "11. maxElevators is the greatest count from the band's dimensional capacity down to one whose actual core components fit every plate and clear opening and adjacency reservations. Elevator demand clamps to maxElevators. Both feasibility and generation call the same component recipe and candidate selector.",
-    "12. block span for n cars: len = (compact ? stairColumnWidth : stairShaftDepth) + n * elevatorShaft + riserShaft + serviceStub + (compact and twoStairs ? stairColumnWidth : 0); u0 = snap(bandStart + (band - len) / 2), row cores with twoStairs also clamp u0 <= snapDown(snapDown(bandEnd) - stairShaftDepth - len), then u0 = max(u0, snapUp(bandStart)). A roof bulkhead instead fixes u0 = centerU - actual stair-a along-width / 2 exactly. A row core's secondary stair scans inward from the far band end in 0.5 m steps, keeping the core margin, until its actual solid clears every reservation.",
+    "12. block span for n cars: len = (compact ? stairColumnWidth : stairShaftDepth) + n * elevatorShaft + riserShaft + serviceStub + (compact and twoStairs ? stairColumnWidth : 0); u0 = snap(bandStart + (band - len) / 2), row cores with twoStairs also clamp u0 <= snapDown(snapDown(bandEnd) - stairShaftDepth - len), then u0 = max(u0, snapUp(bandStart)). A roof bulkhead instead fixes u0 = centerU - actual stair-a along-width / 2 exactly. A row core's secondary stair occupies [vFace - corridorWidth, vFace - corridorWidth + stairColumnWidth] across the corridor and scans inward from the far band end in 0.5 m steps, keeping the core margin, until its actual solid clears every reservation.",
     "13. successful feasibility publishes placement.stairA = {center, axis, width, depth} from that selected capacity. Coordinates are building-local XZ; axis is the selected frame +u unit vector, width is along it and depth along perpendicular +v. This is the complete actual shaft footprint, not an enlarged enclosure. Exterior builds its roof housing from this center and axis, then subsequent feasibility and generation honor that locked placement."
   ],
   "constants": {
@@ -33,7 +33,7 @@
     "singleLoadedBelowDepth": 12.5,
     "vFaceScanRange": 8.0,
     "frameSweepStepDeg": 5,
-    "stairColumnWidth": 2.5,
+    "stairColumnWidth": 3.0,
     "walkupMaxFloors": 6,
     "stairRiserMin": 0.16,
     "stairRiserIdeal": 0.17,
@@ -48,6 +48,7 @@
     "stairSlab": 0.15,
     "stairMinSlab": 0.06,
     "stairFlightWidth": 1.2,
+    "stairRailAllowance": 0.1,
     "wallThickness": 0.1,
     "shellWallDepth": {
       "curtain-wall": 0.15,
@@ -64,5 +65,5 @@
       "megablock": 0.62
     }
   },
-  "note": "Stair fit: each flight is stairClearWidth clear between wall faces, every landing is at least stairLanding deep, each exact rise is inside [stairRiserMin, stairRiserMax], and every tread is stairTread deep. The generator checks stairHeadroom over every tread and landing against the finished floor geometry, including slabs, walls and fixtures. Stair lights are flush in the arrival landing and do not reduce the clearance."
+  "note": "Stair fit: each flight is stairClearWidth clear between rail faces, every landing is at least stairLanding deep, each exact rise is inside [stairRiserMin, stairRiserMax], and every tread is stairTread deep. The generator checks stairHeadroom over every tread and landing against the finished floor geometry, including slabs, walls and fixtures. Stair lights are flush in the arrival landing and do not reduce the clearance."
 }

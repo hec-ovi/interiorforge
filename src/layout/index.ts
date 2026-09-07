@@ -1,3 +1,4 @@
+import { planUpperLoft } from "./lofts/upper-floor.js";
 import { InteriorError } from "../core/errors.js";
 import type { WalkGrid } from "../core/grid.js";
 import type { FloorAssignment, FloorInterior, InteriorRequest } from "../core/types.js";
@@ -44,7 +45,10 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
       if (!bpFloor) {
         throw new InteriorError("E_ASSIGNMENT_INVALID", `assignment references missing floor ${assignment.floor + i}`);
       }
-      const planned = planFloor(request, core, bpFloor, assignment.kind, i > 0, spaceHeight);
+      const lower = floors.find(f => f.floor === assignment.floor);
+      const planned = i > 0 && lower?.loft
+        ? planUpperLoft(lower, bpFloor, core, request)
+        : planFloor(request, core, bpFloor, assignment.kind, i > 0, spaceHeight);
       if (planned.circulation) circulation.set(bpFloor.index, planned.circulation);
       floors.push(planned.interior);
       navGrids.set(bpFloor.index, planned.grid);

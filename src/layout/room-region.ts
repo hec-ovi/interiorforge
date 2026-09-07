@@ -16,13 +16,14 @@ const at = (segment: Segment, t: number): Point => [
 
 /** Exact architectural ownership from an outline and axis-aligned occupied rectangles. */
 export class RoomRegion {
-  constructor(private readonly outline: readonly Point[]) {}
+  constructor(private readonly outline: readonly Point[], private readonly holes: readonly (readonly Point[])[] = []) {}
 
   subtract(rectangles: readonly UvRect[]): RoomShape[] {
     const cuts = rectangles.filter(rect => rect.lu > EPS && rect.lv > EPS);
-    const rings = [this.outline, ...cuts.map(uvRectCorners)];
+    const rings = [this.outline, ...this.holes, ...cuts.map(uvRectCorners)];
     const sources: Segment[] = rings.flatMap(ring => ring.map((a, i) => ({ a, b: ring[(i + 1) % ring.length]! })));
     const owns = (point: Point): boolean => pointInPolygon(point, this.outline)
+      && !this.holes.some(hole => pointInPolygon(point, hole))
       && !cuts.some(rect => point[0] > rect.u && point[0] < rect.u + rect.lu
         && point[1] > rect.v && point[1] < rect.v + rect.lv);
     const boundary = new Map<string, Segment>();

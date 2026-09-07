@@ -144,7 +144,7 @@ function rowFixedLen(env: CoreEnvelope): number {
   return env.stairDepth + RISER_SHAFT.w + CORRIDOR.serviceStub + (env.twoStairs ? env.stairDepth : 0) + MARGIN;
 }
 
-/** Compact core: stairs become 2.5 m columns reaching stairDepth into the rear strip. */
+/** Compact core: stairs become grid-fitted columns with clear lanes and rail reservations reaching stairDepth into the rear strip. */
 function compactFixedLen(env: CoreEnvelope): number {
   const stairCols = (env.twoStairs ? 2 : 1) * snapUp(SHAFT_WIDTH);
   return stairCols + RISER_SHAFT.w + CORRIDOR.serviceStub + MARGIN;
@@ -220,7 +220,7 @@ function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number, resp
       u: Math.round(u * 1e6) / 1e6,
       v: p.vFace - CORRIDOR.width,
       lu: env.stairDepth,
-      lv: CORRIDOR.width,
+      lv: snapUp(SHAFT_WIDTH),
     };
     const layout = fitted(stairB);
     if (layout) return layout;
@@ -508,7 +508,7 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
 
   const u0 = layout.u0;
   const plan: CorePlan = {
-    frame, mode, vFace, ...layout, u0, depth: ELEVATOR.shaft,
+    frame, mode, vFace, ...layout, u0, depth: Math.max(...coreSolids(layout).map(([, rect]) => rect.v + rect.lv - vFace)),
     stairStyle: "u_return", stairDepth, elevatorCount,
   };
   ensureCoreFitsAllFloors(request, plan);

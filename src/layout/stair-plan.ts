@@ -25,7 +25,7 @@ export function planFlights(climb: number): FlightPlan {
 }
 
 /** Two clear flights plus the wall halves standing on the shaft boundary. */
-export const SHAFT_WIDTH = 2 * STAIR.flightWidth + WALL;
+export const SHAFT_WIDTH = 2 * (STAIR.flightWidth + 2 * STAIR.railAllowance) + WALL;
 
 /** Shaft length for one flight between two full landings, including boundary wall halves. */
 export function shaftLength(risersPerFlight: number): number {

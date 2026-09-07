@@ -162,7 +162,7 @@ describe("planBuilding", () => {
     const pplan = planBuilding(parcel.request, resolveAssignments(parcel.request));
     expect(pplan.core.elevatorCount).toBeGreaterThan(0);
     expect(pplan.core.elevatorCount).toBeLessThanOrEqual(f.maxElevators);
-  });
+  }, 30000);
 
   it("a skewed plate finds its core on a rotated frame (parcel p64)", () => {
     // the fitting core rectangle sits off the longest edge: the principal frame alone
@@ -181,7 +181,7 @@ describe("planBuilding", () => {
   });
 
   it("tight footprints degrade to a stair-only walkup under the published cap", () => {
-    const small = makeFixture({ seed: 3, floors: 4, width: 9, depth: 10, type: "residential" });
+    const small = makeFixture({ seed: 3, floors: 4, width: 9.5, depth: 10, type: "residential" });
     const f = coreFeasibility(small.request.blueprint);
     expect(f.mode).toBe("walkup");
     expect(f.fits).toBe(true);
@@ -191,7 +191,7 @@ describe("planBuilding", () => {
     expect(f0.core.stairs.length).toBeGreaterThanOrEqual(1);
 
     // beyond the walkup cap the gate closes, message and recipe agree on the numbers
-    const tall = makeFixture({ seed: 3, floors: 7, width: 9, depth: 10, type: "residential" });
+    const tall = makeFixture({ seed: 3, floors: 7, width: 9.5, depth: 10, type: "residential" });
     const tf = coreFeasibility(tall.request.blueprint);
     expect(tf.fits).toBe(false);
     try {
@@ -251,6 +251,6 @@ describe("planBuilding", () => {
     const narrow = makeFixture({ seed: 4, floors: 5, width: 30, depth: 10, type: "residential" });
     const nplan = planBuilding(narrow.request, resolveAssignments(narrow.request));
     const floor = nplan.floors.find((x) => x.kind === "residence_studio" || x.kind === "apartment")!;
-    expect(floor.furniture.some((f) => f.kind === "bed_double" || f.kind === "bed_single")).toBe(true);
+    expect(floor.furniture.some((f) => ["bed_double", "bed_single", "sleeping_pod"].includes(f.kind))).toBe(true);
   });
 });

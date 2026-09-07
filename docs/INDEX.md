@@ -22,3 +22,7 @@ Dependency edges flow one way: ui and cli sit on top, core sits at the bottom, n
 - [Geometry panels](../src/geometry/panels/CONTRACT.md): fixed 0.5 m nine-piece border modules, large fitted wall/floor/ceiling fields and style palettes. Depends on core and glb; [assembly schema](../src/geometry/panels/schema/assembly.schema.json).
 
 - [Ornament assemblies](../src/geometry/ornaments/CONTRACT.md): framed aquariums, planted dividers, hologram cases and service racks inside reserved furniture envelopes. Depends on core, glb, layout and panels; [input schema](../src/geometry/ornaments/schema/ornament.schema.json).
+
+- [Loft planning](../src/layout/lofts/CONTRACT.md): fitted partial upper platforms, private stairs and clear entries in double-height rooms. Depends on core and layout; [floor schema](../schemas/floor.schema.json).
+- [Architectural details](../src/geometry/details/CONTRACT.md): loft platforms, guards, rail-reserved stairs and bounded overhead services. Depends on core, glb, loft planning and panels; [floor schema](../schemas/floor.schema.json).
+- [NPC placements](../src/npc/CONTRACT.md): vendor/staff and future story slots with reachable approaches and occupied-body route checks; [NPC schema](../schemas/npc.schema.json).
