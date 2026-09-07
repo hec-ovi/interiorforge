@@ -200,7 +200,7 @@ export type FurnitureKind =
   | "toilet" | "sink" | "shower" | "gym_machine" | "bench" | "reception_desk" | "plant"
   | "bar_counter" | "stool" | "display_rack"
   | "wall_shelf" | "display_screen" | "wall_art" | "crate"
-  | "ornament_wall" | "room_divider" | "sleeping_pod";
+  | "ornament_wall" | "room_divider" | "sleeping_pod" | "floor_clutter";
 
 interface RoomConnection {
   id: string;
