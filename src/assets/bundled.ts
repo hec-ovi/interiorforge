@@ -11,8 +11,11 @@ const urls: Record<string, string> = {
 const io = new WebIO().registerExtensions(ALL_EXTENSIONS);
 
 export async function readBundledAssetModel(asset: AssetEntry): Promise<Document> {
-  const url = urls[asset.id];
-  if (!url) throw new Error(`Asset ${asset.id} is not bundled`);
+  const filename = asset.modelUri?.split("/").at(-1);
+  const url = urls[asset.id] ?? (asset.availability === "local-only" && filename
+    ? `/interior-assets/${encodeURIComponent(filename)}`
+    : undefined);
+  if (!url) throw new Error(`Asset ${asset.id} has no browser transport`);
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Asset ${asset.id} is unavailable: HTTP ${response.status}`);
   return io.readBinary(new Uint8Array(await response.arrayBuffer()));

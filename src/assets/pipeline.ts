@@ -1,6 +1,6 @@
 import type { Document } from "@gltf-transform/core";
 import type { FloorInterior, Furniture, InteriorRequest } from "../core/types.js";
-import { findFurnitureAssets } from "./families.js";
+import { assetFamilyForFurniture, findFurnitureAssets } from "./families.js";
 import { AssetInstancer } from "./instance.js";
 import type { AssetEntry } from "./types.js";
 
@@ -33,12 +33,15 @@ export async function prepareFurnitureAssets(
 
   for (const floor of [...floors].sort((a, b) => a.floor - b.floor)) {
     for (const furniture of floor.furniture) {
+      const family = assetFamilyForFurniture(furniture.kind);
+      if (!family || !activeFamilies.has(family)) continue;
       const variationDeg = variation(furniture, request.seed);
       const styled = findFurnitureAssets(furniture, { styles, variationDeg });
       const fallback = findFurnitureAssets(furniture, { variationDeg });
-      const candidates = unique([...preferred(styled), ...preferred(fallback)]);
-      const family = candidates[0]?.family;
-      if (!family || !activeFamilies.has(family)) continue;
+      const candidates = unique([
+        ...candidateOrder(styled, `${String(request.seed)}/${family}/styled`),
+        ...candidateOrder(fallback, `${String(request.seed)}/${family}/fallback`),
+      ]);
       const existing = chosen.get(family);
       const ordered = existing ? candidates.filter((asset) => asset.id === existing.id) : candidates;
       for (const asset of ordered) {
@@ -100,8 +103,19 @@ async function tryRead(asset: AssetEntry, read: AssetReader): Promise<Document |
   try { return await read(asset); } catch { return null; }
 }
 
-function preferred(assets: readonly AssetEntry[]): AssetEntry[] {
-  return [...assets].sort((a, b) => Number(b.availability === "redistributable") - Number(a.availability === "redistributable"));
+function candidateOrder(assets: readonly AssetEntry[], seed: string): AssetEntry[] {
+  const local = assets.filter((asset) => asset.availability === "local-only");
+  const publicModels = assets.filter((asset) => asset.availability === "redistributable");
+  return [
+    ...rotate(local, hash(`${seed}/local`)),
+    ...rotate(publicModels, hash(`${seed}/public`)),
+  ];
+}
+
+function rotate<T>(values: readonly T[], seed: number): T[] {
+  if (values.length < 2) return [...values];
+  const offset = seed % values.length;
+  return [...values.slice(offset), ...values.slice(0, offset)];
 }
 
 function unique(assets: readonly AssetEntry[]): AssetEntry[] {

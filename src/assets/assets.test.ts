@@ -3,6 +3,8 @@ import { Document, getBounds } from "@gltf-transform/core";
 import { describe, expect, it } from "vitest";
 import { AssetInstancer, fitAssetBounds, findAssetCandidates, findFurnitureAssets, loadAssetCatalog } from "./index.js";
 import { readAssetModel } from "./io.js";
+import { prepareFurnitureAssets } from "./pipeline.js";
+import type { FloorInterior, Furniture } from "../core/types.js";
 
 describe("asset catalog contract", () => {
   it("publishes unique licensed entries and keeps restricted binaries local", () => {
@@ -64,5 +66,30 @@ describe("asset catalog contract", () => {
     expect(target.getRoot().listMaterials().length).toBe(model.getRoot().listMaterials().length);
     const bounds = getBounds(result.node);
     expect(bounds.min[1]).toBeCloseTo(2, 4);
+  });
+
+  it("prefers one seeded local model per family and falls back to public CC0", async () => {
+    const chair = (id: string): Furniture => ({
+      id, kind: "office_chair", room: "office", position: [0, 0], rotationDeg: 0,
+      size: [0.7, 0.8, 1.2],
+    });
+    const floors = [{ floor: 0, furniture: [chair("a"), chair("b")] }] as FloorInterior[];
+    const localReads: string[] = [];
+    const local = await prepareFurnitureAssets(floors, { seed: "catalog-choice" }, ["mid"], async (asset) => {
+      localReads.push(asset.id);
+      return new Document();
+    });
+    expect(local.byFloor.get(0)?.map((item) => item.asset.id)).toEqual([
+      "sketchfab-office-chair", "sketchfab-office-chair",
+    ]);
+    expect(localReads).toEqual(["sketchfab-office-chair"]);
+
+    const fallback = await prepareFurnitureAssets(floors, { seed: "catalog-choice" }, ["mid"], async (asset) => {
+      if (asset.availability === "local-only") throw new Error("local preview file absent");
+      return new Document();
+    });
+    expect(fallback.byFloor.get(0)?.map((item) => item.asset.id)).toEqual([
+      "polyhaven-school-chair-01", "polyhaven-school-chair-01",
+    ]);
   });
 });
