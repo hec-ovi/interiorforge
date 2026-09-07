@@ -30,3 +30,9 @@ Purpose: turns a building plan into interior meshes and completes the shell GLB 
 - [core](../core/CONTRACT.md)
 - [glb](../glb/CONTRACT.md)
 - [layout](../layout/CONTRACT.md) (`BuildingPlan`)
+
+## Surface and asset assemblies
+
+`GeometryOptions.skipFurnitureIdsByFloor` suppresses procedural instances selected by the asset importer. It is an optional final argument to both geometry entrypoints; reservations and NPC data keep their published dimensions.
+
+[Panels](panels/CONTRACT.md) map rich/high_rich to luxury limestone, walnut and marble, poor to worn sage plaster and aggregate, mid to capsule composite and rubber. The 0.5 m nine-piece modules retain corner sizes, close large panel perimeters and preserve exact floor/ceiling coverage. One fitted square repair or service face appears on a suitable wall in each damaged/capsule floor. UVs preserve physical scale; exact faces map once.

@@ -1,0 +1,65 @@
+{
+  "luxury": {
+    "tier": "rich",
+    "wall": "interior-luxury-wall",
+    "floor": "interior-luxury-floor",
+    "ceiling": "interior-luxury-ceiling",
+    "accent": "interior-luxury-timber",
+    "trim": "door",
+    "wallPitch": [
+      2,
+      3
+    ],
+    "floorPitch": [
+      2,
+      2
+    ],
+    "ceilingPitch": [
+      2,
+      2
+    ],
+    "joint": 0.008
+  },
+  "damaged": {
+    "tier": "poor",
+    "wall": "interior-damaged-wall",
+    "floor": "interior-damaged-floor",
+    "ceiling": "interior-damaged-ceiling",
+    "accent": "concrete",
+    "trim": "door",
+    "wallPitch": [
+      2,
+      3
+    ],
+    "floorPitch": [
+      2,
+      2
+    ],
+    "ceilingPitch": [
+      2,
+      1
+    ],
+    "joint": 0.012
+  },
+  "capsule": {
+    "tier": "mid",
+    "wall": "interior-capsule-wall",
+    "floor": "interior-capsule-floor",
+    "ceiling": "interior-capsule-ceiling",
+    "accent": "metal",
+    "trim": "door",
+    "wallPitch": [
+      1.5,
+      3
+    ],
+    "floorPitch": [
+      1.5,
+      1.5
+    ],
+    "ceilingPitch": [
+      1.5,
+      1.5
+    ],
+    "joint": 0.018
+  }
+}

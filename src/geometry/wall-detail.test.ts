@@ -30,14 +30,17 @@ describe("wall bands", () => {
     expect(capped.every((c) => c === "both")).toBe(true);
   });
 
-  it("a built floor carries baseboards, a dado and one accent wall per room", () => {
-    const fix = makeFixture({ seed: 8, floors: 4, basements: 1 });
+  it.each([
+    ["rich", "luxury"], ["poor", "damaged"], ["mid", "capsule"],
+  ] as const)("a %s floor carries trim, accent bands and the %s wall field", (tier, style) => {
+    const fix = makeFixture({ seed: 8, floors: 4, basements: 1, tier });
     const plan = planBuilding(fix.request, resolveAssignments(fix.request));
     const { doc } = buildInterior(plan, fix.request, fix.shellDoc);
     const names = doc.getRoot().listMeshes().map((m) => m.getName());
+    const accent = style === "luxury" ? "/interior-luxury-timber/rich" : `/concrete/${tier}#plain`;
     expect(names.some((n) => n.includes("/metal/"))).toBe(true); // trim bands
-    expect(names.some((n) => n.includes("/concrete/") && n.includes("#plain"))).toBe(true); // dado and accents
-    expect(names.some((n) => n.includes("/plaster/") && n.includes("#"))).toBe(true); // patterned field
+    expect(names.some((n) => n.includes(accent))).toBe(true); // dado and accents
+    expect(names.some((n) => n.includes(`/interior-${style}-wall/${tier}`))).toBe(true);
   });
 
   it("draws one fitted casing for the doorway shared by two rooms", () => {

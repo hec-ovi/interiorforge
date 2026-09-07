@@ -27,9 +27,10 @@ const BUILDERS: Record<FurnitureKind, Builder> = {
 /** Shaped furniture at each planned pose: legs under tables, backs on chairs, panels on
  *  counters, goods on shelves. Wall pieces hang at their own elevation. */
 export function emitFurniture(
-  mb: MeshBuilder, keys: MaterialKeys, furniture: PlanFurniture[], frame: Frame, elevation: number,
+  mb: MeshBuilder, keys: MaterialKeys, furniture: PlanFurniture[], frame: Frame, elevation: number, skipIds?: ReadonlySet<string>,
 ): void {
   for (const item of furniture) {
+    if (skipIds?.has(item.id)) continue;
     const placer = new Placer(mb, keys, frame, item, elevation + (item.elevation ?? 0));
     BUILDERS[item.kind](placer);
   }

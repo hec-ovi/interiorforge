@@ -18,3 +18,5 @@ Browser-safe boundary: [`src/feasibility.ts`](../src/feasibility.ts) exposes Lay
 Root `src/index.ts` wires blueprint -> layout -> npc -> geometry -> materials. `generateInterior` returns the combined building; `generateFloorInteriors` serializes and releases one floor at a time without a combined document. `src/cli.ts` runs either path from the terminal.
 
 Dependency edges flow one way: ui and cli sit on top, core sits at the bottom, no cycles.
+
+- [Geometry panels](../src/geometry/panels/CONTRACT.md): fixed 0.5 m nine-piece border modules, large fitted wall/floor/ceiling fields and style palettes. Depends on core and glb; [assembly schema](../src/geometry/panels/schema/assembly.schema.json).

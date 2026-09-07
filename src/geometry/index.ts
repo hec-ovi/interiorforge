@@ -22,6 +22,7 @@ import { assertDoorwaysClear, floorDoorways, openFrontClearances } from "./door-
 import { emitFurniture } from "./furniture/index.js";
 import { emitLightFixtures } from "./lights.js";
 import { MaterialKeys } from "./materials.js";
+import { PanelMeshBuilder } from "./panels/panel-mesh.js";
 import { emitRoofLanding } from "./roof-access.js";
 import { stairClearance } from "./stair-clearance.js";
 import type { RunStep, UvStep } from "./stairs.js";
@@ -34,6 +35,10 @@ import { buildFloorSurfaces, buildShaftFloors } from "./surfaces.js";
 import { buildFacadeLining } from "./lining.js";
 import { buildInteriorWalls } from "./walls.js";
 import { CeilingCoverage } from "./ceiling-coverage.js";
+
+export interface GeometryOptions {
+  skipFurnitureIdsByFloor?: ReadonlyMap<number, ReadonlySet<string>>;
+}
 
 export interface InteriorBands {
   /** floor index -> stair id -> frame-space tread and landing tops (see coreAngleDeg) */
@@ -48,8 +53,8 @@ export interface InteriorGeometry extends InteriorBands {
 }
 
 /** Completes the shell document with the full interior. Mutates and returns shellDoc. */
-export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shellDoc: Document): InteriorGeometry {
-  const bands = buildInteriorBands(plan, request);
+export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shellDoc: Document, options: GeometryOptions = {}): InteriorGeometry {
+  const bands = buildInteriorBands(plan, request, options);
   const whole = new MeshBuilder();
   for (const floor of [...plan.floors].sort((a, b) => a.floor - b.floor)) {
     whole.merge(bands.floorMeshes.get(floor.floor)!);
@@ -60,7 +65,7 @@ export function buildInterior(plan: BuildingPlan, request: InteriorRequest, shel
 }
 
 /** Builds and validates each floor band without allocating the combined document. */
-export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest): InteriorBands {
+export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest, options: GeometryOptions = {}): InteriorBands {
   const keys = new MaterialKeys(request.materialTheme, request.building.tier);
   const core = plan.core;
   const floorMeshes = new Map<number, MeshBuilder>();
@@ -80,7 +85,7 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
   for (let i = 0; i < sorted.length; i++) {
     const floor = sorted[i]!;
     const uv = plan.uvFloors.get(floor.floor)!;
-    const mb = new MeshBuilder(core.frame, gridOrigin(uv.outline));
+    const mb = new PanelMeshBuilder(keys.panels, core.frame, gridOrigin(uv.outline));
     floorMeshes.set(floor.floor, mb);
     // the ceiling of a spans-2 floor sits at the top of its open upper half
     const upper = sorted[i + 1]?.rooms.length === 0 ? sorted[i + 1] : undefined;
@@ -156,7 +161,7 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest)
     buildFacadeLining(mb, keys, bpFloor, wallDepth, wallTop, ceilingY, program);
     emitCoreDividers(mb, keys, core, floor.elevation, wallTop);
     emitElevatorDoors(mb, keys, core, floor.elevation);
-    emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation);
+    emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation, options.skipFurnitureIdsByFloor?.get(floor.floor));
     emitLightFixtures(mb, keys, floor.lights);
     assertDoorwaysClear(mb, [
       ...floorDoorways(uv.rooms, core.frame, floor.elevation, ceilingY),

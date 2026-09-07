@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NinePieceAssembly",
+  "type": "object",
+  "required": ["width", "height", "unit", "pieces"],
+  "properties": {
+    "width": {"type": "number", "exclusiveMinimum": 0},
+    "height": {"type": "number", "exclusiveMinimum": 0},
+    "unit": {"type": "number", "exclusiveMinimum": 0},
+    "pieces": {"type": "array", "items": {
+      "type": "object", "required": ["role", "x", "y", "width", "height"],
+      "properties": {
+        "role": {"enum": ["top-left", "top", "top-right", "left", "centre", "right", "bottom-left", "bottom", "bottom-right", "field"]},
+        "x": {"type": "number"}, "y": {"type": "number"},
+        "width": {"type": "number", "exclusiveMinimum": 0},
+        "height": {"type": "number", "exclusiveMinimum": 0}
+      }, "additionalProperties": false
+    }}
+  }, "additionalProperties": false
+}

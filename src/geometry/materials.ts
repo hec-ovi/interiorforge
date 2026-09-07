@@ -1,4 +1,5 @@
 import type { RoomKind } from "../core/types.js";
+import { PanelPalette } from "./panels/palette.js";
 
 /** Material keys are theme/kind/tier slugs; the materials box resolves them. */
 
@@ -11,17 +12,12 @@ const FLOOR_BY_ROOM: Partial<Record<RoomKind, string>> = {
   terrace_open: "concrete", parking_area: "concrete",
 };
 
-/** Walls and ceilings take the pattern class, and only its joint-free members: a texture
- *  whose module is 1 to 3 m cuts mid-tile against a room laid on the half-metre grid, which
- *  reads as a mistake. Every grid an interior surface shows is geometry the interior placed
- *  (wall bands, casings, light housings), never a repeat in a map. Floors, wood and concrete
- *  keep their photo sets, where real texture earns its place. */
-
 export class MaterialKeys {
+  readonly panels: PanelPalette;
   constructor(
     private readonly theme: string,
     private readonly tier: string,
-  ) {}
+  ) { this.panels = new PanelPalette(theme, tier); }
 
   /** `theme/kind/tier`, plus an optional `#variant` preference the materials database
    *  resolves; a consumer that ignores the suffix still gets the entry's canonical variant. */
@@ -31,17 +27,22 @@ export class MaterialKeys {
   }
 
   floorOf(room: RoomKind): string {
+    if (this.theme === "cyberpunk" && !["parking_area", "terrace_open", "mechanical_room", "storage", "gym_floor"].includes(room)) return this.panels.surface("floor");
     return this.key(FLOOR_BY_ROOM[room] ?? "concrete");
   }
 
-  /** Walls are flat: the plain plaster everywhere, so a pattern only ever reads as a border. */
+  /** Architectural field; the panel builder owns the border geometry. */
   wall(): string {
-    return this.key("plaster", "plain");
+    return this.theme === "cyberpunk" ? this.panels.surface("wall") : this.key("plaster", "plain");
   }
 
   /** The accent band and feature wall: a different key, so the two tones read apart under
    *  any resolver, not only one that honours the variant preference. */
   accent(room?: RoomKind): string {
+    if (this.theme === "cyberpunk" && this.panels.style === "luxury") {
+      return ["bathroom", "toilets", "kitchen"].includes(room ?? "")
+        ? this.panels.surface("floor") : `${this.theme}/interior-luxury-timber/rich`;
+    }
     return room === "bathroom" || room === "toilets" || room === "kitchen"
       ? this.key("tile")
       : this.key("concrete", "plain");
@@ -63,7 +64,7 @@ export class MaterialKeys {
   }
 
   ceiling(): string {
-    return this.key("ceiling", "plain");
+    return this.theme === "cyberpunk" ? this.panels.surface("ceiling") : this.key("ceiling", "plain");
   }
 
   concrete(): string {
