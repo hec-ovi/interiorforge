@@ -159,8 +159,11 @@ function emitReveal(
     layerBands(bands, y0 + hole.y0, y0 + hole.y1, (material, _proud, by0, by1) => {
       const a = at(hole.t0, near), b = at(hole.t0, wallDepth);
       const c = at(hole.t1, wallDepth), d = at(hole.t1, near);
-      mb.addQuad(material, [v(a, by0), v(a, by1), v(b, by1), v(b, by0)]);
-      mb.addQuad(material, [v(c, by0), v(c, by1), v(d, by1), v(d, by0)]);
+      // Attachment returns stay on the exact jamb plane, including deep shell housings.
+      const width = wallDepth - near, height = by1 - by0;
+      const uv: [Point, Point, Point, Point] = [[0, 0], [0, height], [-width, height], [-width, 0]];
+      mb.addQuadUv(material, [v(a, by0), v(a, by1), v(b, by1), v(b, by0)], uv);
+      mb.addQuadUv(material, [v(c, by0), v(c, by1), v(d, by1), v(d, by0)], uv);
     });
     const sillMaterial = hole.y0 > 0 ? bandMaterial(bands, y0 + hole.y0) : bands.trim;
     const plan = [at(hole.t0, near), at(hole.t1, near), at(hole.t1, wallDepth), at(hole.t0, wallDepth)];
