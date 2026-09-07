@@ -1,11 +1,11 @@
 import { createReadStream, existsSync } from "node:fs";
-import { extname, join, normalize } from "node:path";
+import { basename, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import { materialsDir } from "../materials/load.js";
 
 const MIME: Record<string, string> = {
-  ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".ktx2": "image/ktx2",
+  ".glb": "model/gltf-binary", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".ktx2": "image/ktx2",
 };
 
 /** Serves the materials database at /materials so the preview shows textured buildings the
@@ -26,7 +26,25 @@ function materialsRoute(): Plugin {
   };
 }
 
+/** Exposes ignored, license-restricted imports to the local preview only. */
+function interiorAssetsRoute(): Plugin {
+  const root = fileURLToPath(new URL("../assets/models", import.meta.url));
+  return {
+    name: "urbe-interior-assets",
+    configureServer(server) {
+      server.middlewares.use("/interior-assets", (req, res, next) => {
+        const requested = decodeURIComponent((req.url ?? "/").split("?")[0]!).replace(/^[/\\]+/, "");
+        if (!requested || requested !== basename(requested)) return next();
+        const file = join(root, requested);
+        if (!existsSync(file)) return next();
+        res.setHeader("content-type", MIME[extname(file)] ?? "application/octet-stream");
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
+
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
-  plugins: [materialsRoute()],
+  plugins: [materialsRoute(), interiorAssetsRoute()],
 });

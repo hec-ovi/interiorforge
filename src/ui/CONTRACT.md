@@ -7,6 +7,7 @@ Status: implemented at 0.30.0. Run with `npm run preview`.
 ## Inputs
 
 - `mountApp(root: HTMLElement, viewer: Viewer3D) -> AppState`: mounts the preview and starts one fixture generation with `{ seed: 1, floors: 12, basements: 1, type: "offices", tier: "mid" }`.
+- `npm run preview`: serves ignored normalized interior models at `/interior-assets/<filename>` so locally licensed imports can appear in generated preview buildings.
 - `Viewer3D`: `{ el: HTMLElement, setGlb(Uint8Array): Promise<void>, setFloorSlice({ y0, y1 } | null): void, setLights(readonly LightFixture[] | null): void, standIn([x, z], eyeY, headingDeg): void }`. Tests inject this interface; `createViewer3d() -> Viewer3D` supplies the Three.js implementation.
 - `createControls(state, onGenerate, onLoadFiles, onStandIn) -> HTMLElement`: emits fixture `AppParams`, a selected `File[]`, or an eye-view request. A building load requires a shell `.glb` and blueprint `.json`; an exterior request `.json` supplies type, tier and theme when present.
 - `createPlanView(state) -> HTMLElement`: a room click selects it. Two shift-clicks request a same-floor path.
