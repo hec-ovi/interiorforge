@@ -34,6 +34,20 @@ it("certifies whole union coverage across a shared seam and along an outer bound
   expect(segmentCoveredByFootprints([0.5, 1], [0.5, 1], [])).toBe(false);
 });
 
+it("certifies adjacent rooms whose shared horizontal or vertical edges have different lengths", () => {
+  const polygons: Point[][] = [
+    [[0, 6.9], [21.1, 6.9], [21.1, 10], [0, 10]],
+    [[0, 0], [28, 0], [28, 6.9], [0, 6.9]],
+  ];
+  for (const swapAxes of [false, true]) {
+    const transform = ([x, z]: Point): Point => swapAxes ? [z, x] : [x, z];
+    const rooms = polygons.map(polygon => ({ polygon: polygon.map(transform) }));
+    const a = transform([10.53125, 6.84]), b = transform([10.53125, 6.9025]);
+    expect(segmentCoveredByFootprints(a, b, rooms)).toBe(true);
+    expect(segmentCoveredByFootprints(b, a, [...rooms].reverse())).toBe(true);
+  }
+});
+
 it("rejects private corners, narrow uncovered intervals and hole tolerance bands", () => {
   const left = { polygon: [[0, 0], [1, 0], [1, 2], [0, 2]] as Point[] };
   const low = { polygon: [[1, 0], [2, 0], [2, 1], [1, 1]] as Point[] };

@@ -27,7 +27,9 @@ function ringCrossing(a: Point, b: Point, c: Point, d: Point): [number, number] 
   const ux = b[0] - a[0], uz = b[1] - a[1], vx = d[0] - c[0], vz = d[1] - c[1];
   const qx = c[0] - a[0], qz = c[1] - a[1], divisor = cross(ux, uz, vx, vz);
   if (divisor !== 0) {
-    const t = cross(qx, qz, vx, vz) / divisor, u = cross(qx, qz, ux, uz) / divisor;
+    // Axis-aligned shared lines have one crossing parameter, independent of edge length.
+    const t = vz === 0 ? qz / uz : vx === 0 ? qx / ux : cross(qx, qz, vx, vz) / divisor;
+    const u = cross(qx, qz, ux, uz) / divisor;
     return t >= 0 && t <= 1 && u >= 0 && u <= 1 ? [t, t] : null;
   }
   if (cross(qx, qz, ux, uz) !== 0) return null;

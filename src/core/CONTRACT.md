@@ -44,3 +44,7 @@ Purpose: deterministic primitives shared by every box in this repo: seeded RNG, 
 `FurnitureKind` includes `ornament_wall`, `room_divider`, `sleeping_pod` and `floor_clutter`. All use the [floor furniture envelope](../../schemas/floor.schema.json), including a full 2 m pod height. `LightFixture.furniture` optionally identifies the assembly owning its physical housing.
 
 `LightFixture.color` optionally supplies linear RGB instead of temperature. `axis` and `direction` optionally supply unit world vectors along the lens and out of its emitting face. Their defaults are the XZ `angleDeg` line and vertical `facing` normal.
+
+`LoftPlan` publishes a partial platform, support centers and private straight stair with world entries in the [floor schema](../../schemas/floor.schema.json#/$defs/loft). The lower floor owns `loft`; the occupied upper platform names `mezzanineOf`. Global core connectors skip that upper level.
+
+`NpcPlacement` in [npc.schema.json](../../schemas/npc.schema.json) names a standing body, radius, floor/room, facing and reachable approach point. Purpose is vendor, staff or story. Optional anchor/role IDs bind it to generated staffing; story positions remain unassigned.

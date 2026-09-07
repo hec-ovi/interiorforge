@@ -7,6 +7,21 @@
   "required": ["buildingId", "anchors", "roles", "routines", "nav"],
   "additionalProperties": false,
   "properties": {
+    "placements": {
+      "type": "array",
+      "description": "Reserved standing slots for vendors, staff and future story characters. Approach points remain reachable with all published slot bodies present. IDs are stable for the generated scene.",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "purpose", "floor", "room", "position", "facingDeg", "radius", "approach"],
+        "properties": {
+          "id": {"type":"string"}, "purpose":{"enum":["vendor","staff","story"]},
+          "floor":{"type":"integer"}, "room":{"type":"string"},
+          "position":{"$ref":"#/$defs/point2"}, "approach":{"$ref":"#/$defs/point2"},
+          "facingDeg":{"type":"number"}, "radius":{"type":"number","exclusiveMinimum":0},
+          "anchor":{"type":"string"}, "role":{"type":"string"}
+        }
+      }
+    },
     "buildingId": { "type": "string" },
     "anchors": {
       "type": "array",

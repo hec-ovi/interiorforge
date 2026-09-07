@@ -1,3 +1,7 @@
+import type { NpcPlacement } from "./npc-placement.js";
+export type { NpcPlacement } from "./npc-placement.js";
+import type { LoftPlan } from "./loft.js";
+export type { LoftPlan } from "./loft.js";
 /** TypeScript mirror of ../../schemas/*.schema.json. Schemas are the source of truth. */
 
 import type { Point, Rect } from "./geom.js";
@@ -314,6 +318,10 @@ export interface FloorCore {
 }
 
 export interface FloorInterior {
+  /** Private mezzanine fitted into this double-height floor. */
+  loft?: LoftPlan;
+  /** Lower floor owning this partial platform; global core has no stop here. */
+  mezzanineOf?: number;
   floor: number;
   kind: string;
   elevation: number;
@@ -435,6 +443,8 @@ export interface RoofAccess {
 }
 
 export interface NpcSupport {
+  /** Safe standing slots for staff and future story characters. */
+  placements?: NpcPlacement[];
   buildingId: string;
   anchors: Anchor[];
   roles: RoleSlot[];

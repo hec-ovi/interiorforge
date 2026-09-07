@@ -19,6 +19,8 @@
   ],
   "additionalProperties": false,
   "properties": {
+    "loft": { "$ref": "#/$defs/loft" },
+    "mezzanineOf": { "type": "integer" },
     "floor": {
       "type": "integer",
       "description": "negative = basement"
@@ -463,6 +465,106 @@
     }
   },
   "$defs": {
+    "loft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "lowerRoom",
+        "upperRoom",
+        "upperFloor",
+        "platform",
+        "elevation",
+        "thickness",
+        "supports",
+        "stair"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "lowerRoom": {
+          "type": "string"
+        },
+        "upperRoom": {
+          "type": "string"
+        },
+        "upperFloor": {
+          "type": "integer"
+        },
+        "platform": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point2"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "elevation": {
+          "type": "number"
+        },
+        "thickness": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "supports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point2"
+          }
+        },
+        "stair": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "direction",
+            "width",
+            "run",
+            "risers",
+            "rise",
+            "tread",
+            "lowerEntry",
+            "upperEntry"
+          ],
+          "properties": {
+            "start": {
+              "$ref": "#/$defs/point2"
+            },
+            "direction": {
+              "$ref": "#/$defs/point2"
+            },
+            "width": {
+              "type": "number",
+              "minimum": 1.4
+            },
+            "run": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "risers": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "rise": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.18
+            },
+            "tread": {
+              "type": "number",
+              "minimum": 0.28
+            },
+            "lowerEntry": {
+              "$ref": "#/$defs/point2"
+            },
+            "upperEntry": {
+              "$ref": "#/$defs/point2"
+            }
+          }
+        }
+      }
+    },
     "point3": {
       "type": "array",
       "prefixItems": [
