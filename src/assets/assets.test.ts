@@ -1,5 +1,7 @@
 import fs from "node:fs";
-import { Document, getBounds } from "@gltf-transform/core";
+import { createRequire } from "node:module";
+import { Document, getBounds, NodeIO } from "@gltf-transform/core";
+import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { describe, expect, it } from "vitest";
 import { AssetInstancer, fitAssetBounds, findAssetCandidates, findFurnitureAssets, loadAssetCatalog } from "./index.js";
 import { readAssetModel } from "./io.js";
@@ -75,6 +77,13 @@ describe("asset catalog contract", () => {
     expect(target.getRoot().listMaterials().length).toBe(model.getRoot().listMaterials().length);
     const bounds = getBounds(result.node);
     expect(bounds.min[1]).toBeCloseTo(2, 4);
+    const registered = new Set(target.getRoot().listNodes());
+    for (const node of registered) {
+      for (const child of node.listChildren()) expect(registered.has(child)).toBe(true);
+    }
+    const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+    const roundtrip = await io.readBinary(await io.writeBinary(target));
+    expect(roundtrip.getRoot().listNodes().length).toBe(registered.size);
   });
 
   it("prefers one seeded local model per family and falls back to public CC0", async () => {
@@ -115,5 +124,22 @@ describe("asset catalog contract", () => {
     const mid = await prepareFurnitureAssets(floors, { seed: 4 }, ["capsule", "mid"], async () => new Document());
     expect(mid.byFloor.size).toBe(0);
     expect(mid.skipIdsByFloor.size).toBe(0);
+  });
+
+  it("imports a model document created by another module realm without orphan nodes", async () => {
+    const asset = loadAssetCatalog().assets.find((entry) => entry.id === "polyhaven-school-chair-01")!;
+    const cjs = createRequire(import.meta.url)("@gltf-transform/core") as typeof import("@gltf-transform/core");
+    const foreignIO = new cjs.NodeIO().registerExtensions(ALL_EXTENSIONS);
+    const foreign = await foreignIO.readBinary(fs.readFileSync(new URL(asset.modelUri!, import.meta.url)));
+    const target = new Document();
+    target.createBuffer("buffer");
+    target.createScene("scene");
+    await new AssetInstancer(target, async () => foreign as unknown as Document).instantiate(asset, {
+      position: [0, 0, 0], maxBounds: [0.7, 0.8, 1.2],
+    });
+
+    const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+    const roundtrip = await io.readBinary(await io.writeBinary(target));
+    expect(roundtrip.getRoot().listNodes().some((node) => node.getName().startsWith(`asset:${asset.id}`))).toBe(true);
   });
 });

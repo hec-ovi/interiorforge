@@ -26,6 +26,7 @@ Purpose: catalogs licensed furniture models and adds a selected model to a glTF 
 - Catalog license fields reproduce the provider metadata verified on the recorded date. A title or description that says CC0 does not replace the provider license field.
 - A `local-only` model is never committed. A model is `redistributable` only when its source publishes a redistribution-compatible license.
 - A model replaces procedural furniture only when it fits the layout's existing dimensions at 70 percent or more of its normalized size.
+- Every copied node belongs to the target document graph, including when a reader returns a document from another JavaScript module realm.
 
 ## Depends on
 

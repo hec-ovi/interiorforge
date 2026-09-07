@@ -1,7 +1,10 @@
-import { type Accessor, type Document, type Node } from "@gltf-transform/core";
+import { type Accessor, Document, type Node, WebIO } from "@gltf-transform/core";
+import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { copyToDocument } from "@gltf-transform/functions";
 import { fitAssetBounds } from "./catalog.js";
 import type { AssetEntry, AssetInstance, AssetInstanceOptions, AssetPlacement } from "./types.js";
+
+const transferIO = new WebIO().registerExtensions(ALL_EXTENSIONS);
 
 export async function instantiateAsset(
   target: Document,
@@ -45,15 +48,18 @@ export class AssetInstancer {
     const existing = this.templates.get(asset.id);
     if (existing) return existing.map((node) => cloneNode(this.target, node));
 
-    const source = await this.read(asset);
+    const readSource = await this.read(asset);
+    const source = readSource instanceof Document
+      ? readSource
+      : await transferIO.readBinary(await transferIO.writeBinary(readSource));
     if (source.getRoot().listAnimations().length || source.getRoot().listSkins().length) {
       throw new Error(`Asset ${asset.id} must be a static unskinned model`);
     }
     const scene = source.getRoot().getDefaultScene() ?? source.getRoot().listScenes()[0];
     if (!scene?.listChildren().length) throw new Error(`Asset ${asset.id} has no scene nodes`);
-    const sourceNodes = scene.listChildren();
-    const copied = copyToDocument(this.target, source, sourceNodes);
-    const roots = sourceNodes.map((node) => copied.get(node) as Node);
+    const sourceRoots = scene.listChildren();
+    const copied = copyToDocument(this.target, source, sourceRoots);
+    const roots = sourceRoots.map((node) => copied.get(node) as Node);
     consolidateBuffers(this.target, roots);
     for (const root of roots) prefixNode(root, asset.id);
     this.templates.set(asset.id, roots);
