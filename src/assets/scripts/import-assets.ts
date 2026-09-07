@@ -29,7 +29,7 @@ async function importSource(plan: SourcePlan): Promise<AssetEntry> {
   const metrics = metricsOf(doc);
   const base = plan.provider === "Sketchfab"
     ? await sketchfabMetadata(plan, sourcePath)
-    : await polyHavenMetadata(plan);
+    : polyHavenMetadata(plan);
 
   if (plan.targetHeight === undefined && plan.provider === "Sketchfab") {
     return {
@@ -100,18 +100,16 @@ async function sketchfabMetadata(plan: SourcePlan, sourcePath: string): Promise<
   };
 }
 
-async function polyHavenMetadata(plan: SourcePlan): Promise<Pick<AssetEntry, "title" | "source" | "license">> {
+function polyHavenMetadata(plan: SourcePlan): Pick<AssetEntry, "title" | "source" | "license"> {
   const requestedId = plan.sourceFile.split("/")[1]!;
-  const response = await fetch(`https://api.polyhaven.com/info/${requestedId}`);
-  if (!response.ok) throw new Error(`Poly Haven metadata ${requestedId}: HTTP ${response.status}`);
-  const metadata = await response.json() as { name: string; authors: Record<string, string> };
+  if (!plan.title || !plan.author) throw new Error(`Missing Poly Haven metadata for ${plan.id}`);
   return {
-    title: metadata.name,
+    title: plan.title,
     source: {
       provider: "Poly Haven",
       uid: requestedId,
       uri: `https://polyhaven.com/a/${requestedId}`,
-      author: { name: Object.keys(metadata.authors).join(", ") || "Poly Haven", uri: "https://polyhaven.com" },
+      author: { name: plan.author, uri: "https://polyhaven.com" },
     },
     license: {
       slug: "cc0-1.0",

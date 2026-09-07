@@ -1,7 +1,6 @@
-import { type Document, type Node } from "@gltf-transform/core";
+import { type Accessor, type Document, type Node } from "@gltf-transform/core";
 import { copyToDocument } from "@gltf-transform/functions";
 import { fitAssetBounds } from "./catalog.js";
-import { readAssetModel } from "./io.js";
 import type { AssetEntry, AssetInstance, AssetInstanceOptions, AssetPlacement } from "./types.js";
 
 export async function instantiateAsset(
@@ -10,29 +9,94 @@ export async function instantiateAsset(
   placement: AssetPlacement,
   options: AssetInstanceOptions = {},
 ): Promise<AssetInstance> {
+  if (!options.read) throw new Error("Asset instancing requires a model reader");
+  return new AssetInstancer(target, options.read).instantiate(asset, placement);
+}
+
+export class AssetInstancer {
+  private readonly templates = new Map<string, Node[]>();
+
+  constructor(
+    private readonly target: Document,
+    private readonly read: (asset: AssetEntry) => Promise<Document>,
+  ) {}
+
+  async instantiate(asset: AssetEntry, placement: AssetPlacement): Promise<AssetInstance> {
   validatePlacement(placement);
   if (!asset.dimensionsMeters) throw new Error(`Asset ${asset.id} has no normalized dimensions`);
-  const source = options.read ? await options.read(asset) : await readAssetModel(asset, options);
-  const sourceScene = source.getRoot().getDefaultScene() ?? source.getRoot().listScenes()[0];
-  if (!sourceScene) throw new Error(`Asset ${asset.id} has no scene`);
-  const sourceNodes = sourceScene.listChildren();
-  if (sourceNodes.length === 0) throw new Error(`Asset ${asset.id} has no scene nodes`);
-
-  const copied = copyToDocument(target, source, sourceNodes);
-  const parent = target.createNode(`asset:${asset.id}`);
-  for (const sourceNode of sourceNodes) parent.addChild(copied.get(sourceNode) as Node);
+    const children = await this.instanceChildren(asset);
+    const parent = this.target.createNode(`asset:${asset.id}`);
+    for (const child of children) parent.addChild(child);
 
   const angle = ((placement.rotationYDeg ?? 0) + (placement.variationDeg ?? 0)) * Math.PI / 180;
   const fit = fitAssetBounds(asset, placement.maxBounds, placement.variationDeg, placement.minimumScale);
   if (!fit) throw new RangeError(`Asset ${asset.id} cannot fit its placement bounds at a useful scale`);
   const { dimensions, scale } = fit;
-  parent.setScale([scale, scale, scale]);
-  parent.setRotation([0, Math.sin(angle / 2), 0, Math.cos(angle / 2)]);
-  parent.setTranslation([...placement.position]);
-  const scene = target.getRoot().getDefaultScene() ?? target.getRoot().listScenes()[0] ?? target.createScene("scene");
-  scene.addChild(parent);
+    parent.setScale([scale, scale, scale]);
+    parent.setRotation([0, Math.sin(angle / 2), 0, Math.cos(angle / 2)]);
+    parent.setTranslation([...placement.position]);
+    const scene = this.target.getRoot().getDefaultScene() ?? this.target.getRoot().listScenes()[0] ?? this.target.createScene("scene");
+    scene.addChild(parent);
 
-  return { asset, node: parent, scale, dimensions };
+    return { asset, node: parent, scale, dimensions };
+  }
+
+  private async instanceChildren(asset: AssetEntry): Promise<Node[]> {
+    const existing = this.templates.get(asset.id);
+    if (existing) return existing.map((node) => cloneNode(this.target, node));
+
+    const source = await this.read(asset);
+    if (source.getRoot().listAnimations().length || source.getRoot().listSkins().length) {
+      throw new Error(`Asset ${asset.id} must be a static unskinned model`);
+    }
+    const scene = source.getRoot().getDefaultScene() ?? source.getRoot().listScenes()[0];
+    if (!scene?.listChildren().length) throw new Error(`Asset ${asset.id} has no scene nodes`);
+    const sourceNodes = scene.listChildren();
+    const copied = copyToDocument(this.target, source, sourceNodes);
+    const roots = sourceNodes.map((node) => copied.get(node) as Node);
+    consolidateBuffers(this.target, roots);
+    for (const root of roots) prefixNode(root, asset.id);
+    this.templates.set(asset.id, roots);
+    return roots;
+  }
+}
+
+function consolidateBuffers(doc: Document, roots: readonly Node[]): void {
+  const target = doc.getRoot().listBuffers()[0] ?? doc.createBuffer("buffer");
+  const accessors = new Set<Accessor>();
+  const visit = (node: Node): void => {
+    for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
+      if (primitive.getIndices()) accessors.add(primitive.getIndices()!);
+      for (const semantic of primitive.listSemantics()) accessors.add(primitive.getAttribute(semantic)!);
+      for (const morph of primitive.listTargets()) {
+        for (const semantic of morph.listSemantics()) accessors.add(morph.getAttribute(semantic)!);
+      }
+    }
+    for (const child of node.listChildren()) visit(child);
+  };
+  for (const root of roots) visit(root);
+  for (const accessor of accessors) accessor.setBuffer(target);
+  for (const buffer of doc.getRoot().listBuffers()) {
+    if (buffer !== target && !doc.getRoot().listAccessors().some((accessor) => accessor.getBuffer() === buffer)) buffer.dispose();
+  }
+}
+
+function prefixNode(node: Node, assetId: string): void {
+  node.setName(`asset:${assetId}/${node.getName() || "node"}`);
+  for (const child of node.listChildren()) prefixNode(child, assetId);
+}
+
+function cloneNode(doc: Document, source: Node): Node {
+  const clone = doc.createNode(source.getName())
+    .setMatrix([...source.getMatrix()])
+    .setWeights([...source.getWeights()])
+    .setExtras({ ...source.getExtras() });
+  const mesh = source.getMesh();
+  const camera = source.getCamera();
+  if (mesh) clone.setMesh(mesh);
+  if (camera) clone.setCamera(camera);
+  for (const child of source.listChildren()) clone.addChild(cloneNode(doc, child));
+  return clone;
 }
 
 function validatePlacement(placement: AssetPlacement): void {

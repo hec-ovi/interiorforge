@@ -1,34 +1,20 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import data from "./catalog.json" with { type: "json" };
 import type { AssetCatalog, AssetEntry, AssetFit, AssetQuery } from "./types.js";
 
 const catalog = data as AssetCatalog;
-const defaultModelsDir = fileURLToPath(new URL("./models", import.meta.url));
 
 export function loadAssetCatalog(): AssetCatalog {
   return catalog;
 }
 
-export function assetModelPath(asset: AssetEntry, modelsDir = defaultModelsDir): string | null {
-  return asset.modelUri ? path.join(modelsDir, path.basename(asset.modelUri)) : null;
-}
-
-export function isAssetAvailable(asset: AssetEntry, modelsDir?: string): boolean {
-  const modelPath = assetModelPath(asset, modelsDir);
-  return modelPath !== null && fs.existsSync(modelPath);
-}
-
 export function findAssetCandidates(query: AssetQuery): AssetEntry[] {
-  const requireAvailable = query.availableOnly ?? true;
   return catalog.assets.filter((asset) => {
     if (asset.family !== query.family) return false;
     if (query.styles?.length && !query.styles.some((style) => asset.styles.includes(style))) return false;
     if (query.maxBounds && !fitAssetBounds(
       asset, query.maxBounds, query.rotationYDeg ?? 0, query.minimumScale ?? 0.7,
     )) return false;
-    return !requireAvailable || isAssetAvailable(asset, query.modelsDir);
+    return !(query.availableOnly ?? true) || asset.availability !== "source-only";
   });
 }
 

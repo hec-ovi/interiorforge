@@ -196,6 +196,7 @@
       "styles": [
         "contemporary",
         "high_rich",
+        "luxury",
         "office",
         "rich"
       ],
@@ -424,6 +425,7 @@
       "styles": [
         "contemporary",
         "high_rich",
+        "luxury",
         "rich"
       ],
       "sourceDimensions": {
@@ -1034,6 +1036,7 @@
       "family": "chair",
       "styles": [
         "damaged",
+        "luxury",
         "office",
         "retro",
         "rich"
@@ -1965,6 +1968,7 @@
       "styles": [
         "contemporary",
         "high_rich",
+        "luxury",
         "mid",
         "natural",
         "office",

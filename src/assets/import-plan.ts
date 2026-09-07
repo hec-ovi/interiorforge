@@ -7,6 +7,8 @@ export interface SourcePlan {
   styles: string[];
   targetHeight?: number;
   provider: "Sketchfab" | "Poly Haven";
+  title?: string;
+  author?: string;
 }
 
 const sketchfab = (sourceFile: string, family: AssetFamily, styles: string[], targetHeight?: number): SourcePlan => ({
@@ -23,12 +25,12 @@ export const SOURCE_PLAN: SourcePlan[] = [
   sketchfab("bed_1.glb", "bed", ["contemporary", "residential"]),
   sketchfab("container_low.glb", "storage", ["industrial"]),
   sketchfab("dirty_toilet.glb", "toilet", ["damaged", "industrial", "poor"], 0.9),
-  sketchfab("elegant_black_office_desk.glb", "desk", ["contemporary", "high_rich", "office", "rich"], 0.76),
+  sketchfab("elegant_black_office_desk.glb", "desk", ["contemporary", "high_rich", "luxury", "office", "rich"], 0.76),
   sketchfab("file_shelf.glb", "shelf", ["mid", "office", "retro"], 1.9),
   sketchfab("flexispot_office_chair.glb", "chair", ["contemporary", "office"]),
   sketchfab("free_ac_unit.glb", "appliance", ["industrial"]),
   sketchfab("fridgemodern.glb", "appliance", ["contemporary", "residential"], 1.8),
-  sketchfab("furniture__no-29.glb", "chair", ["contemporary", "high_rich", "rich"], 1.05),
+  sketchfab("furniture__no-29.glb", "chair", ["contemporary", "high_rich", "luxury", "rich"], 1.05),
   sketchfab("futuristic_bluish_sofa.glb", "sofa", ["capsule", "sci-fi"], 0.85),
   sketchfab("futuristic_glossy_white_chair.glb", "chair", ["capsule", "sci-fi"], 0.95),
   sketchfab("heavy_duty_dumpster.glb", "storage", ["industrial"]),
@@ -41,7 +43,7 @@ export const SOURCE_PLAN: SourcePlan[] = [
   sketchfab("modern_gray_sofa__3d_model.glb", "sofa", ["contemporary", "mid", "residential"], 0.85),
   sketchfab("modern_toilet.glb", "toilet", ["contemporary", "residential"], 0.8),
   sketchfab("office_chair.glb", "chair", ["mid", "office"], 1.05),
-  sketchfab("old_leather_office_chair.glb", "chair", ["damaged", "office", "retro", "rich"], 1.1),
+  sketchfab("old_leather_office_chair.glb", "chair", ["damaged", "luxury", "office", "retro", "rich"], 1.1),
   sketchfab("realistic_bed_3d_model.glb", "bed", ["contemporary", "residential", "rich"]),
   sketchfab("reception_table_scifi.glb", "desk", ["sci-fi"]),
   sketchfab("red_oil_barrel_-_cc0.glb", "prop", ["industrial"]),
@@ -61,17 +63,21 @@ export const SOURCE_PLAN: SourcePlan[] = [
   {
     id: "polyhaven-school-chair-01", sourceFile: "polyhaven/SchoolChair_01/SchoolChair_01_1k.gltf",
     family: "chair", styles: ["institutional", "mid", "office", "poor"], provider: "Poly Haven",
+    title: "School Chair 01", author: "Ethan Place",
   },
   {
     id: "polyhaven-metal-office-desk", sourceFile: "polyhaven/metal_office_desk/metal_office_desk_1k.gltf",
     family: "desk", styles: ["industrial", "mid", "office"], provider: "Poly Haven",
+    title: "Metal Office Desk", author: "Ulan Cabanilla",
   },
   {
     id: "polyhaven-sofa-01", sourceFile: "polyhaven/Sofa_01/Sofa_01_1k.gltf",
     family: "sofa", styles: ["mid", "residential", "retro"], provider: "Poly Haven",
+    title: "Sofa 01", author: "Kirill Sannikov",
   },
   {
     id: "polyhaven-potted-plant-02", sourceFile: "polyhaven/potted_plant_02/potted_plant_02_1k.gltf",
-    family: "planter", styles: ["contemporary", "high_rich", "mid", "natural", "office", "residential", "rich"], provider: "Poly Haven",
+    family: "planter", styles: ["contemporary", "high_rich", "luxury", "mid", "natural", "office", "residential", "rich"], provider: "Poly Haven",
+    title: "Potted Plant 02", author: "Rico Cilliers",
   },
 ];

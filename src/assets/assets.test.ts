@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import { Document, getBounds } from "@gltf-transform/core";
 import { describe, expect, it } from "vitest";
-import { fitAssetBounds, findAssetCandidates, findFurnitureAssets, instantiateAsset, loadAssetCatalog, readAssetModel } from "./index.js";
+import { AssetInstancer, fitAssetBounds, findAssetCandidates, findFurnitureAssets, loadAssetCatalog } from "./index.js";
+import { readAssetModel } from "./io.js";
 
 describe("asset catalog contract", () => {
   it("publishes unique licensed entries and keeps restricted binaries local", () => {
@@ -43,12 +44,21 @@ describe("asset catalog contract", () => {
     const target = new Document();
     target.createBuffer("buffer");
     target.createScene("scene");
-    const result = await instantiateAsset(target, asset, {
+    let reads = 0;
+    const instancer = new AssetInstancer(target, async (entry) => {
+      reads++;
+      return readAssetModel(entry);
+    });
+    const result = await instancer.instantiate(asset, {
       position: [3, 2, 4],
       rotationYDeg: 35,
       variationDeg: 6,
       maxBounds: [2, 0.9, 0.9],
     });
+    const meshCount = target.getRoot().listMeshes().length;
+    await instancer.instantiate(asset, { position: [6, 2, 4], maxBounds: [2, 0.9, 0.9] });
+    expect(reads).toBe(1);
+    expect(target.getRoot().listMeshes()).toHaveLength(meshCount);
     expect(result.scale).toBeGreaterThanOrEqual(0.7);
     result.dimensions.forEach((value, index) => expect(value).toBeLessThanOrEqual([2, 0.9, 0.9][index]! + 1e-8));
     expect(target.getRoot().listMaterials().length).toBe(model.getRoot().listMaterials().length);
