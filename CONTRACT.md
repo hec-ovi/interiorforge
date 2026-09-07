@@ -79,3 +79,5 @@ Closed domain set, thrown as `InteriorError { code, floor?, message }`:
 
 - [Exterior](https://github.com/hec-ovi/buildingforge/blob/main/CONTRACT.md) (blueprint and shell GLB)
 - [Materials](https://github.com/hec-ovi/pbrforge/blob/main/CONTRACT.md) (material key resolution: `theme/kind/tier`)
+
+Interior styles map rich/high_rich to luxury, poor to damaged and mid to capsule. Geometry assembles large wall, floor and ceiling panels from 0.5 m nine-piece borders. Fitted ornaments, sleeping pods and poor-tier refuse share the furniture envelope contract. Built-in light fixtures identify the furniture owning their housing. Native material sources and derivation recipes live in the sibling Materials box.

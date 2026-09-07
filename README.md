@@ -21,6 +21,12 @@ npm run preview                             # 3D building view plus a standalone
 
 Without a shell to work from, a fixture shell is fabricated, so the box runs with nothing else installed. The preview shows a finished textured building at first load and can open real generator output (shell GLB, blueprint JSON, request JSON), with walk-path testing in the floor editor.
 
+## Interior styles
+
+The wealth tier selects a fitted material family: `rich` and `high_rich` use luxury stone, walnut and loft brick; `poor` uses worn paint, aggregate and exposed services; `mid` uses worn capsule shells, rubber decks and holograms. Wall, floor and ceiling panels use fixed 0.5 m corner modules and large fields.
+
+Planted dividers, aquariums, sleeping pods and refuse groups reserve real space. Built-in lenses publish light sources. Downloaded furniture retains its source materials and gets small seeded rotations inside its safe bounds. The [asset catalog](src/assets/CONTRACT.md) records source licenses and local model availability.
+
 ## In
 
 One [`InteriorRequest`](schemas/request.schema.json):
