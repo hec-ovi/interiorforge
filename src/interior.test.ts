@@ -118,6 +118,13 @@ describe("generateInterior", () => {
     expect(JSON.stringify(a.npc)).toBe(JSON.stringify(b.npc));
 
     const document = await readGlbBytes(a.glb);
+    const imported = document.getRoot().listNodes().map((node) => node.getName());
+    for (const family of [
+      ["sketchfab-office-chair", "polyhaven-school-chair-01"],
+      ["sketchfab-elegant-black-office-desk", "polyhaven-metal-office-desk"],
+      ["sketchfab-modern-gray-sofa-3d-model", "polyhaven-sofa-01"],
+      ["sketchfab-maple-tree", "polyhaven-potted-plant-02"],
+    ]) expect(family.some((id) => imported.some((name) => name.startsWith(`asset:${id}`))), family.join(" or ")).toBe(true);
     const fabric = document.getRoot().listMaterials()
       .filter((material) => material.getName() === "cyberpunk/fabric/mid");
     expect(fabric.length).toBeGreaterThan(0);
@@ -148,7 +155,7 @@ describe("generateInterior", () => {
       let low = Infinity;
       let high = -Infinity;
       for (const node of doc.getRoot().listNodes()) {
-        expect(node.getName()).toMatch(/^interior:/);
+        if (!node.getName().startsWith("interior:")) continue;
         expect(buildingMaterials.has(node.getMesh()!.listPrimitives()[0]!.getMaterial()!.getName())).toBe(true);
         for (const prim of node.getMesh()!.listPrimitives()) {
           const pos = prim.getAttribute("POSITION")!.getArray()!;
@@ -174,7 +181,7 @@ describe("generateInterior", () => {
     const streamedFixture = makeFixture({ seed: 1, floors: 16, basements: 1 });
     const shellNodes = streamedFixture.shellDoc.getRoot().listNodes().map((node) => node.getName());
     const streamed = await generateFloorInteriors(streamedFixture.request, {
-      shellDoc: streamedFixture.shellDoc, textures: { mode: "keys" },
+      shellDoc: streamedFixture.shellDoc, textures: { mode: "keys" }, assets: false,
     });
     expect(streamed).not.toHaveProperty("glb");
     expect(streamed.floorGlbs.size).toBe(streamedFixture.request.blueprint.floors.length);
@@ -182,7 +189,7 @@ describe("generateInterior", () => {
 
     const combinedFixture = makeFixture({ seed: 1, floors: 16, basements: 1 });
     const combined = await generateInterior(combinedFixture.request, {
-      shellDoc: combinedFixture.shellDoc, textures: { mode: "keys" }, floorGlbs: true,
+      shellDoc: combinedFixture.shellDoc, textures: { mode: "keys" }, floorGlbs: true, assets: false,
     });
     expect(streamed.floors).toEqual(combined.floors);
     expect(streamed.npc).toEqual(combined.npc);
@@ -271,7 +278,7 @@ describe("generateInterior", () => {
     const reserved = makeFixture({ seed: "opening-reservation", blueprint, type: "commerce" });
 
     const result = await generateInterior(reserved.request, {
-      shellDoc: reserved.shellDoc, textures: { mode: "keys" }, floorGlbs: true,
+      shellDoc: reserved.shellDoc, textures: { mode: "keys" }, floorGlbs: true, assets: false,
     });
     const floor = result.floors[0]!;
     const volume = floor.openingReservations.find((item) => item.opening === entrance.id)!;
@@ -308,7 +315,7 @@ describe("generateInterior", () => {
     });
     const fixture = makeFixture({ seed: "core-opening-reservation", blueprint, type: "residential" });
     const result = await generateFloorInteriors(fixture.request, {
-      shellDoc: fixture.shellDoc, textures: { mode: "keys" },
+      shellDoc: fixture.shellDoc, textures: { mode: "keys" }, assets: false,
     });
     const floor = result.floors.find((item) => item.floor === 1)!;
     const reservation = floor.openingReservations.find((item) => item.opening === opening.id)!;

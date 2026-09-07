@@ -1,6 +1,8 @@
 import type { MeshBuilder } from "./glb/mesh-builder.js";
 import { createDocument, writeGlb } from "./glb/io.js";
 import { textureDocument, type TextureOptions, type TextureReport } from "./materials/index.js";
+import { appendFurnitureAssets, type PreparedFurnitureAssets } from "./assets/index.js";
+import type { FloorInterior } from "./core/types.js";
 
 export interface FloorGlbOutput {
   floorGlbs: Map<number, Uint8Array>;
@@ -10,6 +12,7 @@ export interface FloorGlbOutput {
 /** Serializes one floor document at a time and releases its source mesh before the next. */
 export async function writeFloorGlbs(
   floorMeshes: Map<number, MeshBuilder>, theme: string, options?: TextureOptions,
+  assets?: PreparedFurnitureAssets, floors: readonly FloorInterior[] = [],
 ): Promise<FloorGlbOutput> {
   const slots = new Set<string>();
   for (const mesh of floorMeshes.values()) {
@@ -20,7 +23,8 @@ export async function writeFloorGlbs(
   for (const index of [...floorMeshes.keys()]) {
     const mesh = floorMeshes.get(index)!;
     floorMeshes.delete(index);
-    const output = await writeFloorGlb(mesh, theme, options);
+    const floor = floors.find((entry) => entry.floor === index);
+    const output = await writeFloorGlb(mesh, theme, options, floor, assets);
     textureReport ??= output.textures;
     floorGlbs.set(index, output.glb);
   }
@@ -33,8 +37,12 @@ export async function writeFloorGlbs(
 
 async function writeFloorGlb(
   mesh: MeshBuilder, theme: string, options?: TextureOptions,
+  floor?: FloorInterior, assets?: PreparedFurnitureAssets,
 ): Promise<{ glb: Uint8Array; textures: TextureReport }> {
   const document = createDocument(mesh);
+  if (floor && assets) {
+    await appendFurnitureAssets(document, assets.byFloor.get(floor.floor) ?? [], assets.documents, floor.elevation);
+  }
   const textures = await textureDocument(document, theme, options);
   return { glb: await writeGlb(document), textures };
 }
