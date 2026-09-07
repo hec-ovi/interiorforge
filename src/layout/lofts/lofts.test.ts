@@ -25,7 +25,7 @@ it("exports a furnished upper platform reachable through public and private stai
   const path=findPath(npc,{floor:entrance.floor,position:entrance.position},{floor:2,position:bed.position});
   expect(path?.filter(leg=>leg.kind==="ride")).toHaveLength(2);
   expect(npc.nav.connectors.filter(c=>c.id!==lower.loft!.id).every(c=>!c.floors.includes(2))).toBe(true);
-  const wash=lower.lights.find(light=>light.id.endsWith("rear-wash"))!;
+  const wash=upper.lights.find(light=>light.id.endsWith("rear-wash"))!;
   expect(wash.direction).toEqual([0,1,0]);
   expect(wash.position[1]).toBeGreaterThan(lower.loft!.elevation+2.1);
   const bands=buildInteriorBands(plan,request);

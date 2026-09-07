@@ -29,5 +29,5 @@ export function loftLights(loft: LoftPlan, base: number, ceiling: number, tier: 
   const length = Math.hypot(rear.b[0] - rear.a[0], rear.b[1] - rear.a[1]);
   return [source("rear-wash", [(rear.a[0] + rear.b[0]) / 2 - d[0] * .18, ceiling - .24,
     (rear.a[1] + rear.b[1]) / 2 - d[1] * .18], length - .6,
-  [(rear.b[0] - rear.a[0]) / length, 0, (rear.b[1] - rear.a[1]) / length], [0, 1, 0], Math.round(length * 200))];
+  [(rear.b[0] - rear.a[0]) / length, 0, (rear.b[1] - rear.a[1]) / length], [0, 1, 0], Math.round(length * 200))].map(light => ({ ...light, room: loft.upperRoom }));
 }

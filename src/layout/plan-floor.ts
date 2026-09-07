@@ -249,7 +249,7 @@ export function planFloor(
         loft && !light.furniture && light.room === loft.plan.lowerRoom
           && pointInPolygon([light.position[0], light.position[2]], loft.plan.platform)
           ? {...light, position: [light.position[0],loft.plan.elevation-loft.plan.thickness-.04,light.position[2]] as [number,number,number]} : light)
-        .concat(loft ? loftLights(loft.plan, floor.elevation, ceilingElevation, request.building.tier) : []),
+        .concat(loft ? loftLights(loft.plan, floor.elevation, ceilingElevation, request.building.tier).filter(light => light.room === loft.plan.lowerRoom) : []),
     },
     grid,
     uv: { outline: uvOutline, rooms, furniture, sealed },

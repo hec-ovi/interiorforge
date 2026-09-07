@@ -1,3 +1,4 @@
+import { loftLights } from "./lighting.js";
 import { boundaryDistance, polygonBounds } from "../../core/geom.js";
 import { WalkGrid } from "../../core/grid.js";
 import type { BlueprintFloor, FloorInterior, InteriorRequest } from "../../core/types.js";
@@ -32,7 +33,8 @@ export function planUpperLoft(lower: FloorInterior, floor: BlueprintFloor, core:
   blockLoftSolids(grid,furniture.filter(f=>(f.elevation??0)<1.8).map(furnitureUvRect),core.frame);
   const ceilingElevation=lower.ceilingElevation;
   const lights=[...planLights([room],core,polygon,ceilingElevation,ceilingElevation,ids,request.building.tier)
-    .filter(l=>l.room===room.id),...furnitureLights(furniture,core.frame,floor.elevation,request.building.tier)];
+    .filter(l=>l.room===room.id),...furnitureLights(furniture,core.frame,floor.elevation,request.building.tier),
+    ...loftLights(loft,lower.elevation,ceilingElevation,request.building.tier).filter(light=>light.room===room.id)];
   return {grid,uv:{outline:floor.outline.map(p=>worldToUv(p,core.frame)),rooms:[room],furniture,sealed:[]},
     interior:{floor:floor.index,kind:lower.kind,elevation:floor.elevation,height:floor.height,ceilingElevation,
       coreAngleDeg:core.frame.angleDeg,core:{stairs:[],elevators:[],shafts:[]},openingReservations:[],
