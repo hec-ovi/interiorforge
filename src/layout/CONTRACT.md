@@ -70,3 +70,5 @@ Room fixtures use tier-aware flux and spacing: damaged interiors have sparse war
 Stair footprints reserve 0.1 m at each flight edge for rails around a 1.2 m clear lane. The construction grid produces 3 m stair columns; feasibility publishes the same footprint. Room ownership subtracts actual core solids after partition fitting, retaining connected room IDs and doors. Disconnected core cuts reject the floor.
 
 World furniture `rotationDeg` is a glTF +Y rotation, local furniture rotation minus the source-frame angle. Procedural meshes, imported models, lights and NPC anchors use the same pose.
+
+Mechanical facade floors fit corridor end trims around the actual core span. Stair and elevator approaches remain public, while the surrounding mechanical room keeps its service use.

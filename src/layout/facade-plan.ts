@@ -40,8 +40,12 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
   const rooms: PlanRoom[] = [];
   const corridorRect = { ...frame.corridor };
   const trim = Math.min(MIN_UNIT.endCommon, Math.max(0, (corridorRect.lu - 4) / 2));
-  corridorRect.u += trim;
-  corridorRect.lu -= trim * 2;
+  // Mechanical service rooms surround a corridor that owns every core front.
+  const startTrim = kind === "mechanical" ? Math.min(trim, Math.max(0, core.u0 - corridorRect.u)) : trim;
+  const coreEnd = frame.stairB?.u ?? core.u1;
+  const endTrim = kind === "mechanical" ? Math.min(trim, Math.max(0, corridorRect.u + corridorRect.lu - coreEnd)) : trim;
+  corridorRect.u += startTrim;
+  corridorRect.lu -= startTrim + endTrim;
   const corridor: PlanRoom = { id: `f${floor.index < 0 ? `m${-floor.index}` : floor.index}-corridor`,
     kind: kind === "mall_floor" ? "concourse" : "corridor", rect: corridorRect,
     polygon: clipPolygonToRect(plate, toRect(corridorRect)), doors: [] };
