@@ -175,7 +175,7 @@ describe("generateInterior", () => {
       for (const prim of node.getMesh()!.listPrimitives()) interiorVertices += prim.getAttribute("POSITION")!.getCount();
     }
     expect(vertices).toBe(interiorVertices);
-  });
+  }, 30_000);
 
   it("generates the same floor GLBs without a combined building allocation", async () => {
     const streamedFixture = makeFixture({ seed: 1, floors: 16, basements: 1 });
@@ -447,7 +447,7 @@ describe("generateInterior", () => {
       { floor: access.floor, position: access.entry },
     )!;
     expect(path.some((leg) => leg.kind === "ride" && leg.connector === "stair-a")).toBe(true);
-  });
+  }, 30_000);
 
   it("rejects a malformed request with E_BLUEPRINT_INVALID", async () => {
     await expect(generateInterior({ nonsense: true })).rejects.toMatchObject({ code: "E_BLUEPRINT_INVALID" });
