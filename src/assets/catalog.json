@@ -1,0 +1,1999 @@
+{
+  "version": 1,
+  "verifiedAt": "2026-09-06",
+  "assets": [
+    {
+      "title": "Animal Crossing New Horizons Trash Bags",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "5aeb7f10061f4964a3ad025a2dc8b180",
+        "uri": "https://sketchfab.com/3d-models/animal-crossing-new-horizons-trash-bags-5aeb7f10061f4964a3ad025a2dc8b180",
+        "author": {
+          "name": "StinkySkunk12",
+          "uri": "https://sketchfab.com/Bearfnf"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-animal-crossing-new-horizons-trash-bags",
+      "family": "prop",
+      "styles": [
+        "game",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          9.6121,
+          9.2021,
+          6.983
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 251788,
+        "triangles": 2356,
+        "vertices": 1476,
+        "materials": 1,
+        "textures": 4
+      }
+    },
+    {
+      "title": "Bed_1",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "3afd8fe7c7cd4fd7b91ff76e49831b25",
+        "uri": "https://sketchfab.com/3d-models/bed-1-3afd8fe7c7cd4fd7b91ff76e49831b25",
+        "author": {
+          "name": "Render Man",
+          "uri": "https://sketchfab.com/Cheese_Master"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-bed-1",
+      "family": "bed",
+      "styles": [
+        "contemporary",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          2.1363,
+          4.2725,
+          0.9745
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 7816032,
+        "triangles": 136508,
+        "vertices": 71679,
+        "materials": 1,
+        "textures": 4
+      }
+    },
+    {
+      "title": "container low",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "7a0afe670243423c931f575b06c9df4f",
+        "uri": "https://sketchfab.com/3d-models/container-low-7a0afe670243423c931f575b06c9df4f",
+        "author": {
+          "name": "Cebrail Yıldız",
+          "uri": "https://sketchfab.com/cermo.gs.44"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-container-low",
+      "family": "storage",
+      "styles": [
+        "industrial"
+      ],
+      "sourceDimensions": {
+        "size": [
+          3.3107,
+          12.152,
+          3.3107
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 379640,
+        "triangles": 12,
+        "vertices": 24,
+        "materials": 1,
+        "textures": 1
+      }
+    },
+    {
+      "title": "Dirty Toilet",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "5878a356ba1144a8aa4e214e511b523d",
+        "uri": "https://sketchfab.com/3d-models/dirty-toilet-5878a356ba1144a8aa4e214e511b523d",
+        "author": {
+          "name": "davidtsoenyane",
+          "uri": "https://sketchfab.com/davidtsoenyane"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-dirty-toilet",
+      "family": "toilet",
+      "styles": [
+        "damaged",
+        "industrial",
+        "poor"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.9851,
+          0.6229,
+          1.0822
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.8192,
+        0.518,
+        0.9
+      ],
+      "modelUri": "models/sketchfab-dirty-toilet.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 1861544,
+        "modelBytes": 1831676,
+        "triangles": 4358,
+        "vertices": 3584,
+        "materials": 3,
+        "textures": 8
+      }
+    },
+    {
+      "title": "Elegant Black Office Desk",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "4946b7e4203e4d60a1da7cedc9907523",
+        "uri": "https://sketchfab.com/3d-models/elegant-black-office-desk-4946b7e4203e4d60a1da7cedc9907523",
+        "author": {
+          "name": "AshCreations3D",
+          "uri": "https://sketchfab.com/Fancy_Models_Collections"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-elegant-black-office-desk",
+      "family": "desk",
+      "styles": [
+        "contemporary",
+        "high_rich",
+        "office",
+        "rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          10.2299,
+          6.2387,
+          6.3894
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.2168,
+        0.7421,
+        0.76
+      ],
+      "modelUri": "models/sketchfab-elegant-black-office-desk.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 9861968,
+        "modelBytes": 9553688,
+        "triangles": 6241,
+        "vertices": 5840,
+        "materials": 4,
+        "textures": 12
+      }
+    },
+    {
+      "title": "File Shelf",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "adcc1ab47d7c45ff9d08e0af2815458b",
+        "uri": "https://sketchfab.com/3d-models/file-shelf-adcc1ab47d7c45ff9d08e0af2815458b",
+        "author": {
+          "name": "Anom Purple Modelling",
+          "uri": "https://sketchfab.com/Anom404"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-file-shelf",
+      "family": "shelf",
+      "styles": [
+        "mid",
+        "office",
+        "retro"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.0763,
+          0.441,
+          1.9243
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.0627,
+        0.4354,
+        1.9
+      ],
+      "modelUri": "models/sketchfab-file-shelf.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 1532284,
+        "modelBytes": 1506944,
+        "triangles": 4148,
+        "vertices": 6384,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "FLEXISPOT Office Chair",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "d8270d166bcc441e81008f4950f7a6fb",
+        "uri": "https://sketchfab.com/3d-models/flexispot-office-chair-d8270d166bcc441e81008f4950f7a6fb",
+        "author": {
+          "name": "desmond_k",
+          "uri": "https://sketchfab.com/desmond_k"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-flexispot-office-chair",
+      "family": "chair",
+      "styles": [
+        "contemporary",
+        "office"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.8727,
+          0.8537,
+          1.3203
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 7362980,
+        "triangles": 107732,
+        "vertices": 67510,
+        "materials": 2,
+        "textures": 4
+      }
+    },
+    {
+      "title": "Free AC Unit",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "08223d7724f54639b06cb2b276b6d252",
+        "uri": "https://sketchfab.com/3d-models/free-ac-unit-08223d7724f54639b06cb2b276b6d252",
+        "author": {
+          "name": "vertexmonster",
+          "uri": "https://sketchfab.com/vertexmonster"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-free-ac-unit",
+      "family": "appliance",
+      "styles": [
+        "industrial"
+      ],
+      "sourceDimensions": {
+        "size": [
+          3.8294,
+          2.2789,
+          3.6967
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 17903828,
+        "triangles": 176246,
+        "vertices": 106946,
+        "materials": 8,
+        "textures": 23
+      }
+    },
+    {
+      "title": "holod",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "c7c02065bb7649eb93da7f35ba77f086",
+        "uri": "https://sketchfab.com/3d-models/holod-c7c02065bb7649eb93da7f35ba77f086",
+        "author": {
+          "name": "flinsikovflois",
+          "uri": "https://sketchfab.com/flinsikovflois"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-fridgemodern",
+      "family": "appliance",
+      "styles": [
+        "contemporary",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.3078,
+          0.7418,
+          2
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.177,
+        0.6676,
+        1.8
+      ],
+      "modelUri": "models/sketchfab-fridgemodern.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 181192,
+        "modelBytes": 172484,
+        "triangles": 862,
+        "vertices": 1109,
+        "materials": 1,
+        "textures": 1
+      }
+    },
+    {
+      "title": "Furniture_ No-29",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "9ab5ea61ec4d4c76a5a084b94dffca47",
+        "uri": "https://sketchfab.com/3d-models/furniture--no-29-9ab5ea61ec4d4c76a5a084b94dffca47",
+        "author": {
+          "name": "AshCreations3D",
+          "uri": "https://sketchfab.com/Fancy_Models_Collections"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-furniture-no-29",
+      "family": "chair",
+      "styles": [
+        "contemporary",
+        "high_rich",
+        "rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.7671,
+          0.6746,
+          1.1773
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.6842,
+        0.6017,
+        1.05
+      ],
+      "modelUri": "models/sketchfab-furniture-no-29.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 2033372,
+        "modelBytes": 1309448,
+        "triangles": 71936,
+        "vertices": 36464,
+        "materials": 1,
+        "textures": 0
+      }
+    },
+    {
+      "title": "Futuristic Bluish Sofa",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "f6b631b8ebac454d849ee1314316e701",
+        "uri": "https://sketchfab.com/3d-models/futuristic-bluish-sofa-f6b631b8ebac454d849ee1314316e701",
+        "author": {
+          "name": "AshCreations3D",
+          "uri": "https://sketchfab.com/Fancy_Models_Collections"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-futuristic-bluish-sofa",
+      "family": "sofa",
+      "styles": [
+        "capsule",
+        "sci-fi"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.6386,
+          1.4491,
+          1.044
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.3341,
+        1.1798,
+        0.85
+      ],
+      "modelUri": "models/sketchfab-futuristic-bluish-sofa.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 3023324,
+        "modelBytes": 2910968,
+        "triangles": 18676,
+        "vertices": 55980,
+        "materials": 1,
+        "textures": 1
+      }
+    },
+    {
+      "title": "Futuristic Glossy White Chair",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "d61a35f8562c48dc9361155f3748a71f",
+        "uri": "https://sketchfab.com/3d-models/futuristic-glossy-white-chair-d61a35f8562c48dc9361155f3748a71f",
+        "author": {
+          "name": "AshCreations3D",
+          "uri": "https://sketchfab.com/Fancy_Models_Collections"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-futuristic-glossy-white-chair",
+      "family": "chair",
+      "styles": [
+        "capsule",
+        "sci-fi"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.0001,
+          0.9714,
+          0.8568
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.1089,
+        1.0771,
+        0.95
+      ],
+      "modelUri": "models/sketchfab-futuristic-glossy-white-chair.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 4136580,
+        "modelBytes": 3966948,
+        "triangles": 28198,
+        "vertices": 84530,
+        "materials": 1,
+        "textures": 1
+      }
+    },
+    {
+      "title": "Heavy Duty Dumpster",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "7b80f3d0612541359c42dc0a79037051",
+        "uri": "https://sketchfab.com/3d-models/heavy-duty-dumpster-7b80f3d0612541359c42dc0a79037051",
+        "author": {
+          "name": "Full_Metal_Dipshit",
+          "uri": "https://sketchfab.com/Potato_Pizza"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-heavy-duty-dumpster",
+      "family": "storage",
+      "styles": [
+        "industrial"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.8153,
+          3.1308,
+          1.9435
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 4334676,
+        "triangles": 1188,
+        "vertices": 1505,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Ikea Cabinet",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "aeba519f5e2143259ac4c94ae0885b63",
+        "uri": "https://sketchfab.com/3d-models/ikea-cabinet-aeba519f5e2143259ac4c94ae0885b63",
+        "author": {
+          "name": "Graham Rust",
+          "uri": "https://sketchfab.com/GRXR.ca"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-ikea-cabinet",
+      "family": "storage",
+      "styles": [
+        "contemporary",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          28.0184,
+          43.0164,
+          66.0434
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.5091,
+        0.7816,
+        1.2
+      ],
+      "modelUri": "models/sketchfab-ikea-cabinet.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 760720,
+        "modelBytes": 747580,
+        "triangles": 2108,
+        "vertices": 1942,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "JACK_DANIELS",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "f752d4158fa947b597ea38885a1ea23a",
+        "uri": "https://sketchfab.com/3d-models/jack-daniels-f752d4158fa947b597ea38885a1ea23a",
+        "author": {
+          "name": "Biankk_",
+          "uri": "https://sketchfab.com/monica.2602.bianca"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-jack-daniels",
+      "family": "prop",
+      "styles": [
+        "restaurant",
+        "retro"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.4156,
+          1.4156,
+          4.5225
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 807300,
+        "triangles": 18300,
+        "vertices": 9160,
+        "materials": 4,
+        "textures": 2
+      }
+    },
+    {
+      "title": "Laptop",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "dbde9a4abcfa4352a49397bf6802aa4d",
+        "uri": "https://sketchfab.com/3d-models/laptop-dbde9a4abcfa4352a49397bf6802aa4d",
+        "author": {
+          "name": "grohanxavyasa",
+          "uri": "https://sketchfab.com/grohanxavyasa"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-laptop",
+      "family": "prop",
+      "styles": [
+        "contemporary",
+        "office"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.0384,
+          1.163,
+          0.8153
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.2802,
+        0.3138,
+        0.22
+      ],
+      "modelUri": "models/sketchfab-laptop.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 3130308,
+        "modelBytes": 2175732,
+        "triangles": 57775,
+        "vertices": 75529,
+        "materials": 15,
+        "textures": 0
+      }
+    },
+    {
+      "title": "Maple Tree",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "68bea58fd9a549a99cfa5d1c739c97a8",
+        "uri": "https://sketchfab.com/3d-models/maple-tree-68bea58fd9a549a99cfa5d1c739c97a8",
+        "author": {
+          "name": "driggleman",
+          "uri": "https://sketchfab.com/driggleman"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-maple-tree",
+      "family": "planter",
+      "styles": [
+        "contemporary",
+        "natural"
+      ],
+      "sourceDimensions": {
+        "size": [
+          111.8348,
+          116.6171,
+          144.0232
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.1648,
+        1.2146,
+        1.5
+      ],
+      "modelUri": "models/sketchfab-maple-tree.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 5764560,
+        "modelBytes": 5457432,
+        "triangles": 32079,
+        "vertices": 84537,
+        "materials": 3,
+        "textures": 2
+      }
+    },
+    {
+      "title": "Mattress",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "2da1d0b25236404f8442ceb1e92a2a48",
+        "uri": "https://sketchfab.com/3d-models/mattress-2da1d0b25236404f8442ceb1e92a2a48",
+        "author": {
+          "name": "SPietras",
+          "uri": "https://sketchfab.com/SPietras"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-mattress",
+      "family": "bed",
+      "styles": [
+        "poor",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.9962,
+          1.2895,
+          0.2428
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        2.0554,
+        1.3277,
+        0.25
+      ],
+      "modelUri": "models/sketchfab-mattress.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 1320484,
+        "modelBytes": 1319768,
+        "triangles": 44,
+        "vertices": 96,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Modern Entertainment Center (FREE)",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "ce34613c18b944a8b4e12477dc1cc6e2",
+        "uri": "https://sketchfab.com/3d-models/modern-entertainment-center-free-ce34613c18b944a8b4e12477dc1cc6e2",
+        "author": {
+          "name": "Brandon Westlake",
+          "uri": "https://sketchfab.com/dr.badass2142"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-modern-entertainment-center-free",
+      "family": "storage",
+      "styles": [
+        "contemporary",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          198.6266,
+          734.5125,
+          497.8533
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.7181,
+        2.6556,
+        1.8
+      ],
+      "modelUri": "models/sketchfab-modern-entertainment-center-free.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 3691260,
+        "modelBytes": 3644080,
+        "triangles": 7508,
+        "vertices": 6122,
+        "materials": 4,
+        "textures": 12
+      }
+    },
+    {
+      "title": "Modern Gray Sofa – 3D Model",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "7055607ca8c54e0cad82200d672a4e72",
+        "uri": "https://sketchfab.com/3d-models/modern-gray-sofa-3d-model-7055607ca8c54e0cad82200d672a4e72",
+        "author": {
+          "name": "3D Next Level Gen",
+          "uri": "https://sketchfab.com/3dnextlevelgen"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-modern-gray-sofa-3d-model",
+      "family": "sofa",
+      "styles": [
+        "contemporary",
+        "mid",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.9927,
+          0.4552,
+          0.4585
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.8403,
+        0.8439,
+        0.85
+      ],
+      "modelUri": "models/sketchfab-modern-gray-sofa-3d-model.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 1485532,
+        "modelBytes": 1410404,
+        "triangles": 12478,
+        "vertices": 8422,
+        "materials": 1,
+        "textures": 1
+      }
+    },
+    {
+      "title": "modern toilet",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "d35eae86e9c149b181a4dc8d20d5b556",
+        "uri": "https://sketchfab.com/3d-models/modern-toilet-d35eae86e9c149b181a4dc8d20d5b556",
+        "author": {
+          "name": "Dragomike",
+          "uri": "https://sketchfab.com/dragomikedragon"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-modern-toilet",
+      "family": "toilet",
+      "styles": [
+        "contemporary",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.4853,
+          0.7002,
+          0.7345
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.5286,
+        0.7626,
+        0.8
+      ],
+      "modelUri": "models/sketchfab-modern-toilet.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 232316,
+        "modelBytes": 187716,
+        "triangles": 7381,
+        "vertices": 5794,
+        "materials": 4,
+        "textures": 0
+      }
+    },
+    {
+      "title": "Office Chair",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "3d2ca8666d4149c383724242a62215ef",
+        "uri": "https://sketchfab.com/3d-models/office-chair-3d2ca8666d4149c383724242a62215ef",
+        "author": {
+          "name": "Maria de Fatima",
+          "uri": "https://sketchfab.com/kafezinn"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-office-chair",
+      "family": "chair",
+      "styles": [
+        "mid",
+        "office"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.628,
+          0.5755,
+          1.1812
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.5582,
+        0.5116,
+        1.05
+      ],
+      "modelUri": "models/sketchfab-office-chair.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 197064,
+        "modelBytes": 131112,
+        "triangles": 5676,
+        "vertices": 3819,
+        "materials": 5,
+        "textures": 0
+      }
+    },
+    {
+      "title": "Old leather office chair",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "5f2076e080cd48a583ee66f0ccb52b88",
+        "uri": "https://sketchfab.com/3d-models/old-leather-office-chair-5f2076e080cd48a583ee66f0ccb52b88",
+        "author": {
+          "name": "Timothy Ahene",
+          "uri": "https://sketchfab.com/timothyahene"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-old-leather-office-chair",
+      "family": "chair",
+      "styles": [
+        "damaged",
+        "office",
+        "retro",
+        "rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.0643,
+          1.2353,
+          2
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.5854,
+        0.6794,
+        1.1
+      ],
+      "modelUri": "models/sketchfab-old-leather-office-chair.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 9680004,
+        "modelBytes": 9364688,
+        "triangles": 51460,
+        "vertices": 30019,
+        "materials": 4,
+        "textures": 12
+      }
+    },
+    {
+      "title": "Realistic Bed 3D Model",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "9b97ab81ecba4381b81c5ed8e685bb0a",
+        "uri": "https://sketchfab.com/3d-models/realistic-bed-3d-model-9b97ab81ecba4381b81c5ed8e685bb0a",
+        "author": {
+          "name": "dengxiart",
+          "uri": "https://sketchfab.com/dengxiart"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-realistic-bed-3d-model",
+      "family": "bed",
+      "styles": [
+        "contemporary",
+        "residential",
+        "rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          2.6608,
+          2,
+          0.9097
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 17484848,
+        "triangles": 319448,
+        "vertices": 168079,
+        "materials": 2,
+        "textures": 7
+      }
+    },
+    {
+      "title": "RECEPTION TABLE  TV",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "b2bd64e7577e4799aa5f3e7a13518f54",
+        "uri": "https://sketchfab.com/3d-models/reception-table-tv-b2bd64e7577e4799aa5f3e7a13518f54",
+        "author": {
+          "name": "G.P 3D MOD",
+          "uri": "https://sketchfab.com/gpmod"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-reception-table-scifi",
+      "family": "desk",
+      "styles": [
+        "sci-fi"
+      ],
+      "sourceDimensions": {
+        "size": [
+          11.7253,
+          9.6227,
+          3.0964
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 22547360,
+        "triangles": 616976,
+        "vertices": 343486,
+        "materials": 14,
+        "textures": 10
+      }
+    },
+    {
+      "title": "Red Oil Barrel - CC0",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "08d9ee8adfd842dc969b78fce4c91e82",
+        "uri": "https://sketchfab.com/3d-models/red-oil-barrel-cc0-08d9ee8adfd842dc969b78fce4c91e82",
+        "author": {
+          "name": "SPLEEN VISION",
+          "uri": "https://sketchfab.com/spleen.vision"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-red-oil-barrel-cc0",
+      "family": "prop",
+      "styles": [
+        "industrial"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.5009,
+          0.5107,
+          0.7331
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 7496644,
+        "triangles": 96311,
+        "vertices": 53795,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Retro Lowpoly Bed",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "22564aa6634e432a8a0cf57596246cf5",
+        "uri": "https://sketchfab.com/3d-models/retro-lowpoly-bed-22564aa6634e432a8a0cf57596246cf5",
+        "author": {
+          "name": "lonesomeducky",
+          "uri": "https://sketchfab.com/lonesomeducky"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-retro-lowpoly-bed",
+      "family": "bed",
+      "styles": [
+        "damaged",
+        "poor",
+        "residential",
+        "retro"
+      ],
+      "sourceDimensions": {
+        "size": [
+          2.2398,
+          1.5647,
+          0.9983
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.7949,
+        1.2539,
+        0.8
+      ],
+      "modelUri": "models/sketchfab-retro-lowpoly-bed.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 100016,
+        "modelBytes": 97212,
+        "triangles": 420,
+        "vertices": 395,
+        "materials": 1,
+        "textures": 1
+      }
+    },
+    {
+      "title": "Sci- Fi Bed",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "b9a020029542499691aa303c09f8fc5f",
+        "uri": "https://sketchfab.com/3d-models/sci-fi-bed-b9a020029542499691aa303c09f8fc5f",
+        "author": {
+          "name": "astudio_3Dmodels",
+          "uri": "https://sketchfab.com/astudio_3dmodels"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-sci-fi-bed",
+      "family": "bed",
+      "styles": [
+        "capsule",
+        "sci-fi"
+      ],
+      "sourceDimensions": {
+        "size": [
+          13.277,
+          19.5759,
+          13.763
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.7718,
+        1.1379,
+        0.8
+      ],
+      "modelUri": "models/sketchfab-sci-fi-bed.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 273444,
+        "modelBytes": 193860,
+        "triangles": 4118,
+        "vertices": 6359,
+        "materials": 4,
+        "textures": 0
+      }
+    },
+    {
+      "title": "Sci-Fi Furniture Pack AAA: Shelving Unit C",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "f40b3e3c3eab4f8a8dcadfa527af04e9",
+        "uri": "https://sketchfab.com/3d-models/sci-fi-furniture-pack-aaa-shelving-unit-c-f40b3e3c3eab4f8a8dcadfa527af04e9",
+        "author": {
+          "name": "blackcloudstudios",
+          "uri": "https://sketchfab.com/blackcloudstudios"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-sci-fi-furniture-pack-aaa-shelving-unit-c",
+      "family": "shelf",
+      "styles": [
+        "capsule",
+        "industrial",
+        "sci-fi"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.8627,
+          1.4791,
+          1.6702
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.033,
+        1.7712,
+        2
+      ],
+      "modelUri": "models/sketchfab-sci-fi-furniture-pack-aaa-shelving-unit-c.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 3227036,
+        "modelBytes": 3220200,
+        "triangles": 734,
+        "vertices": 1157,
+        "materials": 4,
+        "textures": 9
+      }
+    },
+    {
+      "title": "Sci Fi Chair",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "d6588a0fa21345449b2b60057a7dce5f",
+        "uri": "https://sketchfab.com/3d-models/sci-fi-chair-d6588a0fa21345449b2b60057a7dce5f",
+        "author": {
+          "name": "agarwalarpit200",
+          "uri": "https://sketchfab.com/agarwalarpit200"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-sci-fi-3-chair",
+      "family": "bench",
+      "styles": [
+        "capsule",
+        "sci-fi"
+      ],
+      "sourceDimensions": {
+        "size": [
+          2.2075,
+          0.8638,
+          0.9781
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        2.1441,
+        0.839,
+        0.95
+      ],
+      "modelUri": "models/sketchfab-sci-fi-3-chair.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 2410684,
+        "modelBytes": 2361928,
+        "triangles": 3162,
+        "vertices": 3656,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "SciFi Desk",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "d4a09022a8874ae6bdc44b3e42a6ea6c",
+        "uri": "https://sketchfab.com/3d-models/scifi-desk-d4a09022a8874ae6bdc44b3e42a6ea6c",
+        "author": {
+          "name": "Sousinho",
+          "uri": "https://sketchfab.com/sousinho"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-scifi-desk",
+      "family": "desk",
+      "styles": [
+        "capsule",
+        "sci-fi"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.6359,
+          1.7366,
+          0.9168
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.5202,
+        1.4206,
+        0.75
+      ],
+      "modelUri": "models/sketchfab-scifi-desk.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 1036116,
+        "modelBytes": 1024636,
+        "triangles": 476,
+        "vertices": 318,
+        "materials": 1,
+        "textures": 4
+      }
+    },
+    {
+      "title": "Sink",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "1364672d147a491d8a2b02b9c0352f7d",
+        "uri": "https://sketchfab.com/3d-models/sink-1364672d147a491d8a2b02b9c0352f7d",
+        "author": {
+          "name": "swedenstyle34",
+          "uri": "https://sketchfab.com/swedenstyle34"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-sinkbathroom",
+      "family": "sink",
+      "styles": [
+        "contemporary",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.7065,
+          1.4037,
+          1.966
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.7812,
+        0.6426,
+        0.9
+      ],
+      "modelUri": "models/sketchfab-sinkbathroom.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 1969376,
+        "modelBytes": 1295596,
+        "triangles": 60700,
+        "vertices": 38438,
+        "materials": 7,
+        "textures": 0
+      }
+    },
+    {
+      "title": "Sink",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "0827297fcc9e455c996501f04230e820",
+        "uri": "https://sketchfab.com/3d-models/sink-0827297fcc9e455c996501f04230e820",
+        "author": {
+          "name": "Beer_Wizard",
+          "uri": "https://sketchfab.com/Beer_Wizard"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-sinkbathroom2",
+      "family": "sink",
+      "styles": [
+        "contemporary",
+        "rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.3772,
+          1.0633,
+          1.6263
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 4101996,
+        "triangles": 138992,
+        "vertices": 75687,
+        "materials": 6,
+        "textures": 0
+      }
+    },
+    {
+      "title": "Soda_Dispenser",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "08830b0fccd446cf97314326d221140a",
+        "uri": "https://sketchfab.com/3d-models/soda-dispenser-08830b0fccd446cf97314326d221140a",
+        "author": {
+          "name": "Shorty_Digitan",
+          "uri": "https://sketchfab.com/Shorty_Digitan"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-soda-dispenser",
+      "family": "appliance",
+      "styles": [
+        "restaurant"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.3914,
+          0.4245,
+          0.4802
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.4483,
+        0.4862,
+        0.55
+      ],
+      "modelUri": "models/sketchfab-soda-dispenser.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 1425740,
+        "modelBytes": 1352612,
+        "triangles": 3718,
+        "vertices": 3126,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Table",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "6257d89250be442e898b9cab5ceac55c",
+        "uri": "https://sketchfab.com/3d-models/table-6257d89250be442e898b9cab5ceac55c",
+        "author": {
+          "name": "dimazverev64",
+          "uri": "https://sketchfab.com/dimazverev64"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-table",
+      "family": "table",
+      "styles": [
+        "office",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.35,
+          0.65,
+          0.7454
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.3583,
+        0.654,
+        0.75
+      ],
+      "modelUri": "models/sketchfab-table.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 2641560,
+        "modelBytes": 2639596,
+        "triangles": 236,
+        "vertices": 240,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Tandem seating - hospital",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "ef96620d1a1d4f529a71589f6ae4a41d",
+        "uri": "https://sketchfab.com/3d-models/tandem-seating-hospital-ef96620d1a1d4f529a71589f6ae4a41d",
+        "author": {
+          "name": "Veebroush",
+          "uri": "https://sketchfab.com/veebroush"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-tandem-seating-hospital",
+      "family": "bench",
+      "styles": [
+        "hospital",
+        "office"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.9589,
+          0.7608,
+          1.0878
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        1.6207,
+        0.6295,
+        0.9
+      ],
+      "modelUri": "models/sketchfab-tandem-seating-hospital.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 2869560,
+        "modelBytes": 2765916,
+        "triangles": 7332,
+        "vertices": 7365,
+        "materials": 2,
+        "textures": 1
+      }
+    },
+    {
+      "title": "Tree 3d model Fir Spruce Pine",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "7daf178b3fa64e2fa7b2c2d19cf2a4bf",
+        "uri": "https://sketchfab.com/3d-models/tree-3d-model-fir-spruce-pine-7daf178b3fa64e2fa7b2c2d19cf2a4bf",
+        "author": {
+          "name": "Qruad",
+          "uri": "https://sketchfab.com/epic.gamez1204"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-tree-3d-model-fir-spruce-pine",
+      "family": "planter",
+      "styles": [
+        "natural"
+      ],
+      "sourceDimensions": {
+        "size": [
+          10.3009,
+          10.1604,
+          29.8861
+        ],
+        "unit": "source-unit"
+      },
+      "availability": "source-only",
+      "metrics": {
+        "sourceBytes": 4825992,
+        "triangles": 4380,
+        "vertices": 5119,
+        "materials": 2,
+        "textures": 4
+      }
+    },
+    {
+      "title": "Unbranded conventional Fridge",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "0d14bb0441be40e0b86d0ba380ed3d25",
+        "uri": "https://sketchfab.com/3d-models/unbranded-conventional-fridge-0d14bb0441be40e0b86d0ba380ed3d25",
+        "author": {
+          "name": "assetfactory",
+          "uri": "https://sketchfab.com/assetfactory"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-unbranded-conventional-fridge",
+      "family": "appliance",
+      "styles": [
+        "poor",
+        "residential"
+      ],
+      "sourceDimensions": {
+        "size": [
+          179.1722,
+          141.2647,
+          448.3337
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.7194,
+        0.5672,
+        1.8
+      ],
+      "modelUri": "models/sketchfab-unbranded-conventional-fridge.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 163212,
+        "modelBytes": 112476,
+        "triangles": 3672,
+        "vertices": 3355,
+        "materials": 2,
+        "textures": 0
+      }
+    },
+    {
+      "title": "Whiskey Glass",
+      "source": {
+        "provider": "Sketchfab",
+        "uid": "4163cc2cee414018b5cf097babca9db6",
+        "uri": "https://sketchfab.com/3d-models/whiskey-glass-4163cc2cee414018b5cf097babca9db6",
+        "author": {
+          "name": "Adam Hayward",
+          "uri": "https://sketchfab.com/Adam.Hayward"
+        }
+      },
+      "license": {
+        "slug": "free-st",
+        "name": "Free Standard",
+        "uri": "https://sketchfab.com/licenses",
+        "verifiedAt": "2026-09-06",
+        "redistributable": false
+      },
+      "id": "sketchfab-whiskey-glass",
+      "family": "prop",
+      "styles": [
+        "restaurant"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.131,
+          0.131,
+          0.1613
+        ],
+        "unit": "source-unit"
+      },
+      "dimensionsMeters": [
+        0.0975,
+        0.0975,
+        0.12
+      ],
+      "modelUri": "models/sketchfab-whiskey-glass.glb",
+      "availability": "local-only",
+      "metrics": {
+        "sourceBytes": 183840,
+        "modelBytes": 179668,
+        "triangles": 412,
+        "vertices": 326,
+        "materials": 1,
+        "textures": 2
+      }
+    },
+    {
+      "title": "School Chair 01",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "SchoolChair_01",
+        "uri": "https://polyhaven.com/a/SchoolChair_01",
+        "author": {
+          "name": "Ethan Place",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-school-chair-01",
+      "family": "chair",
+      "styles": [
+        "institutional",
+        "mid",
+        "office",
+        "poor"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.5659,
+          0.6753,
+          1.006
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.5659,
+        0.6753,
+        1.006
+      ],
+      "modelUri": "models/polyhaven-school-chair-01.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 484723,
+        "modelBytes": 483908,
+        "triangles": 5072,
+        "vertices": 3265,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Metal Office Desk",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "metal_office_desk",
+        "uri": "https://polyhaven.com/a/metal_office_desk",
+        "author": {
+          "name": "Ulan Cabanilla",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-metal-office-desk",
+      "family": "desk",
+      "styles": [
+        "industrial",
+        "mid",
+        "office"
+      ],
+      "sourceDimensions": {
+        "size": [
+          2,
+          0.9472,
+          0.7875
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        2,
+        0.9472,
+        0.7875
+      ],
+      "modelUri": "models/polyhaven-metal-office-desk.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 1606530,
+        "modelBytes": 1606568,
+        "triangles": 6898,
+        "vertices": 6070,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Sofa 01",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "Sofa_01",
+        "uri": "https://polyhaven.com/a/Sofa_01",
+        "author": {
+          "name": "Kirill Sannikov",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-sofa-01",
+      "family": "sofa",
+      "styles": [
+        "mid",
+        "residential",
+        "retro"
+      ],
+      "sourceDimensions": {
+        "size": [
+          1.5715,
+          0.658,
+          0.7965
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        1.5715,
+        0.658,
+        0.7965
+      ],
+      "modelUri": "models/polyhaven-sofa-01.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 517935,
+        "modelBytes": 517164,
+        "triangles": 4101,
+        "vertices": 2708,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Potted Plant 02",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "potted_plant_02",
+        "uri": "https://polyhaven.com/a/potted_plant_02",
+        "author": {
+          "name": "Rico Cilliers",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-potted-plant-02",
+      "family": "planter",
+      "styles": [
+        "contemporary",
+        "high_rich",
+        "mid",
+        "natural",
+        "office",
+        "residential",
+        "rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.7012,
+          0.6574,
+          0.8412
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.7012,
+        0.6574,
+        0.8412
+      ],
+      "modelUri": "models/polyhaven-potted-plant-02.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 2634698,
+        "modelBytes": 2632288,
+        "triangles": 69806,
+        "vertices": 44794,
+        "materials": 2,
+        "textures": 6
+      }
+    }
+  ]
+}

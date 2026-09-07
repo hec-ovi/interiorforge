@@ -20,3 +20,7 @@ inbox/
 [Ss]creenshot*.webp
 preview-captures/
 review-captures/
+
+# Licensed source models and local-only normalized derivatives.
+assets-sources/
+src/assets/models/sketchfab-*.glb

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://urbe.local/interior/assets/catalog.schema.json",
+  "title": "Interior asset catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "verifiedAt", "assets"],
+  "properties": {
+    "version": { "const": 1 },
+    "verifiedAt": { "type": "string", "format": "date" },
+    "assets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/asset" }
+    }
+  },
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }, { "type": "number" }],
+      "items": false
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "family", "styles", "source", "license", "sourceDimensions", "availability", "metrics"],
+      "allOf": [
+        {
+          "if": { "properties": { "availability": { "const": "source-only" } } },
+          "then": { "not": { "anyOf": [{ "required": ["modelUri"] }, { "required": ["dimensionsMeters"] }] } },
+          "else": { "required": ["modelUri", "dimensionsMeters"] }
+        },
+        {
+          "if": { "properties": { "availability": { "const": "redistributable" } } },
+          "then": { "properties": { "license": { "properties": { "redistributable": { "const": true } } } } },
+          "else": { "properties": { "license": { "properties": { "redistributable": { "const": false } } } } }
+        }
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "family": { "$ref": "#/$defs/family" },
+        "styles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "source": { "$ref": "#/$defs/source" },
+        "license": { "$ref": "#/$defs/license" },
+        "sourceDimensions": { "$ref": "#/$defs/dimensions" },
+        "dimensionsMeters": { "$ref": "#/$defs/vec3" },
+        "modelUri": { "type": "string", "pattern": "^models/[a-z0-9-]+\\.glb$" },
+        "availability": { "enum": ["source-only", "local-only", "redistributable"] },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sourceBytes", "triangles", "vertices", "materials", "textures"],
+          "properties": {
+            "sourceBytes": { "type": "integer", "minimum": 0 },
+            "modelBytes": { "type": "integer", "minimum": 0 },
+            "triangles": { "type": "integer", "minimum": 0 },
+            "vertices": { "type": "integer", "minimum": 0 },
+            "materials": { "type": "integer", "minimum": 0 },
+            "textures": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "family": {
+      "enum": ["appliance", "bed", "bench", "chair", "desk", "planter", "prop", "shelf", "sink", "sofa", "storage", "table", "toilet"]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "uri", "author"],
+      "properties": {
+        "provider": { "enum": ["Sketchfab", "Poly Haven"] },
+        "uid": { "type": "string", "minLength": 1 },
+        "uri": { "type": "string", "format": "uri" },
+        "author": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": { "name": { "type": "string", "minLength": 1 }, "uri": { "type": "string", "format": "uri" } }
+        }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "name", "uri", "verifiedAt", "redistributable"],
+      "properties": {
+        "slug": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "uri": { "type": "string", "format": "uri" },
+        "verifiedAt": { "type": "string", "format": "date" },
+        "redistributable": { "type": "boolean" }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size", "unit"],
+      "properties": { "size": { "$ref": "#/$defs/vec3" }, "unit": { "enum": ["source-unit", "meter"] } }
+    }
+  }
+}

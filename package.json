@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Deterministic building interior generator with rooms, stairs, elevators, shaped furniture and NPC routine data.",
   "scripts": {
+    "assets:import": "tsx src/assets/scripts/import-assets.ts",
     "build:feasibility": "tsc -p tsconfig.feasibility.json",
     "generate": "tsx src/cli.ts",
     "preview": "vite --config src/ui/vite.config.ts",
@@ -14,6 +15,7 @@
   "dependencies": {
     "@gltf-transform/core": "^4.5.0",
     "@gltf-transform/extensions": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
     "ajv": "^8.17.1"
   },
   "devDependencies": {
