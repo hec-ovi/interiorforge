@@ -1,6 +1,6 @@
 # Changelog
 
-0.30.0: luxury, damaged and capsule panel families, furnished mezzanines, rail-reserved stairs, overhead services, fitted cabinet bays, oriented accent lights and occupied-body-checked NPC placeholders. Licensed furniture retains its source surfaces. window clear fields are validated and define fitted facade lining through the published housing depth. Finished ceilings and concrete soffits have exclusive exposed-plane ownership in combined and streamed floor meshes.
+0.30.0: luxury, damaged and capsule panel families, furnished mezzanines, rail-reserved stairs, overhead services, fitted cabinet bays, oriented accent lights and occupied-body-checked NPC placeholders. Licensed furniture retains its source surfaces. Window clear fields define fitted facade lining through the published housing depth. Finished ceilings and concrete soffits have exclusive exposed-plane ownership; partitions meet structural slab undersides. Coordinated luxury groups preserve room and route reservations, with full-height fields, walnut cabinetry, stone tops, rounded upholstery and bronze supports. A JSON residence preview opens at eye height with GPU-budgeted fixture shadows.
 
 0.29.0: layout publishes seeded route reservations before furnishing. Grounded furniture, including chairs, stays outside the reserved body-width sweeps; doorway and core approaches retain bounded displacement. Architecture reachability uses a body-eroded sampled grid. Budgeted ceiling spotlights form complete centered grids across each room.
 

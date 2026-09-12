@@ -21,9 +21,13 @@ npm run preview                             # 3D building view plus a standalone
 
 Without a shell to work from, a fixture shell is fabricated, so the box runs with nothing else installed. The preview shows a finished textured building at first load and can open real generator output (shell GLB, blueprint JSON, request JSON), with walk-path testing in the floor editor.
 
+Open `http://localhost:5173/?sample=luxury` for a generated high-rich residence at eye height. Its JSON preset fits a kitchen island, seating and bed suite with procedural furniture above a lobby. The kitchen, living and lobby buttons select the review cameras.
+
 ## Interior styles
 
-The wealth tier selects a fitted material family: `rich` and `high_rich` use luxury stone, walnut and loft brick; `poor` uses worn paint, aggregate and exposed services; `mid` uses worn capsule shells, rubber decks and holograms. Wall, floor and ceiling panels use fixed 0.5 m corner modules and large fields.
+The wealth tier selects a fitted material family: `rich` and `high_rich` use luxury stone and walnut, with brick accents in rich lofts; `poor` uses worn paint, aggregate and exposed services; `mid` uses worn capsule shells, rubber decks and holograms. Wall, floor and ceiling panels use fixed 0.5 m corner modules and large fields. Luxury wall fields run full height between their trims.
+
+Luxury seating, kitchen and sleeping groups fit as complete arrangements with their access space. Smaller rooms retain individual furnishings. Stone tables, walnut cabinetry, rounded upholstery and bronze seating supports share the room palette.
 
 Planted dividers, aquariums, sleeping pods and refuse groups reserve real space. Built-in lenses publish light sources. Downloaded furniture retains its source materials and gets small seeded rotations inside its safe bounds. The [asset catalog](src/assets/CONTRACT.md) records source licenses and local model availability.
 
@@ -42,10 +46,10 @@ These keys are interior-specific. Luxury panels use the `rich` entries for both 
 | Material key | Selected and available variant | Interior use |
 | --- | --- | --- |
 | `interior-luxury-wall/rich` | `field` | Luxury limestone wall panels |
-| `interior-luxury-floor/rich` | `field` | Luxury marble floor panels and wet-room accents |
+| `interior-luxury-floor/rich` | `field` | Luxury marble floors, wet-room accents and furniture tops |
 | `interior-luxury-ceiling/rich` | `field` | Luxury ceiling panels |
-| `interior-luxury-timber/rich` | `field` | Walnut accents and fitted cabinet faces |
-| `interior-loft-brick/rich` | `field` | Luxury studio and living-room brick accents |
+| `interior-luxury-timber/rich` | `field` | Walnut fields, furniture and fitted cabinet faces |
+| `interior-loft-brick/rich` | `field` | Rich studio and living-room brick accents |
 | `interior-damaged-wall/poor` | `field` | Worn painted wall panels |
 | `interior-damaged-floor/poor` | `field` | Damaged aggregate floor panels |
 | `interior-damaged-ceiling/poor` | `field` | Damaged ceiling panels |
@@ -55,7 +59,7 @@ These keys are interior-specific. Luxury panels use the `rich` entries for both 
 | `interior-capsule-floor/mid` | `field` | Capsule deck panels |
 | `interior-capsule-ceiling/mid` | `field` | Capsule ceiling panels |
 | `interior-capsule-hatch/mid` | `face` | Exact hatch/service insert |
-| `interior-bronze/rich` | `plain` | Display-case frame details |
+| `interior-bronze/rich` | `plain` | Display-case frames and luxury seating supports |
 | `interior-display-glass/rich` | `clear` | Aquarium, display and hologram glazing |
 | `interior-fish/rich` | `plain` | Aquarium fish |
 | `interior-leaf/rich` | `plain` | Live plants and planted dividers |
