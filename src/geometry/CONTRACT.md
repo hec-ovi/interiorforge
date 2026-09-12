@@ -46,4 +46,4 @@ Purpose: turns a building plan into interior meshes and completes the shell GLB 
 
 Wardrobes have fixed 0.5 m closing bays, repeated fitted middle doors, upper cabinets and lower drawers. Counters and kitchen runs retain the same closing-bay widths and fitted middle panels. Cabinet faces use the tier's wall accent or door coating.
 
-Luxury walls have full-height fields between closed floor and ceiling trims. High-rich residence feature walls use walnut; rich lofts use brick. Procedural luxury furniture shares walnut cabinetry and pale stone worktops, with plinth coffee tables, upholstered armchairs and width-fitted sofa cushions. Bar tops and footrails stay inside their published footprint.
+Luxury walls have full-height fields between closed floor and ceiling trims. High-rich residence feature walls use walnut; rich lofts use brick. Procedural luxury furniture shares walnut cabinetry and pale stone worktops, with plinth coffee tables, bronze seating supports and width-fitted sofa cushions. Upholstery has closed, rounded edges inside each cushion's box. Bar tops and footrails stay inside their published footprint.

@@ -69,6 +69,7 @@ export class MaterialKeys {
   furniture(kind: string): string {
     if (kind === "door") return this.door();
     if (kind === "accent") return this.accent();
+    if (kind === "bronze") return this.luxury ? this.key("interior-bronze", undefined, "rich") : this.metal();
     if (this.luxury && kind === "wood") return this.key("interior-luxury-timber", undefined, "rich");
     if (this.luxury && kind === "tile") return this.panels.surface("floor");
     return this.key(kind, kind === "fabric" ? "flat" : undefined);

@@ -4,10 +4,10 @@ import type { Placer } from "./placer.js";
 export function chair(p: Placer): void {
   const seat = 0.45;
   p.box("wood", -p.hw, p.hw, -p.hd, p.hd, seat, seat + 0.04);
-  p.box("fabric", -p.hw + 0.02, p.hw - 0.02, -p.hd + 0.02, p.hd - 0.02, seat + 0.04, seat + 0.09);
+  p.box("fabric", -p.hw + 0.02, p.hw - 0.02, -p.hd + 0.02, p.hd - 0.02, seat + 0.04, seat + (p.luxury ? 0.17 : 0.09));
   p.box("wood", -p.hw + 0.03, p.hw - 0.03, -p.hd, -p.hd + 0.05, seat + 0.2, p.height);
   if (p.luxury) {
-    p.box("fabric", -p.hw + 0.07, p.hw - 0.07, -p.hd + 0.05, -p.hd + 0.12, seat + 0.15, p.height - 0.03);
+    p.box("fabric", -p.hw + 0.07, p.hw - 0.07, -p.hd + 0.05, -p.hd + 0.21, seat + 0.15, p.height - 0.03);
     for (const sx of [-1, 1]) {
       const x0 = sx < 0 ? -p.hw : p.hw - 0.06;
       p.box("wood", x0, x0 + 0.06, -p.hd + 0.06, p.hd - 0.05, seat + 0.18, seat + 0.24);
@@ -17,11 +17,19 @@ export function chair(p: Placer): void {
     const x = sx * (p.hw - 0.04);
     p.box("wood", Math.min(x, x - sx * 0.04), Math.max(x, x - sx * 0.04), -p.hd, -p.hd + 0.05, seat, p.height);
   }
-  p.legs("metal", 0.04, 0.03, seat);
+  p.legs("bronze", 0.04, 0.03, seat);
 }
 
 /** Bar stool: seat on a column with a footrest, so it reads at a counter. */
 export function stool(p: Placer): void {
+  if (p.luxury) {
+    const seat = p.height - 0.12;
+    p.legs("bronze", 0.025, 0.07, seat);
+    p.box("wood", -p.hw, p.hw, -p.hd, p.hd, seat, seat + 0.03);
+    p.box("fabric", -p.hw, p.hw, -p.hd, p.hd, seat + 0.03, p.height);
+    p.box("bronze", -p.hw + 0.07, p.hw - 0.07, p.hd - 0.095, p.hd - 0.07, 0.25, 0.275);
+    return;
+  }
   const seat = p.height - 0.05;
   p.box("wood", -p.hw, p.hw, -p.hd, p.hd, seat, p.height);
   p.box("metal", -0.04, 0.04, -0.04, 0.04, 0.03, seat);
@@ -50,21 +58,23 @@ export function officeChair(p: Placer): void {
 
 /** Sofa: base, back and two arms. */
 export function sofa(p: Placer): void {
-  const seat = 0.42;
-  p.box("fabric", -p.hw, p.hw, -p.hd, p.hd, 0.1, seat);
+  const seat = p.luxury ? 0.3 : 0.42;
+  const cushionHeight = p.luxury ? 0.2 : 0.09;
+  p.box(p.luxury ? "wood" : "fabric", -p.hw, p.hw, -p.hd, p.hd, 0.1, seat);
   p.box("fabric", -p.hw, p.hw, -p.hd, -p.hd + 0.16, seat, p.height);
   for (const sx of [-1, 1]) {
     const x = sx * p.hw;
-    p.box("fabric", Math.min(x, x - sx * 0.16), Math.max(x, x - sx * 0.16), -p.hd, p.hd, seat, seat + 0.2);
+    p.box("fabric", Math.min(x, x - sx * 0.16), Math.max(x, x - sx * 0.16), -p.hd, p.hd, seat, p.luxury ? 0.65 : seat + 0.2);
   }
   const cushions = Math.max(1, Math.round((p.hw * 2 - 0.4) / 0.95));
   for (let i = 0; i < cushions; i++) {
     const w = (2 * p.hw - 0.4) / cushions;
     const x0 = -p.hw + 0.2 + i * w;
-    p.box("fabric", x0 + 0.02, x0 + w - 0.02, -p.hd + 0.2, p.hd - 0.04, seat, seat + 0.09);
-    p.box("fabric", x0 + 0.06, x0 + w - 0.06, -p.hd + 0.16, -p.hd + 0.24, seat + 0.09, seat + 0.34);
+    p.box("fabric", x0 + 0.02, x0 + w - 0.02, -p.hd + 0.2, p.hd - 0.04, seat, seat + cushionHeight);
+    p.box("fabric", x0 + 0.06, x0 + w - 0.06, -p.hd + 0.16, -p.hd + (p.luxury ? 0.34 : 0.24),
+      seat + cushionHeight, p.luxury ? p.height - 0.03 : seat + 0.34);
   }
-  p.legs("metal", 0.05, 0.06, 0.1);
+  p.legs("bronze", 0.05, 0.06, 0.1);
 }
 
 export function bench(p: Placer): void {

@@ -4,9 +4,10 @@ import type { PlanFurniture } from "../../layout/plan-types.js";
 import type { Frame } from "../../layout/uv.js";
 import { uvToWorld } from "../../layout/uv.js";
 import type { MaterialKeys } from "../materials.js";
+import { upholstery } from "./upholstery.js";
 
 /** Material families a piece of furniture is built from. */
-export type Mat = "wood" | "metal" | "door" | "fabric" | "glass" | "tile" | "plaster" | "screen" | "accent";
+export type Mat = "wood" | "metal" | "bronze" | "door" | "fabric" | "glass" | "tile" | "plaster" | "screen" | "accent";
 
 /** Draws one piece of furniture in its own coordinates: x across the width, z from back to
  *  front (the piece faces +z), y up from its base. Rotation and the parcel's frame are
@@ -52,6 +53,13 @@ export class Placer {
 
   box(mat: Mat, x0: number, x1: number, z0: number, z1: number, y0: number, y1: number): void {
     if (x1 - x0 < 1e-4 || z1 - z0 < 1e-4 || y1 - y0 < 1e-4) return;
+    if (this.luxury && mat === "fabric") {
+      upholstery(this.mb, this.keys.furniture(mat), [x0, y0, z0], [x1, y1, z1], ([x, y, z]) => {
+        const [wx, wz] = this.toWorld(x, z);
+        return [wx, this.base + y, wz];
+      });
+      return;
+    }
     const corners: Point[] = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([x, z]) => this.toWorld(x!, z!));
     this.mb.addPrism(
       this.keys.furniture(mat === "screen" ? "ad-screen" : mat),
