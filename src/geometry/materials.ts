@@ -14,6 +14,7 @@ const FLOOR_BY_ROOM: Partial<Record<RoomKind, string>> = {
 
 export class MaterialKeys {
   readonly panels: PanelPalette;
+  get luxury(): boolean { return this.theme === "cyberpunk" && this.panels.style === "luxury"; }
   constructor(
     private readonly theme: string,
     private readonly tier: string,
@@ -40,7 +41,7 @@ export class MaterialKeys {
    *  any resolver, not only one that honours the variant preference. */
   accent(room?: RoomKind): string {
     if (this.theme === "cyberpunk" && this.panels.style === "luxury") {
-      if (["studio_main", "living"].includes(room ?? "")) return this.key("interior-loft-brick", undefined, "rich");
+      if (this.tier === "rich" && ["studio_main", "living"].includes(room ?? "")) return this.key("interior-loft-brick", undefined, "rich");
       return ["bathroom", "toilets", "kitchen"].includes(room ?? "")
         ? this.panels.surface("floor") : `${this.theme}/interior-luxury-timber/rich`;
     }
@@ -63,6 +64,14 @@ export class MaterialKeys {
 
   trim(): string {
     return this.key("metal");
+  }
+
+  furniture(kind: string): string {
+    if (kind === "door") return this.door();
+    if (kind === "accent") return this.accent();
+    if (this.luxury && kind === "wood") return this.key("interior-luxury-timber", undefined, "rich");
+    if (this.luxury && kind === "tile") return this.panels.surface("floor");
+    return this.key(kind, kind === "fabric" ? "flat" : undefined);
   }
 
   ceiling(): string {

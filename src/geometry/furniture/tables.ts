@@ -17,6 +17,12 @@ export function diningTable(p: Placer): void {
 
 export function lowTable(p: Placer): void {
   const top = p.height;
+  if (p.luxury) {
+    p.box("tile", -p.hw, p.hw, -p.hd, p.hd, top - 0.08, top);
+    p.box("wood", -p.hw * 0.65, p.hw * 0.65, -p.hd * 0.65, p.hd * 0.65, 0.035, top - 0.08);
+    p.box("metal", -p.hw * 0.55, p.hw * 0.55, -p.hd * 0.55, p.hd * 0.55, 0, 0.035);
+    return;
+  }
   p.box("wood", -p.hw, p.hw, -p.hd, p.hd, top - 0.04, top);
   p.legs("metal", 0.05, 0.06, top - 0.04);
 }

@@ -8,11 +8,6 @@ import type { MaterialKeys } from "../materials.js";
 /** Material families a piece of furniture is built from. */
 export type Mat = "wood" | "metal" | "door" | "fabric" | "glass" | "tile" | "plaster" | "screen" | "accent";
 
-const KIND: Record<Mat, string> = {
-  wood: "wood", metal: "metal", door: "door", fabric: "fabric", glass: "glass", tile: "tile",
-  plaster: "plaster", screen: "ad-screen", accent: "tile",
-};
-
 /** Draws one piece of furniture in its own coordinates: x across the width, z from back to
  *  front (the piece faces +z), y up from its base. Rotation and the parcel's frame are
  *  applied on the way out, so a builder never thinks about either. */
@@ -24,6 +19,7 @@ export class Placer {
   readonly hw: number;
   readonly hd: number;
   readonly height: number;
+  get luxury(): boolean { return this.keys.luxury; }
 
   constructor(
     private readonly mb: MeshBuilder,
@@ -58,8 +54,7 @@ export class Placer {
     if (x1 - x0 < 1e-4 || z1 - z0 < 1e-4 || y1 - y0 < 1e-4) return;
     const corners: Point[] = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([x, z]) => this.toWorld(x!, z!));
     this.mb.addPrism(
-      mat === "door" ? this.keys.door() : mat === "accent" ? this.keys.accent()
-        : this.keys.key(KIND[mat], mat === "fabric" ? "flat" : undefined),
+      this.keys.furniture(mat === "screen" ? "ad-screen" : mat),
       corners, this.base + y0, this.base + y1,
       mat === "screen" ? "unit" : "world",
       y0 <= 1e-3 ? "top" : "both",

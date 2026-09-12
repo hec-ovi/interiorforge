@@ -114,6 +114,7 @@ export function buildInteriorWalls(
     y0: elevation, ceilingY,
     field: keys.wall(), accent: keys.accent(program), trim: keys.trim(),
     casing: keys.door(), frame: keys.windowFrame(),
+    fullHeight: keys.luxury,
   };
   for (const line of lines.values()) {
     const accents = mergeIntervals(line.intervals.filter((i) => i.accent));

@@ -6,6 +6,13 @@ export function chair(p: Placer): void {
   p.box("wood", -p.hw, p.hw, -p.hd, p.hd, seat, seat + 0.04);
   p.box("fabric", -p.hw + 0.02, p.hw - 0.02, -p.hd + 0.02, p.hd - 0.02, seat + 0.04, seat + 0.09);
   p.box("wood", -p.hw + 0.03, p.hw - 0.03, -p.hd, -p.hd + 0.05, seat + 0.2, p.height);
+  if (p.luxury) {
+    p.box("fabric", -p.hw + 0.07, p.hw - 0.07, -p.hd + 0.05, -p.hd + 0.12, seat + 0.15, p.height - 0.03);
+    for (const sx of [-1, 1]) {
+      const x0 = sx < 0 ? -p.hw : p.hw - 0.06;
+      p.box("wood", x0, x0 + 0.06, -p.hd + 0.06, p.hd - 0.05, seat + 0.18, seat + 0.24);
+    }
+  }
   for (const sx of [-1, 1]) {
     const x = sx * (p.hw - 0.04);
     p.box("wood", Math.min(x, x - sx * 0.04), Math.max(x, x - sx * 0.04), -p.hd, -p.hd + 0.05, seat, p.height);
@@ -50,7 +57,7 @@ export function sofa(p: Placer): void {
     const x = sx * p.hw;
     p.box("fabric", Math.min(x, x - sx * 0.16), Math.max(x, x - sx * 0.16), -p.hd, p.hd, seat, seat + 0.2);
   }
-  const cushions = p.hw > 0.75 ? 2 : 1;
+  const cushions = Math.max(1, Math.round((p.hw * 2 - 0.4) / 0.95));
   for (let i = 0; i < cushions; i++) {
     const w = (2 * p.hw - 0.4) / cushions;
     const x0 = -p.hw + 0.2 + i * w;

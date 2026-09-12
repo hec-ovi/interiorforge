@@ -28,6 +28,7 @@ export function buildFacadeLining(
     y0: bpFloor.elevation, ceilingY,
     field: keys.wall(), accent: keys.accent(program), trim: keys.trim(),
     casing: keys.door(), frame: keys.windowFrame(),
+    fullHeight: keys.luxury,
   };
   const outline = bpFloor.outline;
   const y0 = bpFloor.elevation;

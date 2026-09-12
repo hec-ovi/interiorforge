@@ -11,7 +11,7 @@ function serviceCounter(p: Placer, top: number, panel: "accent" | "wood"): void 
   cabinetFront(p, KICK, top - .05, panel);
   p.box("metal", -p.hw + 0.06, p.hw - 0.06, -p.hd + 0.06, front - 0.08, 0, KICK);
   p.box("metal", -p.hw, p.hw, -p.hd, front - 0.05, KICK, top - 0.05);
-  p.box("wood", -p.hw, p.hw, -p.hd, front, top - 0.05, top);
+  p.box(p.luxury ? "tile" : "wood", -p.hw, p.hw, -p.hd, front, top - 0.05, top);
 }
 
 export function counter(p: Placer): void {
@@ -23,8 +23,8 @@ export function counter(p: Placer): void {
 export function barCounter(p: Placer): void {
   const body = p.height - 0.06;
   serviceCounter(p, body, "accent");
-  p.box("wood", -p.hw, p.hw, -p.hd, p.hd + 0.03, body, p.height);
-  p.box("metal", -p.hw + 0.1, p.hw - 0.1, p.hd - 0.02, p.hd + 0.03, 0.22, 0.26);
+  p.box(p.luxury ? "tile" : "wood", -p.hw, p.hw, -p.hd, p.hd, body, p.height);
+  p.box("metal", -p.hw + 0.1, p.hw - 0.1, p.hd - 0.05, p.hd, 0.22, 0.26);
   topware(p, p.height, -p.hw + 0.2, p.hw - 0.2, -p.hd + 0.2, 4);
 }
 

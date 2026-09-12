@@ -29,3 +29,4 @@ Dependency edges flow one way: ui and cli sit on top, core sits at the bottom, n
 - [Architectural details](../src/geometry/details/CONTRACT.md): loft platforms, guards, rail-reserved stairs and bounded overhead services. Depends on core, glb, loft planning and panels; [floor schema](../schemas/floor.schema.json).
 - [NPC placements](../src/npc/CONTRACT.md): vendor/staff and future story slots with reachable approaches and occupied-body route checks; [NPC schema](../schemas/npc.schema.json).
 - [Luxury furnishing](../src/layout/luxury/CONTRACT.md): fits coordinated seating, kitchen and sleeping groups inside reserved room space. Depends on layout; [input and output](../src/layout/luxury/schema.ts).
+- [Luxury surfaces](../src/geometry/CONTRACT.md): full-height panel fields, walnut cabinetry and stone furniture inside the planned envelopes; [floor schema](../schemas/floor.schema.json).

@@ -45,3 +45,5 @@ Purpose: turns a building plan into interior meshes and completes the shell GLB 
 [Architectural details](details/CONTRACT.md) build furnished loft platforms, open stairs, 1.2 m clear lanes between guards and overhead pipe/cable runs. Rail faces crossing a storey plane split between the two floor bands with shared UVs and no additional exposed cut face.
 
 Wardrobes have fixed 0.5 m closing bays, repeated fitted middle doors, upper cabinets and lower drawers. Counters and kitchen runs retain the same closing-bay widths and fitted middle panels. Cabinet faces use the tier's wall accent or door coating.
+
+Luxury walls have full-height fields between closed floor and ceiling trims. High-rich residence feature walls use walnut; rich lofts use brick. Procedural luxury furniture shares walnut cabinetry and pale stone worktops, with plinth coffee tables, upholstered armchairs and width-fitted sofa cushions. Bar tops and footrails stay inside their published footprint.

@@ -18,6 +18,7 @@ export class PanelPalette {
   trim(): string { return `${this.theme}/${this.data.trim}/${this.data.tier}`; }
   pitch(role: SurfaceRole): [number, number] { return this.data[`${role}Pitch`] as [number, number]; }
   role(key: string): SurfaceRole | undefined {
+    if (this.style === "luxury" && key === `${this.theme}/${this.data.accent}/${this.data.tier}`) return "wall";
     return (["wall", "floor", "ceiling"] as const).find(role => key === this.surface(role));
   }
 }

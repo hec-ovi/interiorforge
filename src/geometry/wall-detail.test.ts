@@ -4,13 +4,26 @@ import { resolveAssignments } from "../blueprint/validate.js";
 import { planBuilding } from "../layout/index.js";
 import { buildInterior } from "./index.js";
 import { MaterialKeys } from "./materials.js";
-import { BAND_SEAL, BASEBOARD, DADO_TOP, layerBands, TOP_TRIM } from "./wall-detail.js";
+import { BAND_SEAL, BASEBOARD, DADO_TOP, bandMaterial, layerBands, TOP_TRIM } from "./wall-detail.js";
 import { canonicalHoles } from "./walls.js";
 
 const keys = new MaterialKeys("cyberpunk", "mid");
 const bands = { y0: 0, ceilingY: 3.2, field: keys.wall(), accent: keys.accent(), trim: keys.trim(), casing: keys.door(), frame: keys.windowFrame() };
 
 describe("wall bands", () => {
+  it("keeps luxury fields continuous between trims and through opening returns", () => {
+    const full = { ...bands, fullHeight: true };
+    const drawn: [string, number, number][] = [];
+    layerBands(full, 0, full.ceilingY, (material, _proud, y0, y1) => drawn.push([material, y0, y1]));
+    expect(drawn.map(band => band[0])).toEqual([full.trim, full.field, full.trim, full.field]);
+    expect(drawn[1]![1]).toBeCloseTo(BASEBOARD - BAND_SEAL);
+    expect(drawn[1]![2]).toBeCloseTo(full.ceilingY - TOP_TRIM + BAND_SEAL);
+    // The over-ceiling continuation seals against the trim inside its solid volume.
+    expect(drawn[3]![1]).toBeCloseTo(full.ceilingY - BAND_SEAL);
+    expect(drawn[3]![2]).toBe(full.ceilingY);
+    expect(bandMaterial(full, 0.5)).toBe(full.field);
+    expect(bandMaterial(full, 2.5)).toBe(full.field);
+  });
   it("stacks trim, dado, field and top trim from floor to ceiling", () => {
     const drawn: [string, number, number][] = [];
     layerBands(bands, 0, 3.6, (material, _proud, y0, y1) => drawn.push([material, y0, y1]));

@@ -1,8 +1,6 @@
 import { BAND_PROUD } from "../layout/shell.js";
 
-/** Walls are never bare planes: a trim band at the floor, a dado in the accent tone, the
- *  field above it and a band under the ceiling. The feature wall of a room takes the accent
- *  tone as its field, corner to corner (see walls.ts). */
+/** Closed wall fields between floor and ceiling trims, with an optional accent dado. */
 
 export const BASEBOARD = 0.12;
 export const DADO_TOP = 1.05;
@@ -23,6 +21,8 @@ export interface WallBands {
   casing: string;
   /** window casings on the room side of every window */
   frame: string;
+  /** Luxury fields run between the trims without a horizontal dado break. */
+  fullHeight?: boolean;
 }
 
 /** Which ends of a wall slice are seen: the underside of a lintel over a door, the top of a
@@ -48,19 +48,21 @@ export function layerBands(
     emit(material, thickness, lo, hi, "both");
   };
   const base = bands.y0;
-  const trimStart = Math.max(base + DADO_TOP, bands.ceilingY - TOP_TRIM);
+  const fieldStart = base + (bands.fullHeight ? BASEBOARD : DADO_TOP);
+  const trimStart = Math.max(fieldStart, bands.ceilingY - TOP_TRIM);
   slice(bands.trim, 2 * PROUD, base, base + BASEBOARD);
-  slice(bands.accent, PROUD, base + BASEBOARD, base + DADO_TOP);
-  slice(bands.field, 0, base + DADO_TOP, trimStart);
+  if (!bands.fullHeight) slice(bands.accent, PROUD, base + BASEBOARD, fieldStart);
+  slice(bands.field, 0, fieldStart, trimStart);
   slice(bands.trim, PROUD, trimStart, bands.ceilingY);
   slice(bands.field, 0, bands.ceilingY, Number.POSITIVE_INFINITY);
 }
 
 /** The band a wall wears at height `y`: what a cap or a reveal face there continues. */
 export function bandMaterial(bands: WallBands, y: number): string {
-  const trimStart = Math.max(bands.y0 + DADO_TOP, bands.ceilingY - TOP_TRIM);
+  const fieldStart = bands.y0 + (bands.fullHeight ? BASEBOARD : DADO_TOP);
+  const trimStart = Math.max(fieldStart, bands.ceilingY - TOP_TRIM);
   if (y < bands.y0 + BASEBOARD) return bands.trim;
-  if (y < bands.y0 + DADO_TOP) return bands.accent;
+  if (y < fieldStart) return bands.accent;
   if (y >= trimStart && y < bands.ceilingY) return bands.trim;
   return bands.field;
 }
