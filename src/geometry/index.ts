@@ -12,7 +12,7 @@ import type { InteriorRequest, Rect3 } from "../core/types.js";
 import { MeshBuilder } from "../glb/mesh-builder.js";
 import { gridOrigin } from "../layout/tile-fit.js";
 import { appendToDocument } from "../glb/io.js";
-import { STAIR, stairSlab } from "../layout/constants.js";
+import { SOFFIT_DEPTH, STAIR, stairSlab } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import type { BuildingPlan } from "../layout/index.js";
 import { planRoofAccess } from "../layout/roof-access.js";
@@ -99,10 +99,11 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest,
     floorMeshes.set(floor.floor, mb);
     const incoming = incomingDetails.get(floor.floor);
     if (incoming) mb.merge(incoming);
-    // the ceiling of a spans-2 floor sits at the top of its open upper half
+    // A spans-2 room meets the structural slab above its open upper half.
     const next = sorted[i + 1];
-    const upper = next && (next.rooms.length === 0 || next.mezzanineOf === floor.floor) ? next : undefined;
-    const wallTop = floor.elevation + floor.height + (upper?.height ?? 0);
+    const ceilingFloor = next && (next.rooms.length === 0 || next.mezzanineOf === floor.floor) ? next : floor;
+    const slabTop = ceilingFloor.elevation + ceilingFloor.height;
+    const wallTop = slabTop - SOFFIT_DEPTH;
 
     // stairs climb to the next floor that has a slab
     const target = sorted.slice(i + 1).find((f) => f.rooms.length > 0 && f.mezzanineOf === undefined);
@@ -147,7 +148,7 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest,
     }
 
     if (floor.rooms.length === 0) {
-      emitOpenFloorShaftWalls(mb, keys, core, uv.sealed, floor.elevation, floor.elevation + floor.height);
+      emitOpenFloorShaftWalls(mb, keys, core, uv.sealed, floor.elevation, floor.elevation + floor.height - SOFFIT_DEPTH);
       mb.seal();
       continue;
     }
@@ -184,7 +185,7 @@ export function buildInteriorBands(plan: BuildingPlan, request: InteriorRequest,
       wallTop, ceilingY, program, holes, createRng(request.seed, "accent", floor.floor),
     );
     buildFacadeLining(mb, keys, bpFloor, wallDepth, wallTop, ceilingY, program);
-    emitCoreDividers(mb, keys, core, floor.elevation, wallTop);
+    emitCoreDividers(mb, keys, core, floor.elevation, slabTop);
     emitElevatorDoors(mb, keys, core, floor.elevation);
     emitFurniture(mb, keys, uv.furniture, core.frame, floor.elevation, options.skipFurnitureIdsByFloor?.get(floor.floor));
     emitLightFixtures(mb, keys, floor.lights);
