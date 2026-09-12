@@ -6,7 +6,7 @@ import { planBuilding } from "./index.js";
 it("publishes complete luxury groups through the building planner", () => {
   const { request } = makeFixture({ seed: 8, width: 40, depth: 32, floors: 3,
     type: "residential", tier: "high_rich" });
-  request.assignments = [{ floor: 0, kind: "lobby" }, { floor: 1, kind: "residence_studios", spans: 2 }];
+  request.assignments = [{ floor: 0, kind: "lobby" }, { floor: 1, kind: "residence_studio", spans: 2 }];
   const plan = planBuilding(request, resolveAssignments(request));
   const furniture = plan.floors[0]!.furniture;
   const sofas = furniture.filter(item => item.kind === "sofa" && item.size[0] === 3.5);
