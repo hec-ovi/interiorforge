@@ -1,6 +1,7 @@
 import type { BuildingType, Tier } from "../../core/types.js";
 import type { AppParams, AppState } from "../app-state.js";
 import { el, labeled } from "../components/dom.js";
+import { version } from "../../../package.json";
 
 const TYPES: BuildingType[] = [
   "offices", "corpo", "residential", "hotel", "hospital", "clinic", "police",
@@ -28,7 +29,7 @@ export function createControls(
 
   const header = el("div", { class: "sidebar-header" }, [
     brandRow,
-    el("span", { class: "brand-tag" }, ["URBE SPATIAL ENGINE v0.28.1"]),
+    el("span", { class: "brand-tag" }, [`URBE SPATIAL ENGINE v${version}`]),
   ]);
 
   // Parametric Generator Inputs
@@ -66,6 +67,7 @@ export function createControls(
     );
     floorSelect.value = String(state.floorIndex);
   });
+  state.on("floor", () => { floorSelect.value = String(state.floorIndex); });
 
   state.on("busy", () => {
     generate.toggleAttribute("disabled", state.busy);

@@ -1,0 +1,11 @@
+{
+  "title": "Luxury residence",
+  "fixture": { "seed": 8, "width": 40, "depth": 32, "floors": 3, "basements": 0, "type": "residential", "tier": "high_rich" },
+  "assignments": [{ "floor": 0, "kind": "lobby" }, { "floor": 1, "kind": "residence_studio", "spans": 2 }],
+  "assets": false,
+  "views": [
+    { "title": "Kitchen & suite", "floor": 1, "furniture": "kitchen_block", "width": 4, "offset": [3.5, -4], "heading": 320 },
+    { "title": "Living area", "floor": 1, "furniture": "sofa", "width": 2.8, "offset": [4.2, 5], "heading": 220 },
+    { "title": "Lobby salon", "floor": 0, "furniture": "sofa", "width": 3.5, "offset": [6, 4], "heading": 230 }
+  ]
+}

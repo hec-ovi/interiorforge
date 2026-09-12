@@ -91,6 +91,34 @@ async function mountAndGenerate() {
 }
 
 describe("preview ui", () => {
+  it("opens the luxury sample in its furnished residence at eye height", async () => {
+    const root = document.createElement("div");
+    document.body.replaceChildren(root);
+    const viewer = fakeViewer();
+    const state = mountApp(root, viewer, "luxury");
+    expect(getByRole<HTMLButtonElement>(root, "button", { name: "Kitchen & suite" }).disabled).toBe(true);
+    await waitFor(() => {
+      expect(state.result).not.toBeNull();
+      expect(state.busy).toBe(false);
+    }, { timeout: 30000 });
+    expect(state.params.tier).toBe("high_rich");
+    expect(state.floorIndex).toBe(1);
+    expect(state.mode).toBe("floor");
+    expect(viewer.glb).toBeInstanceOf(Uint8Array);
+    expect(root.querySelector<HTMLSelectElement>('select[name="floor"]')!.value).toBe("1");
+    const floor = state.floorData()!;
+    expect(floor.furniture.some(item => item.room === state.selectedRoom && item.kind === "kitchen_block" && item.size[0] === 4)).toBe(true);
+    expect(viewer.eye![1]).toBeCloseTo(floor.elevation + 1.65);
+    expect(viewer.slice!.y1).toBeGreaterThan(floor.ceilingElevation);
+    const kitchenEye = [...viewer.eye!];
+    getByRole(root, "button", { name: "Living area" }).click();
+    expect(viewer.eye).not.toEqual(kitchenEye);
+    getByRole(root, "button", { name: "Lobby salon" }).click();
+    expect(state.floorIndex).toBe(0);
+    expect(root.querySelector<HTMLSelectElement>('select[name="floor"]')!.value).toBe("0");
+    expect(state.floorData()!.rooms.find(room => room.id === state.selectedRoom)!.kind).toBe("reception");
+  }, 40000);
+
   it("renders native controls with the custom square appearance", async () => {
     document.head.innerHTML = "";
     const style = document.createElement("style");

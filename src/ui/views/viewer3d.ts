@@ -4,6 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { LightFixture } from "../../core/types.js";
 import { FixtureLighting } from "./fixture-lighting.js";
 import { el } from "../components/dom.js";
+import { createPreviewEnvironment } from "./preview-environment.js";
 
 export interface FloorSlice {
   y0: number;
@@ -14,7 +15,7 @@ export interface Viewer3D {
   el: HTMLElement;
   setGlb(bytes: Uint8Array): Promise<void>;
   setFloorSlice(slice: FloorSlice | null): void;
-  /** Instantiates the floor's own fixtures, so the preview shows the room as it will be lit. */
+  /** Displays the floor's published fixtures within the preview's shadow budget. */
   setLights(lights: readonly LightFixture[] | null): void;
   /** Stands the camera in a room at eye height, looking across it: what the player sees. */
   standIn(at: [number, number], eyeY: number, headingDeg: number): void;
@@ -45,15 +46,18 @@ export function createViewer3d(): Viewer3D {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.localClippingEnabled = true;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = .024;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.toneMapping = THREE.AgXToneMapping;
+  renderer.toneMappingExposure = 1.05;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
   container.append(renderer.domElement, hudTop, hudBottom, busyOverlay);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x14161a);
+  const environment = createPreviewEnvironment(renderer);
+  scene.environment = environment.texture;
+  scene.environmentIntensity = 0.5;
   const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 2000);
   camera.position.set(45, 40, 45);
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -65,7 +69,7 @@ export function createViewer3d(): Viewer3D {
   const sun = new THREE.DirectionalLight(0xffffff, 1.4);
   sun.position.set(60, 100, 40);
   scene.add(sun);
-  const fixtures = new FixtureLighting();
+  const fixtures = new FixtureLighting(renderer.capabilities.maxTextures);
   let publishedLights: readonly LightFixture[] = [];
   scene.add(fixtures.group);
 
@@ -130,7 +134,7 @@ export function createViewer3d(): Viewer3D {
     },
     setLights(lights) {
       publishedLights = lights ?? [];
-      ambient.intensity = publishedLights.length ? .025 : .75;
+      ambient.intensity = publishedLights.length ? .15 : .75;
       sun.intensity = publishedLights.length ? 0 : 1.4;
       fixtures.set(publishedLights, camera.position);
     },

@@ -11,6 +11,9 @@ import { createPlanView } from "./views/plan-view.js";
 import type { Viewer3D } from "./views/viewer3d.js";
 import { createControls } from "./widgets/controls.js";
 import { createInfoPanel } from "./widgets/info-panel.js";
+import { previewSample, showSample } from "./samples/index.js";
+import type { PreviewSample } from "./samples/schema.js";
+import { createSampleTour } from "./components/sample-tour.js";
 
 /** Wires the app into `root`. The 3D viewer is injected so tests can stub WebGL. */
 const MATERIALS_BASE = "/materials/themes";
@@ -28,23 +31,36 @@ async function textureOptions(theme: string): Promise<TextureOptions> {
   }
 }
 
-export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
+export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: string): AppState {
   const state = createAppState();
+  const sample = previewSample(sampleName);
+  if (sample) state.setParams({ ...state.params, ...sample.fixture });
+  const tour = sample ? createSampleTour(sample.title, sample.views, index => {
+    showSample(sample, state, viewer, index);
+  }) : undefined;
+  state.on("busy", () => {
+    tour?.querySelectorAll("button").forEach(button => { button.disabled = state.busy; });
+  });
 
-  async function regenerate(params: AppParams): Promise<void> {
+  async function regenerate(params: AppParams, review?: PreviewSample): Promise<void> {
+    if (tour) tour.hidden = !review;
     state.setParams(params);
     state.setBusy(true);
     try {
       const fixture = makeFixture(params);
+      if (review) fixture.request.assignments = review.assignments;
       const result = await generateInterior(fixture.request, {
         shellDoc: fixture.shellDoc,
         textures: await textureOptions(fixture.request.materialTheme),
+        ...(review ? { assets: review.assets } : {}),
       });
       state.setResult(result);
       await viewer.setGlb(result.glb);
       applySlice();
+      if (review) showSample(review, state, viewer);
       toast.success(
-        `Generated ${result.floors.length}F ${params.type} (${params.tier}) · Seed ${params.seed}`,
+        review ? `${review.title} · Seed ${params.seed}`
+          : `Generated ${result.floors.length}F ${params.type} (${params.tier}) · Seed ${params.seed}`,
         "Interior Generated",
       );
     } catch (err) {
@@ -57,6 +73,7 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
   /** Real-building mode: shell .glb plus blueprint .json (plus the exterior request .json
    *  for type, tier and theme) straight from the engine output directory. */
   async function loadBuilding(files: File[]): Promise<void> {
+    if (tour) tour.hidden = true;
     state.setBusy(true);
     try {
       interface ExtRequest {
@@ -133,12 +150,14 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
       (Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2,
     ];
     const wide = Math.max(...xs) - Math.min(...xs) >= Math.max(...zs) - Math.min(...zs);
+    viewer.setFloorSlice({ y0: floor.elevation - 0.3, y1: floor.ceilingElevation + 0.05 });
     viewer.standIn(at, floor.elevation + 1.65, wide ? 90 : 0);
     toast.info(`Camera placed in room ${room.id} (${room.kind}) at eye level (+1.65m)`, "Eye View");
   }
 
   const side = document.createElement("div");
   side.className = "sidebar";
+  if (tour) side.append(tour);
   side.append(
     createControls(state, (p) => void regenerate(p), (files) => void loadBuilding(files), standIn),
     createInfoPanel(state),
@@ -154,7 +173,7 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D): AppState {
   showPlan();
 
   root.append(side, viewer.el, planWrap);
-  void regenerate(state.params); // first load shows a finished building, no picking needed
+  void regenerate(state.params, sample);
   return state;
 }
 
@@ -163,7 +182,7 @@ async function boot(): Promise<void> {
   if (!root) return; // test environment mounts explicitly
   try {
     const { createViewer3d } = await import("./views/viewer3d.js");
-    mountApp(root, createViewer3d());
+    mountApp(root, createViewer3d(), new URLSearchParams(window.location.search).get("sample") ?? undefined);
   } catch (err) {
     toast.error(err instanceof Error ? err.message : String(err), "Preview Failed");
   }
