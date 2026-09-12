@@ -55,6 +55,8 @@ Purpose: turns a validated request into per-floor interior plans: vertical core,
 
 Furnishing reserves 3 x 0.5 x 2 m wall ornaments in suitable rooms from 32 m² and 2.5 x 0.5 x 2 m freestanding dividers from 65 m². Wall ornaments require a solid interior edge. Both pass the same opening, door, footprint and circulation fit as other furniture before remaining furniture is placed.
 
+Rich and high-rich rooms first fit [luxury furnishing groups](luxury/CONTRACT.md): facing seating around a shared table, a kitchen and breakfast island with its service aisle, or a bed with side tables and a bench. Each complete group's reservation includes its approaches and passes the same room, opening, door and circulation checks. Accepted pieces publish their full authored sizes. A room that cannot hold a group retains its individual room program.
+
 Mid-tier bedrooms and studios of at least 14 square metres try a fitted sleeping pod against a solid wall, with an ordinary bed when it cannot fit.
 
 Lit ornaments and sleeping pods publish a light fixture with their furniture ID, fitted lens height, orientation and lumen budget. Poor service racks have no light.

@@ -10,6 +10,8 @@ import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
 import { roomArea, roomCoversRect, roomEdges } from "./room-shape.js";
 import { BATHROOM_WALL_CLEARANCE, fitBathroomRecipe } from "./bathroom-recipe.js";
+import { fitLuxuryGroup } from "./luxury/fit.js";
+import type { LuxuryGroup } from "./luxury/schema.js";
 
 type Size3 = [number, number, number];
 type Edge = "v0" | "v1" | "u0" | "u1";
@@ -104,6 +106,21 @@ class RoomPlacer {
         && roomCoversRect({ rect: this.rect, polygon: this.bounds.inner }, operation));
     if (!recipe) return false;
     for (const item of recipe) this.commit(item.kind, item.footprint, item.rotationDeg);
+    return true;
+  }
+
+  group(kind: LuxuryGroup): boolean {
+    const group = fitLuxuryGroup({ kind, bounds: this.rect, rng: this.rng,
+      accepts: reservation => this.fits(reservation, "sofa") });
+    if (!group) return false;
+    for (const piece of group.pieces) {
+      const item: PlanFurniture = { ...piece, id: this.ids.furniture(), room: this.room.id };
+      this.out.push(item);
+      const footprint = footprintOf(item);
+      this.rects.set(item.id, footprint);
+      this.blocked.push(footprint);
+    }
+    this.blocked.push(group.reservation);
     return true;
   }
 
@@ -329,6 +346,11 @@ export function furnish(
       room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), openingZones, bounds,
     );
     const area = roomArea(room);
+    const luxury = tier === "rich" || tier === "high_rich";
+    const suite = luxury && ["studio_main", "bedroom"].includes(room.kind) && p.group("suite");
+    const kitchen = luxury && ["studio_main", "kitchen"].includes(room.kind) && p.group("kitchen");
+    const seating = luxury && ["studio_main", "living", "lounge", "reception"].includes(room.kind)
+      && (p.group("salon") || p.group("seating"));
     if (area >= 32 && ["reception", "lounge", "office_open", "dining_area", "living", "studio_main"].includes(room.kind)) {
       p.wallPiece("ornament_wall");
     }
@@ -338,12 +360,12 @@ export function furnish(
     switch (room.kind) {
       case "studio_main":
         // clipped wedge rooms often have no straight wall for the bed: fall back to open floor
-        if (!(tier === "mid" && area >= 14 && p.wallPiece("sleeping_pod"))) {
+        if (!suite && !(tier === "mid" && area >= 14 && p.wallPiece("sleeping_pod"))) {
           if (!p.anyEdge("bed_double")) p.grid("bed_double", 0.6, 1);
         }
-        p.anyEdge("kitchen_block");
+        if (!kitchen) p.anyEdge("kitchen_block");
         p.anyEdge("wardrobe");
-        if (area >= 18) {
+        if (!seating && area >= 18) {
           p.anyEdge("sofa");
           p.center("low_table");
         }
@@ -351,7 +373,7 @@ export function furnish(
         break;
       case "bedroom": {
         const bed = area >= 9 ? "bed_double" as const : "bed_single" as const;
-        if (!(tier === "mid" && area >= 14 && p.wallPiece("sleeping_pod"))) {
+        if (!suite && !(tier === "mid" && area >= 14 && p.wallPiece("sleeping_pod"))) {
           if (!p.anyEdge(bed)) p.grid(bed, 0.6, 1);
         }
         p.anyEdge("wardrobe");
@@ -359,7 +381,7 @@ export function furnish(
         break;
       }
       case "living":
-        if (area >= 10) {
+        if (!seating && area >= 10) {
           p.anyEdge("sofa");
           p.center("low_table");
         }
@@ -369,7 +391,7 @@ export function furnish(
         p.wallPiece("display_screen");
         break;
       case "kitchen":
-        p.anyEdge("kitchen_block");
+        if (!kitchen) p.anyEdge("kitchen_block");
         p.anyEdge("fridge");
         if (area >= 14) {
           p.anyEdge("counter");
@@ -416,8 +438,10 @@ export function furnish(
       case "reception": {
         const desk = p.anyEdge("reception_desk", ["v1", "u1", "u0"]);
         if (desk) p.seatAt(desk, "office_chair");
-        p.anyEdge("sofa");
-        p.center("low_table");
+        if (!seating) {
+          p.anyEdge("sofa");
+          p.center("low_table");
+        }
         p.anyEdge("plant");
         p.anyEdge("plant");
         p.wallPiece("display_screen");
@@ -476,8 +500,10 @@ export function furnish(
         p.anyEdge("plant");
         break;
       case "lounge":
-        p.anyEdge("sofa");
-        p.center("low_table");
+        if (!seating) {
+          p.anyEdge("sofa");
+          p.center("low_table");
+        }
         p.anyEdge("plant");
         p.wallPiece("wall_art");
         break;
