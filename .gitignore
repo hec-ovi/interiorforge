@@ -9,6 +9,7 @@ session
 /docs/*
 !/docs/INDEX.md
 !/docs/RESEARCH.md
+!/docs/ISSUES.md
 inbox/
 .research/
 

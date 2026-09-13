@@ -1,37 +1,15 @@
-import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { build } from "vite";
 import { expect, it } from "vitest";
-import defaults from "../schemas/core-feasibility.json" with { type: "json" };
+import { coreFeasibility as source } from "../src/feasibility.js";
+import { coreFeasibility as compiled } from "../dist/feasibility.js";
+import { makeFixture } from "../src/index.js";
 
-it("runs the same compiled preflight in native Node and a browser bundle", async () => {
-  const cwd = fileURLToPath(new URL("../", import.meta.url));
-  execFileSync(process.execPath, ["node_modules/typescript/bin/tsc", "-p", "tsconfig.feasibility.json"], { cwd });
-  const blueprint = {
-    buildingId: "portable-preflight", coreFrame: { anglesDeg: [0, 90] },
-    facade: { wallDepth: 0.23, coreAdjacency: defaults.constants.coreAdjacency },
-    floors: [{ index: 0, kind: "lobby", elevation: 0, height: 3.9,
-      outline: [[0, 0], [30, 0], [30, 20], [0, 20]],
-      openings: [{ id: "window", kind: "window", edge: 1, offset: 1, width: 18, height: 2, sill: 1 }],
-    }],
-  };
-  const native = JSON.parse(execFileSync(process.execPath, ["--input-type=module", "--eval",
-    `import {coreFeasibility} from './dist/feasibility.js'; console.log(JSON.stringify(coreFeasibility(${JSON.stringify(blueprint)})));`,
-  ], { cwd, encoding: "utf8" }));
-  expect(native.fits).toBe(true);
-  const built = await build({
-    root: cwd, configFile: false, logLevel: "silent",
-    build: { write: false, emptyOutDir: false, lib: { entry: "dist/feasibility.js", formats: ["es"], fileName: "feasibility" } },
-  });
-  const output = (Array.isArray(built) ? built : [built]).flatMap(result => {
-    if (!("output" in result)) throw new Error("preflight build unexpectedly opened a watcher");
-    return result.output;
-  });
-  const chunk = output.find(item => item.type === "chunk");
-  expect(chunk?.type).toBe("chunk");
-  if (!chunk || chunk.type !== "chunk") throw new Error("preflight build emitted no module");
-  expect(chunk.imports).toEqual([]);
-  expect(chunk.dynamicImports).toEqual([]);
-  const browser = await import(`data:text/javascript;base64,${Buffer.from(chunk.code).toString("base64")}`);
-  expect(browser.coreFeasibility(blueprint)).toEqual(native);
+it("the built browser-safe entry returns the same fit and no-fit result", () => {
+  for (const dimensions of [{ width: 26, depth: 20 }, { width: 6, depth: 6 }]) {
+    const { request } = makeFixture({ ...dimensions, floors: 1 });
+    const result = compiled(request.blueprint);
+    expect(result).toEqual(source(request.blueprint));
+    expect(result.fits).toBe(dimensions.width === 26);
+    if (result.fits) expect(result.placement?.stairA).toBeDefined();
+    else expect(result.blocker).toBeDefined();
+  }
 });

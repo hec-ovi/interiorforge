@@ -1,6 +1,8 @@
 # Box map
 
-- [Material inventory](../README.md#materials): interior selections, exterior overlap, native palettes and verified catalog variants.
+- [API usage](../SKILL.md): request defaults and a complete generation example.
+- [Boundary proposals](ISSUES.md): changes requiring orchestrator agreement.
+- [Material inventory](../README.md#preview-and-materials): current palette, material and asset sources.
 
 Root box: the [interior generator](../CONTRACT.md). Inner boxes, one folder each:
 

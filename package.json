@@ -9,7 +9,7 @@
     "build:feasibility": "tsc -p tsconfig.feasibility.json",
     "generate": "tsx src/cli.ts",
     "preview": "vite --config src/ui/vite.config.ts",
-    "test": "vitest run",
+    "test": "npm run build:feasibility && vitest run tests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,11 +19,8 @@
     "ajv": "^8.17.1"
   },
   "devDependencies": {
-    "@testing-library/dom": "^10.4.0",
-    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.13.3",
     "@types/three": "^0.185.0",
-    "jsdom": "^26.1.0",
     "three": "^0.185.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",

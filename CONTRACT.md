@@ -1,89 +1,74 @@
-# CONTRACT: interior
+# Interior 0.30.0
 
-Purpose: deterministically fills one building shell with furnished interiors and exports floor, NPC routine and navigation data.
+Fills one building shell with furnished floor geometry and NPC navigation.
 
-Status: implemented at 0.30.0. Simulation consumes [schemas/npc.schema.json](schemas/npc.schema.json).
+## Input and calls
 
-## In
+[Request schema](schemas/request.schema.json), [consumed Exterior blueprint](schemas/blueprint.schema.json),
+[TypeScript inputs and results](src/core/types.ts). Units: meters, building-local XZ, +Y up, CCW outer polygons.
 
-One `InteriorRequest`: [schemas/request.schema.json](schemas/request.schema.json)
+| Entry in `src/index.ts` | Input | Result |
+| --- | --- | --- |
+| `generateInterior` | Request and optional [GenerateOptions](src/index.ts) | Promise of `{glb, floors, npc, textures, floorGlbs?}` |
+| `generateFloorInteriors` | Same request/options except `floorGlbs` | Promise of `{floorGlbs, floors, npc, textures}` |
+| `makeFixture` | Optional [FixtureOptions](src/blueprint/fixture.ts) | `{request, shellDoc}` for standalone generation |
+| `coreFeasibility` | Consumed blueprint | [Core fit result](src/layout/schema/core-feasibility.schema.json) |
+| `findPath` | NPC data and two `{floor, position: [x,z]}` endpoints | Walk and connector legs, or `null` |
 
-- `seed` uint32 or any string (hashed internally; the exterior seed works directly), `building` (id, atlas parcel type verbatim, atlas tier poor|mid|rich|high_rich), `shellGlb` path, `materialTheme`
-- `blueprint`: consumer view of the canonical [Exterior blueprint](schemas/blueprint.schema.json). Additive exterior fields pass through and are ignored. Basements use negative indexes, heights may reach 12 m, and every floor carries its kind slug. `facade.wallDepth` (meters, the exterior's measured inward reach of its reveals, frames, glazing and closed leaves) is the shell wall depth the interior keeps clear of; a blueprint without it reads the depth off `facade.style` (curtain-wall and glass 0.15 m, panel 0.3 m, megablock 0.5 m; unknown or missing reads as panel). `facade.grids[].partitionAnchors` are the only facade positions that accept a full-thickness partition. A moving exterior door's `door.motion.clearDepth` reserves its leaf volume. A ground-floor `openFront` consumes the exterior's required `portal` and `accessRole: "main"`; its exact `clearWidth`, `clearHeight` and `clearDepth` define the permanently open street connection. A fitted `roof.bulkhead` supplies the roof threshold, shared core axis, complete stair cutout, enclosure height and arrival-side door.
-- `assignments` (optional): one floor kind per floor (lobby, office, corpo_office, restaurant, coffee_shop, retail, mall_floor, gym, residence_studio, apartment, hotel_rooms, mechanical, parking, terrace); `spans: 2` for double-height floors. When omitted, derived deterministically from the blueprint floor kind slugs and building type.
+`coreFeasibility` is also available from browser-safe `src/feasibility.ts` and built
+`dist/feasibility.js` (`npm run build:feasibility`). It checks the core only;
+room programs, furniture and routes are checked during generation.
 
-Floor kind slugs are read as atlas vocabulary verbatim, so a mixed building gets the right program per floor: `commerce` -> retail (one shop occupying the floor), `mall` -> mall_floor (shop units off a concourse), `restaurant`, `coffee_shop`, `offices`, `corpo`, `hotel`, `residential`, `factory` and the institutional types map to their own programs; the generic `shop` takes the venue its parcel type names (a coffee shop parcel gets the coffee shop program, a restaurant the restaurant one, a mall its concourse, anything else retail); `lobby` and `entry` to the lobby, `basement` to parking, `bar` to the restaurant program and `executive` to the corpo office one. Unknown slugs fall back to the building type.
+Assignments default from blueprint labels and building type. Options default to
+external textures, imported assets enabled and no floor GLBs. `shellDoc` skips disk
+loading; combined generation mutates it. `assets: false` selects procedural furniture;
+`assets: {read}` supplies a model reader. Both generators support those asset options.
+[TextureOptions](src/materials/index.ts) accepts `mode: external|embed|keys`, `dir`,
+`baseUrl`, and a preloaded `theme`. Directory: explicit value, `URBE_MATERIALS_DIR`,
+then sibling `materials`. Missing catalog gives key-only output; embedding requires disk maps.
 
-Units meters, building-local space, +Y up, XZ floor plane, CCW polygons.
+## Output
 
-## Out
+- GLB bytes: combined shell/interior, optionally a map of floor index to interior GLB.
+- [Floor JSON](schemas/floor.schema.json): kind, elevation, ceiling, core, opening reservations,
+  rooms/connections, furniture and light sources; optional loft ownership.
+- [NPC JSON](schemas/npc.schema.json): building ID, anchors, role counts, routines,
+  optional standing placements, grids and inter-floor/roof connectors.
+- Texture report: `{mode: external|embedded|keys, materials, baseUrl?}`.
 
-One `InteriorResult`, or one `FloorInteriorResult` for floor-only generation. The CLI writes their contents to an output directory:
+Same request, options, shell, material catalog and asset snapshot produce identical
+output. The floor streams use independent seeds. Opening reservations constrain
+partitions, core and furniture. Geometry checks shell bounds, doorway and stair clearance.
+Navigation describes the exported grid; runtime collision and actor dimensions need
+consumer agreement in [issues](docs/ISSUES.md).
 
-- `building.glb`: a finished furnished textured interior. The shell is completed with slabs, core holes, walls, doors, stairs, elevator shafts and shaped furniture. Procedural interior materials use the canonical key `theme/kind/tier` (for example `cyberpunk/concrete/poor`) and resolves through [Materials](https://github.com/hec-ovi/pbrforge/blob/main/CONTRACT.md) into basecolor, normal, occlusion and optional emission maps plus physical factors. Shell materials that already carry a base-color texture remain intact. Tiled maps carry a `KHR_texture_transform` scale of `1 / worldSize` over world-meter UVs; exact-placement materials use 0..1 face UVs.
-- Material variant preference: a material may carry `extras.materialVariant` naming its requested variant. Names retain the plain theme key. Primary panels use continuous stone, paint, wood and metal fields with world-metre UVs; geometry owns their nine-piece borders and joints. Loft brick retains its masonry bond. Upholstery uses `fabric#flat` and fixtures use `lamp` or `strip`.
-- Texture modes (`textures.mode` on the result says which one the GLB carries): `external` (default) writes map URIs against a configurable base path, `embed` packs the maps into one self-contained GLB, `keys` leaves the material keys for a consumer that resolves them itself (the engine runtime). With no materials database at the configured path, output falls back to `keys` and says so, so the box still runs standalone.
-- `floors/NNN.json`, one per floor: [schemas/floor.schema.json](schemas/floor.schema.json): vertical core (elevators, stairs with tread geometry, shafts), exterior `openingReservations`, rooms with polygons and connections, furniture placements, light fixtures, and `ceilingElevation`, the absolute Y of that floor's finished ceiling. Each reservation publishes opening identity, transform, inward normal, safe width, sill, height and depth. A door carries 1 to 4 `leaves`; an exterior moving door also carries its `clearDepth`; an `openFront` connection carries `kind: "openFront"`, `clearHeight` and `clearDepth`, with no `leaves`. The plenum above it varies per floor: it is the storey's service void, widened to clear the head of the tallest opening the blueprint draws on that floor and stopped one slab soffit (0.15 m) under the floor above, so a facade may glaze up to that line with nothing showing between ceiling and window. Irregular parcels rotate the layout frame: `coreAngleDeg` gives the frame rotation, core rects and stair steps are frame-axis-aligned and rotate about their centers; room polygons, connection positions, furniture and lights are plain world space.
-- Room partitions and facade lining meet the structural slab underside and carry closed base and ceiling trims around a field. Luxury fields run full height; other styles have an accent dado up to 1.05 m. Sections have a hidden 2 mm overlap at thickness changes. One door-free interior wall per room, chosen by seed, takes the accent tone from corner to corner. Venue rooms add a cove light line at the wall-ceiling junction and wall decor by venue kind.
-- The facade lining follows the shell outline between `facade.wallDepth` and 0.08 m deeper, with mitred corners and closed bands. A window with `glazing` uses its published clear U/Y field and joins the housing at `housingBackDepth`; opaque heads and sills remain closed. Other openings use a 0.01 m inset and returns ending 0.02 m behind the skin. An `openFront` uses its exact portal clear width and height. Reveals stop before neighboring edge walls. Slabs and ceilings reach the lining's outer face; partitions end inside it.
-- Finished ceilings own their exposed plane. The upper slab's concrete soffit covers only areas outside a finished ceiling at that height, consistently across combined and streamed floor meshes.
-- Furniture uses licensed imported chairs, desks, sofas, beds, shelves, appliances, bathroom fixtures, benches, planters and poor-tier refuse models when a verified model fits the planned collision bounds at useful scale. Source proportions and materials remain intact, and repeated pieces share meshes and textures. Missing or ill-fitting models retain shaped procedural assemblies. Wall pieces (`wall_shelf`, `display_screen`, `wall_art`) carry an `elevation`; everything else stands at 0. Seats align with the piece they serve and NPC `seat` anchors sit on them.
-- Lighting (`lights` on every floor JSON): one entry per light source, `kind` `strip` (linear ceiling fixture), `spot` (downlight) or `cove` (emissive line at the wall-ceiling junction), with `position` `[x, y, z]`, `length` and `angleDeg` for the run, `intensity` in lumens, `colorTemperatureK`, a useful `range` in meters, `beamDeg` (full spread), `diffuse` (soft-wash share) and `facing` (`down` for a ceiling fixture, `up` for a cove). Every room, corridor and stair shaft carries fixtures by kind. Enclosed rooms carry a ceiling surface; parking, plant and terrace rooms see the concrete soffit above. Optional linear RGB `color`, world `axis` and emitting `direction` describe fitted accent sources. Each fixture has a plain metal housing and a separate emissive lens. Stair downlights sit flush in the arrival landing.
-- `npc.json`: [schemas/npc.schema.json](schemas/npc.schema.json): anchors (usable positions), supported roles with counts, routine loops (anchor, dwell minutes range, animation), nav data: per-floor walkable grid plus stair/elevator connectors. A fitted roof adds a synthetic nav floor and `roofAccess`, containing the roof elevation, stair landing, enclosure door and outside entry; stair A is its only vertical connector.
-- `floors/NNN.glb` (on request, `floorGlbs: true` or `--floor-glbs`): the interior of each floor band as its own GLB next to its JSON, same tag as the JSON (`000.glb`, `m1.glb`), same material keys, node scheme and texture mode as `building.glb`. A band is everything between a floor's slab and the next (its stair climb included; a double-height space reaches the slab above its open half; the shaft floors ride with the lowest served floor), and the bands together are exactly the interior meshes of `building.glb`, so a consumer can stream the floors near the player and keep the shell from the exterior. The result carries them as `floorGlbs: Map<floorIndex, bytes>`.
-- `FloorInteriorResult` carries the floor GLBs, floor JSON data, NPC data and texture report. It intentionally has no combined `glb`. Completed floor buffers are sealed to typed arrays, then one floor document is textured and serialized at a time and its source mesh is released before the next.
-
-Library surface (TypeScript):
-
-- `src/feasibility.ts` is the browser-safe core preflight entry, without filesystem, geometry serialization or rendering imports. It exports the same `coreFeasibility(blueprint)` authority as the main entry. Input follows [the consumed blueprint schema](schemas/blueprint.schema.json), output follows [the feasibility schema](src/layout/schema/core-feasibility.schema.json), and arithmetic follows [the placement recipe](schemas/core-feasibility.json). Optional `coreFrame.anglesDeg` persists allowed axes. Optional `facade.coreAdjacency` requests explicit clear depth after the full lining; omission retains structural fit. New producers read the game-design default from the recipe constants. Success publishes the actual selected `placement.stairA { center, axis, width, depth }`, with axis along frame +u, width along u and depth along +v. Exterior places the roof enclosure on that center and axis; subsequent generation keeps the published roof placement fixed. No-fit reports `opening_reservations` with optional `adjacencyFailure` containing the requested and available depth. Invalid frame constraints or override references throw `E_BLUEPRINT_INVALID`.
-- `generateInterior(request: unknown, options?: GenerateOptions) -> Promise<InteriorResult>`: deterministic; same request, same materials database, same local asset set and same options, identical output. `GenerateOptions` is `{ shellDoc?: Document, textures?: TextureOptions, floorGlbs?: boolean, assets?: boolean | { read?: AssetReader } }`. A parsed `shellDoc` skips reading `shellGlb` from disk and is completed in place. Assets default on; `false` keeps all procedural furniture, and `read` supplies another model transport. Node and the local browser preview use matching ignored imports when present, then fall back to bundled CC0 models. Published browser builds contain only the CC0 models. `TextureOptions` is `{ mode?: "external" | "embed" | "keys", dir?, baseUrl?, theme? }`, where `dir` is the materials box root (defaults to `URBE_MATERIALS_DIR`, else the sibling `materials` box), `baseUrl` is the URI prefix written into the GLB, and `theme` is a preloaded theme index for callers with no disk. `floorGlbs: true` adds the per-floor GLBs to the result.
-- `generateFloorInteriors(request: unknown, options?: FloorGenerateOptions) -> Promise<FloorInteriorResult>`: accepts `{ shellDoc?: Document, textures?: TextureOptions }`, validates the same request and shell, returns every per-floor GLB, and does not allocate or mutate a combined building document.
-- `findPath(npc: NpcSupport, from: PathQuery, to: PathQuery) -> PathLeg[] | null`: returns walk legs and connected stair or elevator rides, or `null` when no complete route exists. It reads only `npc.json` data.
-- `makeFixture(options?: FixtureOptions) -> { request: InteriorRequest, shellDoc: Document }`: creates a seeded stand-in exterior so this box runs with no other layer present.
-- `npm run build:feasibility` emits the preflight entry at `dist/feasibility.js`, its browser-safe relative modules and TypeScript declarations. Node and browser consumers import that same built entry; run the build after source changes. Core fit does not certify a requested room program, furnishings or routes; those pass their own Layout and Geometry checks during generation.
-- CLI: `npm run generate -- --seed N --floors N [--basements N --type T --tier T --theme T --out DIR] [--embed | --keys-only] [--materials DIR --materials-base URI] [--floor-glbs | --floor-glbs-only]` writes `building.glb`, `floors/*.json`, `npc.json` (and `floors/*.glb` with `--floor-glbs`). `--floor-glbs-only` writes the floor GLBs and supporting JSON without `building.glb`. External map URIs are written relative to the output directory by default. Preview: `npm run preview` (panoptic 3D view plus standalone floor editor with walk-path testing; shows a finished textured building at first load, and loads real engine output: shell .glb + blueprint .json + exterior request .json). The floor editor instantiates that floor's own light fixtures and drops the daylight, and `eye view` stands the camera in a room at head height, so what the preview shows is the lit room the player walks into.
-- Shell slab replacement: the shell's `floor:<index>/slab` nodes are removed and re-emitted as room slabs with real stair and elevator holes.
+Combined output replaces shell `floor:<index>/slab` nodes. Streamed floor GLBs contain
+interior bands only; their consumer must remove the corresponding shell slabs to avoid
+duplicate surfaces. Floors use `NNN` tags, negative floors `mN`. The CLI writes
+`building.glb`, `floors/*.json`, `npc.json`, and requested `floors/*.glb`.
+Usage and a complete example: [SKILL.md](SKILL.md).
 
 ## Errors
 
-Closed domain set, thrown as `InteriorError { code, floor?, message }`:
+Closed generator domain set, thrown as `InteriorError {code, floor?, message}`:
 
-- `E_BLUEPRINT_INVALID`: request or blueprint schema and semantic validation failed, including unknown enum values, bad polygons, non-contiguous floors or overlapping openings
-- `E_SHELL_MISMATCH`: shell GLB cannot be read or is inconsistent with the blueprint bounds
-- `E_ASSIGNMENT_INVALID`: supplied assignments leave a floor missing, cover one twice, reference a floor outside the blueprint or use an impossible span
-- `E_FLOOR_TOO_SMALL`: a floor plate cannot fit the vertical core, opening reservations and minimum room program
-- `E_UNREACHABLE_SPACE`: a room or core entry is unreachable, an anchor or emitted mesh blocks a connection, or a stair misses width or headroom clearance
-- `E_SHELL_BREACH`: a generated vertex reaches the shell wall. `floor` names the floor holding the vertex, the upper one on a slab line
-- `E_MATERIAL_UNRESOLVED`: a material key is absent, a theme index or map cannot be read, or embedding uses a preloaded theme without a disk map reader
+| Code | Meaning |
+| --- | --- |
+| `E_BLUEPRINT_INVALID` | Request schema or blueprint semantics invalid |
+| `E_SHELL_MISMATCH` | Shell unreadable or its bounds do not contain the blueprint |
+| `E_ASSIGNMENT_INVALID` | Assignments omit, duplicate or reference absent floors, or have invalid spans |
+| `E_FLOOR_TOO_SMALL` | Core, reservations or required room program cannot fit |
+| `E_UNREACHABLE_SPACE` | Room, anchor, core, opening or stair clearance fails |
+| `E_SHELL_BREACH` | Generated geometry crosses the shell boundary or cannot close a surface |
+| `E_MATERIAL_UNRESOLVED` | Required material or map cannot resolve in the selected mode |
 
-## Invariants
-- The core block is centred under the exterior's roof housing (`blueprint.roof.bulkhead`) along its band. Stair A continues from the last served floor to `roof.elevation`; a closed platform meets the stair's finished inside edge across the capsule-width arrival landing and reaches the enclosure door threshold. The roof nav surface routes outside around the enclosure and published artifacts. Shared axis, cutout fit and 2.1 m door headroom are validated before output.
-- Every doorway carries one casing (two jambs and a head, 8 cm) in the door material. Each member is a closed 2 cm face trim on both wall faces; the closed wall end owns the reveal between them, so casing and reveal never occupy the same visible plane. The two adjoining room records resolve to that same casing before geometry is emitted. Every window carries a casing on the room side (jambs, head, stool) in the window-frame material, standing 3 cm proud of the lining and never past its own facade.
-- Doors follow their walls: after the pier and grid passes every room door sits inside the stretch its two rooms still share on the plate, centered when needed and narrowed to a 0.7 m minimum. A pair sharing no usable stretch loses the door and the reachability pass cuts a working one elsewhere.
-- Every doorway is 0.9 m clear, bathrooms included, and keeps the corner bands out of the opening: a doorway sits at least half a wall plus its bands (0.09 m) from each end of its stretch, and only a wall too short for that carries a narrower leaf, down to 0.7 m. Door heads stand at 2.5 m (3 m for three or more leaves) or one casing band below a lower ceiling.
-- Every doorway is open in the built mesh: nothing the interior emits stands in the clear volume of a room door (its width, the wall with its bands either side, floor to the 2.1 m passage). The geometry check runs per floor and throws `E_UNREACHABLE_SPACE` with the door and blocking material.
-- The ceiling never sits below the head of the glass on its own floor: the service void gives way to the glazing and stops one slab soffit under the floor above, and `ceilingElevation` publishes the line.
-- Interior grid: partitions start on a 0.5 m building-frame grid and finish on permitted facade anchors. Wall, floor and ceiling panels retain fixed corner dimensions and fitted residual fillers. UVs keep physical material scale across rooms. Exact service and repair faces map once onto fitted panel regions.
-- Deterministic: same request, same materials database and same texture options give byte-identical JSON and GLB. No LLM calls, no wall-clock, no ambient randomness.
-- Every floor is real and reachable: stairs are continuous walkable geometry from ground to the top floor, every elevator serves every floor it spans, and shafts stay vertically aligned. A fitted roof is reachable from the top floor through stair A and its threshold landing.
-- Stairs fit the player (capsule 0.7 m wide): every flight is 1.2 m clear between rail faces, risers stay between 0.16 and 0.18 m, treads are 0.28 m deep, and landings are at least 1.2 m deep. Every tread and landing keeps 2.1 m of headroom against the finished geometry, including slabs, walls and fixtures. The arrival landing is real geometry and its light is flush in its underside, so the walk line has no gap, drop or hanging obstruction. Constants and the shared gate/build arithmetic: [schemas/core-feasibility.json](schemas/core-feasibility.json). A run outside these values produces `E_UNREACHABLE_SPACE`.
-- Every room is reachable from the building entrance through doors or the permanently open shop front; corridors and connection widths follow the documented [architecture constants](docs/RESEARCH.md).
-- Nothing stands in a doorway or open front. A door keeps the greater of its published moving-leaf depth and 1 m of approach on both sides. An open front keeps the greater of its published clear depth and 1 m of approach, with 1.5 m inside every street entrance. Furniture is placed around these zones and anything the reachability repair strands inside one is dropped. NPC anchors obey the same zones: a standing role is walked out to the nearest clear reachable spot, and an entrance anchor stands 1.7 m inside the opening. The zone test runs on the position that is exported (centimetre precision), so a spot on a zone's edge is judged where the consumer will read it. Geometry is checked through the full open-front clear volume; no interior leaf or panel is emitted there.
-- Every exterior opening reserves its full safe width and depth before core, room and furniture placement. The shared core searches another band or secondary-stair position, and furniture is omitted when its complete footprint intersects a reservation. Partitions use `facade.grids[].partitionAnchors` as the sole full-thickness endpoints. A wall endpoint without that permission slides to the nearest anchor, up to 2 m while preserving room minimums. A core-locked wall or minimum-room boundary that cannot move stops before the opening's facade and door-motion reservation, joining the facade-side space rather than crossing a window or door. Room edges parallel to the inner facade emit no duplicate wall because the facade lining owns that face. Pane mullions and opening boundaries grant no implicit permission.
-- When inline stair B leaves at least a doorway-width full-depth slab plate before the facade, that plate is a corridor landing. It reaches the opening threshold and connects laterally around the stair through a doorway at least 0.7 m clear, so a facade door there has a supported capsule-width route into the reachable floor.
-- Geometry is watertight for play: no gaps at floor edges, no inverted normals, no coplanar z-fighting faces, no spot where an NPC or player gets stuck.
-- Shell fit: every vertex of the interior GLB lies inside its floor outline inset by the shell wall depth (`facade.wallDepth`, else the per-style table), including window reveals, wall bands and light housings. Opening reveal lining stays inside its hole, 0.02 m behind the skin and outside every neighboring edge's wall. Plates are exact polygon insets; the vertical core, furniture, fixtures and walkable grid stay behind the lining. The vertex check throws `E_SHELL_BREACH`; the shared feasibility arithmetic is in [schemas/core-feasibility.json](schemas/core-feasibility.json).
-- Routines only target anchors that stand on walkable cells; every anchor is reachable from every connector on its floor.
+`findPath` returns `null` for an ordinary route miss. CLI file I/O failures exit nonzero.
 
-## Depends on
+## Dependencies
 
-- [Exterior](https://github.com/hec-ovi/buildingforge/blob/main/CONTRACT.md) (blueprint and shell GLB)
-- [Materials](https://github.com/hec-ovi/pbrforge/blob/main/CONTRACT.md) (material key resolution: `theme/kind/tier`)
-
-Interior styles map rich/high_rich to luxury, poor to damaged and mid to capsule. Geometry assembles large wall, floor and ceiling panels from 0.5 m nine-piece borders. Fitted ornaments, sleeping pods and poor-tier refuse share the furniture envelope contract. Built-in light fixtures identify the furniture owning their housing. Native material sources and derivation recipes live in the sibling Materials box.
-
-Rich/high-rich rooms fit complete seating, kitchen and bed groups with their access reservations before individual furnishings. High-rich residences use walnut feature walls and stone worktops. The preview's `?sample=luxury` opens a JSON-configured procedural residence at eye height.
-
-A fitted double-height room publishes `loft`: partial upper platform, supports, clear entries and private stair. Its furnished upper floor names `mezzanineOf`. Global core connectors skip that private platform; pathfinding can transfer through the public core and loft stair.
-
-`npc.placements` publishes stable vendor/staff and unassigned story slots with room, floor, position, facing, body radius and reachable approach. All accepted bodies preserve circulation and each approach remains reachable with the other slots occupied. The floor inspector displays these positions.
+[Exterior](../exterior/CONTRACT.md) supplies the shell and blueprint;
+[Materials](../materials/CONTRACT.md) supplies optional PBR catalogs.
+The standalone fixture and key-only mode require neither box at runtime.
+Implementation packages: glTF Transform 4.x and Ajv 8.x. Preview: Three.js and Vite.
+Consumers: Engine loads GLBs/floor data; Simulation reads NPC support.
+Boundary proposals and unresolved product choices: [docs/ISSUES.md](docs/ISSUES.md).
