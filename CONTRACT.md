@@ -1,4 +1,4 @@
-# Interior 0.30.0
+# Interior 0.30.1
 
 Fills one building shell with furnished floor geometry and NPC navigation.
 

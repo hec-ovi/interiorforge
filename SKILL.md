@@ -3,7 +3,7 @@ name: urbe-interior
 description: Generate furnished building interiors and NPC navigation from an Exterior shell and blueprint using the local Urbe Interior API.
 ---
 
-# Interior 0.30.0
+# Interior 0.30.1
 
 Fills one supplied building shell with rooms, furniture, lights and NPC navigation.
 
@@ -38,16 +38,17 @@ Errors throw `InteriorError {code, floor?, message}`: `E_BLUEPRINT_INVALID`,
 `E_UNREACHABLE_SPACE`, `E_SHELL_BREACH`, `E_MATERIAL_UNRESOLVED`.
 Meanings are in [CONTRACT.md](CONTRACT.md#errors); do not retry unchanged inputs.
 
-Copy this standalone example into `example.ts` and run `npx tsx example.ts`:
+Copy this standalone example into `example.ts` and run `node --import tsx example.ts`:
 
 ```ts
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { generateInterior, makeFixture } from "./src/index.js";
 
 const { request, shellDoc } = makeFixture({ seed: "demo", floors: 2 });
 const result = await generateInterior(request, {
   shellDoc, textures: { mode: "keys" }, assets: false,
 });
-await writeFile("building.glb", result.glb);
-await writeFile("npc.json", JSON.stringify(result.npc));
+await mkdir("out", { recursive: true });
+await writeFile("out/building.glb", result.glb);
+await writeFile("out/npc.json", JSON.stringify(result.npc));
 ```

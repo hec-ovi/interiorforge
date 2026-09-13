@@ -1,4 +1,6 @@
 import { beforeAll, expect, it } from "vitest";
+import { mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
@@ -106,4 +108,49 @@ it("rejects an unresolved catalog with E_MATERIAL_UNRESOLVED", async () => {
   await expect(generateInterior(f.request, { shellDoc: f.shellDoc, assets: false,
     textures: { theme: { theme: "cyberpunk", entries: {} } } }))
     .rejects.toMatchObject({ code: "E_MATERIAL_UNRESOLVED" });
+}, 30_000);
+
+it("resolves external and embedded maps and reports missing-catalog fallback", async () => {
+  await mkdir("out", { recursive: true });
+  const dir = await mkdtemp(join("out", "test-materials-"));
+  try {
+    const document = await io.readBinary(result.glb);
+    const entries = Object.fromEntries(document.getRoot().listMaterials().map(material => {
+      const key = material.getName();
+      return [key, { key, alignment: "tile" as const, tiling: { worldSize: [2, 2] as [number, number] },
+        variants: [{ id: "plain", resolution: [1, 1] as [number, number], maps: { basecolor: "map.png" } }] }];
+    }));
+    const theme = { theme: "cyberpunk", entries };
+    const themeDir = join(dir, "themes", "cyberpunk");
+    await mkdir(themeDir, { recursive: true });
+    await writeFile(join(themeDir, "theme.json"), JSON.stringify(theme));
+    const map = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDTsAAAAASUVORK5CYII=", "base64");
+    await writeFile(join(themeDir, "map.png"), map);
+    for (const mode of ["external", "embed"] as const) {
+      const f = fixture();
+      const output = await generateInterior(f.request, { shellDoc: f.shellDoc, assets: false,
+        textures: mode === "external" ? { theme, baseUrl: "maps" } : { mode, dir } });
+      expect(output.textures.mode).toBe(mode === "embed" ? "embedded" : "external");
+      expect(output.textures.materials).toBeGreaterThan(0);
+      const bytes = Buffer.from(output.glb);
+      const gltf = JSON.parse(bytes.subarray(20, 20 + bytes.readUInt32LE(12)).toString());
+      if (mode === "external") expect(gltf.images?.every((image: {uri: string}) => image.uri.startsWith("maps/"))).toBe(true);
+      else expect((await io.readBinary(output.glb)).getRoot().listTextures().every(texture =>
+        Buffer.from(texture.getImage()!).equals(map))).toBe(true);
+    }
+    const f = fixture();
+    const fallback = await generateInterior(f.request, { shellDoc: f.shellDoc,
+      textures: { dir: join(dir, "absent") } });
+    expect(fallback.textures.mode).toBe("keys");
+    expect((await io.readBinary(fallback.glb)).getRoot().listNodes().some(node => node.getName().startsWith("asset:"))).toBe(true);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}, 30_000);
+
+it("rejects geometry that loses shell clearance at large coordinates with E_SHELL_BREACH", async () => {
+  const o = 100_000;
+  const f = makeFixture({ floors: 1, outline: [[o, o], [o + 26, o], [o + 26, o + 20], [o, o + 20]] });
+  await expect(generateInterior(f.request, { shellDoc: f.shellDoc, assets: false, textures: { mode: "keys" } }))
+    .rejects.toMatchObject({ code: "E_SHELL_BREACH" });
 }, 30_000);

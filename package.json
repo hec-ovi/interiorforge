@@ -1,13 +1,13 @@
 {
   "name": "urbe-interior",
-  "version": "0.30.0",
+  "version": "0.30.1",
   "private": true,
   "type": "module",
   "description": "Deterministic building interior generator with rooms, stairs, elevators, shaped furniture and NPC routine data.",
   "scripts": {
-    "assets:import": "tsx src/assets/scripts/import-assets.ts",
+    "assets:import": "node --import tsx src/assets/scripts/import-assets.ts",
     "build:feasibility": "tsc -p tsconfig.feasibility.json",
-    "generate": "tsx src/cli.ts",
+    "generate": "node --import tsx src/cli.ts",
     "preview": "vite --config src/ui/vite.config.ts",
     "test": "npm run build:feasibility && vitest run tests",
     "typecheck": "tsc --noEmit"

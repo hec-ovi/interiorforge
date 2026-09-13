@@ -1,10 +1,14 @@
 import type { Placer, Mat } from "./placer.js";
 
-/** Half-metre closing bays keep their width; a residual middle bay absorbs the fit. */
+/** Half-metre ends surround equally fitted cabinet fronts, targeting Studio's 0.8 m bays. */
 export function cabinetBays(width: number): [number, number][] {
   if (width <= 1) return [[-width / 2, 0], [0, width / 2]];
   const start = -width / 2, end = width / 2, spans: [number, number][] = [[start, start + .5]];
-  for (let x = start + .5; x < end - .5 - 1e-8; x += .5) spans.push([x, Math.min(x + .5, end - .5)]);
+  const middle = width - 1;
+  const count = Math.max(1, Math.round(middle / .8));
+  for (let i = 0; i < count; i++) {
+    spans.push([start + .5 + i * middle / count, start + .5 + (i + 1) * middle / count]);
+  }
   spans.push([end - .5, end]);
   return spans;
 }

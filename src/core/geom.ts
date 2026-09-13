@@ -70,15 +70,6 @@ export function rectsOverlap(a: Rect, b: Rect, gap = 0): boolean {
   return a.x < b.x + b.w + gap && b.x < a.x + a.w + gap && a.z < b.z + b.d + gap && b.z < a.z + a.d + gap;
 }
 
-export function rectContainsRect(outer: Rect, inner: Rect, margin = 0): boolean {
-  return (
-    inner.x >= outer.x + margin &&
-    inner.z >= outer.z + margin &&
-    inner.x + inner.w <= outer.x + outer.w - margin &&
-    inner.z + inner.d <= outer.z + outer.d - margin
-  );
-}
-
 export function rectCorners(r: Rect): Point[] {
   return [
     [r.x, r.z],
@@ -88,27 +79,10 @@ export function rectCorners(r: Rect): Point[] {
   ];
 }
 
-export function rectCenter(r: Rect): Point {
-  return [r.x + r.w / 2, r.z + r.d / 2];
-}
-
-export function rectInPolygon(r: Rect, poly: readonly Point[], margin = 0): boolean {
-  const grown: Rect = { x: r.x - margin, z: r.z - margin, w: r.w + 2 * margin, d: r.d + 2 * margin };
-  return rectCorners(grown).every((c) => pointInPolygon(c, poly));
-}
-
 export function edgeLength(poly: readonly Point[], edge: number): number {
   const [x1, z1] = poly[edge]!;
   const [x2, z2] = poly[(edge + 1) % poly.length]!;
   return Math.hypot(x2 - x1, z2 - z1);
-}
-
-/** Point at `t` meters along edge `edge` from its start vertex. */
-export function pointAlongEdge(poly: readonly Point[], edge: number, t: number): Point {
-  const [x1, z1] = poly[edge]!;
-  const [x2, z2] = poly[(edge + 1) % poly.length]!;
-  const len = Math.hypot(x2 - x1, z2 - z1);
-  return [x1 + ((x2 - x1) * t) / len, z1 + ((z2 - z1) * t) / len];
 }
 
 export function distance(a: Point, b: Point): number {

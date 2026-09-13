@@ -1,7 +1,7 @@
 import type { Point } from "../core/geom.js";
 import { roomFootprintAnchor, roomFootprintContains } from "../core/room-footprint.js";
 import type { WalkGrid } from "../core/grid.js";
-import type { Anchor, AnchorKind, FloorInterior, Furniture } from "../core/types.js";
+import type { Anchor, AnchorKind, FloorInterior } from "../core/types.js";
 import { SPINE_KINDS } from "../layout/constants.js";
 import { DoorKeepOut, ENTRANCE_STANDOFF } from "./keep-out.js";
 import type { CorePlan } from "../layout/index.js";
@@ -148,8 +148,4 @@ function inwardOf(doorPos: Point, roomCenter: Point): Point {
 
 function angleOf([x, z]: Point): number {
   return Math.round(((Math.atan2(x, z) * 180) / Math.PI + 360) % 360);
-}
-
-export function furnitureOf(floor: FloorInterior, id: string): Furniture | undefined {
-  return floor.furniture.find((f) => f.id === id);
 }

@@ -1,8 +1,6 @@
-import type { LightFixture } from "../core/types.js";
 import { DOOR } from "./constants.js";
-import { furnitureUvRect } from "./navgrid.js";
 import { doorUvPoint } from "./plan-floor.js";
-import type { PlanDoor, PlanFurniture, PlanRoom } from "./plan-types.js";
+import type { PlanDoor, PlanRoom } from "./plan-types.js";
 import type { UvRect } from "./uv.js";
 
 /** Nothing stands in a doorway. Every door, entrance included, keeps a clear zone: the leaf
@@ -47,40 +45,4 @@ export function doorZonesByRoom(rooms: PlanRoom[]): Map<string, DoorZone[]> {
     }
   }
   return map;
-}
-
-function overlaps(a: UvRect, b: UvRect): boolean {
-  return a.u < b.u + b.lu && b.u < a.u + a.lu && a.v < b.v + b.lv && b.v < a.v + a.lv;
-}
-
-export interface ClearanceConflict {
-  door: string;
-  item: string;
-  room: string;
-}
-
-/** Furniture and fixtures standing in a doorway. Empty on a finished floor. */
-export function clearanceConflicts(
-  rooms: PlanRoom[], furniture: readonly PlanFurniture[], lights: readonly LightFixture[] = [],
-  toUv?: (light: LightFixture) => { u: number; v: number },
-): ClearanceConflict[] {
-  const zones = doorZonesByRoom(rooms);
-  const out: ClearanceConflict[] = [];
-  for (const item of furniture) {
-    const rect = furnitureUvRect(item);
-    for (const zone of zones.get(item.room) ?? []) {
-      if (overlaps(rect, zone.rect)) out.push({ door: zone.door, item: item.id, room: item.room });
-    }
-  }
-  if (toUv) {
-    for (const light of lights) {
-      if (light.position[1] >= DOOR.clearHeight) continue; // out of the way overhead
-      const { u, v } = toUv(light);
-      const rect: UvRect = { u: u - 0.15, v: v - 0.15, lu: 0.3, lv: 0.3 };
-      for (const zone of zones.get(light.room) ?? []) {
-        if (overlaps(rect, zone.rect)) out.push({ door: zone.door, item: light.id, room: light.room });
-      }
-    }
-  }
-  return out;
 }

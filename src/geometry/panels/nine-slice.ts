@@ -10,14 +10,12 @@ const ROLES: PanelRole[][] = [
 
 function spans(length: number, unit: number): Span[] {
   const out: Span[] = [{ at: 0, size: unit, edge: -1 }];
-  for (let at = unit; at < length - unit - 1e-8; at += unit) {
-    out.push({ at, size: Math.min(unit, length - unit - at), edge: 0 });
-  }
+  if (length > 2 * unit) out.push({ at: unit, size: length - 2 * unit, edge: 0 });
   out.push({ at: length - unit, size: unit, edge: 1 });
   return out;
 }
 
-/** Border cells retain their authored size; only residual fillers are cut. */
+/** Fixed corners surround one fitted plain field, following Studio's panel composition. */
 export function nineSlice(width: number, height: number, unit = 0.5): NinePieceAssembly {
   if (![width, height, unit].every(n => Number.isFinite(n) && n > 0)) throw new RangeError("panel dimensions must be positive metres");
   if (width < 2 * unit || height < 2 * unit) {

@@ -1,4 +1,4 @@
-# Interior 0.30.0
+# Interior 0.30.1
 
 A TypeScript API that fills one building shell with rooms, furniture, lights and NPC
 navigation. The seed controls variation within geometry and clearance rules.
@@ -29,7 +29,7 @@ optional Exterior request JSON. Select floors, inspect room plans and NPC placem
 and test walking routes. `?sample=luxury` supplies a residence with JSON camera stations.
 
 Rich tiers use stone and walnut, poor uses worn panels and exposed services, and mid
-uses capsule panels. Complete furniture groups reserve access space before placement.
+uses capsule panels. Studio-style panels keep fixed corners around broad fitted fields; cabinet fronts share their available middle span. Complete furniture groups reserve access space before placement.
 The [panel palettes](src/geometry/panels/palettes.json),
 [material bindings](src/geometry/materials.ts) and [asset catalog](src/assets/catalog.json)
 are the current inventory. Imported models retain their source materials and proportions.
