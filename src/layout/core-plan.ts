@@ -66,12 +66,12 @@ interface CoreEnvelope {
 
 /** Plate depth every floor needs across the frame: one room strip, the corridor, the shaft
  *  row. The core is identical on every floor, so the shallowest floor decides. */
-const MIN_CROSS_DEPTH = ELEVATOR.shaft + CORRIDOR.width + ROOM.minStripDepth;
+const MIN_CROSS_DEPTH = ELEVATOR.shaft + CORRIDOR.width + ROOM.minDim;
 
 /** Plate depth the compact core needs on a rectangular plate: room strip and corridor in
  *  front of the corridor face, the stair columns behind it. */
 function minCompactDepth(env: CoreEnvelope): number {
-  return ROOM.minStripDepth + CORRIDOR.width + env.stairDepth;
+  return ROOM.minDim + CORRIDOR.width + env.stairDepth;
 }
 
 /** The plates the core may stand on: every floor outline behind the facade lining. */
@@ -96,7 +96,7 @@ function envelopeOf(
   const idealVFace = vLen < SINGLE_LOADED_BELOW
     ? snapDown(bounds.z + vLen - ELEVATOR.shaft)
     : bulkheadUv !== null ? snap(bulkheadUv[1] - snapUp(SHAFT_WIDTH) / 2) : snap(bounds.z + (vLen + CORRIDOR.width) / 2);
-  const vMin = snapUp(bounds.z + ROOM.minStripDepth + CORRIDOR.width);
+  const vMin = snapUp(bounds.z + ROOM.minDim + CORRIDOR.width);
   const vMax = snapDown(bounds.z + vLen - ELEVATOR.shaft);
   // ideal first, then outward in 0.5 steps (lower side first on ties), clamped
   const candidates: number[] = [];

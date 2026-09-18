@@ -18,6 +18,12 @@ Transforms apply positive XYZ scale, radians about positive Y, position, then fl
 elevation. No geometry is serialized here. Temporary transformed vertices prove shell,
 door and stair clearance. Prop bounds participate in those checks.
 
+Walls, window returns and prop bounds stay inside `facade.wallDepth`, default 0.12 m.
+Window return width includes its jambs at adjacent backing planes. Source openings
+retain their dimensions. Exterior thresholds join the inset plate to the passage.
+`building.floors[].program` records reduced services as requested and fitted width
+and depth, or null for omission. Repeated floors carry their source layout's changes.
+
 `expandBuilding(result)` returns absolute [floor](../../schemas/floor.schema.json)
 and [NPC](../../schemas/npc.schema.json) data with distinct floor identities and
 building connectors. Layout source identities remain unchanged on disk.

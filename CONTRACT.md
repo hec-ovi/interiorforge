@@ -1,4 +1,4 @@
-# Interior 0.31.0
+# Interior 0.31.1
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -48,6 +48,10 @@ Preserve each GLB node's authored transform, including quantization transforms.
 The GLB already contains its authored origin; `origin` is descriptive metadata.
 XZ stays in the blueprint frame; layout Y starts at the walking surface.
 
+The usable rectangle is the footprint inset by `facade.wallDepth`, defaulting to
+0.12 m. Room surfaces, walls and prop bounds stay inside it. Window returns fit
+between adjacent backing planes. Door thresholds join the floor to source passages.
+
 Construction uses the 0.5 m grid. Plain floor, ceiling and wall fields fit complete
 rectangular runs through scale. Measured facade attachments and closing boundaries
 retain exact source coordinates. Stair variants have 7 through 14 treads at 0.28 m
@@ -64,6 +68,12 @@ kinds remain unchanged. Prop materials belong to their existing models.
 `building.floors[].openings` maps source opening IDs to the actual blueprint IDs on
 that floor. Exterior door placement and room connection IDs match the blueprint.
 Core placements carry `connector` and an actual corridor room ID.
+Floors with reduced service rooms carry `program: {kind, changes}` in building.json.
+Each change names the room kind, requested width and depth, and fitted dimensions
+or null for an omitted room. Reduction order is executive office, meeting, storage,
+locker room, kitchen, toilets. Each shrinks by 0.5 m to 2 m square, then is omitted.
+Unit programs without a fitting suite retain the main room and omit its service.
+Every repeated floor records its source layout's changes.
 The Engine owns moving exterior leaves, lift motion and runtime collision. Remove
 Exterior `floor:<index>/slab` nodes and shell scenery when drawing Interior surfaces;
 the module floors retain the stair and lift cutouts. Use one active car per lift shaft;
@@ -86,7 +96,7 @@ Identical input and resource catalogs produce identical JSON and module bytes.
 | --- | --- |
 | `E_BLUEPRINT_INVALID` | Invalid schema, opening overlap or incompatible reusable floors |
 | `E_ASSIGNMENT_INVALID` | Incomplete assignments, differing middle programs or multiple storeys |
-| `E_FLOOR_TOO_SMALL` | Core or required room program cannot fit |
+| `E_FLOOR_TOO_SMALL` | Floor cannot hold one room beside its core and circulation |
 | `E_UNREACHABLE_SPACE` | Room, door, stair, anchor or roof access fails clearance |
 | `E_SHELL_BREACH` | Module geometry or prop bounds reach forbidden shell space |
 

@@ -7,7 +7,7 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 import { NodeIO, getBounds } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { MeshoptDecoder } from 'meshoptimizer';
-import { generate, expandBuilding, findPath, coreFeasibility } from '../src/index.js';
+import { generate, expandBuilding, findPath, coreFeasibility, makePlacementFixture } from '../src/index.js';
 import type { PlacementResult, InteriorRequest } from '../src/index.js';
 import { assembly } from './fixtures.js';
 const exec = promisify(execFile);
@@ -127,25 +127,75 @@ it('rejects a stair roof exit below the promised standing clearance', async () =
     modified.blueprint.roof.bulkhead!.doorHeight = 2.5;
     const accepted = await generate(modified);
     expect(accepted.layouts.crown.npc.nav.roofAccess?.floor).toBe(6);
-    expect(accepted.layouts.crown.placements.some(p => p.connector === 'stair-a' && p.position[1] > 5)).toBe(true);
+    expect(accepted.layouts.crown.placements.some(p => p.connector === 'stair-a' && p.module === 'floor-tile'
+        && Math.abs(p.position[1] - top.height) < .0001)).toBe(true);
 });
-it('rejects module geometry that crosses the shell boundary', async () => {
-    const modified = structuredClone(request);
-    // A zero sill window reaches the slab; its return must not descend into shell material.
-    const opening = modified.blueprint.floors.at(-1)!.openings[0]!;
-    opening.sill = 0;
-    delete opening.glazing;
-    opening.offset = 0;
-    opening.width = .5;
-    await expect(generate(modified)).rejects.toMatchObject({ code: 'E_SHELL_BREACH' });
+it('keeps module geometry and prop bounds inside the published or default backing inset', async () => {
+    const catalog = await json('src/assets/catalog.json');
+    for (const published of [undefined, 3.6]) {
+        const modified = structuredClone(request), depth = published ?? .12;
+        modified.assignments = modified.blueprint.floors.map(f => ({ floor: f.index, kind: 'retail' }));
+        if (published === undefined) delete modified.blueprint.facade!.wallDepth;
+        else modified.blueprint.facade!.wallDepth = published;
+        const opening = modified.blueprint.floors.at(-1)!.openings[0]!;
+        opening.sill = 0;
+        delete opening.glazing;
+        opening.offset = 0;
+        opening.width = 4;
+        const fitted = await generate(modified);
+        expect(fitted.layouts.crown.placements.some(p => p.opening === opening.id)).toBe(true);
+        for (const layout of Object.values(fitted.layouts)) {
+            const outline = modified.blueprint.floors[layout.sourceFloor]!.outline;
+            for (const p of layout.placements) {
+                // Door thresholds join the inset floor to the published exterior passage.
+                if (p.module === 'floor-tile' && p.opening) continue;
+                const module = p.module && modules.modules.find((m: any) => m.id === p.module);
+                const asset = p.prop && catalog.assets.find((a: any) => a.id === p.prop);
+                const size = module ? module.size : [asset.dimensionsMeters[0], asset.dimensionsMeters[2], asset.dimensionsMeters[1]];
+                const origin = module ? module.origin : [size[0] / 2, 0, size[2] / 2];
+                for (const x of [-origin[0], size[0] - origin[0]]) for (const z of [-origin[2], size[2] - origin[2]]) {
+                    const c = Math.cos(p.rotationY), s = Math.sin(p.rotationY);
+                    const world = [p.position[0] + x * p.scale[0] * c + z * p.scale[2] * s,
+                        p.position[2] + z * p.scale[2] * c - x * p.scale[0] * s];
+                    for (let i = 0; i < outline.length; i++) {
+                        const a = outline[i]!, b = outline[(i + 1) % outline.length]!;
+                        const distance = ((b[0] - a[0]) * (world[1]! - a[1]) - (b[1] - a[1]) * (world[0]! - a[0])) / Math.hypot(b[0] - a[0], b[1] - a[1]);
+                        expect(distance, p.id).toBeGreaterThanOrEqual(depth - .0001);
+                    }
+                }
+            }
+        }
+    }
 });
-it('rejects invalid inputs, incompatible middle floors and incomplete assignments', async () => {
+it('degrades service programs and rejects invalid inputs or floors without room space', async () => {
     await expect(generate({ seed: -1 })).rejects.toMatchObject({ code: 'E_BLUEPRINT_INVALID' });
     const changed = structuredClone(request);
     changed.blueprint.floors[2]!.openings[0]!.width -= .1;
     delete changed.blueprint.floors[2]!.openings[0]!.glazing;
     await expect(generate(changed)).rejects.toMatchObject({ code: 'E_BLUEPRINT_INVALID' });
     await expect(generate({ ...request, assignments: [{ floor: 0, kind: 'lobby' }] })).rejects.toMatchObject({ code: 'E_ASSIGNMENT_INVALID' });
+    const narrow = await assembly('corporate-sectors', { width: 16, depth: 32, floors: 5 });
+    for (const floor of narrow.blueprint.floors) floor.outline = floor.outline.map(([x, z]) => [x + 727.7, z + 792.9]);
+    narrow.blueprint.roof!.outline = narrow.blueprint.floors[0]!.outline;
+    narrow.assignments = narrow.blueprint.floors.map(f => ({ floor: f.index, kind: 'retail' }));
+    const before = JSON.stringify(narrow), reduced = await generate(narrow);
+    expect(JSON.stringify(narrow)).toBe(before);
+    expect(await generate(narrow)).toEqual(reduced);
+    const changes = [{ kind: 'storage', requested: [3, 3], fitted: null }, { kind: 'toilets', requested: [3, 3], fitted: [2, 2] }];
+    for (const floor of reduced.building.floors) {
+        expect(floor.program).toEqual({ kind: 'retail', changes });
+        const rooms = reduced.layouts[floor.layout].floor.rooms;
+        expect(rooms.some(room => room.kind === 'sales_floor')).toBe(true);
+        expect(rooms.some(room => room.kind === 'storage')).toBe(false);
+        const toilets = rooms.find(room => room.kind === 'toilets')!;
+        expect(Math.max(...toilets.polygon.map(p => p[0])) - Math.min(...toilets.polygon.map(p => p[0]))).toBeCloseTo(2);
+        expect(Math.max(...toilets.polygon.map(p => p[1])) - Math.min(...toilets.polygon.map(p => p[1]))).toBeCloseTo(2);
+    }
+    const ajv = new Ajv2020({ strict: false });
+    for (const name of ['floor', 'npc', 'building']) ajv.addSchema(await json(`schemas/${name}.schema.json`), `https://urbe.dev/interior/${name}.schema.json`);
+    const check = ajv.getSchema('https://urbe.dev/interior/building.schema.json')!;
+    expect(check(reduced.building), JSON.stringify(check.errors)).toBe(true);
+    await expect(generate(makePlacementFixture({ width: 6, depth: 6, floors: 3 }))).rejects.toMatchObject({ code: 'E_FLOOR_TOO_SMALL' });
 });
 it('keeps both furnished buildings including the shared module kit below 2 MB and 30 seconds', async () => {
     const proof = [];

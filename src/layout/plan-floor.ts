@@ -37,9 +37,11 @@ import { buildNavGrid, blockPhysicalFurniture } from "./navgrid.js";
 import { roomPolygon } from "./room-shape.js";
 import { planFacadeRooms } from "./facade-plan.js";
 import { planLegacyPublicRooms } from "./legacy-public-access.js";
+import type { ProgramChange } from "./service-program.js";
 
 /** uv-space working data a floor keeps for geometry and npc passes */
 export interface UvFloorData {
+  programChanges?: ProgramChange[];
   outline: Point[];
   rooms: PlanRoom[];
   furniture: PlanFurniture[];
@@ -262,7 +264,7 @@ export function planFloor(
         .concat(loft ? loftLights(loft.plan, floor.elevation, ceilingElevation, request.building.tier).filter(light => light.room === loft.plan.lowerRoom) : []),
     },
     grid,
-    uv: { outline: uvOutline, rooms, furniture, sealed },
+    uv: { outline: uvOutline, rooms, furniture, sealed, programChanges: facadePlan?.changes },
   };
 }
 

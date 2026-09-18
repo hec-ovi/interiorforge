@@ -1,5 +1,6 @@
-import type { FloorInterior, NpcSupport, Opening } from '../core/types.js';
+import type { FloorInterior, FloorKind, NpcSupport, Opening } from '../core/types.js';
 import type { Vector3 } from '../modules/types.js';
+import type { ProgramChange } from '../layout/service-program.js';
 export type LayoutId = 'ground' | 'middle' | 'crown';
 export interface Placement {
     id: string;
@@ -35,6 +36,7 @@ export interface BuildingManifest {
         layout: LayoutId;
         elevation: number;
         openings: Record<string, string>;
+        program?: { kind: FloorKind; changes: ProgramChange[] };
     }[];
     connectors: NpcSupport['nav']['connectors'];
 }

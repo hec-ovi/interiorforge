@@ -66,7 +66,7 @@ export function fullCoverageU(uvOutline: readonly Point[], v0: number, v1: numbe
 
 /** Structural bands of one floor around the building-wide core, uv space. */
 export function buildFrame(core: CorePlan, floor: BlueprintFloor, slabPlate = toUvPolygon(floor.outline, core.frame)): FloorFrame {
-  const uvOutline = toUvPolygon(floor.outline, core.frame);
+  const uvOutline = slabPlate;
   const b = polygonBounds(uvOutline);
   const v0 = snapUp(b.z);
   const v1 = snapDown(b.z + b.d);

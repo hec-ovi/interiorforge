@@ -48,7 +48,10 @@ export async function generate(input: unknown): Promise<PlacementResult> {
     });
     const refs = floors.map((floor, i) => {
         const layout: LayoutId = i === 0 ? 'ground' : i === floors.length - 1 ? 'crown' : 'middle', source = layouts[layout].openings;
-        return { index: floor.index, layout, elevation: floor.elevation, openings: Object.fromEntries(source.map((o, n) => [o.id, floor.openings[n]!.id])) };
+        const changes = plan.uvFloors.get(layouts[layout].sourceFloor)!.programChanges;
+        return { index: floor.index, layout, elevation: floor.elevation, openings: Object.fromEntries(source.map((o, n) => [o.id, floor.openings[n]!.id])),
+            ...(changes?.length ? { program: { kind: assignments.find(a => a.floor === layouts[layout].sourceFloor)!.kind,
+                changes: structuredClone(changes) } } : {}) };
     });
     const connectors = npc.nav.connectors.map(c => {
         const served = floors.map(f => f.index), entries = Object.fromEntries(served.map(f => [f, c.entryByFloor[String(f === 0 ? 0 : f === floors.length - 1 ? f : 1)]!]));

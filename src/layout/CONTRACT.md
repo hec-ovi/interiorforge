@@ -21,6 +21,15 @@ opening approaches and moving door depth. Internal doors fit shared wall interva
 Rooms use the 0.5 m construction grid with measured facade closures. Source rotation
 is retained; exported navigation stays aligned to world XZ.
 
+The usable plate is inset by `facade.wallDepth`, default 0.12 m. Core feasibility
+reserves the 1.6 m minimum room depth. Service programs shrink rooms by 0.5 m to
+2 m square, then omit them, in this order: executive office, meeting, storage,
+locker room, kitchen, toilets. Each attempt retains room space and corridor contact.
+Unit programs without a fitting suite retain their main room and omit its service.
+`uvFloors.programChanges` supplies requested and fitted dimensions for the
+[building manifest](../../schemas/building.schema.json), with null for omission.
+`E_FLOOR_TOO_SMALL` means there is no room space beside the core and circulation.
+
 Architectural access uses continuous body sweeps and room ownership. Private unit
 routes use their unit and public rooms. Every room component and core approach must
 remain reachable. Repair doors must reduce unreachable cells without losing reached

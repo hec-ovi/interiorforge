@@ -1,4 +1,4 @@
-# Interior 0.31.0
+# Interior 0.31.1
 
 A TypeScript generator for furnished buildings made from shared room modules.
 One building stores ground, middle and crown layouts. Every middle floor references
@@ -34,6 +34,6 @@ The preview uses those same placements.
 
 Ten contract tests cover the CLI and public calls, JSON schemas, indexed compressed
 modules, deterministic bytes, middle reuse, opening rectangles, navigation, stair
-and shell clearance, both building budgets, and the compiled feasibility entry.
+and backing clearance, service program reductions, both building budgets, and the compiled feasibility entry.
 Tests use at most two workers. `out/proof/budget.json` records measured bytes,
 seconds and placement counts.
