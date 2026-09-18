@@ -9,6 +9,7 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { MeshoptDecoder } from 'meshoptimizer';
 import { generate, expandBuilding, findPath, coreFeasibility, makePlacementFixture } from '../src/index.js';
 import type { PlacementResult, InteriorRequest } from '../src/index.js';
+import { loadTheme } from '../src/materials/load.js';
 import { assembly } from './fixtures.js';
 const exec = promisify(execFile);
 let dir: string, request: InteriorRequest, result: PlacementResult;
@@ -78,6 +79,10 @@ it('publishes indexed quantized meshopt module GLBs with accurate geometry and b
         expect(doc.getRoot().listMeshes().flatMap(m => m.listPrimitives()).reduce((n, p) => n + p.getIndices()!.getCount() / 3, 0)).toBe(entry.triangles);
         expect(doc.getRoot().listMaterials().map(m => m.getName())).toEqual(entry.materialSlots);
     }
+    // Published keys must name entries or aliases the materials theme carries.
+    const theme = loadTheme('cyberpunk');
+    const slots: string[] = modules.modules.flatMap((entry: any) => entry.materialSlots);
+    expect(theme ? slots.filter(key => !theme.library.entry(key)) : []).toEqual([]);
 });
 it('generates byte identical tables and module files for identical inputs', async () => {
     const before = JSON.stringify(request);

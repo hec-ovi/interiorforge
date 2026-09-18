@@ -73,7 +73,7 @@ export function moduleRecipes(): ModuleRecipe[] {
     });
     add('ceiling-led-strip', m => {
         box(m, 'metal', -.5, 0, -.04, 1, .06, .08);
-        box(m, 'light', -.48, -.005, -.03, .96, .005, .06);
+        box(m, 'light-fixture', -.48, -.005, -.03, .96, .005, .06);
     });
     add('wall-decoration-frame', m => {
         box(m, 'metal', -.5, 0, -.025, 1, .5, .05);
