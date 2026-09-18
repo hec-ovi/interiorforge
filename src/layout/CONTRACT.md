@@ -33,7 +33,7 @@ null. Shared [stair parameters](constants.ts) also govern module placement.
 
 [Luxury](luxury/CONTRACT.md) fits coordinated furniture groups.
 [Lofts](lofts/CONTRACT.md) supports planning tools with multiple storeys; public
-placement requests cover single storeys. Geometry is owned by Modules and Assets.
+placement requests cover single storeys. Emitted meshes belong to Modules and Assets.
 
 Errors: `E_BLUEPRINT_INVALID`, `E_ASSIGNMENT_INVALID`, `E_FLOOR_TOO_SMALL`,
 `E_UNREACHABLE_SPACE`. Equal inputs produce equal plans. Depends on

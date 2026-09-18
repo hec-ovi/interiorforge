@@ -11,7 +11,7 @@ with CCW outer XZ polygons and clockwise holes.
 `createRng(seed, ...keys)` returns deterministic independent streams.
 `RigidFrame2D(angleDeg, origin?)` converts source and world points without changing
 length. `roomFootprintContains`, clearance, area and anchor queries exclude holes.
-`RoomRegion` callers share the same boundary tolerance through these primitives.
+`RoomFootprint` callers share the same boundary tolerance through these primitives.
 
 `WalkGrid` stores walkability, exports base64 bits, and builds floods or predecessor
 trees. Default traversal uses four neighbors; explicit transition certificates allow

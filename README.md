@@ -34,5 +34,6 @@ The preview uses those same placements.
 
 Ten contract tests cover the CLI and public calls, JSON schemas, indexed compressed
 modules, deterministic bytes, middle reuse, opening rectangles, navigation, stair
-and shell clearance, and both building budgets. Tests use at most two workers.
-`out/proof/budget.json` records measured bytes, seconds and placement counts.
+and shell clearance, both building budgets, and the compiled feasibility entry.
+Tests use at most two workers. `out/proof/budget.json` records measured bytes,
+seconds and placement counts.

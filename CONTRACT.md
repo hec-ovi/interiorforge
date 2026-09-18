@@ -15,7 +15,8 @@ Places shared room modules and catalog furniture in three reusable building layo
 | `coreFeasibility` | Consumed blueprint | [Core fit](src/layout/schema/core-feasibility.schema.json) |
 
 `makeFixture` also provides a blueprint and shell document for feasibility tools.
-The browser entry `src/feasibility.ts` builds to `dist/feasibility.js`.
+`npm run build:feasibility` compiles the browser entry `src/feasibility.ts` to
+`dist/feasibility.js`.
 
 Generation accepts rectangular construction axes, at least three floors starting at
 zero, and one storey per assignment. Every middle floor must share its outline,
@@ -90,10 +91,10 @@ Identical input and resource catalogs produce identical JSON and module bytes.
 | `E_SHELL_BREACH` | Module geometry or prop bounds reach forbidden shell space |
 
 CLI argument and file errors exit nonzero. The modules command takes only `--out`.
-Budget tests use the actual Exterior planner for a 40 by 40 by 6 mirror frame
-residence and a 56 by 56 by 12 corporate sectors office. Each export, including
-one complete shared module kit, stays under 2 MB and 30 seconds. Existing prop
-geometry and Exterior assets are city resources, outside the building export.
+Budget tests use Exterior `planAssembly` for a 40 m by 40 m, 6-floor mirror-frame
+residence and a 56 m by 56 m, 12-floor corporate-sectors office. Each export,
+including one complete shared module kit, stays under 2 MB and 30 seconds. Existing
+prop geometry and Exterior assets are city resources, outside the building export.
 
 ## Dependencies
 

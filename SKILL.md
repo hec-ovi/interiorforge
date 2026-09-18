@@ -28,7 +28,8 @@ await writePlacements(result, 'out/building');
 
 The result is `{building, layouts}`. Layout keys are `ground`, `middle`, `crown`.
 Each placement gives `module` or `prop`, `id`, `room`, `position`, `rotationY`,
-`scale` and an optional source `opening`. Use metres and radians about positive Y.
+`scale` and optional source `opening` or core `connector`. Use metres and radians
+about positive Y.
 Add `building.floors[].elevation` to layout Y and use its `openings` map for blueprint
 identities. Module origins and material slots are in `modules.json`; props resolve
 through the existing Assets catalog. Resource bases belong to the consumer.
