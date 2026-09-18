@@ -1,4 +1,7 @@
-import type { BuildingType, FloorInterior, InteriorResult, Tier } from "../core/types.js";
+import type { PlacementResult } from '../placements/types.js';
+import { expandBuilding } from '../placements/expand.js';
+type InteriorResult = PlacementResult & { floors: FloorInterior[]; npc: NpcSupport };
+import type { BuildingType, FloorInterior, NpcSupport, Tier } from "../core/types.js";
 import type { PathLeg } from "../npc/index.js";
 
 export interface AppParams {
@@ -24,7 +27,7 @@ export interface AppState {
 
   on(event: AppEvent, cb: () => void): void;
   setParams(params: AppParams): void;
-  setResult(result: InteriorResult): void;
+  setResult(result: PlacementResult): void;
   setMode(mode: AppMode): void;
   setFloor(index: number): void;
   selectRoom(roomId: string | null): void;
@@ -40,7 +43,7 @@ export function createAppState(): AppState {
   };
 
   const state: AppState = {
-    params: { seed: 1, floors: 12, basements: 1, type: "offices", tier: "mid" },
+    params: { seed: 1, floors: 6, basements: 0, type: "offices", tier: "mid" },
     result: null,
     mode: "building",
     floorIndex: 0,
@@ -55,10 +58,10 @@ export function createAppState(): AppState {
       state.params = params;
     },
     setResult(result) {
-      state.result = result;
+      state.result = { ...result, ...expandBuilding(result) };
       state.selectedRoom = null;
       state.path = null;
-      if (!result.floors.some((f) => f.floor === state.floorIndex)) state.floorIndex = 0;
+      if (!state.result.floors.some((f) => f.floor === state.floorIndex)) state.floorIndex = 0;
       emit("result");
     },
     setMode(mode) {

@@ -4,7 +4,7 @@ import type { CorePlan } from "./core-plan.js";
 import { Facade } from "./openings.js";
 import { collectLines, coreRectsOf, endsOf, frozen, moveWallLine, pointOn, type WallLine } from "./pier-align.js";
 import type { PlanDoor, PlanRoom } from "./plan-types.js";
-import { BAND_CLEAR, MIN_STRETCH, doorWidthOn, sharedStretch } from "./rooms.js";
+import { BAND_CLEAR, MIN_STRETCH, doorWidthOn, lineRuns, sharedStretch } from "./rooms.js";
 import { sharedRoomEdges, type RoomShape } from "./room-shape.js";
 import type { UvRect } from "./uv.js";
 import { uvToWorld } from "./uv.js";
@@ -104,7 +104,11 @@ export function fitDoorToStretch(
   const owner = "rect" in from ? from : { rect: from };
   const target = "rect" in to ? to : { rect: to };
   const polygonal = owner.polygon || owner.holes?.length || target.polygon || target.holes?.length;
-  const stretches = polygonal ? sharedRoomEdges(owner, target, plate).filter(s => s.hi - s.lo >= MIN_STRETCH) : [];
+  const stretches = polygonal ? sharedRoomEdges(owner, target).flatMap(shared =>
+    lineRuns(plate, shared.edge.startsWith("v"), shared.c).map(([low, high]) => ({ ...shared,
+      lo: Math.max(shared.lo, low), hi: Math.min(shared.hi, high) })))
+    .filter(s => s.hi - s.lo >= MIN_STRETCH)
+    .sort((a, b) => b.hi - b.lo - (a.hi - a.lo)) : [];
   const stretch = polygonal
     ? stretches.find(s => s.edge === door.edge && door.at >= s.lo && door.at <= s.hi
       && (!door.position || Math.abs(door.position[s.edge.startsWith("v") ? 1 : 0] - s.c) < 1e-6)) ?? stretches[0]

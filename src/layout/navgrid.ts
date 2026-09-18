@@ -10,6 +10,9 @@ import type { FloorBounds } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { pointInUvRect, uvRectCorners, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
 import { roomContains, roomEdges } from "./room-shape.js";
+import { ArchitectureTransitions } from "./architecture-transitions.js";
+
+export type ArchitecturalGrid = WalkGrid & { architecture?: ArchitectureTransitions };
 
 const WALL_BAND = WALL / 2 + AGENT_RADIUS; // blocked distance either side of a wall line
 const FURNITURE_MARGIN = 0.15;
@@ -22,10 +25,11 @@ const NON_BLOCKING: ReadonlySet<string> = new Set(["chair", "stool", "office_cha
 export function buildNavGrid(
   worldOutline: readonly Point[], bounds: FloorBounds, rooms: PlanRoom[],
   furniture: PlanFurniture[], sealed: UvRect[], core: CorePlan, physical = false,
-): WalkGrid {
+): ArchitecturalGrid {
   const frame = core.frame;
   const uvOutline = bounds.outline;
-  const grid = WalkGrid.forPolygon(worldOutline, physical ? CELL / 4 : CELL, polygonBounds(worldOutline));
+  const grid: ArchitecturalGrid = WalkGrid.forPolygon(worldOutline, physical ? CELL / 4 : CELL, polygonBounds(worldOutline));
+  if (physical) grid.architecture = new ArchitectureTransitions(grid, frame);
 
   // the facade lining stands inside the outline; walkable space starts behind it
   const facadeBand = bounds.facadeDepth + AGENT_RADIUS;
@@ -97,10 +101,10 @@ export function buildNavGrid(
 }
 
 /** Consumes the architecture-only route grid after its reservations have been saved. */
-export function blockPhysicalFurniture(grid: WalkGrid, frame: Frame, furniture: readonly PlanFurniture[]): void {
+export function blockPhysicalFurniture(grid: ArchitecturalGrid, frame: Frame, furniture: readonly PlanFurniture[]): void {
   for (const item of furniture) {
     if ((item.elevation ?? 0) > 0) continue;
-    blockUvRect(grid, frame, furnitureUvRect(item), AGENT_RADIUS);
+    blockUvRect(grid, frame, furnitureUvRect(item), AGENT_RADIUS, true);
   }
 }
 
@@ -144,7 +148,7 @@ export function stairDoorChannelsUv(core: CorePlan): UvRect[] {
 /** Opens a facade channel on the portal's exact direction. Its bounding box limits the grid
  *  scan; projection against the portal axes keeps diagonal fronts from opening extra wall. */
 function openOpenFrontChannel(
-  grid: WalkGrid, frame: Frame, door: PlanRoom["doors"][number], room: PlanRoom,
+  grid: ArchitecturalGrid, frame: Frame, door: PlanRoom["doors"][number], room: PlanRoom,
   band: number, worldOutline: readonly Point[], inset = 0,
 ): void {
   if (!door.openFront) return;
@@ -157,6 +161,7 @@ function openOpenFrontChannel(
   const du = Math.abs(along[0]) * halfAlong + Math.abs(across[0]) * halfAcross;
   const dv = Math.abs(along[1]) * halfAlong + Math.abs(across[1]) * halfAcross;
   const bounds = { u: u - du, v: v - dv, lu: 2 * du, lv: 2 * dv };
+  grid.architecture?.openChannel(uvToWorld([u, v], frame), uvToWorld(along, frame), halfAlong * 2, halfAcross * 2);
   forCellsInUvRect(grid, frame, bounds, 0, (c, r, center) => {
     const at = worldToUv(center, frame);
     const d: Point = [at[0] - u, at[1] - v];
@@ -168,11 +173,13 @@ function openOpenFrontChannel(
   });
 }
 
-function blockUvRect(grid: WalkGrid, frame: Frame, rect: UvRect, margin: number): void {
+function blockUvRect(grid: ArchitecturalGrid, frame: Frame, rect: UvRect, margin: number, final = false): void {
+  grid.architecture?.blockRect(rect, margin, final);
   forCellsInUvRect(grid, frame, rect, margin, (c, r) => grid.set(c, r, false));
 }
 
-function openUvRect(grid: WalkGrid, frame: Frame, rect: UvRect, worldOutline: readonly Point[]): void {
+function openUvRect(grid: ArchitecturalGrid, frame: Frame, rect: UvRect, worldOutline: readonly Point[]): void {
+  grid.architecture?.openRect(rect);
   forCellsInUvRect(grid, frame, rect, 0, (c, r, center) => {
     if (pointInPolygon(center, worldOutline)) grid.set(c, r, true);
   });
@@ -194,7 +201,8 @@ function forCellsInUvRect(
   }
 }
 
-function blockSegment(grid: WalkGrid, p0: Point, p1: Point, band: number): void {
+function blockSegment(grid: ArchitecturalGrid, p0: Point, p1: Point, band: number): void {
+  grid.architecture?.blockSegment(p0, p1, band);
   const minX = Math.min(p0[0], p1[0]) - band;
   const maxX = Math.max(p0[0], p1[0]) + band;
   const minZ = Math.min(p0[1], p1[1]) - band;

@@ -26,7 +26,7 @@ export interface BuildingPlan {
 
 /** Plans every floor of one building. `request` must already be validated; `assignments`
  *  must cover every blueprint floor (blueprint box resolves them). */
-export function planBuilding(request: InteriorRequest, assignments: FloorAssignment[]): BuildingPlan {
+export function planBuilding(request: InteriorRequest, assignments: FloorAssignment[], selected?: ReadonlySet<number>): BuildingPlan {
   const core = planCore(request, assignments);
   const byIndex = new Map(request.blueprint.floors.map((f) => [f.index, f]));
   const sorted = [...assignments].sort((a, b) => a.floor - b.floor);
@@ -36,6 +36,7 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
   const navGrids = new Map<number, WalkGrid>();
   const uvFloors = new Map<number, UvFloorData>();
   for (const assignment of sorted) {
+    if (selected && !selected.has(assignment.floor)) continue;
     const spans = assignment.spans ?? 1;
     // a spans-2 assignment is one space: its ceiling sits above both blueprint floors
     let spaceHeight = 0;

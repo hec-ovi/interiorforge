@@ -1,9 +1,7 @@
 import "./style.css";
 import { polygonArea } from "../core/geom.js";
-import { generateInterior, makeFixture } from "../index.js";
-import { readGlbBytes } from "../glb/io.js";
+import { generateInterior, makePlacementFixture } from "../index.js";
 import type { InteriorRequest } from "../core/types.js";
-import type { TextureOptions, ThemeIndex } from "../materials/index.js";
 import type { AppParams, AppState } from "./app-state.js";
 import { createAppState } from "./app-state.js";
 import { toast } from "./components/toast.js";
@@ -14,22 +12,6 @@ import { createInfoPanel } from "./widgets/info-panel.js";
 import { previewSample, showSample } from "./samples/index.js";
 import type { PreviewSample } from "./samples/schema.js";
 import { createSampleTour } from "./components/sample-tour.js";
-
-/** Wires the app into `root`. The 3D viewer is injected so tests can stub WebGL. */
-const MATERIALS_BASE = "/materials/themes";
-
-/** The dev server serves the materials database; textures resolve against it, so what the
- *  preview shows is the finished interior. Without it the GLB keeps its material keys. */
-async function textureOptions(theme: string): Promise<TextureOptions> {
-  const baseUrl = `${MATERIALS_BASE}/${theme}`;
-  try {
-    const response = await fetch(`${baseUrl}/theme.json`);
-    if (!response.ok) return { mode: "keys" };
-    return { mode: "external", theme: (await response.json()) as ThemeIndex, baseUrl };
-  } catch {
-    return { mode: "keys" };
-  }
-}
 
 export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: string): AppState {
   const state = createAppState();
@@ -47,20 +29,16 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
     state.setParams(params);
     state.setBusy(true);
     try {
-      const fixture = makeFixture(params);
-      if (review) fixture.request.assignments = review.assignments;
-      const result = await generateInterior(fixture.request, {
-        shellDoc: fixture.shellDoc,
-        textures: await textureOptions(fixture.request.materialTheme),
-        ...(review ? { assets: review.assets } : {}),
-      });
+      const request = makePlacementFixture({ ...params, outline: [[0,0],[40,0],[40,40],[0,40]] });
+      if (review) request.assignments = review.assignments;
+      const result = await generateInterior(request);
       state.setResult(result);
-      await viewer.setGlb(result.glb);
+      await viewer.setPlacements(result);
       applySlice();
       if (review) showSample(review, state, viewer);
       toast.success(
         review ? `${review.title} · Seed ${params.seed}`
-          : `Generated ${result.floors.length}F ${params.type} (${params.tier}) · Seed ${params.seed}`,
+          : `Generated ${result.building.floors.length}F ${params.type} (${params.tier}) · Seed ${params.seed}`,
         "Interior Generated",
       );
     } catch (err) {
@@ -70,8 +48,7 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
     }
   }
 
-  /** Real-building mode: shell .glb plus blueprint .json (plus the exterior request .json
-   *  for type, tier and theme) straight from the engine output directory. */
+  /** Loads the assembled blueprint and optional building request metadata. */
   async function loadBuilding(files: File[]): Promise<void> {
     if (tour) tour.hidden = true;
     state.setBusy(true);
@@ -80,19 +57,16 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
         building?: { type?: string; tier?: string };
         theme?: string;
       }
-      let shellBytes: Uint8Array | null = null;
       let blueprint: Record<string, unknown> | null = null;
       let extRequest: ExtRequest | null = null;
       for (const file of files) {
-        if (file.name.endsWith(".glb")) {
-          shellBytes = new Uint8Array(await file.arrayBuffer());
-        } else if (file.name.endsWith(".json")) {
+        if (file.name.endsWith(".json")) {
           const parsed = JSON.parse(await file.text()) as Record<string, unknown>;
           if (Array.isArray(parsed.floors)) blueprint = parsed;
           else if (parsed.building) extRequest = parsed as ExtRequest;
         }
       }
-      if (!shellBytes || !blueprint) throw new Error("need a shell .glb and a blueprint .json");
+      if (!blueprint) throw new Error("need an assembled blueprint .json");
       const request = {
         seed: (blueprint.seed as string | number | undefined) ?? 1,
         building: {
@@ -104,16 +78,12 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
         blueprint,
         materialTheme: extRequest?.theme ?? "cyberpunk",
       } as unknown as InteriorRequest;
-      const shellDoc = await readGlbBytes(shellBytes);
-      const result = await generateInterior(request, {
-        shellDoc,
-        textures: await textureOptions(request.materialTheme),
-      });
+      const result = await generateInterior(request);
       state.setResult(result);
-      await viewer.setGlb(result.glb);
+      await viewer.setPlacements(result);
       applySlice();
       toast.success(
-        `Imported ${request.building.id} with ${result.floors.length} floors`,
+        `Imported ${request.building.id} with ${result.building.floors.length} floors`,
         "Model Loaded",
       );
     } catch (err) {

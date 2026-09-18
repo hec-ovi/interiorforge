@@ -1,13 +1,9 @@
-import type { Rect3 } from "../core/types.js";
-import { MeshBuilder } from "../glb/mesh-builder.js";
 import { STAIR, WALL } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import { stairAccess } from "../layout/core-plan.js";
 import { planFlights } from "../layout/stair-plan.js";
-import type { Frame, UvRect } from "../layout/uv.js";
-import { uvRectCorners, uvToWorld } from "../layout/uv.js";
+import type { UvRect } from "../layout/uv.js";
 import type { UvWallHole } from "./walls.js";
-import type { MaterialKeys } from "./materials.js";
 
 /** One tread or landing: axis-aligned rect in the layout frame, y = top surface. */
 export interface UvStep {
@@ -89,17 +85,6 @@ export function computeStairSteps(shaft: UvRect, entryLowEnd: boolean, elevation
   return out;
 }
 
-export function emitStairMeshes(
-  mb: MeshBuilder, keys: MaterialKeys, frame: Frame, steps: UvStep[], slab: number,
-): void {
-  for (const s of steps) {
-    const corners = uvRectCorners({ u: s.u, v: s.v, lu: s.lu, lv: s.lv }).map((p) => uvToWorld(p, frame));
-    mb.addPrism(keys.wall(), corners, s.y - slab, s.y, "world", "none");
-    mb.addHorizontalPolygon(keys.concrete(), corners, s.y - slab, "down");
-    mb.addHorizontalPolygon(keys.floorOf("corridor"), corners, s.y, "up");
-  }
-}
-
 /** Anything less than this above a tread is the stair you are climbing, not a ceiling. */
 const OVERHEAD_MIN_RISE = 1.0;
 
@@ -130,18 +115,6 @@ export function minHeadroom(steps: readonly RunStep[]): number {
 
 function overlaps(a: UvStep, b: UvStep): boolean {
   return a.u < b.u + b.lu && b.u < a.u + a.lu && a.v < b.v + b.lv && b.v < a.v + a.lv;
-}
-
-/** Frame rect (rotate about center by coreAngleDeg) for the floor JSON. */
-export function stepToFrameRect(s: UvStep, frame: Frame): Rect3 {
-  const [cx, cz] = uvToWorld([s.u + s.lu / 2, s.v + s.lv / 2], frame);
-  return {
-    x: Math.round((cx - s.lu / 2) * 1000) / 1000,
-    y: Math.round(s.y * 1000) / 1000,
-    z: Math.round((cz - s.lv / 2) * 1000) / 1000,
-    w: Math.round(s.lu * 1000) / 1000,
-    d: Math.round(s.lv * 1000) / 1000,
-  };
 }
 
 /** Entry hole for a stair shaft, uv wall-line format, from the shared access definition. */

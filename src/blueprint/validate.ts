@@ -1,12 +1,10 @@
 import { Ajv2020 } from "ajv/dist/2020.js";
-import type { Document } from "@gltf-transform/core";
 import requestSchema from "../../schemas/request.schema.json" with { type: "json" };
 import blueprintSchema from "../../schemas/blueprint.schema.json" with { type: "json" };
 import { InteriorError } from "../core/errors.js";
-import { edgeLength, isCcw, polygonArea, polygonBounds } from "../core/geom.js";
+import { edgeLength, isCcw, polygonArea } from "../core/geom.js";
 import { createRng, type Rng } from "../core/rng.js";
 import type { BuildingType, FloorAssignment, FloorKind, InteriorRequest } from "../core/types.js";
-import { sceneBounds } from "../glb/io.js";
 import { validateWindowGlazing } from "./validate-glazing.js";
 import { validatePocketDoors } from "./validate-pocket.js";
 
@@ -62,7 +60,7 @@ function validateOpenings(
   floor: number,
   wallDepth: number | undefined,
 ): void {
-  const byEdge = new Map<number, { start: number; end: number; id: string }[]>();
+  const byEdge = new Map<number, { start: number; end: number; bottom: number; top: number; id: string }[]>();
   for (const o of openings) {
     if (o.edge >= outline.length) {
       throw new InteriorError("E_BLUEPRINT_INVALID", `opening ${o.id} references edge ${o.edge} of ${outline.length}`, floor);
@@ -86,11 +84,12 @@ function validateOpenings(
     }
     const list = byEdge.get(o.edge) ?? [];
     for (const other of list) {
-      if (o.offset < other.end && other.start < o.offset + o.width) {
+      if (o.offset < other.end - 1e-6 && other.start < o.offset + o.width - 1e-6
+        && o.sill < other.top - 1e-6 && other.bottom < o.sill + o.height - 1e-6) {
         throw new InteriorError("E_BLUEPRINT_INVALID", `openings ${other.id} and ${o.id} overlap on edge ${o.edge}`, floor);
       }
     }
-    list.push({ start: o.offset, end: o.offset + o.width, id: o.id });
+    list.push({ start: o.offset, end: o.offset + o.width, bottom: o.sill, top: o.sill + o.height, id: o.id });
     byEdge.set(o.edge, list);
   }
 }
@@ -169,30 +168,5 @@ function kindFromSlug(slug: string, type: BuildingType, floor: number, rng: Rng)
     case "coffee_shop": return "coffee_shop";
     case "restaurant": return "restaurant";
     default: return "office"; // offices and institutional parcels
-  }
-}
-
-const SHELL_XZ_TOLERANCE = 0.75;
-const SHELL_TOP_TOLERANCE = 0.5;
-
-export function validateShell(request: InteriorRequest, shellDoc: Document): void {
-  const { min, max } = sceneBounds(shellDoc);
-  let bpMinX = Infinity, bpMinZ = Infinity, bpMaxX = -Infinity, bpMaxZ = -Infinity;
-  for (const floor of request.blueprint.floors) {
-    const b = polygonBounds(floor.outline);
-    bpMinX = Math.min(bpMinX, b.x);
-    bpMinZ = Math.min(bpMinZ, b.z);
-    bpMaxX = Math.max(bpMaxX, b.x + b.w);
-    bpMaxZ = Math.max(bpMaxZ, b.z + b.d);
-  }
-  if (
-    min[0] > bpMinX + SHELL_XZ_TOLERANCE || min[2] > bpMinZ + SHELL_XZ_TOLERANCE ||
-    max[0] < bpMaxX - SHELL_XZ_TOLERANCE || max[2] < bpMaxZ - SHELL_XZ_TOLERANCE
-  ) {
-    throw new InteriorError("E_SHELL_MISMATCH", "shell footprint does not contain the blueprint footprint");
-  }
-  const top = request.blueprint.floors.at(-1)!;
-  if (max[1] < top.elevation + top.height - SHELL_TOP_TOLERANCE) {
-    throw new InteriorError("E_SHELL_MISMATCH", `shell height ${max[1].toFixed(2)} below top floor ${(top.elevation + top.height).toFixed(2)}`);
   }
 }

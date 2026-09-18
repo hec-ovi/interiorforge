@@ -1,336 +1,116 @@
-import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, distanceToSegment } from "../core/geom.js";
-import type { Rng } from "../core/rng.js";
-import type { BlueprintFloor, Facade as BlueprintFacade, RoomKind } from "../core/types.js";
-import { MeshBuilder } from "../glb/mesh-builder.js";
-import { WALL } from "../layout/constants.js";
-import { doorUvPoint } from "../layout/plan-floor.js";
-import { Facade as FacadeReservations, PARTITION_HALF } from "../layout/openings.js";
-import type { EdgeName, PlanRoom } from "../layout/plan-types.js";
-import { roomEdges } from "../layout/room-shape.js";
-import { TILE } from "../layout/tile-fit.js";
-import type { Frame, UvRect } from "../layout/uv.js";
-import { toWorldPolygon, uvToWorld } from "../layout/uv.js";
-import type { MaterialKeys } from "./materials.js";
-import type { Exposed, WallBands } from "./wall-detail.js";
-import { layerBands } from "./wall-detail.js";
-
-/** Casing members around a doorway: this wide, standing this proud of each wall face. */
-const CASING = { width: 0.08, proud: 0.02 };
-
-/** A hole in a wall line: `at` runs along the line in uv, y absolute. */
+import type { Point } from '../core/geom.js';
+import { distanceToSegment } from '../core/geom.js';
+import type { BlueprintFloor } from '../core/types.js';
+import { Facade as FacadeReservations, PARTITION_HALF } from '../layout/openings.js';
+import type { EdgeName, PlanRoom } from '../layout/plan-types.js';
+import { roomEdges } from '../layout/room-shape.js';
+import { TILE } from '../layout/tile-fit.js';
+import type { Frame } from '../layout/uv.js';
+import { uvToWorld } from '../layout/uv.js';
+const CASING = { width: 0.08 };
 export interface WallHole {
-  at: number;
-  width: number;
-  y0: number;
-  y1: number;
+    at: number;
+    width: number;
+    y0: number;
+    y1: number;
 }
-
-/** Wall lines live in uv space: "H" runs along u at v = c, "V" along v at u = c. */
 export interface UvWallHole {
-  axis: "H" | "V";
-  c: number;
-  hole: WallHole;
+    axis: 'H' | 'V';
+    c: number;
+    hole: WallHole;
 }
-
-/** A stretch of one wall line covered by a room's edge. `accent` marks the room's feature
- *  wall, which takes the accent tone over its whole stretch, corner to corner. */
-interface WallInterval {
-  a: number;
-  b: number;
-  accent: boolean;
+export interface RoomSegment {
+    axis: 'H' | 'V';
+    c: number;
+    a: number;
+    b: number;
+    edge: EdgeName | null;
 }
-
-interface WallLine {
-  axis: "H" | "V";
-  c: number;
-  intervals: WallInterval[];
-  holes: WallHole[];
-}
-
-/** One interior segment of a room's clipped outline, and which edge of the room it lies on. */
-interface RoomSegment {
-  axis: "H" | "V";
-  c: number;
-  a: number;
-  b: number;
-  edge: EdgeName | null;
-}
-
-/** Door heads: 2.5 m for one or two leaves, 3 m for wider portals. A lower space carries
- *  the opening up to one casing band below its ceiling. */
 export function doorHeadHeight(leaves: number, clearHeight: number): number {
-  const head = leaves >= 3 ? 3.0 : 2.5;
-  return Math.min(head, clearHeight - 2 * CASING.width);
+    const head = leaves >= 3 ? 3.0 : 2.5;
+    return Math.min(head, clearHeight - 2 * CASING.width);
 }
-
-/** Interior walls of one floor: the union of room edges off the facade, with door holes.
- *  Extraction runs in uv space where rooms are axis-aligned; emission clips every band to
- *  `envelope` (the plate inside the facade lining) and rotates to world. */
-export function buildInteriorWalls(
-  mb: MeshBuilder, keys: MaterialKeys, rooms: PlanRoom[], bpFloor: BlueprintFloor,
-  blueprintFacade: BlueprintFacade | undefined, uvOutline: Point[], envelope: Point[], facadeDepth: number,
-  frame: Frame, elevation: number, wallTop: number, ceilingY: number,
-  program: RoomKind, extraHoles: UvWallHole[], rng: Rng,
-): void {
-  const lines = new Map<string, WallLine>();
-  const facade = new FacadeReservations(bpFloor, blueprintFacade);
-  const lineFor = (axis: "H" | "V", c: number): WallLine => {
-    const key = `${axis}:${c.toFixed(3)}`;
-    let line = lines.get(key);
-    if (!line) {
-      line = { axis, c, intervals: [], holes: [] };
-      lines.set(key, line);
-    }
-    return line;
-  };
-
-  for (const room of rooms) {
-    const segments = roomSegments(room, uvOutline, facadeDepth)
-      .map((segment) => reserveFacadeEnds(segment, facade, bpFloor, frame, facadeDepth))
-      .filter((segment): segment is RoomSegment => segment !== null);
-    const accent = accentEdge(room, segments, rng);
-    for (const s of segments) {
-      lineFor(s.axis, s.c).intervals.push({ a: s.a, b: s.b, accent: s.edge !== null && s.edge === accent });
-    }
-    for (const door of room.doors) {
-      if (door.openFront || door.to === "outside") continue; // hole handled by the facade lining
-      const [u, v] = doorUvPoint(door, room);
-      const head = elevation + doorHeadHeight(door.leaves, ceilingY - elevation);
-      if (door.edge.startsWith("v")) {
-        lineFor("H", v).holes.push({ at: u, width: door.width, y0: elevation, y1: head });
-      } else {
-        lineFor("V", u).holes.push({ at: v, width: door.width, y0: elevation, y1: head });
-      }
-    }
-  }
-  for (const extra of extraHoles) {
-    lineFor(extra.axis, extra.c).holes.push(extra.hole);
-  }
-
-  for (const line of lines.values()) line.holes = canonicalHoles(line.holes);
-
-  const bands: WallBands = {
-    y0: elevation, ceilingY,
-    field: keys.wall(), accent: keys.accent(program), trim: keys.trim(),
-    casing: keys.door(), frame: keys.windowFrame(),
-    fullHeight: keys.luxury,
-  };
-  for (const line of lines.values()) {
-    const accents = mergeIntervals(line.intervals.filter((i) => i.accent));
-    for (const [a, b] of mergeIntervals(line.intervals)) {
-      for (const piece of accentPieces(a, b, accents, line.holes)) {
-        const holes = line.holes.filter((h) => h.at > piece.a && h.at < piece.b);
-        const run = piece.accent ? { ...bands, field: bands.accent } : bands;
-        emitWallRun(mb, run, frame, envelope, line, piece.a, piece.b, elevation, wallTop, holes);
-      }
-    }
-  }
-}
-
-/** A shaft-locked or minimum-size partition cannot always move as a whole. In that case its
- *  last stretch joins the adjacent facade rooms as open space and stops before the reserved
- *  opening or moving-leaf volume. */
-function reserveFacadeEnds(
-  segment: RoomSegment, facade: FacadeReservations, facadeFloor: BlueprintFloor,
-  frame: Frame, facadeDepth: number,
-): RoomSegment | null {
-  const point = (along: number): Point => segment.axis === "H" ? [along, segment.c] : [segment.c, along];
-  const facadeEdge = (edge: number): [Point, Point] => [
-    facadeFloor.outline[edge]!, facadeFloor.outline[(edge + 1) % facadeFloor.outline.length]!,
-  ];
-  const trim = (at: number, direction: -1 | 1): number => {
-    const world = uvToWorld(point(at), frame);
-    const reservation = facade.reservationAt(world, PARTITION_HALF, facadeDepth + PARTITION_HALF);
-    if (!reservation) return 0;
-    const openingDepth = reservation.opening?.door?.motion?.clearDepth
-      ?? reservation.opening?.portal?.clearDepth
-      ?? 0;
-    const targetDepth = Math.max(facadeDepth, openingDepth) + PARTITION_HALF;
-    const remaining = Math.max(0, targetDepth - reservation.distance);
-    if (remaining === 0) return 0;
-    const next = uvToWorld(point(at + direction), frame);
-    const movement: Point = [next[0] - world[0], next[1] - world[1]];
-    const outline = facadeEdge(reservation.edge);
-    const edgeLength = Math.hypot(outline[1][0] - outline[0][0], outline[1][1] - outline[0][1]) || 1;
-    const inward: Point = [
-      -(outline[1][1] - outline[0][1]) / edgeLength,
-      (outline[1][0] - outline[0][0]) / edgeLength,
+export function reserveFacadeEnds(segment: RoomSegment, facade: FacadeReservations, facadeFloor: BlueprintFloor, frame: Frame, facadeDepth: number): RoomSegment | null {
+    const point = (along: number): Point => segment.axis === "H" ? [along, segment.c] : [segment.c, along];
+    const facadeEdge = (edge: number): [
+        Point,
+        Point
+    ] => [
+        facadeFloor.outline[edge]!, facadeFloor.outline[(edge + 1) % facadeFloor.outline.length]!,
     ];
-    const slope = movement[0] * inward[0] + movement[1] * inward[1];
-    return slope > 1e-3 ? remaining / slope : Infinity;
-  };
-  const a = segment.a + trim(segment.a, 1);
-  const b = segment.b - trim(segment.b, -1);
-  return b - a > 1e-3 ? { ...segment, a, b } : null;
-}
-
-/** A doorway is recorded by both adjoining rooms. Collapse those records before drawing,
- *  otherwise the two casings and lintels occupy exactly the same planes. */
-export function canonicalHoles(holes: readonly WallHole[]): WallHole[] {
-  const unique = new Map<string, WallHole>();
-  for (const hole of holes) {
-    const key = [hole.at, hole.width, hole.y0, hole.y1]
-      .map((value) => Math.round(value * 1e5))
-      .join(":");
-    if (!unique.has(key)) unique.set(key, hole);
-  }
-  return [...unique.values()].sort((a, b) => a.at - b.at || a.y0 - b.y0 || a.y1 - b.y1);
-}
-
-/** The interior segments of a room's outline: its clipped polygon edges off the facade,
- *  each tagged with the room edge it lies on (a clip cut lies on none). */
-function roomSegments(room: PlanRoom, uvOutline: readonly Point[], facadeDepth: number): RoomSegment[] {
-  const out: RoomSegment[] = [];
-  for (const { a, b, edge } of roomEdges(room, uvOutline)) {
-    const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    if (onFacadeBand(a, b, mid, uvOutline, facadeDepth)) continue;
-    if (Math.abs(a[1] - b[1]) < 1e-6) {
-      out.push({ axis: "H", c: a[1], a: Math.min(a[0], b[0]), b: Math.max(a[0], b[0]), edge });
-    } else if (Math.abs(a[0] - b[0]) < 1e-6) {
-      out.push({ axis: "V", c: a[0], a: Math.min(a[1], b[1]), b: Math.max(a[1], b[1]), edge });
-    }
-    // other angles only occur on the facade, which the boundary test skipped
-  }
-  return out;
-}
-
-/** The room's feature wall: one interior edge without a door, picked by seed.
- *  Small rooms take none. */
-function accentEdge(room: PlanRoom, segments: RoomSegment[], rng: Rng): EdgeName | null {
-  if (room.rect.lu < 1.6 || room.rect.lv < 1.6) return null;
-  const doors = new Set(room.doors.map((d) => d.edge));
-  const edges: EdgeName[] = ["v0", "v1", "u0", "u1"];
-  const candidates = edges.filter((e) => !doors.has(e) && segments.some((s) => s.edge === e));
-  if (candidates.length === 0) return null;
-  return candidates[Math.floor(rng.range(0, candidates.length))]!;
-}
-
-interface RunPiece {
-  a: number;
-  b: number;
-  accent: boolean;
-}
-
-/** Splits a wall run into its accent and plain stretches. A cut lands on the partition line
- *  where the accent room's edge ends, never inside a doorway, so the tone changes at a
- *  corner or a jamb and never mid surface. */
-function accentPieces(
-  a: number, b: number, accents: [number, number][], holes: WallHole[],
-): RunPiece[] {
-  const cuts = new Map<string, number>();
-  for (const [s, e] of accents) {
-    for (const raw of [s, e]) {
-      const c = outOfHoles(raw, holes);
-      if (c > a + 1e-6 && c < b - 1e-6) cuts.set(c.toFixed(6), c);
-    }
-  }
-  const bounds = [a, ...[...cuts.values()].sort((x, y) => x - y), b];
-  const pieces: RunPiece[] = [];
-  for (let i = 0; i < bounds.length - 1; i++) {
-    const [s, e] = [bounds[i]!, bounds[i + 1]!];
-    if (e - s < 1e-3) continue;
-    const mid = (s + e) / 2;
-    pieces.push({ a: s, b: e, accent: accents.some(([x, y]) => mid > x && mid < y) });
-  }
-  return pieces;
-}
-
-/** A material boundary inside a doorway would cut the opening in two: push it to the jamb. */
-function outOfHoles(c: number, holes: WallHole[]): number {
-  for (const h of holes) {
-    const [lo, hi] = [h.at - h.width / 2, h.at + h.width / 2];
-    if (c > lo && c < hi) return c - lo < hi - c ? lo : hi;
-  }
-  return c;
-}
-
-function emitWallRun(
-  mb: MeshBuilder, bands: WallBands, frame: Frame, envelope: Point[], line: WallLine,
-  a: number, b: number, y0: number, y1: number, holes: WallHole[],
-): void {
-  const sorted = [...holes].sort((h1, h2) => h1.at - h2.at);
-  let cursor = a;
-  const solid = (s: number, e: number, sy0: number, sy1: number, exposed: Exposed = {}) => {
-    if (e - s < 1e-3 || sy1 - sy0 < 1e-3) return;
-    layerBands(bands, sy0, Math.min(sy1, y1), (material, proud, by0, by1, caps) => {
-      const thickness = WALL + 2 * proud;
-      const rect: UvRect = line.axis === "H"
-        ? { u: s, v: line.c - thickness / 2, lu: e - s, lv: thickness }
-        : { u: line.c - thickness / 2, v: s, lu: thickness, lv: e - s };
-      // a run ending on the facade is cut flush with the lining, whatever the facade's angle
-      const footprint = clipPolygonToRect(envelope, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv });
-      if (footprint.length < 3) return;
-      mb.addPrism(material, toWorldPolygon(footprint, frame), by0, by1, "world", caps);
-    }, exposed);
-  };
-  // A casing member is two closed face trims. The closed wall end owns the reveal between
-  // them, so no second solid occupies that reveal or shares its visible jamb/head planes.
-  const member = (s: number, e: number, my0: number, my1: number) => {
-    if (e - s < 1e-3 || my1 - my0 < 1e-3) return;
-    const half = WALL / 2;
-    const rects: UvRect[] = line.axis === "H"
-      ? [
-          { u: s, v: line.c - half - CASING.proud, lu: e - s, lv: CASING.proud },
-          { u: s, v: line.c + half, lu: e - s, lv: CASING.proud },
-        ]
-      : [
-          { u: line.c - half - CASING.proud, v: s, lu: CASING.proud, lv: e - s },
-          { u: line.c + half, v: s, lu: CASING.proud, lv: e - s },
+    const trim = (at: number, direction: -1 | 1): number => {
+        const world = uvToWorld(point(at), frame);
+        const reservation = facade.reservationAt(world, PARTITION_HALF, facadeDepth + PARTITION_HALF);
+        if (!reservation)
+            return 0;
+        const openingDepth = reservation.opening?.door?.motion?.clearDepth
+            ?? reservation.opening?.portal?.clearDepth
+            ?? 0;
+        const targetDepth = Math.max(facadeDepth, openingDepth) + PARTITION_HALF;
+        const remaining = Math.max(0, targetDepth - reservation.distance);
+        if (remaining === 0)
+            return 0;
+        const next = uvToWorld(point(at + direction), frame);
+        const movement: Point = [next[0] - world[0], next[1] - world[1]];
+        const outline = facadeEdge(reservation.edge);
+        const edgeLength = Math.hypot(outline[1][0] - outline[0][0], outline[1][1] - outline[0][1]) || 1;
+        const inward: Point = [
+            -(outline[1][1] - outline[0][1]) / edgeLength,
+            (outline[1][0] - outline[0][0]) / edgeLength,
         ];
-    for (const rect of rects) {
-      const footprint = clipPolygonToRect(envelope, { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv });
-      if (footprint.length >= 3) mb.addPrism(bands.casing, toWorldPolygon(footprint, frame), my0, my1, "world");
+        const slope = movement[0] * inward[0] + movement[1] * inward[1];
+        return slope > 1e-3 ? remaining / slope : Infinity;
+    };
+    const a = segment.a + trim(segment.a, 1);
+    const b = segment.b - trim(segment.b, -1);
+    return b - a > 1e-3 ? { ...segment, a, b } : null;
+}
+export function canonicalHoles(holes: readonly WallHole[]): WallHole[] {
+    const unique = new Map<string, WallHole>();
+    for (const hole of holes) {
+        const key = [hole.at, hole.width, hole.y0, hole.y1]
+            .map((value) => Math.round(value * 1e5))
+            .join(":");
+        if (!unique.has(key))
+            unique.set(key, hole);
     }
-  };
-  for (const hole of sorted) {
-    const h0 = Math.max(a, hole.at - hole.width / 2);
-    const h1 = Math.min(b, hole.at + hole.width / 2);
-    solid(cursor, h0, y0, y1);
-    if (hole.y0 > y0) solid(h0, h1, y0, hole.y0, { top: true });
-    if (hole.y1 < y1) solid(h0, h1, hole.y1, y1, { bottom: true });
-    // the doorway's casing: two jambs and a head
-    member(h0 - CASING.width, h0, hole.y0, hole.y1 + CASING.width);
-    member(h1, h1 + CASING.width, hole.y0, hole.y1 + CASING.width);
-    member(h0, h1, hole.y1, hole.y1 + CASING.width);
-    cursor = h1;
-  }
-  solid(cursor, b, y0, y1);
+    return [...unique.values()].sort((a, b) => a.at - b.at || a.y0 - b.y0 || a.y1 - b.y1);
 }
-
-function mergeIntervals(intervals: WallInterval[]): [number, number][] {
-  if (intervals.length === 0) return [];
-  const sorted = [...intervals].map((i) => [i.a, i.b] as [number, number]).sort((a, b) => a[0] - b[0]);
-  const out: [number, number][] = [sorted[0]!.slice() as [number, number]];
-  for (const [a, b] of sorted.slice(1)) {
-    const last = out.at(-1)!;
-    if (a <= last[1] + 1e-6) last[1] = Math.max(last[1], b);
-    else out.push([a, b]);
-  }
-  return out;
+export function roomSegments(room: PlanRoom, uvOutline: readonly Point[], facadeDepth: number): RoomSegment[] {
+    const out: RoomSegment[] = [];
+    for (const { a, b, edge } of roomEdges(room, uvOutline)) {
+        const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+        if (onFacadeBand(a, b, mid, uvOutline, facadeDepth))
+            continue;
+        if (Math.abs(a[1] - b[1]) < 1e-6) {
+            out.push({ axis: "H", c: a[1], a: Math.min(a[0], b[0]), b: Math.max(a[0], b[0]), edge });
+        }
+        else if (Math.abs(a[0] - b[0]) < 1e-6) {
+            out.push({ axis: "V", c: a[0], a: Math.min(a[1], b[1]), b: Math.max(a[1], b[1]), edge });
+        }
+        // other angles only occur on the facade, which the boundary test skipped
+    }
+    return out;
 }
-
-/** The facade lining owns every room edge parallel to its inner face. Room rectangles are
- *  inset by the complete shell depth, so testing only the outer outline would duplicate a
- *  solid interior wall behind the lining and close its openings. */
-function onFacadeBand(
-  a: Point, b: Point, mid: Point, outline: readonly Point[], facadeDepth: number,
-): boolean {
-  const dx = b[0] - a[0];
-  const dz = b[1] - a[1];
-  const length = Math.hypot(dx, dz);
-  if (length < 1e-6) return false;
-  for (let i = 0; i < outline.length; i++) {
-    const edgeA = outline[i]!;
-    const edgeB = outline[(i + 1) % outline.length]!;
-    const ex = edgeB[0] - edgeA[0];
-    const ez = edgeB[1] - edgeA[1];
-    const edgeLength = Math.hypot(ex, ez);
-    if (edgeLength < 1e-6) continue;
-    const parallel = Math.abs((dx * ex + dz * ez) / (length * edgeLength));
-    // Layout cells can put the room edge up to half a finish tile behind the exact inset.
-    // That one-sided snapped edge is still the facade lining's boundary, not a partition.
-    if (parallel > 0.999 && distanceToSegment(mid, edgeA, edgeB) <= facadeDepth + TILE / 2) return true;
-  }
-  return false;
+function onFacadeBand(a: Point, b: Point, mid: Point, outline: readonly Point[], facadeDepth: number): boolean {
+    const dx = b[0] - a[0];
+    const dz = b[1] - a[1];
+    const length = Math.hypot(dx, dz);
+    if (length < 1e-6)
+        return false;
+    for (let i = 0; i < outline.length; i++) {
+        const edgeA = outline[i]!;
+        const edgeB = outline[(i + 1) % outline.length]!;
+        const ex = edgeB[0] - edgeA[0];
+        const ez = edgeB[1] - edgeA[1];
+        const edgeLength = Math.hypot(ex, ez);
+        if (edgeLength < 1e-6)
+            continue;
+        const parallel = Math.abs((dx * ex + dz * ez) / (length * edgeLength));
+        // Layout cells can put the room edge up to half a finish tile behind the exact inset.
+        // That one-sided snapped edge is still the facade lining's boundary, not a partition.
+        if (parallel > 0.999 && distanceToSegment(mid, edgeA, edgeB) <= facadeDepth + TILE / 2)
+            return true;
+    }
+    return false;
 }

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://urbe.dev/interior/floor-placement.schema.json",
+  "title": "Reusable floor placement table",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "id": {
+      "enum": [
+        "ground",
+        "middle",
+        "crown"
+      ]
+    },
+    "sourceFloor": {
+      "type": "integer"
+    },
+    "floor": {
+      "$ref": "floor.schema.json"
+    },
+    "openings": {
+      "type": "array",
+      "items": {
+        "$ref": "blueprint.schema.json#/properties/floors/items/properties/openings/items"
+      }
+    },
+    "placements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "module": {
+            "type": "string",
+            "minLength": 1
+          },
+          "prop": {
+            "type": "string",
+            "minLength": 1
+          },
+          "position": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "rotationY": {
+            "type": "number"
+          },
+          "scale": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "room": {
+            "type": "string",
+            "minLength": 1
+          },
+          "opening": {
+            "type": "string",
+            "minLength": 1
+          },
+          "connector": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "position",
+          "rotationY",
+          "scale",
+          "room"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "module"
+            ],
+            "not": {
+              "required": [
+                "prop"
+              ]
+            }
+          },
+          {
+            "required": [
+              "prop"
+            ],
+            "not": {
+              "required": [
+                "module"
+              ]
+            }
+          }
+        ]
+      },
+      "minItems": 1
+    },
+    "npc": {
+      "$ref": "npc.schema.json"
+    }
+  },
+  "required": [
+    "version",
+    "id",
+    "sourceFloor",
+    "floor",
+    "openings",
+    "placements",
+    "npc"
+  ]
+}

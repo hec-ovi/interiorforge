@@ -5,11 +5,12 @@ import type { UvRect } from "./uv.js";
 import { uvRectCorners } from "./uv.js";
 
 interface Segment { a: Point; b: Point }
+interface Split { t: number; point: Point }
 const EPS = 1e-7;
 const key = (point: Point): string => `${Math.round(point[0] / EPS)},${Math.round(point[1] / EPS)}`;
 const cross = (a: Point, b: Point): number => a[0] * b[1] - a[1] * b[0];
 const vector = (a: Point, b: Point): Point => [b[0] - a[0], b[1] - a[1]];
-const at = (segment: Segment, t: number): Point => [
+const at = (segment: Segment, t: number): Point => t === 0 ? segment.a : t === 1 ? segment.b : [
   segment.a[0] + (segment.b[0] - segment.a[0]) * t,
   segment.a[1] + (segment.b[1] - segment.a[1]) * t,
 ];
@@ -31,18 +32,18 @@ export class RoomRegion {
       const direction = vector(source.a, source.b);
       const length = Math.hypot(...direction);
       if (length < EPS) continue;
-      const parameters = [0, 1, ...sources.flatMap(other => intersections(source, other))]
-        .filter(t => t >= -EPS && t <= 1 + EPS).map(t => Math.max(0, Math.min(1, t)))
-        .sort((a, b) => a - b);
-      for (let i = 1; i < parameters.length; i++) {
-        const lo = parameters[i - 1]!, hi = parameters[i]!;
-        if ((hi - lo) * length < EPS) continue;
-        const middle = at(source, (lo + hi) / 2);
+      const splits: Split[] = [{ t: 0, point: source.a }, { t: 1, point: source.b },
+        ...sources.flatMap(other => intersections(source, other))];
+      splits.sort((a, b) => a.t - b.t);
+      for (let i = 1; i < splits.length; i++) {
+        const lo = splits[i - 1]!, hi = splits[i]!;
+        if ((hi.t - lo.t) * length < EPS) continue;
+        const middle = at(source, (lo.t + hi.t) / 2);
         const normal: Point = [-direction[1] / length * EPS, direction[0] / length * EPS];
         const left = owns([middle[0] + normal[0], middle[1] + normal[1]]);
         const right = owns([middle[0] - normal[0], middle[1] - normal[1]]);
         if (left === right) continue;
-        const a = rounded(at(source, left ? lo : hi)), b = rounded(at(source, left ? hi : lo));
+        const a = (left ? lo : hi).point, b = (left ? hi : lo).point;
         if (key(a) === key(b)) continue;
         boundary.set(`${key(a)}>${key(b)}`, { a, b });
       }
@@ -51,22 +52,43 @@ export class RoomRegion {
   }
 }
 
-function rounded(point: Point): Point {
-  return point.map(value => Math.round(value / EPS) * EPS) as Point;
-}
-
 /** All parameters where two segments intersect, including collinear overlap endpoints. */
-function intersections(first: Segment, second: Segment): number[] {
+function intersections(first: Segment, second: Segment): Split[] {
   const r = vector(first.a, first.b), s = vector(second.a, second.b), delta = vector(first.a, second.a);
   const denominator = cross(r, s);
   if (Math.abs(denominator) > 1e-10) {
     const t = cross(delta, s) / denominator, u = cross(delta, r) / denominator;
-    return t >= -EPS && t <= 1 + EPS && u >= -EPS && u <= 1 + EPS ? [t] : [];
+    if (t < -EPS || t > 1 + EPS || u < -EPS || u > 1 + EPS) return [];
+    const clipped = Math.max(0, Math.min(1, t));
+    return [{ t: clipped, point: intersectionPoint(first, second, clipped, Math.max(0, Math.min(1, u))) }];
   }
   if (Math.abs(cross(delta, r)) > EPS * Math.hypot(...r)) return [];
   const length2 = r[0] ** 2 + r[1] ** 2;
   if (length2 < EPS ** 2) return [];
-  return [second.a, second.b].map(point => ((point[0] - first.a[0]) * r[0] + (point[1] - first.a[1]) * r[1]) / length2);
+  return [second.a, second.b].flatMap(point => {
+    const t = ((point[0] - first.a[0]) * r[0] + (point[1] - first.a[1]) * r[1]) / length2;
+    if (t < -EPS || t > 1 + EPS) return [];
+    return [{ t: Math.max(0, Math.min(1, t)), point }];
+  });
+}
+
+/** An axis-aligned cut keeps its source coordinate; the other coordinate follows the facade. */
+function intersectionPoint(first: Segment, second: Segment, t: number, u: number): Point {
+  if (t === 0 || t === 1) return at(first, t);
+  if (u === 0 || u === 1) return at(second, u);
+  const vertical = first.a[0] === first.b[0] ? first : second.a[0] === second.b[0] ? second : undefined;
+  if (vertical) {
+    const other = vertical === first ? second : first;
+    const x = vertical.a[0];
+    return [x, other.a[1] + (x - other.a[0]) / (other.b[0] - other.a[0]) * (other.b[1] - other.a[1])];
+  }
+  const horizontal = first.a[1] === first.b[1] ? first : second.a[1] === second.b[1] ? second : undefined;
+  if (horizontal) {
+    const other = horizontal === first ? second : first;
+    const y = horizontal.a[1];
+    return [other.a[0] + (y - other.a[1]) / (other.b[1] - other.a[1]) * (other.b[0] - other.a[0]), y];
+  }
+  return at(first, t);
 }
 
 function assemble(segments: Segment[]): RoomShape[] {

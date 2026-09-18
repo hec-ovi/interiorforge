@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://urbe.dev/interior/modules.schema.json",
+  "title": "Interior shared modules",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "grid": {
+      "const": 0.5
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "file": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+\\.glb$"
+          },
+          "size": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "origin": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "materialSlots": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9_-]+/[a-z0-9_-]+/[a-z0-9_-]+$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "triangles": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "file",
+          "size",
+          "origin",
+          "materialSlots",
+          "triangles",
+          "bytes"
+        ]
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "version",
+    "grid",
+    "modules"
+  ]
+}

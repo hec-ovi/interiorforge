@@ -1,101 +1,26 @@
-/** CLI: generates a building interior into an output directory.
- *
- *  npm run generate -- [--out out] [--seed 1] [--floors 12] [--basements 0]
- *                      [--type offices] [--tier mid] [--theme cyberpunk] [--request path.json]
- *                      [--embed] [--keys-only] [--materials DIR] [--materials-base URI]
- *                      [--floor-glbs | --floor-glbs-only]
- *
- *  Without --request, a fixture shell is fabricated (standalone mode); with it, the JSON
- *  file must be a full InteriorRequest whose shellGlb path resolves on disk.
- *
- *  Textures come from the materials database by default, as external URIs relative to the
- *  output directory. --embed packs the maps into one self-contained GLB; --keys-only leaves
- *  the material keys for a consumer that resolves them itself. --floor-glbs also writes
- *  each floor band's interior as floors/NNN.glb next to its JSON.
- *  --floor-glbs-only omits building.glb and uses the lower-memory floor pipeline.
- */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
-import { makeFixture } from "./blueprint/fixture.js";
-import type { BuildingType, InteriorRequest, Tier } from "./core/types.js";
-import { writeGlb } from "./glb/io.js";
-import { generateFloorInteriors, generateInterior, type TextureOptions } from "./index.js";
-import { materialsDir } from "./materials/load.js";
-
-function arg(name: string, fallback: string): string {
-  const i = process.argv.indexOf(`--${name}`);
-  return i !== -1 && process.argv[i + 1] ? process.argv[i + 1]! : fallback;
-}
-
-function flag(name: string): boolean {
-  return process.argv.includes(`--${name}`);
-}
-
-/** External maps are addressed from the output folder, so the GLB stays portable next to it. */
-function textureOptions(out: string, theme: string): TextureOptions {
-  const dir = arg("materials", "") || undefined;
-  if (flag("keys-only")) return { mode: "keys" };
-  const themeDir = join(materialsDir(dir), "themes", theme);
-  const baseUrl = arg("materials-base", "") || relative(resolve(out), themeDir) || ".";
-  return flag("embed") ? { mode: "embed", dir } : { mode: "external", dir, baseUrl };
-}
-
-async function main(): Promise<void> {
-  const out = arg("out", "out");
-  await mkdir(join(out, "floors"), { recursive: true });
-
-  let request: InteriorRequest;
-  let shellDoc;
-  const requestPath = arg("request", "");
-  if (requestPath) {
-    request = JSON.parse(await readFile(requestPath, "utf8")) as InteriorRequest;
-  } else {
-    const fixture = makeFixture({
-      seed: Number(arg("seed", "1")),
-      floors: Number(arg("floors", "12")),
-      basements: Number(arg("basements", "0")),
-      type: arg("type", "offices") as BuildingType,
-      tier: arg("tier", "mid") as Tier,
-      theme: arg("theme", "cyberpunk"),
+import { readFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { parseArgs } from 'node:util';
+import { generate, makePlacementFixture, writePlacements } from './index.js';
+import type { BuildingType, Tier } from './core/types.js';
+try {
+    const { values } = parseArgs({
+        options: {
+            out: { type: 'string', default: 'out' }, request: { type: 'string' }, seed: { type: 'string' },
+            floors: { type: 'string', default: '6' }, width: { type: 'string', default: '40' }, depth: { type: 'string', default: '40' },
+            type: { type: 'string', default: 'offices' }, tier: { type: 'string', default: 'mid' }, theme: { type: 'string', default: 'cyberpunk' }
+        }
     });
-    request = fixture.request;
-    shellDoc = fixture.shellDoc;
-    const shellPath = join(out, "shell.glb");
-    await writeFile(shellPath, await writeGlb(fixture.shellDoc));
-    await writeFile(join(out, "request.json"), JSON.stringify({ ...request, shellGlb: shellPath }, null, 1));
-    request = { ...request, shellGlb: shellPath };
-  }
-
-  const generationOptions = {
-    ...(shellDoc ? { shellDoc } : {}),
-    textures: textureOptions(out, request.materialTheme),
-  };
-  const floorOnly = flag("floor-glbs-only");
-  const result = floorOnly
-    ? await generateFloorInteriors(request, generationOptions)
-    : await generateInterior(request, { ...generationOptions, floorGlbs: flag("floor-glbs") });
-  if ("glb" in result) await writeFile(join(out, "building.glb"), result.glb);
-  for (const floor of result.floors) {
-    const tag = floor.floor < 0 ? `m${-floor.floor}` : String(floor.floor).padStart(3, "0");
-    await writeFile(join(out, "floors", `${tag}.json`), JSON.stringify(floor, null, 1));
-    const glb = result.floorGlbs?.get(floor.floor);
-    if (glb) await writeFile(join(out, "floors", `${tag}.glb`), glb);
-  }
-  await writeFile(join(out, "npc.json"), JSON.stringify(result.npc, null, 1));
-  const textures = result.textures.mode === "keys"
-    ? "material keys only"
-    : `${result.textures.materials} materials ${result.textures.mode}${result.textures.baseUrl ? ` at ${result.textures.baseUrl}` : ""}`;
-  const primary = "glb" in result
-    ? `${out}/building.glb (${(result.glb.length / 1e6).toFixed(2)} MB)`
-    : `${result.floorGlbs.size} floor GLBs`;
-  console.log(
-    `wrote ${primary} (${textures}), ` +
-    `${result.floors.length} floor JSONs, npc.json ` +
-    `(${result.npc.anchors.length} anchors, ${result.npc.roles.length} roles)`,
-  );
+    const seed = values.seed ?? randomBytes(8).toString('hex'), width = Number(values.width), depth = Number(values.depth);
+    const request = values.request ? JSON.parse(await readFile(values.request, 'utf8')) : makePlacementFixture({
+        seed, floors: Number(values.floors),
+        outline: [[0, 0], [width, 0], [width, depth], [0, depth]], type: values.type as BuildingType, tier: values.tier as Tier, theme: values.theme
+    });
+    const start = performance.now(), result = await generate(request);
+    await writePlacements(result, values.out!);
+    console.log(`seed ${request.seed}; wrote three layouts for ${result.building.floors.length} floors in ${((performance.now() - start) / 1000).toFixed(3)} s`);
 }
-
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+}

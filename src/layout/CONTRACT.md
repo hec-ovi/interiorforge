@@ -1,76 +1,41 @@
-# CONTRACT: layout
+# Layout
 
-Purpose: turns a validated request into per-floor interior plans: vertical core, corridors, rooms, doors, furniture and a wall-aware nav grid, all deterministic.
+Fits a vertical core, rooms, doors, furnishings, lights and navigation into a blueprint.
 
-## In
+`planBuilding(request, assignments, selected?)` accepts validated
+[requests](../../schemas/request.schema.json) and an optional set of source floor
+indices. It returns `BuildingPlan`: [floor records](../../schemas/floor.schema.json),
+one core, UV room data, navigation grids and
+[circulation](schema/circulation.schema.json). The core considers every floor;
+selected floors alone receive room and content plans. Placements selects three.
 
-- `planBuilding(request: InteriorRequest, assignments: FloorAssignment[]) -> BuildingPlan` with `request` already validated and assignments resolved (blueprint box). Rooms mostly outside an irregular outline are merged into neighbors or dropped; shafts and corridors only occupy full-coverage spans.
+`coreFeasibility(blueprint)` uses the same core recipe and returns
+[fit results](schema/core-feasibility.schema.json). Success includes the exact stair
+shaft center, axis, width and depth. Standard, compact and walkup modes share
+[constants](../../schemas/core-feasibility.json). A published roof housing fixes the
+primary stair position. Explicit allowed axes constrain the frame search.
 
-## Out
+Room footprints preserve clockwise holes and connected public space around core
+solids. Facade seats constrain partition endpoints. Ground entrances consume exact
+opening approaches and moving door depth. Internal doors fit shared wall intervals.
+Rooms use the 0.5 m construction grid with measured facade closures. Source rotation
+is retained; exported navigation stays aligned to world XZ.
 
-- `BuildingPlan`
-  - `floors: FloorInterior[]` (the floor.schema.json shape) sorted by index; a double-height span's upper floor has `rooms: []` unless it owns a fitted mezzanine. Each floor publishes every exterior opening's forbidden volume in `openingReservations`, including partition width allowance, facade depth and moving-door depth. Room polygons tile the outline; the shell wall model (`shell.ts`: wall depth from the blueprint's `facade.wallDepth`, else by facade style; lining; bands) says where the room really starts, and the core, furniture, light fixtures and the nav grid keep to that inner plate.
-  - `core: CorePlan`: building-wide vertical core in frame (uv) space, identical on every floor. The frame aligns u to the longest ground edge and flips so a street door or `openFront` faces the hall side; rotated parcels work natively, `coreAngleDeg` carries the rotation. Every floor's opening reservations participate in core placement; the selector scans another band or secondary-stair position when one intersects.
-  - `navGrids: Map<number, WalkGrid>`: 0.25 m wall-aware walkable grid per floor, world-axis-aligned regardless of frame rotation; diagonal walls are blocked by their true distance.
-  - `circulation: Map<number, FloorCirculation>`: occupied floors' pre-furnishing route reservations, following [schema/circulation.schema.json](schema/circulation.schema.json). World-XZ routes share a spine start and name every room hub, both sides of room doors, exterior approaches and stair/elevator approaches. Every approach publishes its intended point and at most 0.5 m displacement. Room-door approaches remain inside their room; core approaches stay near the intended entry or wait point. Clipped room hubs may move within their room. `bodyWidth` is twice the 0.3 m agent radius; `minimumDoorWidth` reports the smallest published doorway separately.
-  - `uvFloors: Map<number, UvFloorData>`: frame-space rooms, furniture and sealed bands for the geometry and NPC passes.
-  - `PlanRoom.polygon`, when present, is the authoritative CCW simple UV outer footprint inside the wall-depth slab plate; `rect` is its bounds. Optional `holes` are clockwise simple interior exclusions, strictly inside the outer ring, disjoint and non-touching. Exclusions are actual core or service-room footprints, not larger planning reservations. Absence retains the outline-clipped rectangular behavior. Exported rooms carry the same outer polygon and holes in world coordinates. `PlanDoor.position`, when present, gives the exact UV mounting point on an inset polygon edge; `edge` identifies its outward direction and `at` its along-wall coordinate. Consumers use `doorUvPoint` for every door transform.
-  - `room-shape.ts`: `roomPolygon(room, outline?)` resolves the outer ring; `roomRings` returns outer then holes. `roomContains(room, point)`, `roomClearance`, `roomArea` and `roomAnchor` share the core footprint semantics, including hole exclusions and valid center targets. `roomEdges(room, outline?)` returns every directed ring boundary with outward `u0/u1/v0/v1` labels, or `edge: null` for diagonal facade clips. `roomCoversRect(room, rect, margin?)` checks complete footprint coverage; `sharedRoomEdges(owner, other, outline?)` returns shared axis-aligned intervals, longest first. Geometry uses these boundaries for surfaces and partitions.
-  - `new RoomRegion(outline, holes?).subtract(rectangles) -> RoomShape[]` calculates every connected remaining region after axis-aligned occupied rectangles, including joined core solids and facade-reaching units. It emits CCW outer rings and clockwise holes with 1e-7 m coordinate precision. Empty coverage returns an empty list; unclosed ownership boundaries throw `E_FLOOR_TOO_SMALL`.
-  - `assignments: FloorAssignment[]`: the supplied assignments sorted by floor.
-- `coreFeasibility(blueprint) -> CoreFeasibility`: [output schema](schema/core-feasibility.schema.json), computed by the same frame, band scan and actual component recipe as `planCore`. `coreFrame.anglesDeg` restricts allowed axes; omission permits the standard sweep. A published roof axis must be allowed and its exact stair center is fixed. Success includes `placement.stairA { center, axis, width, depth }`: actual shaft footprint in building-local XZ, axis is frame +u, width along u, depth along +v. Exterior uses that center and axis for the fitted roof enclosure.
-- `CoreFacadeClearance(blueprint, frame, liningDepth).conflict(namedActualRects)` resolves the published `facade.coreAdjacency` once per frame and returns the largest directional depth deficit, or undefined. Complete opening spans are tested in their own along/inward coordinates with 1e-6 m contact tolerance; clear depth starts after the complete lining. Only actual stair, elevator and riser rectangles participate. Service stubs remain placement reservations at their actual size; room holes and circulation routes do not expand. This proves clearance to the core, not a furnished route or building-code compliance.
-- Failed feasibility names `blocker` (`cross_depth`, `band`, `compact_depth`, `walkup_floors`, `opening_reservations`). An adjacency failure retains `opening_reservations` and reports the largest depth deficit of the nearest tested candidate in the reported frame: floor, opening, coreSolid, role, requiredDepth and availableDepth. `planCore` throws `E_FLOOR_TOO_SMALL` quoting the same detail; no depth or required room program is reduced.
-- `planRoofAccess(request, core) -> RoofAccessPlan | null`: resolves the enclosure against stair A, checks shared axis, cutout fit and 2.1 m door headroom, then publishes the roof threshold, landing, door and exterior entry in the same coordinates.
-- Pipeline: core, corridor, strip programs, architecture validation and fitted door repair, circulation reservations, furniture, then checks of the reserved endpoints. Furniture does not cause additional doors.
-- Floors with published facade grids allocate units between permitted structural seats. A seeded dynamic program maximizes fitted frontage, then prefers 8..12 m widths; unit candidates have at least 6 m width, 6.4 m depth and 36 m² clipped area. Residential and hotel units have a 3 x 3 m inboard bathroom; mall units have inboard stock rooms. Main rooms own their complete glazing field. Venue services fit inland before the shared room is calculated as the exact plate remainder around actual core solids, corridor and units. End bays and core backing belong to that shared footprint. A required unit or service that cannot fit throws `E_FLOOR_TOO_SMALL`.
-- `partitionConflicts({ rooms }, blueprintFloor, facade?)` reports room wall endpoints lacking a structural seat through the measured facade lining plus half the partition depth. Facade-owned outline and shell-depth edges are excluded; hole boundaries participate. Gridded floor generation rejects conflicts before furnishing.
-- `openingVolume(opening, liningDepth)` resolves the single face-local placement reservation used by core/furniture keepouts and exported `openingReservations`. A pocket door reserves its cassette width plus partition safety and its complete height, through at least the full lining and cassette back skin. Other openings retain their opening span and motion depth. Door connections and navigation use the clear passage, never the cassette width; no moving blocker or room/core hole is added.
+Architectural access uses continuous body sweeps and room ownership. Private unit
+routes use their unit and public rooms. Every room component and core approach must
+remain reachable. Repair doors must reduce unreachable cells without losing reached
+cells. Complete route sweeps remain reserved during furnishing. NPC navigation uses
+its separate 0.25 m grid. Agent radius is 0.3 m.
 
-## Errors
+Stairs retain 1.2 m clear lanes, 0.16 to 0.18 m risers, 0.28 m treads, 1.2 m landings
+and 2.1 m headroom. `planRoofAccess` returns a fitted landing and roof connection or
+null. Shared [stair parameters](constants.ts) also govern module placement.
 
-- `E_BLUEPRINT_INVALID`: core adjacency overrides are duplicate or reference absent openings; allowed frame axes are empty, nonfinite, equivalent modulo 180, or disagree with the published roof axis.
-- `E_FLOOR_TOO_SMALL`: plate cannot fit core plus corridor plus minimum rooms.
-- `E_ASSIGNMENT_INVALID`: an assignment references a floor absent from the blueprint.
-- `E_UNREACHABLE_SPACE`: a floor failed reachability validation after repair.
+[Luxury](luxury/CONTRACT.md) fits coordinated furniture groups.
+[Lofts](lofts/CONTRACT.md) supports planning tools with multiple storeys; public
+placement requests cover single storeys. Geometry is owned by Modules and Assets.
 
-## Invariants
-
-- The same request and assignments produce the same plan. Each floor has an independent RNG stream, so consuming values on floor M does not shift floor N's random choices.
-- Allowed frame axes retain their exact degree value through entrance orientation. Core-adjacent wall coordinates retain full precision during grid and facade fitting; rounded grouping keys do not replace the authoritative coordinate used to lock a wall to its shaft.
-- Explicit polygon rooms have axis-aligned interior boundaries; diagonal segments only follow the facade. Their shared boundaries remain fixed during rectangular grid alignment. Navigation, circulation, furniture and lights respect notches and interior exclusions; wall-mounted items and coves follow every real boundary. Unassigned exclusions have no walkable cells; holes occupied by another room or an actual stair retain that owner's navigation.
-- Ceiling spotlights use a complete centered grid of at most ten fixtures per room. When the requested grid exceeds that budget, row and column counts minimize the widest axis spacing, then deviation from the room style's spacing. Fixtures outside the usable floor inset are omitted; stair arrival lights retain their independent placement.
-- Core rects are identical across floors, behind the facade lining, exterior opening volumes and explicit facade-adjacency depth. Feasibility, placement and final checks consume the same actual component recipe. Stairs are continuous, with 1.2 m clear flights, 0.16 to 0.18 m risers, 0.28 m treads and 1.2 m landings. Every occupied floor is served by every elevator.
-- When a fitted roof bulkhead exists, stair A climbs from the last served floor to `roof.elevation`. Its roof-level platform meets the stair's finished inside edge across the full arrival landing and reaches the enclosure door on `doorNormal`; mismatched axes, cutouts or headroom are rejected.
-- Every room is reachable from the floor's spine (corridor, elevator lobby or mall concourse) through its connections. Corridor and door widths follow [the research constants](../../docs/RESEARCH.md).
-- Bathrooms of at least 9 m² require a complete fixed-size shower, toilet and sink recipe, with clear fixture fronts inside the room and all door and route reservations preserved; an unfitting recipe throws `E_FLOOR_TOO_SMALL` naming the room. Smaller bathrooms retain best-fit furnishings.
-- Circulation uses a separate 0.0625 m architecture grid with body-radius wall erosion and narrowed door throats. This is sampled architecture clearance, not a continuous collision or accessibility certificate. Grounded furniture, including chairs, cannot intersect conservative rectangles covering the complete saved route sweeps. The same endpoint cells must remain connected after furnishing. Elevated objects, furniture-use and quest anchors, roof destinations and NPC seat approach semantics are outside this guarantee; the existing NPC-use grid remains separate.
-- A ground-floor `openFront` connects its facade room to outside at `portal.clearWidth`, opens the nav grid across the lining and reserves its clear approach without a leaf swing. A moving exterior door consumes `door.motion.clearDepth`; the exported room connection repeats it and furniture and NPC anchors stay out of it.
-- Facade endpoints use `facade.grids[].partitionAnchors` as their sole full-thickness permission. Gridded layouts keep complete glazing fields in one room and place service partitions inboard. Gridless strip layouts fit movable boundaries before reserving opening volumes. Every furniture footprint is tested against the same reservations.
-- Rooms, corridors, sealed shafts and core occupy the usable inner plate without an interior gap band. A doorway-width full-depth plate after inline stair B is a corridor landing to the facade slab edge and joins a reachable adjacent room around the stair; a narrower remainder is sealed.
-
-## Depends on
-
-- [core](../core/CONTRACT.md)
-
-Furnishing reserves 3 x 0.5 x 2 m wall ornaments in suitable rooms from 32 m² and 2.5 x 0.5 x 2 m freestanding dividers from 65 m². Wall ornaments require a solid interior edge. Both pass the same opening, door, footprint and circulation fit as other furniture before remaining furniture is placed.
-
-Rich and high-rich rooms first fit [luxury furnishing groups](luxury/CONTRACT.md): facing seating around a shared table, a kitchen and breakfast island with its service aisle, or a bed with side tables and a bench. Each complete group's reservation includes its approaches and passes the same room, opening, door and circulation checks. Accepted pieces publish their full authored sizes. A room that cannot hold a group retains its individual room program.
-
-Mid-tier bedrooms and studios of at least 14 square metres try a fitted sleeping pod against a solid wall, with an ordinary bed when it cannot fit.
-
-Lit ornaments and sleeping pods publish a light fixture with their furniture ID, fitted lens height, orientation and lumen budget. Poor service racks have no light.
-
-Office chairs reserve 0.65 x 0.65 m for their five-star base and 1.15 m height.
-
-Poor occupied rooms and back rooms place one or two 0.8 m refuse groups along spare margins after furnishing, using the same ground clearance tests.
-
-Double-height rooms can carry one fitted furnished mezzanine with a private stair. The upper floor names its owner in `mezzanineOf`, and the lower floor publishes `loft` from [lofts/CONTRACT.md](lofts/CONTRACT.md). Platform, supports and stairs fit both storey outlines and preserve clear routes.
-
-Room fixtures use tier-aware flux and spacing: damaged interiors have sparse warm practical lights; capsule rooms have dim warm background fixtures around cyan built-ins; luxury rooms retain warm room lights and neutral work lights. `planLights` accepts optional `tier` after `ids`. Pod sources match four vertical jamb lenses and one ceiling lens.
-
-Stair footprints reserve 0.1 m at each flight edge for rails around a 1.2 m clear lane. The construction grid produces 3 m stair columns; feasibility publishes the same footprint. Room ownership subtracts actual core solids after partition fitting, retaining connected room IDs and doors. Disconnected core cuts reject the floor.
-
-World furniture `rotationDeg` is a glTF +Y rotation, local furniture rotation minus the source-frame angle. Procedural meshes, imported models, lights and NPC anchors use the same pose.
-
-Mechanical facade floors fit corridor end trims around the actual core span. Stair and elevator approaches remain public, while the surrounding mechanical room keeps its service use.
+Errors: `E_BLUEPRINT_INVALID`, `E_ASSIGNMENT_INVALID`, `E_FLOOR_TOO_SMALL`,
+`E_UNREACHABLE_SPACE`. Equal inputs produce equal plans. Depends on
+[Core](../core/CONTRACT.md); public transports are linked above and types are in
+[index.ts](index.ts), [plan-types.ts](plan-types.ts) and [uv.ts](uv.ts).

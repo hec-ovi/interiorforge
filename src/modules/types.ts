@@ -1,0 +1,19 @@
+export type Vector3 = [
+    number,
+    number,
+    number
+];
+export interface ModuleEntry {
+    id: string;
+    file: string;
+    size: Vector3;
+    origin: Vector3;
+    materialSlots: string[];
+    triangles: number;
+    bytes: number;
+}
+export interface ModuleCatalog {
+    version: 1;
+    grid: 0.5;
+    modules: ModuleEntry[];
+}

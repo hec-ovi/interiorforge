@@ -1,38 +1,38 @@
-# Interior 0.30.1
+# Interior 0.31.0
 
-A TypeScript API that fills one building shell with rooms, furniture, lights and NPC
-navigation. The seed controls variation within geometry and clearance rules.
+A TypeScript generator for furnished buildings made from shared room modules.
+One building stores ground, middle and crown layouts. Every middle floor references
+the same table, including rooms, furniture, lights and NPC navigation.
 
 ## Run
 
 ```sh
 npm ci
+npm run modules -- --out out/modules
+npm run generate -- --seed demo --floors 6 --out out/building
 npm test
 npm run typecheck
-npm run generate -- --seed 1 --floors 2 --keys-only --out out
 npm run preview
 ```
 
-Pass `--request request.json` to use a supplied shell/blueprint. `--floor-glbs` adds
-floor assets; `--floor-glbs-only` writes those without a combined building.
-`--embed` packs catalog maps into the GLB. Missing catalogs produce material keys.
+Use `--request request.json` for an assembled Exterior blueprint. The request
+includes seed, building identity and type, tier, blueprint and material theme.
+Without a request, the CLI produces a rectangular sample and prints its seed.
+An omitted seed is random and can be reused.
 
-[SKILL.md](SKILL.md) provides request defaults and a copyable library example.
-[CONTRACT.md](CONTRACT.md) defines calls, outputs, errors and slab ownership.
-[docs/INDEX.md](docs/INDEX.md) maps implementation responsibilities.
-[docs/ISSUES.md](docs/ISSUES.md) lists pending boundary and product decisions.
+The city shares `modules.json`, its GLBs and the existing furniture catalog.
+Each building has `building.json` and three layout JSON files. The Engine instances
+module and prop IDs using `position`, `rotationY`, `scale` and floor elevation.
+The preview uses those same placements.
 
-## Preview and materials
+[CONTRACT.md](CONTRACT.md) defines schemas, frames, clearance rules and errors.
+[SKILL.md](SKILL.md) provides a complete example.
+[docs/INDEX.md](docs/INDEX.md) maps the implementation.
+[docs/ISSUES.md](docs/ISSUES.md) records remaining consumer decisions.
 
-The standalone preview accepts a generated fixture or a shell GLB, blueprint JSON and
-optional Exterior request JSON. Select floors, inspect room plans and NPC placements,
-and test walking routes. `?sample=luxury` supplies a residence with JSON camera stations.
+## Checks
 
-Rich tiers use stone and walnut, poor uses worn panels and exposed services, and mid
-uses capsule panels. Studio-style panels keep fixed corners around broad fitted fields; cabinet fronts share their available middle span. Complete furniture groups reserve access space before placement.
-The [panel palettes](src/geometry/panels/palettes.json),
-[material bindings](src/geometry/materials.ts) and [asset catalog](src/assets/catalog.json)
-are the current inventory. Imported models retain their source materials and proportions.
-
-Core feasibility checks geometric fit; successful preflight does not certify the final
-room program or runtime character traversal.
+Ten contract tests cover the CLI and public calls, JSON schemas, indexed compressed
+modules, deterministic bytes, middle reuse, opening rectangles, navigation, stair
+and shell clearance, and both building budgets. Tests use at most two workers.
+`out/proof/budget.json` records measured bytes, seconds and placement counts.

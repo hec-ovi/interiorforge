@@ -1,30 +1,21 @@
-# CONTRACT: npc
+# NPC
 
-Purpose: derives everything the simulation layer needs from a building plan: anchors, supported roles, routine loops, the exported nav data, and a reference pathfinder.
+Produces anchors, staffing, routines, standing opportunities and navigable floor grids.
 
-## In / Out
+`buildNpcSupport(plan, request)` takes a [Layout plan](../layout/CONTRACT.md) and
+[request](../../schemas/request.schema.json), returning [NPC data](../../schemas/npc.schema.json).
+Anchors belong to reachable room space and actual published furniture. Core anchors
+identify stair and lift approaches. Routine steps reference generated role and anchor IDs.
+Standing opportunities preserve existing approaches when their body volumes are occupied.
 
-- `buildNpcSupport(plan: BuildingPlan, request: InteriorRequest) -> NpcSupport` (the `schemas/npc.schema.json` shape)
-  - anchors: entrances (doors and permanently open fronts), per-floor elevator waits and stair entries, and furniture-driven spots (work behind desks and counters, beds, toilets, seats, machines, patrol points, idle and cleaning spots). A blocked candidate searches up to ten 0.25 m grid rings and takes the nearest clear reached cell in the first usable ring within its owning room; no match drops the anchor. Room targets and the spine flood seed use core's shared footprint queries, excluding `Room.holes`. Core anchors name the room containing their entry. `anchorConflicts` checks the exported centimetre position against every connection keep-clear zone and produces `E_UNREACHABLE_SPACE` on a conflict.
-  - roles: staffing by building type and floor kind (receptionist, security, vendor or barista, cook, waiter, clerk per sales floor, office workers, executives, residents, guests, trainer, cleaner) with `[min, max]` counts.
-  - routines: one deterministic loop per role over its anchors, with dwell ranges and animations. The simulation walks between steps via nav.
-  - nav: per-floor walkable bitmask from the layout grids plus connectors. A multi-floor building publishes every stair and elevator as a connector serving each occupied floor. A fitted roof adds one synthetic nav floor above the highest blueprint floor, blocks the parapet, enclosure and roof artifacts, and extends stair A to its exterior door entry. `roofAccess` publishes the threshold, landing, door and entry. A single-floor building without roof access publishes no connectors. Empty double-height upper floors are excluded. Occupied mezzanines have their own grid and a private stair to their lower room; the global core skips them.
-- `findPath(npc: NpcSupport, from: {floor, position}, to: {floor, position}) -> PathLeg[] | null`
-  - Reference pathfinder over the exported JSON alone: A* on the floor bitmask with line-of-sight smoothing. Cross-floor routes use Dijkstra over reachable connector entries and can transfer between public core and private loft stairs; elevators are preferred beyond one floor of travel.
-  - `PathLeg`: `{ kind: "walk", floor, points: Point[] }` or `{ kind: "ride", connector, fromFloor, toFloor }`.
-  - Returns `null` when an endpoint is on a blocked cell, or no connector or complete walk route exists.
+Placement layouts keep only their source floor's records. The building manifest owns
+complete stair and lift connectors. `expandBuilding` in Placements creates distinct
+identities and elevations for all instances. Roof access retains its extra navigation level.
 
-## Errors
+`findPath(npc, from, to)` consumes expanded JSON and endpoints
+`{floor, position: [x,z]}`. It returns walk legs `{kind, floor, points}` and connector
+legs `{kind: "ride", connector, fromFloor, toFloor}`, or null for a route miss.
+Floor paths use grid A* and connectors permit transfers. Dynamic obstacles belong to Engine.
 
-- `E_UNREACHABLE_SPACE`: the spine footprint has no walkable cell, or an exported anchor remains inside a door keep-clear zone.
-- `findPath` returns `null` when no route exists and does not throw for route misses.
-
-## Depends on
-
-- [core](../core/CONTRACT.md)
-- [layout](../layout/CONTRACT.md) (`BuildingPlan`)
-- [NPC schema](../../schemas/npc.schema.json)
-
-Sleeping pods expose a bed anchor at their open long-side entrance.
-
-`placements` publishes stable vendor/staff and unassigned story slots with body radius, world position, facing and a reachable approach. Positions avoid doors, furniture, loft stair entries and reserved circulation sweeps. Each accepted body is tested together with prior slots; all original circulation endpoints and prior approaches stay connected on the occupied floor grid. Story slots include service, storage and mechanical rooms wherever a standing body and approach fit. Slots are optional spawn opportunities, not assigned story characters.
+Unreachable spine or conflicting anchors throw `E_UNREACHABLE_SPACE`.
+Depends on [Core](../core/CONTRACT.md) and [Layout](../layout/CONTRACT.md).

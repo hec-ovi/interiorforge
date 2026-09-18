@@ -87,7 +87,7 @@ export function sharedStretch(
 }
 
 /** Where a line crosses a polygon: the intervals of it that lie inside. */
-function lineRuns(poly: readonly Point[], alongU: boolean, c: number): [number, number][] {
+export function lineRuns(poly: readonly Point[], alongU: boolean, c: number): [number, number][] {
   const crossings: number[] = [];
   for (let i = 0; i < poly.length; i++) {
     const p = poly[i]!;
@@ -196,7 +196,10 @@ function stripSlots(
   if (strip.lu < ROOM.minDim || strip.lv < ROOM.minStripDepth) return { slots: [], sealed: [] };
   const corr = corridorRoom.rect;
   const widths = splitFrontages(strip.lu, range, rng);
-  const contactOf = (u0: number, u1: number) => Math.min(u1, corr.u + corr.lu) - Math.max(u0, corr.u);
+  const contactOf = (u0: number, u1: number) => corridorRoom.polygon
+    ? Math.max(0, ...sharedRoomEdges({ rect: uSlice(strip, u0, u1) }, corridorRoom)
+      .filter(edge => edge.edge.startsWith("v")).map(edge => edge.hi - edge.lo))
+    : Math.min(u1, corr.u + corr.lu) - Math.max(u0, corr.u);
   while (widths.length >= 2) {
     const lastStart = strip.u + strip.lu - widths.at(-1)!;
     if (contactOf(lastStart, strip.u + strip.lu) < 1.6) {
@@ -260,7 +263,7 @@ function fillUnit(
   // strips too shallow for an entry band: one plain room per unit, shared WC on the floor
   if (rect.lv < 4.6) {
     const only = mk(kind === "hotel_rooms" ? "bedroom" : "studio_main", rect);
-    doorBetween(only, corridorRoom.id, corridorRoom.rect, ids);
+    doorBetween(only, corridorRoom.id, corridorRoom, ids);
     return rooms;
   }
 
@@ -308,7 +311,7 @@ function fillUnit(
     }
     mk(kind === "hotel_rooms" ? "bedroom" : "studio_main", bandB);
   }
-  doorBetween(hall, corridorRoom.id, corridorRoom.rect, ids);
+  doorBetween(hall, corridorRoom.id, corridorRoom, ids);
   connectUnit(rooms, hall, ids);
   return rooms;
 }
@@ -382,10 +385,10 @@ export function fillOfficeStrip(
     openRect = uSlice(strip, strip.u + endW, u1Cut);
   }
   const open = mk("office_open", openRect);
-  doorBetween(open, corridorRoom.id, corridorRoom.rect, ids, 2, DOOR.double);
+  doorBetween(open, corridorRoom.id, corridorRoom, ids, 2, DOOR.double);
   for (const room of carved) {
     if (!doorBetween(room, open.id, open.rect, ids, 1, DOOR.single)) {
-      doorBetween(room, corridorRoom.id, corridorRoom.rect, ids, 1, DOOR.single);
+      doorBetween(room, corridorRoom.id, corridorRoom, ids, 1, DOOR.single);
     }
   }
   return rooms;
@@ -408,7 +411,7 @@ export function fillShopStrip(
     const salesRect = withStock ? ops.near(slot.rect, slot.rect.lv - ROOM.stockDepth) : slot.rect;
     const sales: PlanRoom = { id: ids.room(), kind: "sales_floor", rect: salesRect, unit, doors: [] };
     rooms.push(sales);
-    doorBetween(sales, corridorRoom.id, corridorRoom.rect, ids, 2, DOOR.double);
+    doorBetween(sales, corridorRoom.id, corridorRoom, ids, 2, DOOR.double);
     if (!withStock) return;
     const stock: PlanRoom = {
       id: ids.room(), kind: "storage", rect: ops.far(slot.rect, salesRect.lv), unit, doors: [],

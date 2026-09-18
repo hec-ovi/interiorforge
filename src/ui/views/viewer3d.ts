@@ -1,5 +1,6 @@
+import type { PlacementResult } from '../../placements/types.js';
+import { placementScene } from './placement-scene.js';
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { LightFixture } from "../../core/types.js";
 import { FixtureLighting } from "./fixture-lighting.js";
@@ -13,7 +14,7 @@ export interface FloorSlice {
 
 export interface Viewer3D {
   el: HTMLElement;
-  setGlb(bytes: Uint8Array): Promise<void>;
+  setPlacements(result: PlacementResult): Promise<void>;
   setFloorSlice(slice: FloorSlice | null): void;
   /** Displays the floor's published fixtures within the preview's shadow budget. */
   setLights(lights: readonly LightFixture[] | null): void;
@@ -108,14 +109,11 @@ export function createViewer3d(): Viewer3D {
 
   return {
     el: container,
-    async setGlb(bytes) {
+    async setPlacements(result) {
       busyOverlay.classList.add("active");
       try {
         if (building) scene.remove(building);
-        const loader = new GLTFLoader();
-        const copy = new Uint8Array(bytes); // detach from any shared buffer for the loader
-        const gltf = await loader.parseAsync(copy.buffer as ArrayBuffer, "");
-        building = gltf.scene;
+        building = await placementScene(result);
         scene.add(building);
         // real parcels live at city coordinates: fit the camera to the building
         const bounds = new THREE.Box3().setFromObject(building);

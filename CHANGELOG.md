@@ -1,3 +1,3 @@
 # Changelog
 
-0.30.1: furnished floor and building exports with NPC navigation, fitted plain panel fields, balanced cabinet fronts and public-entry contract tests.
+0.31.0: shared compressed room modules and three reusable placement layouts supply furnished buildings, opening identities and NPC navigation within measured export budgets.

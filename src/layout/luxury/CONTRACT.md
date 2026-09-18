@@ -1,9 +1,12 @@
 # Luxury furnishing
 
-Fits full-size furniture groups inside a room's available space.
+Fits complete furniture groups inside reserved room space.
 
-Input: [GroupFit](schema.ts), room bounds, seeded candidate order and a clearance predicate. Output: [FittedGroup](schema.ts) or null. Depends on Layout's room and furniture contracts.
+[GroupFit](schema.ts) takes room bounds, seeded order and a clearance predicate.
+The result is [FittedGroup](schema.ts) or null. [Recipes](recipes.json) define seating,
+kitchens and sleeping groups with their approach space.
 
-[Recipes](recipes.json) define facing seats around tables, kitchens with a working aisle and breakfast stools, and beds with side access. All pieces keep their authored size. Quarter turns and 0.5 m placement steps fit the group; the whole group and its free access space must pass the supplied clearance predicate. Failure places nothing. Results are deterministic.
-
-Layout applies these groups to rich and high-rich rooms, then reserves the accepted group against later furniture. Smaller rooms retain their room program when a group does not fit.
+Quarter turns and 0.5 m placement steps retain authored sizes. The complete reservation
+must pass clearance before any group member is accepted. Layout applies groups to rich
+and high rich rooms. Placements resolves fitted members against catalog props.
+Depends on [Layout](../CONTRACT.md).

@@ -5,6 +5,5 @@ export interface PreviewSample {
   title: string;
   fixture: FixtureOptions & AppParams;
   assignments: FloorAssignment[];
-  assets: boolean;
   views: { title: string; floor: number; furniture: FurnitureKind; width: number; offset: [number, number]; heading: number }[];
 }

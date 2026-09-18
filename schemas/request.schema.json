@@ -4,48 +4,121 @@
   "title": "InteriorRequest",
   "description": "Full input of the interior generator. Same request always yields identical output.",
   "type": "object",
-  "required": ["seed", "building", "shellGlb", "blueprint", "materialTheme"],
+  "required": [
+    "seed",
+    "building",
+    "blueprint",
+    "materialTheme"
+  ],
   "additionalProperties": false,
   "properties": {
     "seed": {
       "oneOf": [
-        { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        { "type": "string", "minLength": 1 }
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
       ],
       "description": "string seeds (e.g. the exterior seed) are hashed internally"
     },
     "building": {
       "type": "object",
-      "required": ["id", "type", "tier"],
+      "required": [
+        "id",
+        "type",
+        "tier"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string" },
+        "id": {
+          "type": "string"
+        },
         "type": {
-          "enum": ["residential", "hotel", "offices", "corpo", "hospital", "clinic", "police", "military", "factory", "commerce", "mall", "restaurant", "coffee_shop"],
+          "enum": [
+            "residential",
+            "hotel",
+            "offices",
+            "corpo",
+            "hospital",
+            "clinic",
+            "police",
+            "military",
+            "factory",
+            "commerce",
+            "mall",
+            "restaurant",
+            "coffee_shop"
+          ],
           "description": "atlas parcel vocabulary, verbatim"
         },
-        "tier": { "enum": ["poor", "mid", "rich", "high_rich"] }
+        "tier": {
+          "enum": [
+            "poor",
+            "mid",
+            "rich",
+            "high_rich"
+          ]
+        }
       }
     },
-    "shellGlb": { "type": "string", "description": "path to the exterior shell GLB" },
-    "blueprint": { "$ref": "blueprint-consumed" },
+    "shellGlb": {
+      "type": "string",
+      "description": "path to the exterior shell GLB"
+    },
+    "blueprint": {
+      "$ref": "blueprint-consumed"
+    },
     "assignments": {
       "type": "array",
       "minItems": 1,
       "description": "one entry per floor index (negative = basement); a double-height floor (loft, corpo hall) owns two blueprint floors via spans: 2. Optional: when omitted, assignments derive deterministically from the blueprint floor kind slugs and the building type.",
       "items": {
         "type": "object",
-        "required": ["floor", "kind"],
+        "required": [
+          "floor",
+          "kind"
+        ],
         "additionalProperties": false,
         "properties": {
-          "floor": { "type": "integer" },
-          "kind": {
-            "enum": ["lobby", "office", "corpo_office", "restaurant", "coffee_shop", "gym", "retail", "mall_floor", "residence_studio", "apartment", "hotel_rooms", "mechanical", "parking", "terrace"]
+          "floor": {
+            "type": "integer"
           },
-          "spans": { "enum": [1, 2], "default": 1 }
+          "kind": {
+            "enum": [
+              "lobby",
+              "office",
+              "corpo_office",
+              "restaurant",
+              "coffee_shop",
+              "gym",
+              "retail",
+              "mall_floor",
+              "residence_studio",
+              "apartment",
+              "hotel_rooms",
+              "mechanical",
+              "parking",
+              "terrace"
+            ]
+          },
+          "spans": {
+            "enum": [
+              1,
+              2
+            ],
+            "default": 1
+          }
         }
       }
     },
-    "materialTheme": { "type": "string", "description": "theme id resolved by the materials box; interior references materials as theme/kind/tier keys" }
+    "materialTheme": {
+      "type": "string",
+      "description": "theme id resolved by the materials box; interior references materials as theme/kind/tier keys"
+    }
   }
 }

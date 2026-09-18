@@ -1,50 +1,26 @@
-# CONTRACT: core
+# Core
 
-Purpose: deterministic primitives shared by every box in this repo: seeded RNG, 2D geometry math, and the TypeScript types mirroring the public schemas.
+Supplies seeded geometry, grids, shared types and errors.
 
-## In / Out
+[Types](types.ts) mirror the [request](../../schemas/request.schema.json),
+[blueprint](../../schemas/blueprint.schema.json), [floor](../../schemas/floor.schema.json)
+and [NPC](../../schemas/npc.schema.json) schemas. `InteriorResult` names the
+[placement result](../placements/types.ts). Coordinates are metres, positive Y up,
+with CCW outer XZ polygons and clockwise holes.
 
-- `rng.ts`
-  - `createRng(seed: number | string, ...streamKeys: (string | number)[]) -> Rng`: independent deterministic stream per key path; consuming values in one stream does not shift another.
-  - `Rng.next() -> float [0,1)`, `Rng.int(min, max) -> int inclusive`, `Rng.range(min, max) -> float`, `Rng.pick(array)`, `Rng.shuffle(array) -> new array`.
-  - Pure 32-bit integer ops (sfc32 core, splitmix32 seeding): identical output on every platform.
-- `geom.ts`: `Point` is `[x, z]`, `Rect` is `{x, z, w, d}` (min corner). Polygon area/centroid/bounds, CCW test, point-in-polygon, point-in-rect, rectangle overlap, polygon containment and edge length.
-  - `clipPolygonToRect(polygon, rect) -> Point[]` clips to a positive-size axis-aligned rectangle. Each new crossing vertex takes its constrained coordinate directly from the requested plane (`x`, `x+w`, `z`, or `z+d`); its other coordinate is interpolated. Retained source vertices are unchanged. `clipPolygonToConvex(polygon, ccwClipper)` interpolates both crossing coordinates. Both preserve input winding, prune repeated vertices and dangling spikes, and return `[]` when outside or degenerate. No clipping tolerance is added.
-- `rigid-frame.ts`: `new RigidFrame2D(angleDeg, origin: Point = [0,0])` defines a metre-preserving source-to-world rotation and translation, with finite parameters. `toLocal(worldPoint)` and `toWorld(sourcePoint)` share its cached trigonometric coefficients. The source origin is at `origin` in world coordinates; there is no scale or shear.
-- `segment-sweep.ts`: `segmentDistance(a, b, c, d) -> number` gives the analytic minimum separation between closed segments, including degenerate points, in one coordinate frame. `segmentSweepClear(a, b, obstacles: readonly SweepObstacle[]) -> boolean` requires that the complete center path avoids every closed `{ a: Point, b: Point, clearance: number }` obstacle segment and keeps its nonnegative requested distance. Intersections and contacts reject even at zero clearance; positive-clearance tangency passes. There is no sampling or added tolerance. Callers own obstacle extraction and inside/outside classification.
-- `segment-coverage.ts`: `segmentRectInterval(a, b, rect) -> [start, end] | null` clips the closed segment to a closed axis-aligned rectangle as parameters in `[0,1]`, including tangent and stationary cases. `segmentCoveredByFootprints(a, b, footprints) -> boolean` certifies complete coverage by their same-frame union under `roomFootprintContains`. Analytic ring crossings and all shared-EPS edge-capsule boundary events partition the path into constant-membership open intervals; every interval and event point needs a union owner. This includes filled holes and outer tolerance bands. Numerically unresolved intervals conservatively reject; false does not prove absence of a route.
-- `triangulate.ts`: `triangulate(poly: readonly Point[]) -> [number, number, number][]` returns deterministic CCW XZ index triples for a simple nondegenerate ring, accepting either input winding. Fewer than three points returns an empty list. Degenerate input or the 10,000-iteration guard can return a partial triangulation; consumers requiring complete coverage must verify its area.
-- `types.ts`: `InteriorRequest`, `Blueprint`, `FloorInterior`, `NpcSupport` and their parts, mirroring `../../schemas/*.schema.json`. Schemas are the source of truth; these types restate them for the compiler.
-  - `Room.polygon` is its CCW outer boundary. Optional `Room.holes` are clockwise simple interior rings, strictly inside that boundary and pairwise disjoint without touching. They exclude floor coverage and room occupancy; absence means no exclusions. Shape validation enforces arrays and coordinates; Layout owns the geometric invariants.
-- `room-footprint.ts` consumes `{ polygon, holes? }` in one coordinate frame. `roomFootprintContains(room, point)` includes the outer boundary and excludes hole interiors and boundaries, with a 1e-8 m boundary tolerance. `roomFootprintClearance` returns signed minimum boundary distance. `roomFootprintArea` excludes holes. `roomFootprintAnchor` returns a deterministic interior point of a valid positive-area footprint, including a room surrounding a central core. Consumers share these functions for occupancy and center targets.
-  - `Opening.glazing?: OpeningGlazing` mirrors the [Exterior clear field](../../../exterior/schemas/blueprint.schema.json): face-local `offset`, floor-relative `sill`, positive `width` and `height`, and inward `glassDepth` and `housingBackDepth`. All other fields are nonnegative. The field excludes frames and opaque spandrels; its absence leaves the overall opening available to consumers.
-  - `Facade.coreAdjacency?: CoreAdjacency` follows [the consumed schema](../../schemas/blueprint.schema.json#/$defs/coreAdjacency): a `glazing` rule and optional unique `{ floor, opening, role, clearDepth }` overrides. Roles are `structure`, `circulation`, or `room`; nonnegative depths start at the full lining's inner face and end at actual stair, elevator or riser solids. Windows and openings with `glazing` take the default; overrides name an existing opening and replace its rule. Absence requests structural fit only. Layout validates override references and uniqueness. Room footprints and unused service-stub reservations do not expand with this policy.
-  - [Core feasibility constants](../../schemas/core-feasibility.json) publish `coreAdjacency.glazing = { role: "circulation", clearDepth: 1.2 }` as the game-design default for new producers, not a building-code claim. Before openings exist, conservative producers add twice that depth to each core-host rectangle dimension; final placement checks the actual opening spans. `CoreAdjacencyFailure` names floor, opening, core solid, role, required depth and available depth.
-- `errors.ts`: `new InteriorError(code, detail, floor?)` produces `InteriorError { code, floor?, message }` from the closed code set in the root contract.
-- `OpeningReservation` describes a placement keepout in [the floor schema](../../schemas/floor.schema.json): pocket doors use the complete cassette envelope plus partition safety. Room door connections keep the usable passage dimensions. A keepout does not add collision geometry or remove room/core floor ownership.
-- `Blueprint.coreFrame?: { anglesDeg: number[] }` follows the consumed blueprint schema: a nonempty ordered list of finite core axes, unique modulo 180. Layout validates angle equivalence and applies entrance orientation. Absence permits its default frame search. A published roof bulkhead locks an allowed axis and its exact center.
-- `OpeningDoor`, `DoorEnvelope` and `PocketDoorMotion` mirror Exterior's [door envelopes and motion](../../../exterior/schemas/blueprint.schema.json#/$defs/pocketMotion). A pocket door requires `clearance`, `cassette` and one or two indexed moving leaves with signed face-U travel. Opening dimensions remain the clear doorway; `clearance` repeats that passage with the cassette's back-skin attachment depth. `cassette` contains the complete fixed assembly, not a solid barrier across the passage. Leaf `pocket` bounds are free chambers inside opaque skins, with positive inward front/back depths; their passage-facing edges are open lateral slots. `facade.wallDepth` includes the cassette back skin. Schema enforces complete fields; Blueprint validates containment, alignment and leaf identities. Swing, roller and minimal clear-depth metadata remain accepted.
-- `grid.ts`: `WalkGrid(origin: Point, cellSize, cols, rows)` starts blocked; `forPolygon(outline, cellSize, bounds: Rect)` opens cells whose centers are inside the polygon. Cell size and dimensions must be positive.
-  - `forRoomFootprint(footprint: RoomFootprint, cellSize, bounds: Rect, frame?: RigidFrame2D) -> WalkGrid` samples the exact `roomFootprintContains` membership at each grid center. With a frame, bounds and grid centers are world coordinates and membership uses `frame.toLocal(center)` against the authoritative source footprint. Omission keeps all coordinates in one frame. Outer boundaries are included and hole interiors and boundaries excluded using the shared `ROOM_FOOTPRINT_EPS = 1e-8` m tolerance. Transformed boundary corrections use the shared scalar predicate; floating-point enclosures only select correction candidates. Bounds do not clip or snap the footprint.
-  - `center(col, row) -> Point`, `cellAt(Point) -> [col, row]`, `inBounds`, `isWalkable`, and `isWalkableAt` expose the grid. Outside cells are blocked; `set` outside bounds does nothing.
-  - `blockRect(Rect, margin = 0)` and `openRect(Rect)` change cells by center containment. These operations do not establish continuous body clearance.
-  - `neighbors(index, transition?: GridTransition) -> number[]` returns open adjacent row-major indices, with an open source required. Default order is right, left, down, up. An explicit `(fromIndex, toIndex) -> boolean` transition certificate additionally permits down-right, down-left, up-right, up-left and must approve every returned edge, including cardinal ones. There is no automatic diagonal traversal. Certificates describe a stable directed graph: answers cannot depend on call order or count, and walkability and physical/ownership authority must stay unchanged during traversal and when reusing its result. Evaluation counts are unspecified; already-reached targets need no certificate.
-  - `flood(Point, transition?: GridTransition) -> Uint8Array` returns row-major reachability through the shared breadth-first traversal. `predecessors(Point, transition?: GridTransition) -> Int32Array` returns that traversal's shortest-hop tree: root points to itself, unreachable cells are -1, and first discovery in neighbor order selects each certified parent edge. A blocked or outside start produces an empty mask or all -1 parents. Omission preserves four-neighbor traversal. Callers use the same graph authority for reachability and routes. `reaches(mask, Point)` queries a flood mask; `walkableCount()` counts open cells.
-  - `toBase64()` packs row-major walkability bits; `fromBase64(encoded, origin, cellSize, cols, rows)` restores them with the supplied grid geometry.
+`createRng(seed, ...keys)` returns deterministic independent streams.
+`RigidFrame2D(angleDeg, origin?)` converts source and world points without changing
+length. `roomFootprintContains`, clearance, area and anchor queries exclude holes.
+`RoomRegion` callers share the same boundary tolerance through these primitives.
 
-## Errors
+`WalkGrid` stores walkability, exports base64 bits, and builds floods or predecessor
+trees. Default traversal uses four neighbors; explicit transition certificates allow
+additional swept edges. `segmentSweepClear` proves complete physical segment clearance.
+`segmentCoveredByFootprints` proves room ownership along the same segment.
+Polygon clipping preserves measured boundaries. Triangulation returns index triples;
+callers requiring complete coverage check area.
 
-- `Rng.pick([])` throws `Error("pick on empty array")` because no value of `T` exists.
-- Other primitives are total for inputs described above. `InteriorError` is constructed here and thrown by dependent boxes.
-
-## Depends on
-
-- [Exterior blueprint schema](../../../exterior/schemas/blueprint.schema.json), for the consumed opening clear field.
-
-`FurnitureKind` includes `ornament_wall`, `room_divider`, `sleeping_pod` and `floor_clutter`. All use the [floor furniture envelope](../../schemas/floor.schema.json), including a full 2 m pod height. `LightFixture.furniture` optionally identifies the assembly owning its physical housing.
-
-`LightFixture.color` optionally supplies linear RGB instead of temperature. `axis` and `direction` optionally supply unit world vectors along the lens and out of its emitting face. Their defaults are the XZ `angleDeg` line and vertical `facing` normal.
-
-`LoftPlan` publishes a partial platform, support centers and private straight stair with world entries in the [floor schema](../../schemas/floor.schema.json#/$defs/loft). The lower floor owns `loft`; the occupied upper platform names `mezzanineOf`. Global core connectors skip that upper level.
-
-`NpcPlacement` in [npc.schema.json](../../schemas/npc.schema.json) names a standing body, radius, floor/room, facing and reachable approach point. Purpose is vendor, staff or story. Optional anchor/role IDs bind it to generated staffing; story positions remain unassigned.
+`InteriorError` carries `code`, optional `floor` and `message`. Placement errors are
+listed in the [root contract](../../CONTRACT.md). Material tooling additionally uses
+`E_MATERIAL_UNRESOLVED`. Empty RNG selection throws Error.
+Depends on the consumed Exterior blueprint vocabulary.

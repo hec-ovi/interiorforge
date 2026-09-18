@@ -155,11 +155,11 @@ function inHole(f: EdgeFrame, p: Point, y: number, hole: OpeningHole): boolean {
  *  leave in the lining. */
 class FloorShell {
   private readonly frames: EdgeFrame[];
-  private readonly holes: { edge: number; hole: OpeningHole; returnDepth: number }[];
+  private readonly holes: { edge: number; hole: OpeningHole; returnDepth: number; threshold: boolean }[];
 
   constructor(readonly floor: BlueprintFloor, private readonly wallDepth: number) {
     this.frames = floor.outline.map((_, e) => edgeFrame(floor.outline, e));
-    this.holes = floor.openings.map((o) => ({ edge: o.edge, hole: openingHole(floor, o, wallDepth), returnDepth: openingReturnDepth(o) }));
+    this.holes = floor.openings.map((o) => ({ edge: o.edge, hole: openingHole(floor, o, wallDepth), returnDepth: openingReturnDepth(o), threshold: o.kind !== "window" && o.sill === 0 }));
   }
 
   /** True when a point `y` above the floor stands behind the shell wall, or in an opening's
@@ -168,9 +168,10 @@ class FloorShell {
     const d = boundaryDistance(p, this.floor.outline);
     if (d >= this.wallDepth - EPS) return true;
     if (d < -EPS) return false;
-    return this.holes.some(({ edge, hole, returnDepth }) =>
+    return this.holes.some(({ edge, hole, returnDepth, threshold }) =>
       across(this.frames[edge]!, p) >= returnDepth - EPS
-      && inHole(this.frames[edge]!, p, y, hole)
+      && (inHole(this.frames[edge]!, p, y, hole)
+        || threshold && y >= -SOFFIT_DEPTH - EPS && y < 0 && inHole(this.frames[edge]!, p, 0, hole))
       && this.frames.every((f, k) => k === edge || !inWallZone(f, p, this.wallDepth)));
   }
 }

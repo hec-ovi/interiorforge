@@ -1,74 +1,103 @@
-# Interior 0.30.1
+# Interior 0.31.0
 
-Fills one building shell with furnished floor geometry and NPC navigation.
+Places shared room modules and catalog furniture in three reusable building layouts.
 
-## Input and calls
+## Calls
 
-[Request schema](schemas/request.schema.json), [consumed Exterior blueprint](schemas/blueprint.schema.json),
-[TypeScript inputs and results](src/core/types.ts). Units: meters, building-local XZ, +Y up, CCW outer polygons.
-
-| Entry in `src/index.ts` | Input | Result |
+| Export from `src/index.ts` | Input | Output |
 | --- | --- | --- |
-| `generateInterior` | Request and optional [GenerateOptions](src/index.ts) | Promise of `{glb, floors, npc, textures, floorGlbs?}` |
-| `generateFloorInteriors` | Same request/options except `floorGlbs` | Promise of `{floorGlbs, floors, npc, textures}` |
-| `makeFixture` | Optional [FixtureOptions](src/blueprint/fixture.ts) | `{request, shellDoc}` for standalone generation |
-| `coreFeasibility` | Consumed blueprint | [Core fit result](src/layout/schema/core-feasibility.schema.json) |
-| `findPath` | NPC data and two `{floor, position: [x,z]}` endpoints | Walk and connector legs, or `null` |
+| `generate`, alias `generateInterior` | [Request](schemas/request.schema.json) with [assembled blueprint](schemas/blueprint.schema.json) | Promise of `{building, layouts}` |
+| `buildModules` | None | Promise of `{catalog, files}`, a manifest and map of GLB bytes |
+| `writePlacements` | Generation result, output directory | Writes building and layout JSON |
+| `expandBuilding` | Generation result | `{floors, npc}` with unique floor identities and absolute elevations |
+| `findPath` | Expanded NPC data, two `{floor, position: [x,z]}` endpoints | Walk and connector legs, or null |
+| `makePlacementFixture` | Optional [fixture settings](src/blueprint/fixture.ts) | Reproducible rectangular request |
+| `coreFeasibility` | Consumed blueprint | [Core fit](src/layout/schema/core-feasibility.schema.json) |
 
-`coreFeasibility` is also available from browser-safe `src/feasibility.ts` and built
-`dist/feasibility.js` (`npm run build:feasibility`). It checks the core only;
-room programs, furniture and routes are checked during generation.
+`makeFixture` also provides a blueprint and shell document for feasibility tools.
+The browser entry `src/feasibility.ts` builds to `dist/feasibility.js`.
 
-Assignments default from blueprint labels and building type. Options default to
-external textures, imported assets enabled and no floor GLBs. `shellDoc` skips disk
-loading; combined generation mutates it. `assets: false` selects procedural furniture;
-`assets: {read}` supplies a model reader. Both generators support those asset options.
-[TextureOptions](src/materials/index.ts) accepts `mode: external|embed|keys`, `dir`,
-`baseUrl`, and a preloaded `theme`. Directory: explicit value, `URBE_MATERIALS_DIR`,
-then sibling `materials`. Missing catalog gives key-only output; embedding requires disk maps.
+Generation accepts rectangular construction axes, at least three floors starting at
+zero, and one storey per assignment. Every middle floor must share its outline,
+height, opening rectangles and explicit program. Opening IDs may differ. Default
+programs derive from blueprint kinds, with the first middle floor defining its program.
+Input objects remain unchanged. Optional `shellGlb` is metadata; generation consumes
+the assembled blueprint. No shell, texture or furniture geometry is loaded.
 
-## Output
+## Files and frames
 
-- GLB bytes: combined shell/interior, optionally a map of floor index to interior GLB.
-- [Floor JSON](schemas/floor.schema.json): kind, elevation, ceiling, core, opening reservations,
-  rooms/connections, furniture and light sources; optional loft ownership.
-- [NPC JSON](schemas/npc.schema.json): building ID, anchors, role counts, routines,
-  optional standing placements, grids and inter-floor/roof connectors.
-- Texture report: `{mode: external|embedded|keys, materials, baseUrl?}`.
+`npm run modules -- --out <dir>` writes 17 shared GLBs and `modules.json`, following
+[modules.schema.json](schemas/modules.schema.json). Each entry gives `id`, relative
+`file`, bounds `size` in XYZ metres, `origin` measured from bounds minimum to the
+authored zero, `materialSlots`, triangle count and complete file byte count. GLBs
+are indexed, quantized and require `EXT_meshopt_compression`. Material names are
+keys only. The catalog is published once for the city.
 
-Same request, options, shell, material catalog and asset snapshot produce identical
-output. The floor streams use independent seeds. Opening reservations constrain
-partitions, core and furniture. Geometry checks shell bounds, doorway and stair clearance.
-Navigation describes the exported grid; runtime collision and actor dimensions need
-consumer agreement in [issues](docs/ISSUES.md).
+`npm run generate -- --request request.json --out <dir>` writes `building.json`
+and `layouts/ground.json`, `layouts/middle.json`, `layouts/crown.json`.
+[Building schema](schemas/building.schema.json),
+[layout schema](schemas/floor-placement.schema.json), [types](src/placements/types.ts).
+Floor zero uses ground, indices 1 through F minus 2 use middle, and F minus 1 uses crown.
+Each layout contains floor metadata, source openings, placements and NPC data.
 
-Combined output replaces shell `floor:<index>/slab` nodes. Streamed floor GLBs contain
-interior bands only; their consumer must remove the corresponding shell slabs to avoid
-duplicate surfaces. Floors use `NNN` tags, negative floors `mN`. The CLI writes
-`building.glb`, `floors/*.json`, `npc.json`, and requested `floors/*.glb`.
-Usage and a complete example: [SKILL.md](SKILL.md).
+Placements name exactly one `module` or `prop`, an instance `id`, `room`, XYZ
+`position`, positive XYZ `scale` and `rotationY` in radians. Apply scale, then
+rotation about positive Y, then position, then the building floor's elevation.
+Preserve each GLB node's authored transform, including quantization transforms.
+The GLB already contains its authored origin; `origin` is descriptive metadata.
+XZ stays in the blueprint frame; layout Y starts at the walking surface.
 
-## Errors
+Construction uses the 0.5 m grid. Plain floor, ceiling and wall fields fit complete
+rectangular runs through scale. Measured facade attachments and closing boundaries
+retain exact source coordinates. Stair variants have 7 through 14 treads at 0.28 m
+pitch; their fitted rise stays between 0.16 and 0.18 m. Furniture scales uniformly.
+Prop IDs resolve through the existing [catalog](src/assets/catalog.json), whose
+`modelUri` is relative to that catalog. Only furniture with a fitting catalog model
+receives a prop placement and furniture anchors. Frames and LED housings are modules.
 
-Closed generator domain set, thrown as `InteriorError {code, floor?, message}`:
+`building.modules` and `building.props` identify city resource catalogs, resolved
+against the consumer's resource base. Layout file paths resolve beside building.json.
+Resolve module material slots through `materialTheme` and `tier`; canonical slot
+kinds remain unchanged. Prop materials belong to their existing models.
 
-| Code | Meaning |
+`building.floors[].openings` maps source opening IDs to the actual blueprint IDs on
+that floor. Exterior door placement and room connection IDs match the blueprint.
+Core placements carry `connector` and an actual corridor room ID.
+The Engine owns moving exterior leaves, lift motion and runtime collision. Remove
+Exterior `floor:<index>/slab` nodes and shell scenery when drawing Interior surfaces;
+the module floors retain the stair and lift cutouts. Use one active car per lift shaft;
+car placements describe its stop pose. Landing doors remain at every floor.
+
+Layout NPC records use `sourceFloor` and local identities. `expandBuilding` applies
+floor identities, opening mappings, elevations and building connectors for Simulation.
+Its navigation retains anchors, roles, routines, standing opportunities and floor grids.
+A fitted roof retains its navigation access. Runtime actor dimensions and dynamic
+obstructions require consumer agreement in [issues](docs/ISSUES.md).
+
+## Validation and limits
+
+Windows overlap only when both their horizontal and sill to head intervals overlap.
+Doorway geometry remains clear. Stair flights retain at least 1.2 m clear width and
+2.1 m headroom. The shell check measures transformed module vertices and prop bounds.
+Identical input and resource catalogs produce identical JSON and module bytes.
+
+| Error code | Meaning |
 | --- | --- |
-| `E_BLUEPRINT_INVALID` | Request schema or blueprint semantics invalid |
-| `E_SHELL_MISMATCH` | Shell unreadable or its bounds do not contain the blueprint |
-| `E_ASSIGNMENT_INVALID` | Assignments omit, duplicate or reference absent floors, or have invalid spans |
-| `E_FLOOR_TOO_SMALL` | Core, reservations or required room program cannot fit |
-| `E_UNREACHABLE_SPACE` | Room, anchor, core, opening or stair clearance fails |
-| `E_SHELL_BREACH` | Generated geometry crosses the shell boundary or cannot close a surface |
-| `E_MATERIAL_UNRESOLVED` | Required material or map cannot resolve in the selected mode |
+| `E_BLUEPRINT_INVALID` | Invalid schema, opening overlap or incompatible reusable floors |
+| `E_ASSIGNMENT_INVALID` | Incomplete assignments, differing middle programs or multiple storeys |
+| `E_FLOOR_TOO_SMALL` | Core or required room program cannot fit |
+| `E_UNREACHABLE_SPACE` | Room, door, stair, anchor or roof access fails clearance |
+| `E_SHELL_BREACH` | Module geometry or prop bounds reach forbidden shell space |
 
-`findPath` returns `null` for an ordinary route miss. CLI file I/O failures exit nonzero.
+CLI argument and file errors exit nonzero. The modules command takes only `--out`.
+Budget tests use the actual Exterior planner for a 40 by 40 by 6 mirror frame
+residence and a 56 by 56 by 12 corporate sectors office. Each export, including
+one complete shared module kit, stays under 2 MB and 30 seconds. Existing prop
+geometry and Exterior assets are city resources, outside the building export.
 
 ## Dependencies
 
-[Exterior](../exterior/CONTRACT.md) supplies the shell and blueprint;
-[Materials](../materials/CONTRACT.md) supplies optional PBR catalogs.
-The standalone fixture and key-only mode require neither box at runtime.
-Implementation packages: glTF Transform 4.x and Ajv 8.x. Preview: Three.js and Vite.
-Consumers: Engine loads GLBs/floor data; Simulation reads NPC support.
-Boundary proposals and unresolved product choices: [docs/ISSUES.md](docs/ISSUES.md).
+[Exterior piece kit](../exterior/src/kit/CONTRACT.md) supplies assembled blueprints.
+[Assets](src/assets/CONTRACT.md) supplies prop IDs. Materials resolves keys at draw time.
+GLB serialization uses glTF Transform 4 and meshoptimizer 1.1. Tests, proof details
+and box boundaries are in [docs/INDEX.md](docs/INDEX.md).

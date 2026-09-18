@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://urbe.dev/interior/building.schema.json",
+  "title": "Interior building layout references",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "generatorVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "buildingId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "modules": {
+      "type": "string",
+      "minLength": 1
+    },
+    "props": {
+      "type": "string",
+      "minLength": 1
+    },
+    "materialTheme": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "layouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ground": {
+          "type": "string",
+          "minLength": 1
+        },
+        "middle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "crown": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ground",
+        "middle",
+        "crown"
+      ]
+    },
+    "floors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "layout": {
+            "enum": [
+              "ground",
+              "middle",
+              "crown"
+            ]
+          },
+          "elevation": {
+            "type": "number"
+          },
+          "openings": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "index",
+          "layout",
+          "elevation",
+          "openings"
+        ]
+      },
+      "minItems": 3
+    },
+    "connectors": {
+      "$ref": "npc.schema.json#/properties/nav/properties/connectors"
+    }
+  },
+  "required": [
+    "version",
+    "generatorVersion",
+    "buildingId",
+    "modules",
+    "props",
+    "materialTheme",
+    "tier",
+    "layouts",
+    "floors",
+    "connectors"
+  ]
+}

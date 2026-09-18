@@ -1,6 +1,5 @@
 export type InteriorErrorCode =
   | "E_BLUEPRINT_INVALID"
-  | "E_SHELL_MISMATCH"
   | "E_ASSIGNMENT_INVALID"
   | "E_FLOOR_TOO_SMALL"
   | "E_UNREACHABLE_SPACE"

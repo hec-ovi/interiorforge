@@ -1,48 +1,17 @@
-# CONTRACT: materials
+# Materials
 
-Purpose: resolves the material keys in a glTF document through the materials database and applies their textures and physical properties.
+Resolves canonical keys into glTF material maps for consumers and authoring tools.
 
-## In
+`textureDocument(doc, theme, options?)` returns `{mode, materials, baseUrl?}`.
+[Options and results](index.ts) accept external, embed or keys modes, a directory,
+base URL or preloaded theme. Directory selection uses the option,
+`URBE_MATERIALS_DIR`, then sibling materials. Missing catalogs produce keys mode.
 
-- `textureDocument(doc: Document, theme: string, options?: TextureOptions) -> Promise<TextureReport>`: resolves every `theme/kind/tier`
-  material in the document and attaches its maps. Options: `mode`
-  (`external` default | `embed` | `keys`), `dir` (materials box root; defaults to
-  `URBE_MATERIALS_DIR`, else the sibling `materials` box), `baseUrl` (URI prefix written into
-  the GLB; defaults to the theme folder on disk), `theme` (a preloaded theme index, for
-  browsers with no disk).
-- `loadTheme(theme: string, dir?: string) -> LoadedTheme | null`: theme index plus a map reader, null when the
-  database or the theme is not there.
-- `materialsDir(dir?: string) -> string`: the resolved database root.
-- `new MaterialLibrary(index: ThemeIndex)`: key and alias resolution over one theme index; `entry(key: string) -> MaterialEntry | undefined` performs lookup.
-- `applyMaterials(doc: Document, library: MaterialLibrary, options: ApplyOptions) -> number`: mutates the document and returns the number of materials textured. `ApplyOptions` supplies `baseUrl`, `embed` and `readMap`.
+`MaterialLibrary` resolves keys and variants. `applyMaterials` attaches base color,
+normal, occlusion, metallic roughness and emission maps with physical UV scaling.
+Existing textured prop materials remain intact. Packed metallic roughness bytes retain
+roughness in G and metallic in B. Repeated inputs produce the same output.
 
-## Out
-
-`TextureReport { mode: "external" | "embedded" | "keys", baseUrl?, materials }`.
-
-What lands on each material: basecolor, normal and ao maps (occlusion), optional packed
-metallic-roughness and emission maps, transmission and IOR for glass, and emissive strength.
-The selected variant's `maps.metallicRoughness` binds to glTF's linear metallic-roughness slot,
-with roughness in G, metallic in B and both factors 1. Its PNG bytes remain unchanged when
-embedded. A variant without that map retains the entry's metallic and roughness scalar factors.
-Tiled entries get a `KHR_texture_transform` scale of `1 / worldSize`, since
-this box lays UVs in world meters; `exact` entries get none, their faces carry 0..1 UVs.
-
-## Errors
-
-- `E_MATERIAL_UNRESOLVED`: the theme has no entry for a used key, a theme index or map cannot be
-  read, or embedding is requested with a preloaded index that has no disk map reader.
-
-## Invariants
-
-- Equivalent untextured documents, the same database and the same options produce the same textures, URIs and order.
-- Materials that already carry a base color texture are left untouched, so a shell that
-  arrives finished keeps its own materials.
-- A missing database returns key-only output so the box runs standalone.
-
-## Depends on
-
-- [core](../core/CONTRACT.md) (`InteriorError`)
-- [materials database](https://github.com/hec-ovi/pbrforge/blob/main/CONTRACT.md) (key resolution, entry schema, tiling config)
-- @gltf-transform/core 4.x (`Document` and material properties)
-- Node filesystem and `URBE_MATERIALS_DIR` for disk-backed modes
+Unresolved keys, maps or unsuitable embedding requests throw `E_MATERIAL_UNRESOLVED`.
+Placement generation publishes keys and leaves this resolution to the consumer.
+Depends on [Core](../core/CONTRACT.md), glTF Transform and the sibling Materials catalog.

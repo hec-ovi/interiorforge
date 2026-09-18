@@ -34,8 +34,8 @@ export function createControls(
 
   // Parametric Generator Inputs
   const seed = el("input", { type: "number", value: state.params.seed, name: "seed" });
-  const floors = el("input", { type: "number", value: state.params.floors, min: 1, max: 80, name: "floors" });
-  const basements = el("input", { type: "number", value: state.params.basements, min: 0, max: 4, name: "basements" });
+  const floors = el("input", { type: "number", value: state.params.floors, min: 3, max: 80, name: "floors" });
+  const basements = el("input", { type: "number", value: state.params.basements, min: 0, max: 0, name: "basements" });
   const type = el("select", { name: "type" }, TYPES.map((t) => el("option", { value: t }, [t])));
   const tier = el("select", { name: "tier" }, TIERS.map((t) => el("option", { value: t }, [t])));
   type.value = state.params.type;
@@ -96,7 +96,7 @@ export function createControls(
     generate,
     el("div", { class: "section-title" }, ["SOURCE FILES"]),
     el("div", { class: "load-row" }, [
-      el("span", { class: "load-hint" }, ["or load a real building (shell .glb + blueprint .json + optional request .json)"]),
+      el("span", { class: "load-hint" }, ["or load a real building (assembled blueprint .json + optional request .json)"]),
       loadInput,
     ]),
     el("div", { class: "section-title" }, ["VIEW & NAVIGATION"]),

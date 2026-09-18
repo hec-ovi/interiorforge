@@ -1,50 +1,22 @@
-# CONTRACT: geometry
+# Geometry
 
-Purpose: turns a building plan into interior meshes and completes the shell GLB with slabs, openings, stairs, shafts, lights and shaped furniture.
+Provides partition boundaries and physical clearance checks for placed modules.
 
-## In / Out
+Inputs are [floor data](../../schemas/floor.schema.json), the
+[blueprint](../../schemas/blueprint.schema.json), Layout core parameters and a GLB
+[MeshBuilder](../glb/CONTRACT.md). Outputs are wall runs, doorway volumes, stair steps
+and successful clearance, or an InteriorError.
 
-- `buildInteriorBands(plan: BuildingPlan, request: InteriorRequest) -> { stepsByFloor, floorMeshes }`: builds and validates one sealed `MeshBuilder` per blueprint floor without a combined document. A floor band runs from its slab to the next slab, includes its stair climb, and carries shaft floors with the lowest served floor.
-- `buildInterior(plan: BuildingPlan, request: InteriorRequest, shellDoc: Document) -> { doc, stepsByFloor, floorMeshes }`: mutates and returns the supplied shell document after merging the floor bands.
-  - Deletes the shell's separator-plane nodes (exterior naming `floor:<index>/slab`) and re-emits per-room finish floors, soffits and shaft floor plates so stairs and elevators pass through real holes. A doorway-width corridor landing beside inline stair B reaches the facade threshold and carries the capsule-width turn into the adjacent floor.
-  - Finished ceilings own their exposed plane. At a matching exported height, the upper floor's concrete soffit is clipped to the area outside those ceilings, retaining concrete above unfinished rooms and uncovered plate regions. Combined and streamed floor bands have the same ownership, without depth offsets.
-  - Partition finishes, facade lining and outer shaft enclosures end at the structural slab underside, including double-height spaces. Internal shaft dividers remain continuous through slab bands.
-  - Explicit Layout room polygons and clockwise interior exclusions own floor and ceiling coverage, interior boundary segments and floor-program area. Each hole leaves its actual core or service-room geometry intact. Notches and holes retain one shared wall and exact mounted door positions. Rectangular rooms retain outline clipping; shaft cutouts and facade lining keep their separate ownership.
-  - Interior walls between rooms with door openings and lintels at 2.5 m, 3 m for three or more leaves, or one casing band below a lower ceiling. A shared doorway produces one casing. Its closed face trims stand outside the wall faces while the closed wall end owns the reveal, leaving no overlapping visible planes. Baseboard, dado, field and ceiling trim are closed solids with a hidden 2 mm overlap at thickness changes. Every band is cut flush with the facade lining.
-  - The facade lining (`lining.ts`) is the ring between the shell wall depth and one lining deeper, divided at the corner bisectors. A fitted window uses the published `glazing` U/Y field and joins its perimeter at `housingBackDepth`, closing opaque heads and sills. Corner walls can narrow that field. Window casings remain above the floor. Windows without `glazing` retain the inset opening and skin-clearance returns. Doors, balcony doors and apertures keep their complete opening cut; an `openFront` uses the exact `portal.clearWidth` and `portal.clearHeight`, with no leaf or panel.
-  - Door and window attachment returns stay planar at the published opening's jamb, sill and head planes, with metre-scaled UVs, including deep shell housings.
-  - Pocket doors use the exact `door.clearance` passage and begin returns at its `backDepth`, the cassette back-skin attachment plane. The fixed cassette, free leaf chambers and their lateral slots remain Exterior-owned; room and core exclusions do not expand. Swing and roller returns retain their skin-clearance fit.
-  - Shell fit check (`shell-fit.ts`): every vertex is measured against its floor's outline before the document is written; a vertex inside the shell wall depth that is not an opening's reveal lining, or a reveal vertex standing in another edge's wall, throws `E_SHELL_BREACH` naming the floor that holds it (the upper floor on a slab line).
-  - Vertical core: internal shaft divider walls, elevator door openings with closed metal door panels, stair shafts with entry openings, and continuous U-return stairs. Flights are 1.2 m clear, risers are 0.16 to 0.18 m, treads are 0.28 m and landings are 1.2 m. Stair A continues from the last served floor to a fitted roof bulkhead; a closed platform meets the stair's finished inside edge across the arrival landing and reaches the enclosure door threshold. A geometry-level probe checks 2.1 m above every tread and landing against stairs, slabs, walls and fixtures before export.
-  - Shaped furniture assemblies per kind at their planned position, rotation and size, including seeded room clutter. Wardrobes are fitted painted-steel carcasses with separate leaves, centre reveals, vents, handles and recessed supports, all inside their declared bounds. Electronic art and display screens use a dark metal stepped-radius housing, a separate narrow central rear mount inside the declared depth, and a uniformly inset screen.
-  - Each light is a plain metal housing with a separate emissive lens mapped once across its face. Cove fixtures add a shielding lip and expose the lens upward; ceiling fixtures expose it downward.
-  - `stepsByFloor: Map<number, Record<string, Rect3[]>>`: tread rectangles by floor and stair id. Each rectangle has a world-space center and frame-axis dimensions; the floor's `coreAngleDeg` supplies its rotation.
-- All meshes use material keys `theme/kind/tier`; single-sided, CCW, world-meter UVs (glb box discipline). Elevator door panels carry exact-placement 0..1 UVs. The materials box resolves the keys into maps afterwards.
-- The same plan, request and shell produce the same geometry and material order.
+`walls.ts` extracts shared wall intervals, facade endpoint reservations and doorway
+heads. `stairs.ts` computes landings, flight steps, clear width and stacked headroom.
+`core-geo.ts` supplies shaft rectangles and lift doorway cuts. `door-clear.ts` checks
+actual triangles against doorway volumes. `stair-clearance.ts` probes actual tread
+and landing headroom. `shell-fit.ts` measures every transformed vertex against shell
+walls and the opening rectangles that permit returns.
 
-## Errors
+Stairs retain at least 1.2 m clear width and 2.1 m headroom. Clearance failures throw
+`E_UNREACHABLE_SPACE`. Shell violations throw `E_SHELL_BREACH`. Facade returns retain
+the blueprint sill, head, offset and attachment depth.
 
-- `E_UNREACHABLE_SPACE`: a stair run cannot keep the player's clear width or headroom, or emitted geometry blocks a room doorway or open-front portal.
-- `E_SHELL_BREACH`: interior geometry reaches the shell wall, or a surface coverage polygon cannot be fully triangulated.
-
-## Depends on
-
-- [core](../core/CONTRACT.md)
-- [glb](../glb/CONTRACT.md)
-- [layout](../layout/CONTRACT.md) (`BuildingPlan`)
-
-## Surface and asset assemblies
-
-`GeometryOptions.skipFurnitureIdsByFloor` suppresses procedural instances selected by the asset importer. It is an optional final argument to both geometry entrypoints; reservations and NPC data keep their published dimensions.
-
-[Panels](panels/CONTRACT.md) map rich/high_rich to luxury limestone, walnut and marble, poor to worn sage plaster and aggregate, mid to capsule composite and rubber. The 0.5 m nine-piece modules retain corner sizes, close large panel perimeters and preserve exact floor/ceiling coverage. One fitted square repair or service face appears on a suitable wall in each damaged/capsule floor. UVs preserve physical scale; exact faces map once.
-
-[Ornaments](ornaments/CONTRACT.md) build plants, fish, glass, pipes, cable loops and lit cases in reserved furniture envelopes. Furniture-owned fixtures use the assembly housing. Capsule sleeping pods reserve their full shell height. Loose procedural chairs and tables have seeded angular variation fitted inside their reserved footprint. Stair treads use the floor finish and risers use the wall finish, retaining structural thickness and headroom.
-
-`floor_clutter` has a bounded procedural refuse-sack and paper assembly when no imported prop fits.
-
-[Architectural details](details/CONTRACT.md) build furnished loft platforms, open stairs, 1.2 m clear lanes between guards and overhead pipe/cable runs. Rail faces crossing a storey plane split between the two floor bands with shared UVs and no additional exposed cut face.
-
-Wardrobes have fixed 0.5 m closing bays, repeated fitted middle doors, upper cabinets and lower drawers. Counters and kitchen runs retain the same closing-bay widths and fitted middle panels. Cabinet faces use the tier's wall accent or door coating.
-
-Luxury walls have full-height fields between closed floor and ceiling trims. High-rich residence feature walls use walnut; rich lofts use brick. Procedural luxury furniture shares walnut cabinetry and pale stone worktops, with plinth coffee tables, bronze seating supports and width-fitted sofa cushions. Upholstery has closed, rounded edges inside each cushion's box. Bar tops and footrails stay inside their published footprint.
+Depends on [Core](../core/CONTRACT.md), [Layout](../layout/CONTRACT.md) and
+[GLB](../glb/CONTRACT.md).

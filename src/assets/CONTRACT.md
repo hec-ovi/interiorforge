@@ -1,37 +1,23 @@
-# CONTRACT: assets
+# Assets
 
-Purpose: catalogs licensed furniture models and adds a selected model to a glTF document within a caller-owned bounding box.
+Resolves licensed furniture models through stable catalog IDs.
 
-## In / Out
+`loadAssetCatalog()` returns [catalog.json](catalog.json), following
+[catalog.schema.json](schemas/catalog.schema.json). `modelUri` is relative to this
+folder. Availability distinguishes redistributable, local and source models.
+Local models are prepared from ignored source files.
 
-- `loadAssetCatalog() -> AssetCatalog`: returns [catalog.json](catalog.json), whose entries follow [schemas/catalog.schema.json](schemas/catalog.schema.json). `modelUri` is relative to this folder. `local-only` entries require ignored files prepared from `assets-sources`; `redistributable` entries ship with the box.
-- `findAssetCandidates(query: AssetQuery) -> AssetEntry[]`: filters by `family`, optional `styles`, maximum dimensions and catalog availability, then returns catalog order. Dimension filtering uses one uniform scale and rejects a fit below `minimumScale` (0.7 by default). The reader remains the authority on whether a local-only file exists.
-- `fitAssetBounds(asset, maxBounds, rotationYDeg?, minimumScale?) -> AssetFit | null`: fits normalized `[width, depth, height]` dimensions after the small local rotation. It returns null for an extreme shrink or missing model dimensions.
-- `assetFamilyForFurniture(kind) -> AssetFamily | null`, `findFurnitureAssets(item, query?) -> AssetEntry[]`: maps supported floor furniture kinds to model families and returns models that fit the item's existing safe envelope. `floor_clutter` admits only cataloged trash props; `fridge` admits only refrigerators. Elevated wall pieces and unsupported kinds retain procedural geometry.
-- `prepareFurnitureAssets(floors, request, styles, read) -> PreparedFurnitureAssets`: selects and reads at most one shared model per active family (chair, desk, sofa, planter, bed, shelf, refrigerator, toilet, sink and bench, plus trash props for poor/damaged styles), and publishes the procedural furniture IDs it replaces. Selection is seed-stable and follows caller style priority, checking matching local imports before a public model. Missing or ill-fitting models retain procedural geometry.
-- `io.ts: readAssetModel(asset, options?) -> Promise<Document>`: Node-only reader for bundled and ignored local models. `modelsDir` may replace the box model directory for tests or local packaging.
-- `bundled.ts: readBundledAssetModel(asset) -> Promise<Document>`: browser-safe reader for committed CC0 models through build-time asset URLs and ignored local imports through `/interior-assets` in the Vite preview.
-- `new AssetInstancer(target, read).instantiate(asset, placement) -> Promise<AssetInstance>`: copies a model and its materials into the target once, then reuses those meshes and materials for later instances. `placement.maxBounds` and returned dimensions are `[width, depth, height]` in meters. Each instance uses one uniform scale, remains centered on `placement.position` in XZ, stands on its Y, and rotates by the caller's world `rotationYDeg` plus a small `variationDeg` inside its oriented bounds. Its returned dimensions never exceed `maxBounds`.
-- `npm run assets:import`: reads ignored originals from `assets-sources`, verifies Sketchfab license metadata through the public model endpoint, normalizes useful models, and rebuilds the catalog. It never reads authentication data.
+`findFurnitureAssets(item)` returns matching model entries fitting the existing
+[furniture envelope](../../schemas/floor.schema.json). `fitAssetBounds` returns a
+uniform scale and dimensions, or null. [Types](types.ts) specify all parameters.
+Placement generation selects catalog IDs without reading or copying model geometry.
+Entries with no suitable fit produce no placement or furniture anchor.
 
-## Errors
+`readAssetModel` and `readBundledAssetModel` serve Node and browser consumers.
+`AssetInstancer.instantiate` copies shared models once and applies caller transforms.
+`prepareFurnitureAssets` and `appendFurnitureAssets` remain asset authoring helpers.
+`npm run assets:import` normalizes licensed originals and rebuilds the catalog.
 
-- Unknown asset IDs and absent local model files throw an `Error` naming the asset.
-- Invalid positions, rotations or nonpositive bounds throw a `RangeError`.
-
-## Invariants
-
-- Normalized models are Y-up, centered at XZ zero and grounded at Y zero.
-- Normalization and placement use uniform scale, preserving geometry proportions and source materials.
-- Catalog license fields reproduce the provider metadata verified on the recorded date. A title or description that says CC0 does not replace the provider license field.
-- A `local-only` model is never committed. A model is `redistributable` only when its source publishes a redistribution-compatible license.
-- A model replaces procedural furniture only when it fits the layout's existing dimensions at 70 percent or more of its normalized size.
-- Every copied node belongs to the target document graph, including when a reader returns a document from another JavaScript module realm.
-
-## Depends on
-
-- @gltf-transform/core 4.x
-- @gltf-transform/extensions 4.x
-- @gltf-transform/functions 4.x
-- [core](../core/CONTRACT.md) furniture contract
-- Sketchfab Data API v3 for import-time license verification
+Models are centered in XZ, grounded at Y zero, and preserve source materials.
+Unknown IDs or absent files throw Error. Invalid transforms throw RangeError.
+Depends on [Core](../core/CONTRACT.md), glTF Transform and provider metadata during import.

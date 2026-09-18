@@ -5,6 +5,7 @@ import type { BlueprintFloor, FloorKind, InteriorRequest, RoomKind } from "../co
 import { CORRIDOR, DOOR } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { FacadeSeats, facadeSlots } from "./facade-seats.js";
+import { FacadeAccess } from "./facade-access.js";
 import { coreRectsOf } from "./pier-align.js";
 import type { FloorFrame, PlanRoom } from "./plan-types.js";
 import { RoomRegion } from "./room-region.js";
@@ -55,6 +56,7 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
   const program = UNIT_PROGRAM[kind];
   if (program) {
     const seats = new FacadeSeats(floor, core.frame, outline, request.blueprint.facade!);
+    const access = new FacadeAccess(frame);
     const bounds = polygonBounds(outline);
     const strips: [UvRect, "v0" | "v1"][] = [
       [{ u: bounds.x, v: bounds.z, lu: bounds.w, lv: frame.corridor.v - bounds.z }, "v1"],
@@ -64,15 +66,15 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
       if (strip.lv < MIN_UNIT.depth) continue;
       const cuts = seats.cuts(strip, side, MIN_UNIT.endCommon);
       const slots = facadeSlots(cuts, rng.range(8, 12), (low, high) => {
-        const rect = { ...strip, u: low, lu: high - low };
-        if (rect.lu < MIN_UNIT.width || occupied.some(cut => overlaps(rect, cut))) return false;
+        const rect = access.unit(strip, side, low, high);
+        if (rect.lu < MIN_UNIT.width || rect.lv < MIN_UNIT.depth || occupied.some(cut => overlaps(rect, cut))) return false;
         const polygon = clipPolygonToRect(plate, toRect(rect));
         return Math.abs(polygonArea(polygon)) >= MIN_UNIT.area
           && Math.abs(polygonArea(polygon)) >= rect.lu * rect.lv * 0.9
           && fittedServices(rect, side, polygon).length > 0;
       });
       for (const [low, high] of slots) {
-        const rect = { ...strip, u: low, lu: high - low };
+        const rect = access.unit(strip, side, low, high);
         const polygon = clipPolygonToRect(plate, toRect(rect));
         const services = fittedServices(rect, side, polygon);
         const serviceRect = services[Math.floor(rng.next() * services.length)]!;

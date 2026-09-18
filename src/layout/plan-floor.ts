@@ -36,6 +36,7 @@ import { circulationKeepouts, reserveCirculation, verifyCirculation, type FloorC
 import { buildNavGrid, blockPhysicalFurniture } from "./navgrid.js";
 import { roomPolygon } from "./room-shape.js";
 import { planFacadeRooms } from "./facade-plan.js";
+import { planLegacyPublicRooms } from "./legacy-public-access.js";
 
 /** uv-space working data a floor keeps for geometry and npc passes */
 export interface UvFloorData {
@@ -85,6 +86,9 @@ export function planFloor(
   const isHall = HALL_FLOOR_KINDS.has(kind);
   const isMall = kind === "mall_floor";
   const isOffice = kind === "office" || kind === "corpo_office";
+  const hasFacadeGrid = request.blueprint.facade?.grids?.some(grid => grid.floor === floor.index);
+  const publicBypass = !hasFacadeGrid && !isHall && !!floorFrame.corridorTail
+    && floorFrame.corridorTail.lu >= MIN_STRETCH;
 
   // strip segments with no corridor contact (e.g. behind the inline stair) are enclaves:
   // sealed service voids, never rooms
@@ -94,6 +98,7 @@ export function planFloor(
   }
   const corridorU = floorFrame.corridor;
   floorFrame.northSegments = floorFrame.northSegments.filter((seg) => {
+    if (publicBypass) return true;
     const contact = Math.min(seg.u + seg.lu, corridorU.u + corridorU.lu) - Math.max(seg.u, corridorU.u);
     if (contact < 1.6) {
       extraSealed.push(seg);
@@ -119,7 +124,7 @@ export function planFloor(
     : undefined;
   let rooms: PlanRoom[] = [corridorRoom, ...(corridorTail ? [corridorTail] : [])];
 
-  const facadePlan = request.blueprint.facade?.grids?.some(grid => grid.floor === floor.index)
+  const facadePlan = hasFacadeGrid
     ? planFacadeRooms(request, floor, kind, core, floorFrame, slabPlate, uvOutline, ids, rng) : null;
   const backing = facadePlan ? { rooms: [], sealed: [] }
     : fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
@@ -142,6 +147,10 @@ export function planFloor(
     rooms = facadePlan.rooms;
     extraSealed.length = 0;
     extraSealed.push(...facadePlan.sealed);
+  } else if (publicBypass) {
+    rooms = planLegacyPublicRooms(core, floorFrame, kind, corridorRoom, backing,
+      slabPlate, uvOutline, ids, rng, floor.index);
+    extraSealed.length = 0;
   } else if (isHall) {
     rooms.push(...fillVenue(floorFrame, corridorRoom, kind, rng, ids));
   } else {
@@ -160,7 +169,7 @@ export function planFloor(
 
   // rooms mostly outside an irregular outline are void: drop them and their doors
   const dropped = new Set(
-    rooms.filter((r) => r !== corridorRoom && clipRatio(r.rect, uvOutline) < 0.35).map((r) => r.id),
+    rooms.filter((r) => !publicBypass && r !== corridorRoom && clipRatio(r.rect, uvOutline) < 0.35).map((r) => r.id),
   );
   if (dropped.size > 0) {
     rooms = rooms.filter((r) => !dropped.has(r.id));
@@ -208,14 +217,15 @@ export function planFloor(
 
   const facadeKeepouts = openingKeepouts(floor, frame, bounds.facadeDepth);
   const sealed = [...backing.sealed, ...extraSealed.filter((s) => clipRatio(s, uvOutline) > 0.05)];
-  const architecture = validateArchitecture(floor.outline, bounds, rooms, sealed, core, floor.index, ids);
+  const architectureAccess = validateArchitecture(floor.outline, bounds, rooms, sealed, core, floor.index, ids);
+  const architecture = architectureAccess.physical;
   const worldRooms = rooms.map(room => roomToWorld(room, uvOutline, frame));
   if (facadePlan) {
     const conflicts = partitionConflicts({ rooms: worldRooms }, floor, request.blueprint.facade);
     if (conflicts.length) throw new InteriorError("E_FLOOR_TOO_SMALL",
       `facade partition has no structural seat: ${conflicts[0]!.room} at ${conflicts[0]!.opening}`, floor.index);
   }
-  const circulation = reserveCirculation(architecture, rooms, core, floor.index);
+  const circulation = reserveCirculation(architecture, rooms, core, floor.index, architectureAccess);
   const placementKeepouts = [...facadeKeepouts.map(item => item.rect), ...circulationKeepouts(circulation, frame)];
   const upperFloor = request.blueprint.floors.find(f => f.index === floor.index + 1);
   const loft = spaceHeight > floor.height && upperFloor ? fitLoft(rooms,

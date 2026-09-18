@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urbe/interior/layout/circulation",
   "title": "FloorCirculation",
-  "description": "Route reservations in the blueprint's XZ coordinate frame, made before furnishing. Architecture is sampled at cellSize with body-radius wall erosion and inset door throats. Grounded furniture, including chairs, stays outside the full bodyWidth swept routes. This is not a continuous architecture collision or accessibility certificate; elevated objects and NPC seat-use approaches are outside this output.",
+  "description": "Route reservations in blueprint XZ, made before furnishing. Sampled endpoints use cellSize; every complete transition is certified against the shared body-radius wall and door-channel model and its permitted room-footprint union. Grounded furniture, including chairs, stays outside the full bodyWidth sweeps, and saved routes are checked against the final furniture. Rendered-mesh collision, larger capsules, accessibility, elevated objects and NPC seat-use approaches are outside this output.",
   "type": "object",
   "additionalProperties": false,
   "required": ["floor", "bodyWidth", "minimumDoorWidth", "cellSize", "origin", "endpoints", "routes"],
@@ -24,7 +24,7 @@
           "source": { "type": "string", "description": "Room, door, stair or elevator ID." },
           "position": { "$ref": "#/$defs/point" },
           "intendedPosition": { "$ref": "#/$defs/point" },
-          "maxDisplacement": { "type": ["number", "null"], "minimum": 0, "description": "Approaches stay within this radius of their intended point. Room-door approaches also stay in their owning room; core approaches have no room constraint. Null permits a clipped room hub to move only within that room." }
+          "maxDisplacement": { "type": ["number", "null"], "minimum": 0, "description": "Approaches stay within this radius of their intended point. Room-door approaches stay in their owning room; stair and elevator approaches stay in common transit without a single-room constraint. Null permits a clipped room hub to move only within that room." }
         }
       }
     },
