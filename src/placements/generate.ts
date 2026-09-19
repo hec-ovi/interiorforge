@@ -3,8 +3,9 @@ import { InteriorError } from '../core/errors.js';
 import { planBuilding } from '../layout/index.js';
 import { buildNpcSupport } from '../npc/index.js';
 import { planRoofAccess } from '../layout/roof-access.js';
-import type { BlueprintFloor, NpcSupport } from '../core/types.js';
+import type { BlueprintFloor, NpcSupport, Opening } from '../core/types.js';
 import { placeLayout } from './layout.js';
+import { windowTreatments } from './treatments.js';
 import type { LayoutId, PlacementResult, FloorPlacement } from './types.js';
 import version from '../../package.json' with { type: 'json' };
 export async function generate(input: unknown): Promise<PlacementResult> {
@@ -47,9 +48,12 @@ export async function generate(input: unknown): Promise<PlacementResult> {
         layouts[names[i]!] = { version: 1, id: names[i]!, sourceFloor: bp.index, floor, openings: structuredClone(bp.openings), placements: tables[i]!.placements, npc: localNpc };
     });
     const refs = floors.map((floor, i) => {
-        const layout: LayoutId = i === 0 ? 'ground' : i === floors.length - 1 ? 'crown' : 'middle', source = layouts[layout].openings;
+        const layout: LayoutId = i === 0 ? 'ground' : i === floors.length - 1 ? 'crown' : 'middle';
+        const source = doorOpenings(layouts[layout].openings), mine = doorOpenings(floor.openings);
         const changes = plan.uvFloors.get(layouts[layout].sourceFloor)!.programChanges;
-        return { index: floor.index, layout, elevation: floor.elevation, openings: Object.fromEntries(source.map((o, n) => [o.id, floor.openings[n]!.id])),
+        const treatments = windowTreatments(floor, layouts[layout], request);
+        return { index: floor.index, layout, elevation: floor.elevation, openings: Object.fromEntries(source.map((o, n) => [o.id, mine[n]!.id])),
+            ...(treatments.length ? { treatments } : {}),
             ...(changes?.length ? { program: { kind: assignments.find(a => a.floor === layouts[layout].sourceFloor)!.kind,
                 changes: structuredClone(changes) } } : {}) };
     });
@@ -68,11 +72,15 @@ export async function generate(input: unknown): Promise<PlacementResult> {
         }, layouts
     };
 }
-/** Geometry and program only; exterior dressing (material, panes, glazing, scenery, section ids) varies per floor by design. */
+/** Geometry and program only. Windows and exterior dressing (material, panes, glazing,
+ *  scenery, section ids) vary per floor by design; doors and portals hold the layout. */
 const openingSignatureFields = ['kind', 'doorRole', 'edge', 'offset', 'width', 'height', 'sill', 'leaves', 'door'] as const;
+export function doorOpenings(openings: readonly Opening[]): Opening[] {
+    return openings.filter(opening => opening.kind !== 'window');
+}
 function signature(floor: BlueprintFloor): string {
     return JSON.stringify({
         outline: floor.outline, height: floor.height, kind: floor.kind,
-        openings: floor.openings.map(opening => openingSignatureFields.map(field => opening[field]))
+        openings: doorOpenings(floor.openings).map(opening => openingSignatureFields.map(field => opening[field]))
     }, (_, value) => typeof value === "number" ? Math.round(value * 1e6) / 1e6 : value);
 }

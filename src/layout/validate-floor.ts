@@ -4,7 +4,7 @@ import { DOOR } from "./constants.js";
 import { ArchitectureAccess, accessPermits, closestArchitectureCell, commonTransit } from "./architecture-access.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildNavGrid } from "./navgrid.js";
-import { elevatorWaitUv, stairEntryUv } from "./plan-floor.js";
+import { elevatorWaitUv, stairEntryUv } from "./core-plan.js";
 import type { PlanRoom } from "./plan-types.js";
 import { doorBetween, type IdGen } from "./rooms.js";
 import { fitDoorToStretch } from "./tile-fit.js";

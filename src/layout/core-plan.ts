@@ -1,17 +1,17 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
-import { insetPolygon, polygonArea, polygonBounds } from "../core/geom.js";
+import { polygonArea, polygonBounds } from "../core/geom.js";
 import type { CoreAdjacencyFailure, FloorAssignment, InteriorRequest } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
 import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
 import { isStreetAccess, openingKeepouts, type OpeningKeepout } from "./openings.js";
-import { facadeDepth } from "./shell.js";
+import { constructionPlate, facadeDepth } from "./shell.js";
 import { SHAFT_WIDTH, shaftDepthFor } from "./stair-plan.js";
 import { CoreFacadeClearance } from "./core-adjacency.js";
 import { coreComponents, coreSolids, type CoreComponents } from "./core-solids.js";
 import type { Frame, UvRect } from "./uv.js";
-import { coversRect, makeFrame, snap, snapDown, snapUp, toUvPolygon, uvToWorld, worldToUv } from "./uv.js";
+import { coversRect, makeFrame, snap, snapDown, snapUp, uvToWorld, worldToUv } from "./uv.js";
 
 /** standard: elevator core in the shaft row. compact: stairs turn into columns reaching
  *  into the rear strip so near-miss bands keep elevators. walkup: stair-only, capped. */
@@ -39,6 +39,17 @@ export interface CorePlan {
 
 const MARGIN = 0.5;
 const SCAN_RANGE = 8; // how far vFace may move from its ideal to find a fitting band
+
+/** Frame-space approach point in front of a stair shaft's door. */
+export function stairEntryUv(core: CorePlan, stair: "a" | "b"): Point {
+  return stairAccess(core, stair).entry;
+}
+
+/** Frame-space elevator wait point in front of a shaft. */
+export function elevatorWaitUv(core: CorePlan, elevatorIndex: number): Point {
+  const rect = core.elevators[elevatorIndex]!.rect;
+  return [rect.u + ELEVATOR.shaft / 2, core.vFace - 0.8];
+}
 
 /** Shared inputs behind planCore and coreFeasibility: same frame, same candidate bands. */
 interface CoreEnvelope {
@@ -74,9 +85,10 @@ function minCompactDepth(env: CoreEnvelope): number {
   return ROOM.minDim + CORRIDOR.width + env.stairDepth;
 }
 
-/** The plates the core may stand on: every floor outline behind the facade lining. */
+/** The plates the core may stand on: every floor's buildable rectangle behind the facade
+ *  lining, so no shaft or stair stands in the exterior's open band. */
 function platesOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame, depth: number): Point[][] {
-  return floors.map((f) => insetPolygon(toUvPolygon(f.outline, frame), depth));
+  return floors.map((f) => constructionPlate(f, frame, depth));
 }
 
 function envelopeOf(

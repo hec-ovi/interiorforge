@@ -5,6 +5,8 @@ export const SNAP = 0.5; // layout rects snap to this grid
 export const WALL = 0.1; // interior partition thickness
 export const WALL_BACKING_DEPTH = 0.12; // kit backing when the blueprint omits its depth
 export const AGENT_RADIUS = 0.3; // NPC body radius applied when eroding walkable space
+/** Width a body needs to stand and pass; a leftover thinner than this is not room space. */
+export const BODY_CLEAR = 2 * AGENT_RADIUS;
 
 export const CORRIDOR = {
   /** uniform main corridor width: stair shafts and elevator banks sit flush inside its band */

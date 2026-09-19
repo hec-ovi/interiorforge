@@ -22,9 +22,11 @@ Rooms use the 0.5 m construction grid with measured facade closures. Source rota
 is retained; exported navigation stays aligned to world XZ.
 
 The usable plate is the floor's published `roomEnvelope`, or its outline inset by
-`facade.wallDepth`, default 0.12 m, when Exterior publishes none. Rooms, partitions
-and navigation walls stop at that plate; the band out to the outline stays open and
-walkable, and an exterior door reaches its room across it. Core feasibility
+`facade.wallDepth`, default 0.12 m, when Exterior publishes none. The core, rooms,
+partitions and navigation walls stop at that plate; the band out to the outline stays
+open and walkable, and an exterior door reaches its room across it. A leftover thinner
+than the 0.6 m body clearance is void floor: the rectangle beside it takes that space
+and access never counts it as room space. Core feasibility
 reserves the 1.6 m minimum room depth. Service programs shrink rooms by 0.5 m to
 2 m square, then omit them, in this order: executive office, meeting, storage,
 locker room, kitchen, toilets. Each attempt retains room space and corridor contact.

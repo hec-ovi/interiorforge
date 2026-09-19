@@ -36,6 +36,8 @@ export interface BuildingManifest {
         layout: LayoutId;
         elevation: number;
         openings: Record<string, string>;
+        /** this floor's own window returns, from its own openings */
+        treatments?: Placement[];
         program?: { kind: FloorKind; changes: ProgramChange[] };
     }[];
     connectors: NpcSupport['nav']['connectors'];

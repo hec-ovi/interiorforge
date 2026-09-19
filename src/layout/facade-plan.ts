@@ -2,7 +2,7 @@ import { InteriorError } from "../core/errors.js";
 import { clipPolygonToRect, polygonArea, polygonBounds, type Point } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
 import type { BlueprintFloor, FloorKind, InteriorRequest, RoomKind } from "../core/types.js";
-import { DOOR, ROOM } from "./constants.js";
+import { BODY_CLEAR, DOOR, ROOM } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { FacadeSeats, facadeSlots } from "./facade-seats.js";
 import { FacadeAccess } from "./facade-access.js";
@@ -100,7 +100,7 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
 
   const singleUnit = program && !rooms.some(room => room.unit);
   if (singleUnit) changes.push({ kind: program.service, requested: [MIN_UNIT.serviceSize, MIN_UNIT.serviceSize], fitted: null });
-  const common = new RoomRegion(plate).subtract(occupied)
+  const common = new RoomRegion(plate).subtract(absorbSlivers(occupied))
     .map(shape => ({ ...shape, id: ids.room(), kind: singleUnit ? program.main : MAIN[kind] ?? "lounge",
       ...(singleUnit ? { unit: `f${floor.index}-unit-main` } : {}), doors: [] } as PlanRoom));
   if (!common.some(room => Math.abs(polygonArea(room.polygon!)) >= ROOM.minArea
@@ -115,6 +115,33 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
     if (target) doorBetween(room, target.id, target, ids, room.unit ? 1 : 2, room.unit ? DOOR.single : DOOR.double);
   }
   return { rooms, sealed: [], changes };
+}
+
+/** Between two occupied rectangles a gap thinner than a body is nobody's room: the lower one
+ *  grows through it, so the common remainder never owns a pocket a person cannot stand in.
+ *  A gap that opens onto the plate boundary is not a pocket; it reaches the open perimeter. */
+function absorbSlivers(occupied: readonly UvRect[]): UvRect[] {
+  const gap = (rect: UvRect, along: boolean, low: boolean): number => {
+    const faces = occupied.filter(other => other !== rect
+      && (along
+        ? Math.min(other.v + other.lv, rect.v + rect.lv) - Math.max(other.v, rect.v) > 1e-6
+        : Math.min(other.u + other.lu, rect.u + rect.lu) - Math.max(other.u, rect.u) > 1e-6))
+      .map(other => along
+        ? low ? other.u + other.lu : other.u
+        : low ? other.v + other.lv : other.v)
+      .filter(face => low ? face <= (along ? rect.u : rect.v) + 1e-6
+        : face >= (along ? rect.u + rect.lu : rect.v + rect.lv) - 1e-6);
+    if (!faces.length) return 0;
+    const distance = low
+      ? (along ? rect.u : rect.v) - Math.max(...faces)
+      : Math.min(...faces) - (along ? rect.u + rect.lu : rect.v + rect.lv);
+    return distance > 1e-6 && distance < BODY_CLEAR ? distance : 0;
+  };
+  return occupied.map(rect => {
+    const uLow = gap(rect, true, true), vLow = gap(rect, false, true);
+    return { u: rect.u - uLow, v: rect.v - vLow,
+      lu: rect.lu + uLow + gap(rect, true, false), lv: rect.lv + vLow + gap(rect, false, false) };
+  });
 }
 
 function fittedServices(rect: UvRect, side: "v0" | "v1", polygon: Point[]): UvRect[] {

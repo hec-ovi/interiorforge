@@ -3,9 +3,13 @@ import { roomFootprintContains } from '../core/room-footprint.js';
 import { edgeFrame, edgePoint } from '../geometry/shell-fit.js';
 import { SHELL_WALL, shellWallDepth } from '../layout/shell.js';
 import type { PlacementBuilder } from './builder.js';
-export function openings(builder: PlacementBuilder, bp: BlueprintFloor, floor: FloorInterior, request: InteriorRequest): void {
+/** Doors belong to the reusable layout: the middle-layout signature holds them identical.
+ *  Windows vary per floor, so their returns are published as that floor's own treatments. */
+export function openings(builder: PlacementBuilder, bp: BlueprintFloor, floor: FloorInterior, request: InteriorRequest, want: 'doors' | 'windows'): void {
     const depth = shellWallDepth(request.blueprint.facade);
     for (const opening of bp.openings) {
+        if ((opening.kind === 'window') !== (want === 'windows'))
+            continue;
         const face = edgeFrame(bp.outline, opening.edge), field = opening.kind === 'window' ? opening.glazing ?? opening : opening;
         // The return's outer jambs also stay behind the two adjacent backing planes.
         const margin = field.width * .02 / .5;

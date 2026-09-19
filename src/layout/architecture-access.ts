@@ -4,7 +4,7 @@ import { WalkGrid, type GridTransition } from "../core/grid.js";
 import type { RoomFootprint } from "../core/room-footprint.js";
 import { RigidFrame2D } from "../core/rigid-frame.js";
 import type { RoomKind } from "../core/types.js";
-import { SPINE_KINDS } from "./constants.js";
+import { BODY_CLEAR, SPINE_KINDS } from "./constants.js";
 import { ArchitectureDomain } from "./architecture-domain.js";
 import type { ArchitecturalGrid } from "./navgrid.js";
 import type { PlanRoom } from "./plan-types.js";
@@ -29,6 +29,37 @@ export function accessPermits(owner: PlanRoom, through: PlanRoom): boolean {
 
 function domain(room: PlanRoom): string {
   return commonTransit(room) ? "common" : room.unit === undefined ? "destinations" : `unit:${room.unit}`;
+}
+
+/** Cells of one room a body can actually occupy: a pocket thinner than a body in either
+ *  direction is a void the room happens to cover, not space anyone stands in, so access
+ *  never asks whether it is reachable. */
+function standable(cells: readonly number[], grid: WalkGrid): number[] {
+  const all = new Set(cells), seen = new Set<number>(), out: number[] = [];
+  for (const start of cells) {
+    if (seen.has(start)) continue;
+    const stack = [start], part: number[] = [];
+    seen.add(start);
+    while (stack.length) {
+      const cell = stack.pop()!;
+      part.push(cell);
+      const c = cell % grid.cols, r = (cell - cell % grid.cols) / grid.cols;
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        if (c + dc < 0 || c + dc >= grid.cols || r + dr < 0 || r + dr >= grid.rows) continue;
+        const next = (r + dr) * grid.cols + c + dc;
+        if (all.has(next) && !seen.has(next)) { seen.add(next); stack.push(next); }
+      }
+    }
+    let lowC = Infinity, highC = -Infinity, lowR = Infinity, highR = -Infinity;
+    for (const cell of part) {
+      const c = cell % grid.cols, r = (cell - cell % grid.cols) / grid.cols;
+      lowC = Math.min(lowC, c); highC = Math.max(highC, c);
+      lowR = Math.min(lowR, r); highR = Math.max(highR, r);
+    }
+    if ((highC - lowC + 1) * grid.cellSize >= BODY_CLEAR && (highR - lowR + 1) * grid.cellSize >= BODY_CLEAR)
+      for (const cell of part) out.push(cell);
+  }
+  return out.sort((a, b) => a - b);
 }
 
 /** Access masks retain the physical grid's wall/body clearance and exact room ownership. */
@@ -62,7 +93,7 @@ export class ArchitectureAccess {
           }
         }
       }
-      this.roomCells.set(room.id, cells);
+      this.roomCells.set(room.id, standable(cells, physical));
     }
     const spine = rooms.find(room => commonTransit(room) && SPINE_KINDS.has(room.kind));
     if (!spine) throw new InteriorError("E_UNREACHABLE_SPACE", "floor has no common corridor room");

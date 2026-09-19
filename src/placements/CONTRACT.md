@@ -8,8 +8,9 @@ Converts three planned floors into shared module and catalog prop transforms.
 same transport. `writePlacements(result, out)` writes four compact JSON files.
 
 Generation plans ground, first middle and crown once. All middle floors reference
-that middle layout. Their geometry and explicit programs must match; source opening
-IDs map to each floor's blueprint IDs in the building manifest. Rectangular surface
+that middle layout. Their outline, height, doors and explicit programs must match;
+the manifest maps the layout's door IDs to each floor's own. Windows vary per floor,
+so each floor publishes its own window returns in `building.floors[].treatments`. Rectangular surface
 runs retain holes. Wall runs retain doors and facade clearances. Furniture references
 existing catalog IDs and keeps one uniform scale. Unsupported furnishings produce
 no prop or furniture anchor. Decoration frames and LED housings are module placements.

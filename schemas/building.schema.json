@@ -81,6 +81,11 @@
               "minLength": 1
             }
           },
+          "treatments": {
+            "type": "array",
+            "description": "this floor's own window returns, built from its own openings",
+            "items": { "$ref": "floor-placement.schema.json#/properties/placements/items" }
+          },
           "program": {
             "type": "object",
             "additionalProperties": false,

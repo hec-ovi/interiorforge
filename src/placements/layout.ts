@@ -30,7 +30,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         surface(builder, 'ceiling-tile', 'sealed', rect, ceiling, core.frame);
     }
     walls(builder, floor, uv, core, bp, request);
-    openings(builder, bp, floor, request);
+    openings(builder, bp, floor, request, 'doors');
     const runs = stairs(builder, core, climb, !!roof);
     if (roof) {
         const landing = baseLanding(core.stairA, entryAtLowEnd(core, 'a'), climb);

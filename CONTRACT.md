@@ -1,4 +1,4 @@
-# Interior 0.31.4
+# Interior 0.31.5
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -21,9 +21,9 @@ Places shared room modules and catalog furniture in three reusable building layo
 Generation accepts a rectangular construction plate, at least three floors starting
 at zero, and one storey per assignment. An irregular outline is read through its
 `roomEnvelope`. Every middle floor must share its outline,
-height, opening rectangles and explicit program. Opening IDs and exterior dressing
-(material, panes, glazing, scenery, section ids) may differ. Default programs derive
-from blueprint kinds, with the first middle floor defining its program.
+height, doors and explicit program. Windows vary per floor by design, and so do opening
+IDs and exterior dressing (material, panes, glazing, scenery, section ids). Default
+programs derive from blueprint kinds, with the first middle floor defining its program.
 Input objects remain unchanged. Optional `shellGlb` is metadata; generation consumes
 the assembled blueprint. No shell, texture or furniture geometry is loaded.
 
@@ -50,7 +50,7 @@ Preserve each GLB node's authored transform, including quantization transforms.
 The GLB already contains its authored origin; `origin` is descriptive metadata.
 XZ stays in the blueprint frame; layout Y starts at the walking surface.
 
-Rooms, surfaces, walls and prop bounds fit the floor's published `roomEnvelope`,
+Rooms, surfaces, walls, the vertical core and prop bounds fit the floor's published `roomEnvelope`,
 kept behind `facade.wallDepth`, defaulting to 0.12 m; a floor without one uses its
 outline inset by that depth. The band between that rectangle and the outline is the
 exterior's own slab: open floor, walkable, carrying no partition and no interior
@@ -70,8 +70,8 @@ against the consumer's resource base. Layout file paths resolve beside building.
 Resolve module material slots through `materialTheme` and `tier`; canonical slot
 kinds remain unchanged. Prop materials belong to their existing models.
 
-`building.floors[].openings` maps source opening IDs to the actual blueprint IDs on
-that floor. Exterior door placement and room connection IDs match the blueprint.
+`building.floors[].openings` maps the layout's door IDs to this floor's door IDs, and
+`treatments` carries this floor's own window returns, built from its own openings. Exterior door placement and room connection IDs match the blueprint.
 Core placements carry `connector` and an actual corridor room ID.
 Floors with reduced service rooms carry `program: {kind, changes}` in building.json.
 Each change names the room kind, requested width and depth, and fitted dimensions
