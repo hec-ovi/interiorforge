@@ -1,5 +1,7 @@
 # Changelog
 
+0.31.7: the core scans the whole corridor band when it cannot stand under the roof housing, and a stair that cannot reach the housing leaves the roof unreachable instead of closing the building.
+
 0.31.6: two floor buildings open with a ground and a crown layout, and floor nobody can stand in is void instead of a room.
 
 0.31.5: doors alone hold the reusable middle layout, each floor publishes its own window returns, the vertical core stands on the construction plate and a leftover thinner than a body is void, not room space.

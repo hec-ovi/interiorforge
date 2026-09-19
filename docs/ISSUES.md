@@ -12,3 +12,17 @@
 The [contract](../CONTRACT.md) defines room module and prop resource ownership,
 three layout reuse, identity mapping, and the measured 2 MB and 30 second export budgets.
 Exterior supplies measured opening records. Furniture and modules are shared city resources.
+
+## Exterior: roof bulkhead cutout
+
+The mirror-frame 4x3 plans publish a roof housing whose cutout is turned across the stair
+it must cover. Stair A is 3.0 m wide by 6.2 m long (two flights plus their landings, the
+published minimum for 1.2 m clear width, 0.16 to 0.18 m risers and 0.28 m treads); the
+cutout is 7.2 m across by 4.0 m deep, so it is 2.2 m short along the flight direction.
+Same numbers on mirror-frame-4x3x8f, -4x3x9f, -4x3x16f and -4x3x29f (kit index
+374dc6b2dfdb9187).
+
+Needed: the cutout's deep side runs along the core frame's v axis, at least 6.2 m by 3.0 m,
+centred on the stair shaft, or the housing footprint turned a quarter turn. Until then
+those buildings generate with no roof access: the stair stops at the top floor and the
+roof stays unreachable.

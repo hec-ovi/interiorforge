@@ -347,16 +347,22 @@ function selectEnvelope(blueprint: InteriorRequest["blueprint"]): CoreChoice {
   const bulkUv = (frame: Frame): Point | null => (bulkhead ? worldToUv(bulkhead.center, frame) : null);
   const angles = allowed ?? frameAngles(base);
   const firstFrame = frameAt(roofAngle ?? angles[0]!, ground);
-  const first = envelopeOf(blueprint, firstFrame, depth, bulkUv(firstFrame));
-  const firstPlacement = first.crossDepthOk ? selectPlacement(first) : null;
-  if (firstPlacement && withinCap(first, firstPlacement)) return { env: first, placement: firstPlacement };
-  if (bulkhead) return { env: first, placement: firstPlacement };
+  const attempt = (frame: Frame, bulk: Point | null): CoreChoice => {
+    const env = envelopeOf(blueprint, frame, depth, bulk);
+    return { env, placement: env.crossDepthOk ? selectPlacement(env) : null };
+  };
+  const first = attempt(firstFrame, bulkUv(firstFrame));
+  if (first.placement && withinCap(first.env, first.placement)) return first;
+  // The roof housing's row is the ideal, not a gate: a core that cannot stand under it
+  // scans the whole corridor band instead, and roof access degrades on its own terms.
+  const free = bulkhead ? attempt(firstFrame, null) : first;
+  if (free.placement && withinCap(free.env, free.placement)) return free;
 
   let best: CoreChoice | null = null;
   let bestRank = Infinity;
   for (const angle of angles.slice(1)) {
     const frame = frameAt(angle, ground);
-    const env = envelopeOf(blueprint, frame, depth, bulkUv(frame));
+    const { env } = attempt(frame, null);
     if (!env.crossDepthOk) continue;
     const placement = selectPlacement(env);
     if (!placement || !withinCap(env, placement)) continue;
@@ -367,7 +373,7 @@ function selectEnvelope(blueprint: InteriorRequest["blueprint"]): CoreChoice {
     }
     if (placement.mode === "standard") break;
   }
-  return best ?? { env: first, placement: firstPlacement };
+  return best ?? free;
 }
 
 /** Longest band any corridor position offers; reported when no mode fits. */

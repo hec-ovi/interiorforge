@@ -43,8 +43,8 @@ cells. Complete route sweeps remain reserved during furnishing. NPC navigation u
 its separate 0.25 m grid. Agent radius is 0.3 m.
 
 Stairs retain 1.2 m clear lanes, 0.16 to 0.18 m risers, 0.28 m treads, 1.2 m landings
-and 2.1 m headroom. `planRoofAccess` returns a fitted landing and roof connection or
-null. Shared [stair parameters](constants.ts) also govern module placement.
+and 2.1 m headroom. `planRoofAccess` returns a fitted landing and roof connection, or null when the published
+housing does not take the stair: the building opens and the roof stays unreachable. Shared [stair parameters](constants.ts) also govern module placement.
 
 [Luxury](luxury/CONTRACT.md) fits coordinated furniture groups.
 [Lofts](lofts/CONTRACT.md) supports planning tools with multiple storeys; public

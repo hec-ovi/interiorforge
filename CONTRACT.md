@@ -1,4 +1,4 @@
-# Interior 0.31.6
+# Interior 0.31.7
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -89,7 +89,7 @@ car placements describe its stop pose. Landing doors remain at every floor.
 Layout NPC records use `sourceFloor` and local identities. `expandBuilding` applies
 floor identities, opening mappings, elevations and building connectors for Simulation.
 Its navigation retains anchors, roles, routines, standing opportunities and floor grids.
-A fitted roof retains its navigation access. Runtime actor dimensions and dynamic
+A fitted roof retains its navigation access; a housing that cannot take the stair leaves the roof out of the navigation instead of closing the building. Runtime actor dimensions and dynamic
 obstructions require consumer agreement in [issues](docs/ISSUES.md).
 
 ## Validation and limits

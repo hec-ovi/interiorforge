@@ -30,9 +30,9 @@ export function planRoofAccess(request: InteriorRequest, core: CorePlan): RoofAc
   const axisDot = (bulkhead.axis[0] * core.frame.cos + bulkhead.axis[1] * core.frame.sin) / (axisLength || 1);
   const frameCross: Point = [-core.frame.sin, core.frame.cos];
   const normalDot = (bulkhead.doorNormal[0] * frameCross[0] + bulkhead.doorNormal[1] * frameCross[1]) / (normalLength || 1);
-  if (Math.abs(axisDot) < 0.999 || Math.abs(normalDot) < 0.999) {
-    throw new InteriorError("E_BLUEPRINT_INVALID", "roof bulkhead axis or door side does not match the interior core frame");
-  }
+  // The housing is Exterior's; when the core could not stand under it the building still
+  // opens and the roof stays unreachable. Mismatches are filed in docs/ISSUES.md.
+  if (Math.abs(axisDot) < 0.999 || Math.abs(normalDot) < 0.999) return null;
   if (bulkhead.doorHeight + 1e-6 < STAIR.headroom) {
     throw new InteriorError(
       "E_UNREACHABLE_SPACE",
@@ -47,9 +47,7 @@ export function planRoofAccess(request: InteriorRequest, core: CorePlan): RoofAc
   if (
     Math.abs(shaftCenterU - centerU) + shaft.lu / 2 > bulkhead.width / 2 + 1e-6
     || Math.abs(shaftCenterV - centerV) + shaft.lv / 2 > bulkhead.depth / 2 + 1e-6
-  ) {
-    throw new InteriorError("E_UNREACHABLE_SPACE", "stair-a does not fit inside the roof bulkhead cutout");
-  }
+  ) return null;
 
   const side = normalDot < 0 ? -1 : 1;
   const doorV = centerV + side * bulkhead.depth / 2;
