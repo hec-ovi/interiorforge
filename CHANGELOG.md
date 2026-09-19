@@ -1,5 +1,7 @@
 # Changelog
 
+0.31.11: a stack whose plates hold no core opens as its ground floor alone.
+
 0.31.10: a building opens on the core its plate holds, recording any exterior reservation that core crosses, and builds one stair where a second cannot keep its headroom.
 
 0.31.9: a room no wall can open into leaves the floor instead of closing the building.

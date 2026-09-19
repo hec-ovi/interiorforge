@@ -1,6 +1,6 @@
 {
   "name": "urbe-interior",
-  "version": "0.31.10",
+  "version": "0.31.11",
   "private": true,
   "type": "module",
   "description": "TypeScript generator for shared room modules, reusable furnished floor layouts and NPC navigation.",

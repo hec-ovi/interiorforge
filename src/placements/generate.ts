@@ -10,12 +10,12 @@ import type { LayoutId, PlacementResult, FloorPlacement } from './types.js';
 import version from '../../package.json' with { type: 'json' };
 export async function generate(input: unknown): Promise<PlacementResult> {
     const request = validateRequest(input), floors = request.blueprint.floors;
-    if (floors.length < 2 || floors[0]!.index !== 0)
-        throw new InteriorError('E_BLUEPRINT_INVALID', 'placement buildings require at least two floors starting at zero');
+    if (floors.length < 1 || floors[0]!.index !== 0)
+        throw new InteriorError('E_BLUEPRINT_INVALID', 'placement buildings require at least one floor starting at zero');
     // Two floors are ground and crown; the middle layout exists only where a floor repeats it.
-    const assignments = resolveAssignments(request), repeats = floors.length > 2;
-    const samples = repeats ? [floors[0]!, floors[1]!, floors.at(-1)!] : [floors[0]!, floors.at(-1)!];
-    const names: LayoutId[] = repeats ? ['ground', 'middle', 'crown'] : ['ground', 'crown'];
+    const assignments = resolveAssignments(request), repeats = floors.length > 2, alone = floors.length === 1;
+    const samples = alone ? [floors[0]!] : repeats ? [floors[0]!, floors[1]!, floors.at(-1)!] : [floors[0]!, floors.at(-1)!];
+    const names: LayoutId[] = alone ? ['ground'] : repeats ? ['ground', 'middle', 'crown'] : ['ground', 'crown'];
     if (assignments.some(a => (a.spans ?? 1) !== 1))
         throw new InteriorError('E_ASSIGNMENT_INVALID', 'placement layouts require single storey assignments');
     for (const floor of floors.slice(2, -1)) {
@@ -24,7 +24,17 @@ export async function generate(input: unknown): Promise<PlacementResult> {
         if (request.assignments && assignments.find(a => a.floor === floor.index)?.kind !== assignments.find(a => a.floor === 1)?.kind)
             throw new InteriorError('E_ASSIGNMENT_INVALID', 'middle floors must share one program');
     }
-    const plan = planBuilding(request, assignments, new Set(samples.map(f => f.index)));
+    let plan;
+    try {
+        plan = planBuilding(request, assignments, new Set(samples.map(f => f.index)));
+    }
+    catch (error) {
+        // No core stands on this stack's plates: the building opens as its ground floor.
+        if (alone || !(error instanceof InteriorError) || error.code !== 'E_FLOOR_TOO_SMALL')
+            throw error;
+        return generate({ ...request, blueprint: { ...request.blueprint, floors: [floors[0]!], roof: undefined },
+            ...(request.assignments ? { assignments: request.assignments.filter(a => a.floor === 0) } : {}) });
+    }
     const roof = planRoofAccess(request, plan.core);
     const crown = samples.length - 1;
     const tables = samples.map((bp, i) => placeLayout(plan, bp, request,
@@ -63,7 +73,7 @@ export async function generate(input: unknown): Promise<PlacementResult> {
             ...(changes?.length ? { program: { kind: assignments.find(a => a.floor === table.sourceFloor)!.kind,
                 changes: structuredClone(changes) } } : {}) };
     });
-    const connectors = npc.nav.connectors.map(c => {
+    const connectors = alone ? [] : npc.nav.connectors.map(c => {
         const served = floors.map(f => f.index);
         const entries = Object.fromEntries(served.map(f => [f, c.entryByFloor[String(f === 0 ? 0 : f === floors.length - 1 ? f : 1)]!]));
         if (npc.nav.roofAccess && c.id === 'stair-a') {

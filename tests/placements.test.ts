@@ -156,18 +156,20 @@ it('builds inside the published room envelope, core included, on a notched, curv
 });
 const kitIndex = process.env.URBE_KIT_INDEX
     ?? '../engine/out/shared/kit/374dc6b2dfdb9187/kit.json';
-it.skipIf(!existsSync(kitIndex))('never rejects a published kit plan for a window that varies per floor', { timeout: 180000 }, async () => {
+it.skipIf(!existsSync(kitIndex))('opens or degrades every published kit plan', { timeout: 240000 }, async () => {
     const kit = JSON.parse(await readFile(kitIndex, 'utf8'));
     const base = resolve(dirname(kitIndex), '../..');
-    const rejected: string[] = [];
+    const refused: string[] = [];
     for (const plan of kit.plans) {
         const blueprint = JSON.parse(await readFile(resolve(base, plan.blueprint), 'utf8'));
-        await generate({ seed: plan.id, building: { id: plan.id, type: 'residential', tier: 'mid' }, blueprint, materialTheme: 'cyberpunk' })
-            .catch((error: { message?: string }) => {
-                if (/reusable middle layout/.test(error.message ?? '')) rejected.push(plan.id);
+        const built = await generate({ seed: plan.id, building: { id: plan.id, type: 'residential', tier: 'mid' }, blueprint, materialTheme: 'cyberpunk' })
+            .catch((error: { code?: string; message?: string }) => {
+                refused.push(`${plan.id}: ${error.code ?? ''} ${error.message ?? ''}`);
+                return null;
             });
+        if (built) expect(built.building.floors.length).toBeGreaterThan(0);
     }
-    expect(rejected).toEqual([]);
+    expect(refused).toEqual([]);
 });
 it('publishes ground and crown alone for a two floor building', async () => {
     const pair = structuredClone(request), ground = pair.blueprint.floors[0]!, crown = pair.blueprint.floors.at(-1)!;

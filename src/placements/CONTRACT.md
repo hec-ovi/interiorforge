@@ -8,7 +8,7 @@ Converts three planned floors into shared module and catalog prop transforms.
 same transport. `writePlacements(result, out)` writes four compact JSON files.
 
 Generation plans ground, first middle and crown once; two floors plan ground and crown
-alone and publish no middle layout. All middle floors reference
+alone, and a stack with no room for a core plans its ground floor alone. All middle floors reference
 that middle layout. Their outline, height, doors and explicit programs must match;
 the manifest maps the layout's door IDs to each floor's own. Windows vary per floor,
 so each floor publishes its own window returns in `building.floors[].treatments`. Rectangular surface
