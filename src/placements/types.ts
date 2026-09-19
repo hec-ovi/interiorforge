@@ -42,6 +42,8 @@ export interface BuildingManifest {
         program?: { kind: FloorKind; changes: ProgramChange[] };
     }[];
     connectors: NpcSupport['nav']['connectors'];
+    /** the stair this building was furnished around, in world XZ */
+    corePlacement: { stairA: { center: [number, number]; axis: [number, number]; width: number; depth: number } };
     /** set when the only core the plate holds crosses an exterior opening reservation */
     reservationCrossing?: { floor: number; opening: string; coreSolid: string; role: string; requiredDepth: number; availableDepth: number };
 }

@@ -1,6 +1,6 @@
 # Changelog
 
-0.31.12: the pier check reads the walls the floor actually builds, a room whose partition finds no pier leaves the floor, and only a stack with no core opens as its ground floor.
+0.31.12: the pier check reads the walls the floor actually builds, a room whose partition finds no pier leaves the floor, only a stack with no core opens as its ground floor, and core feasibility publishes the stair the furnished building stands on.
 
 0.31.11: a stack whose plates hold no core opens as its ground floor alone.
 

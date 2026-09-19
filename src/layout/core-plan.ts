@@ -478,19 +478,20 @@ function round2(v: number): number {
 
 /** Assembler pre-check mirroring planCore exactly: same frame, same vFace scan, same
  *  thresholds (see schemas/core-feasibility.json). */
-export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFeasibility {
+/** `buildingType` picks the same lift demand the furnishing pass uses, so the published
+ *  placement is the one `generate` builds for a building of that type. */
+export function coreFeasibility(blueprint: InteriorRequest["blueprint"], buildingType = "residential"): CoreFeasibility {
   const { env, placement } = selectEnvelope(blueprint);
   const blocker = blockerOf(env, placement);
-  const layout = placement && !blocker ? coreLayout(env, placement, placement.maxElevators) : null;
+  const chosen = placement ?? selectPlacement(env, false);
+  const layout = chosen && (!blocker || blocker === "opening_reservations")
+    ? fitCore(env, chosen, buildingType)?.layout ?? null : null;
   return {
     fits: blocker === undefined,
     mode: placement?.mode ?? "none",
     ...(blocker ? { blocker } : {}),
     ...(blocker === "opening_reservations" && env.adjacencyFailure ? { adjacencyFailure: env.adjacencyFailure } : {}),
-    ...(layout ? { placement: { stairA: {
-      center: uvToWorld([layout.stairA.u + layout.stairA.lu / 2, layout.stairA.v + layout.stairA.lv / 2], env.frame),
-      axis: [env.frame.cos, env.frame.sin] as Point, width: layout.stairA.lu, depth: layout.stairA.lv,
-    } } } : {}),
+    ...(layout ? { placement: corePlacement({ frame: env.frame, stairA: layout.stairA } as CorePlan) } : {}),
     frameAngleDeg: env.frame.angleDeg,
     bandLength: round2(placement ? placement.bandLen : bestBandLen(env)),
     minCoreLength: round2(rowFixedLen(env) + ELEVATOR.shaft),
@@ -507,6 +508,26 @@ export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFe
   };
 }
 
+/** The one core layout both the gate and the furnishing pass use: demand's car count first,
+ *  fewer cars while the plate refuses, then the loose core when Exterior's opening
+ *  reservations leave no clear position (recorded, and filed in docs/ISSUES.md). */
+function fitCore(env: CoreEnvelope, chosen: Placement, buildingType: string):
+{ layout: CoreLayout; cars: number; loose: boolean } | null {
+  const wanted = chosen.mode === "walkup" ? 0
+    : Math.min(elevatorsFor(buildingType, env.area, env.aboveFloors, env.topElevation), Math.max(1, chosen.maxElevators));
+  const attempt = (respect: boolean): { layout: CoreLayout; cars: number } | null => {
+    for (let cars = wanted; cars >= (chosen.mode === "walkup" ? 0 : 1); cars--) {
+      const layout = coreLayout(env, chosen, cars, respect);
+      if (layout) return { layout, cars };
+      if (cars === 0) break;
+    }
+    return null;
+  };
+  const strict = attempt(true);
+  const fitted = strict ?? attempt(false);
+  return fitted ? { ...fitted, loose: !strict } : null;
+}
+
 /** Places the vertical core once per building; every floor reuses these rects. */
 export function planCore(request: InteriorRequest, assignments: FloorAssignment[], singleStair = false): CorePlan {
   const { env, placement } = selectEnvelope(request.blueprint, singleStair);
@@ -519,25 +540,11 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
   }
 
   const { mode, vFace } = chosen;
-  const wanted = mode === "walkup" ? 0
-    : Math.min(elevatorsFor(request, env.area, env.aboveFloors, env.topElevation), Math.max(1, chosen.maxElevators));
-  const fit = (respect: boolean): { layout: CoreLayout; cars: number } | null => {
-    for (let cars = wanted; cars >= (mode === "walkup" ? 0 : 1); cars--) {
-      const layout = coreLayout(env, chosen, cars, respect);
-      if (layout) return { layout, cars };
-      if (cars === 0) break;
-    }
-    return null;
-  };
-  // Exterior's opening reservation and the only core the plate holds can overlap. The
-  // building opens on the loose core and the manifest records the crossing; the numbers
-  // are filed in docs/ISSUES.md under "Exterior: opening reservations".
-  const strict = fit(true), fitted = strict ?? fit(false);
+  const fitted = fitCore(env, chosen, request.building.type);
   if (!fitted) {
     throw new InteriorError("E_FLOOR_TOO_SMALL", "no vertical core placement clears the exterior opening reservations");
   }
-  const loose = !strict;
-  const { layout, cars: elevatorCount } = fitted;
+  const { layout, cars: elevatorCount, loose } = fitted;
 
   const u0 = layout.u0;
   const plan: CorePlan = {
@@ -547,6 +554,15 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
   };
   ensureCoreFitsAllFloors(request, plan, !loose);
   return plan;
+}
+
+/** The furnished stair, in world XZ: the same shape `coreFeasibility` publishes. */
+export function corePlacement(core: CorePlan): CoreFeasibility["placement"] & {} {
+  const shaft = core.stairA;
+  return { stairA: {
+    center: uvToWorld([shaft.u + shaft.lu / 2, shaft.v + shaft.lv / 2], core.frame),
+    axis: [core.frame.cos, core.frame.sin] as Point, width: shaft.lu, depth: shaft.lv,
+  } };
 }
 
 /** Where a stair is entered: the walk-in point plus the wall line its door pierces. */
@@ -626,8 +642,7 @@ function stairShaftDepth(floors: InteriorRequest["blueprint"]["floors"]): number
   return shaftDepthFor(climbCandidates(floors));
 }
 
-function elevatorsFor(request: InteriorRequest, area: number, aboveFloors: number, topElevation: number): number {
-  const type = request.building.type;
+function elevatorsFor(type: string, area: number, aboveFloors: number, topElevation: number): number {
   let cars: number;
   if (type === "residential" || type === "hotel") {
     const units = (area / ELEVATOR.unitAreaGuess) * aboveFloors;

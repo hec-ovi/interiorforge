@@ -12,7 +12,7 @@ import type { FloorCirculation } from "./circulation.js";
 export type { FloorCirculation, CirculationEndpoint } from "./circulation.js";
 
 export type { CorePlan, CoreFeasibility } from "./core-plan.js";
-export { coreFeasibility } from "./core-plan.js";
+export { coreFeasibility, corePlacement } from "./core-plan.js";
 export type { PlannedFloor, UvFloorData } from "./plan-floor.js";
 export { elevatorWaitUv, stairEntryUv } from "./core-plan.js";
 

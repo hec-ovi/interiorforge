@@ -190,6 +190,11 @@ it('publishes ground and crown alone for a two floor building', async () => {
     expect(built.building.floors.map(f => f.layout)).toEqual(['ground', 'crown']);
     expect(expandBuilding(built).npc.anchors.some(a => a.kind === 'entrance')).toBe(true);
 });
+it('places the core where its published feasibility says it will', () => {
+    const fit = coreFeasibility(request.blueprint, request.building.type);
+    expect(fit.fits).toBe(true);
+    expect(fit.placement).toEqual(result.building.corePlacement);
+});
 it('leaves no room space beside the core thinner than a body', () => {
     const body = .6, inside = (room: any, point: number[]) => {
         const ring: number[][] = room.polygon ?? [[room.rect.x, room.rect.z], [room.rect.x + room.rect.w, room.rect.z],

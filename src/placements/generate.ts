@@ -4,6 +4,7 @@ import { coreFeasibility, planBuilding } from '../layout/index.js';
 import { buildNpcSupport } from '../npc/index.js';
 import { planRoofAccess } from '../layout/roof-access.js';
 import type { BlueprintFloor, NpcSupport, Opening } from '../core/types.js';
+import { corePlacement } from '../layout/core-plan.js';
 import { placeLayout } from './layout.js';
 import { windowTreatments } from './treatments.js';
 import type { LayoutId, PlacementResult, FloorPlacement } from './types.js';
@@ -87,7 +88,7 @@ export async function generate(input: unknown): Promise<PlacementResult> {
     return {
         building: {
             version: 1, generatorVersion: version.version, buildingId: request.building.id, modules: 'modules.json', props: 'catalog.json',
-            materialTheme: request.materialTheme, tier: request.building.tier, layouts: Object.fromEntries(names.map(name => [name, `layouts/${name}.json`])), floors: refs, connectors,
+            materialTheme: request.materialTheme, tier: request.building.tier, layouts: Object.fromEntries(names.map(name => [name, `layouts/${name}.json`])), floors: refs, connectors, corePlacement: corePlacement(plan.core),
             ...(plan.core.reservationCrossing ? { reservationCrossing: plan.core.reservationCrossing } : {})
         }, layouts
     };

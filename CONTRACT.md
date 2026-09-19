@@ -12,7 +12,7 @@ Places shared room modules and catalog furniture in three reusable building layo
 | `expandBuilding` | Generation result | `{floors, npc}` with unique floor identities and absolute elevations |
 | `findPath` | Expanded NPC data, two `{floor, position: [x,z]}` endpoints | Walk and connector legs, or null |
 | `makePlacementFixture` | Optional [fixture settings](src/blueprint/fixture.ts) | Reproducible rectangular request |
-| `coreFeasibility` | Consumed blueprint | [Core fit](src/layout/schema/core-feasibility.schema.json) |
+| `coreFeasibility` | Consumed blueprint, building type | [Core fit](src/layout/schema/core-feasibility.schema.json), the placement `generate` furnishes |
 
 `makeFixture` also provides a blueprint and shell document for feasibility tools.
 `npm run build:feasibility` compiles the browser entry `src/feasibility.ts` to
@@ -75,7 +75,9 @@ kinds remain unchanged. Prop materials belong to their existing models.
 
 `building.floors[].openings` maps the layout's door IDs to this floor's door IDs, and
 `treatments` carries this floor's own window returns, built from its own openings. Exterior door placement and room connection IDs match the blueprint.
-Core placements carry `connector` and an actual corridor room ID. A second stair is built
+Core placements carry `connector` and an actual corridor room ID. `building.corePlacement`
+is the stair the building was furnished around, the shape `coreFeasibility` returns for
+the same blueprint and building type, so a window measured against the gate stays clear. A second stair is built
 only where its flights keep the published headroom. `building.reservationCrossing` names
 the exterior opening the core crosses when the plate holds no clear position.
 Floors with reduced service rooms carry `program: {kind, changes}` in building.json.

@@ -32,6 +32,25 @@
       "type": "string",
       "minLength": 1
     },
+    "corePlacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "the stair this building was furnished around; coreFeasibility publishes the same shape",
+      "required": ["stairA"],
+      "properties": {
+        "stairA": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["center", "axis", "width", "depth"],
+          "properties": {
+            "center": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+            "axis": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "depth": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
     "reservationCrossing": {
       "type": "object",
       "additionalProperties": true,
@@ -153,6 +172,7 @@
     "materialTheme",
     "tier",
     "layouts",
+    "corePlacement",
     "floors",
     "connectors"
   ]

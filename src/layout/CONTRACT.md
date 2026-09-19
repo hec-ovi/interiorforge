@@ -9,7 +9,9 @@ one core, UV room data, navigation grids and
 [circulation](schema/circulation.schema.json). The core considers every floor;
 selected floors alone receive room and content plans. Placements selects three.
 
-`coreFeasibility(blueprint)` uses the same core recipe and returns
+`coreFeasibility(blueprint, buildingType)` shares the placement recipe with `planCore`,
+including its lift demand, so the published stair is the one a building of that type is
+furnished around. It returns
 [fit results](schema/core-feasibility.schema.json). Success includes the exact stair
 shaft center, axis, width and depth. Standard, compact and walkup modes share
 [constants](../../schemas/core-feasibility.json). A published roof housing fixes the
