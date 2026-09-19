@@ -164,7 +164,11 @@ it.skipIf(!kitFiles(kitIndex).length)('opens or degrades every published kit pla
     const plans = new Map<string, string>();
     for (const file of kitFiles(kitIndex)) {
         const kit = JSON.parse(await readFile(file, 'utf8'));
-        for (const plan of kit.plans) plans.set(resolve(dirname(realpathSync(file)), '../..', plan.blueprint), plan.id);
+        for (const plan of kit.plans) {
+            // An index can outlive the artifacts it names; a plan that is gone is not a refusal.
+            const path = resolve(dirname(realpathSync(file)), '../..', plan.blueprint);
+            if (existsSync(path)) plans.set(path, plan.id);
+        }
     }
     const refused: string[] = [];
     for (const [path, id] of plans) {
