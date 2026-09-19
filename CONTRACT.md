@@ -1,4 +1,4 @@
-# Interior 0.31.2
+# Interior 0.31.3
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -20,8 +20,9 @@ Places shared room modules and catalog furniture in three reusable building layo
 
 Generation accepts rectangular construction axes, at least three floors starting at
 zero, and one storey per assignment. Every middle floor must share its outline,
-height, opening rectangles and explicit program. Opening IDs may differ. Default
-programs derive from blueprint kinds, with the first middle floor defining its program.
+height, opening rectangles and explicit program. Opening IDs and exterior dressing
+(material, panes, glazing, scenery, section ids) may differ. Default programs derive
+from blueprint kinds, with the first middle floor defining its program.
 Input objects remain unchanged. Optional `shellGlb` is metadata; generation consumes
 the assembled blueprint. No shell, texture or furniture geometry is loaded.
 

@@ -124,6 +124,18 @@ it('accepts vertically separate windows and rejects a true rectangular overlap',
     modified.blueprint.floors[1]!.openings[1]!.sill = .75;
     await expect(generate(modified)).rejects.toMatchObject({ code: 'E_BLUEPRINT_INVALID' });
 });
+it('reuses one middle layout when floors differ only in exterior dressing', async () => {
+    const dressed = structuredClone(request), middles = dressed.blueprint.floors.slice(1, -1);
+    for (const floor of middles)
+        for (const opening of floor.openings) {
+            opening.material = floor.index % 2 ? 'cyberpunk/paired-window-glass/mid' : 'cyberpunk/paired-window-black/mid';
+            opening.sectionId = `bg:${floor.index}`;
+            opening.scenery = { nodeId: `scenery:${floor.index}`, lightLayout: floor.index % 2 ? 'strips' : 'spots',
+                lights: [{ position: [0, floor.elevation + 1, 0], lumens: 1200 * (floor.index % 2 + 1) }] };
+        }
+    const generated = await generate(dressed);
+    expect(generated.building.floors.filter(f => f.layout === 'middle').map(f => f.index)).toEqual(middles.map(f => f.index));
+});
 it('rejects a stair roof exit below the promised standing clearance', async () => {
     const modified = structuredClone(request), shaft = coreFeasibility(modified.blueprint).placement!.stairA;
     const top = modified.blueprint.floors.at(-1)!;

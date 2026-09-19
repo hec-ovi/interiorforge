@@ -68,9 +68,11 @@ export async function generate(input: unknown): Promise<PlacementResult> {
         }, layouts
     };
 }
+/** Geometry and program only; exterior dressing (material, panes, glazing, scenery, section ids) varies per floor by design. */
+const openingSignatureFields = ['kind', 'doorRole', 'edge', 'offset', 'width', 'height', 'sill', 'leaves', 'door'] as const;
 function signature(floor: BlueprintFloor): string {
     return JSON.stringify({
         outline: floor.outline, height: floor.height, kind: floor.kind,
-        openings: floor.openings.map(({ id, ...opening }) => opening)
+        openings: floor.openings.map(opening => openingSignatureFields.map(field => opening[field]))
     }, (_, value) => typeof value === "number" ? Math.round(value * 1e6) / 1e6 : value);
 }
