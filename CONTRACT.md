@@ -1,4 +1,4 @@
-# Interior 0.32.0
+# Interior 0.32.1
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -93,7 +93,7 @@ kept behind `facade.wallDepth`, defaulting to 0.12 m; a floor without one uses i
 outline inset by that depth. The band between that rectangle and the outline is the
 exterior's own slab: open floor, walkable, carrying no partition and no interior
 surface, and an exterior door reaches its room across it, through the part of its span that meets that room's floor. Window returns fit between
-adjacent backing planes. Door thresholds join the floor to source passages; a pocket door's passage is its published `door.clearance`, and the cassette beside it is solid wall.
+adjacent backing planes. Door thresholds join the floor to source passages; a pocket door's passage is its published `door.clearance`, its connection carries `clearDepth` 0 (the leaves retract into the cassette), and the cassette beside it is solid wall.
 
 Construction uses the 0.5 m grid. Measured facade attachments and closing boundaries
 retain exact source coordinates. Stair variants have 7 through 14 treads at 0.28 m

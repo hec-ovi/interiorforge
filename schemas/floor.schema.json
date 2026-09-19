@@ -266,8 +266,8 @@
                 },
                 "clearDepth": {
                   "type": "number",
-                  "exclusiveMinimum": 0,
-                  "description": "moving exterior door reservation, or openFront traversable depth through the fixed surround"
+                  "minimum": 0,
+                  "description": "moving exterior door reservation, 0 for a pocket door whose leaves retract into their cassette, or openFront traversable depth through the fixed surround"
                 }
               },
               "oneOf": [
@@ -277,7 +277,8 @@
                 },
                 {
                   "required": ["kind", "clearHeight", "clearDepth"],
-                  "not": { "required": ["leaves"] }
+                  "not": { "required": ["leaves"] },
+                  "properties": { "clearDepth": { "exclusiveMinimum": 0 } }
                 }
               ]
             }

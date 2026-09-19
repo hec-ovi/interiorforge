@@ -1,5 +1,7 @@
 # Changelog
 
+0.32.1: a pocket door connection publishes `clearDepth` 0 and the floor schema admits it; an open front still carries a positive traversable depth.
+
 0.32.0: buildings furnish to the interior references: partitions are nine-slice panel frames with lit joints per room finish, floors are fitted slabs with carpets under seating, ceilings carry a fitted band, inset fields, spots and lit coves, every lit module publishes its emitter, built-in furniture modules (desks, counters, kitchen runs, planted beds, wardrobes, showers, basins, planters, screens, seating) furnish lobby, restaurant, office and residence programs by family, and every venue publishes its staff and guests.
 
 0.31.15: an exterior connection lands on the room whose floor stands behind it across the open band, through the part of its span that meets that floor, so a portal facing a core wall still opens its venue; the kit sweep also generates every shell of the newest assembled city.

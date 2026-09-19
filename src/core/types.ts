@@ -234,7 +234,8 @@ export interface RoomDoor extends RoomConnection {
   /** regular doors omit kind; the schema reserves it for open fronts */
   kind?: never;
   leaves: 1 | 2 | 3 | 4;
-  /** moving-leaf reservation consumed from an exterior connection */
+  /** moving-leaf reservation consumed from an exterior connection; 0 for a pocket door,
+   *  whose leaves retract into their cassette */
   clearDepth?: number;
 }
 

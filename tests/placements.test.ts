@@ -38,14 +38,20 @@ beforeAll(async () => {
 }, 30000);
 afterAll(async () => { if (dir)
     await rm(dir, { recursive: true, force: true }); });
-it('publishes schema valid tables, catalog references, NPC anchors and complete routes', async () => {
+/** The published schemas, as a consumer validates the tables against them. */
+const schemas = async () => {
     const ajv = new Ajv2020({ strict: false });
     for (const name of ['floor', 'npc', 'blueprint', 'modules', 'floor-placement', 'building'])
         ajv.addSchema(await json(`schemas/${name}.schema.json`), `https://urbe.dev/interior/${name}.schema.json`);
-    for (const [name, value] of [['modules', modules], ['building', result.building], ...Object.values(result.layouts).map(l => ['floor-placement', l])]) {
+    return (name: string, value: unknown) => {
         const check = ajv.getSchema(`https://urbe.dev/interior/${name}.schema.json`)!;
         expect(check(value), JSON.stringify(check.errors)).toBe(true);
-    }
+    };
+};
+it('publishes schema valid tables, catalog references, NPC anchors and complete routes', async () => {
+    const valid = await schemas();
+    for (const [name, value] of [['modules', modules], ['building', result.building], ...Object.values(result.layouts).map(l => ['floor-placement', l])])
+        valid(name as string, value);
     const catalog = await json('src/assets/catalog.json'), ids = new Set(catalog.assets.map((a: any) => a.id));
     for (const l of Object.values(result.layouts)) {
         expect(l.placements.some(p => p.prop)).toBe(true);
@@ -231,6 +237,11 @@ it('opens a pocket door on its published clearance and joins the threshold behin
     const built = await generate(pocketed);
     const layout = built.layouts.ground!, frame = layout.placements.find(p => p.id === door.id)!;
     const threshold = layout.placements.find(p => p.module?.startsWith('floor-slab') && p.opening === door.id)!;
+    // The connection reserves no moving-leaf depth, and the published table still validates.
+    const connection = layout.floor.rooms.flatMap(room => room.doors).find(d => d.id === door.id)!;
+    expect(connection.kind).toBeUndefined();
+    expect(connection.clearDepth).toBe(0);
+    (await schemas())('floor-placement', layout);
     expect(frame.module).toBe('door-frame');
     expect(frame.scale[0]).toBeCloseTo(door.door!.clearance!.width);
     const a = ground.outline[door.edge]!, b = ground.outline[(door.edge + 1) % ground.outline.length]!;
