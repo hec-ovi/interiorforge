@@ -1,4 +1,4 @@
-# Interior 0.31.8
+# Interior 0.31.9
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -104,7 +104,7 @@ Identical input and resource catalogs produce identical JSON and module bytes.
 | `E_BLUEPRINT_INVALID` | Invalid schema, opening overlap or incompatible reusable floors |
 | `E_ASSIGNMENT_INVALID` | Incomplete assignments, differing middle programs or multiple storeys |
 | `E_FLOOR_TOO_SMALL` | Floor cannot hold one room beside its core and circulation |
-| `E_UNREACHABLE_SPACE` | Room, door, stair, anchor or roof access fails clearance |
+| `E_UNREACHABLE_SPACE` | Circulation, door, stair or anchor fails clearance; an unreachable room is dropped instead |
 | `E_SHELL_BREACH` | Module geometry or prop bounds reach forbidden shell space |
 
 CLI argument and file errors exit nonzero. The modules command takes only `--out`.

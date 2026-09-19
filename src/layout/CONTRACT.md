@@ -26,8 +26,9 @@ The usable plate is the floor's published `roomEnvelope`, or its outline inset b
 partitions and navigation walls stop at that plate; the band out to the outline stays
 open and walkable, and an exterior door reaches its room across it. A leftover thinner
 than the 0.6 m body clearance is void floor: the rectangle beside it takes that space,
-access never counts it as room space, and a room left with no standing space at all is
-dropped from the floor. Core feasibility
+access never counts it as room space, and a room left with no standing space, or with no
+wall a repair door can open, is dropped from the floor. Circulation itself never degrades:
+an unreachable corridor is still `E_UNREACHABLE_SPACE`. Core feasibility
 reserves the 1.6 m minimum room depth. Service programs shrink rooms by 0.5 m to
 2 m square, then omit them, in this order: executive office, meeting, storage,
 locker room, kitchen, toilets. Each attempt retains room space and corridor contact.

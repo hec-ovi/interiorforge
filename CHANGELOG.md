@@ -1,5 +1,7 @@
 # Changelog
 
+0.31.9: a room no wall can open into leaves the floor instead of closing the building.
+
 0.31.8: the corridor reaches every stair and lift front, and a room wrapped around it opens a door from whichever arm lost its way in.
 
 0.31.7: the core scans the whole corridor band when it cannot stand under the roof housing, and a stair that cannot reach the housing leaves the roof unreachable instead of closing the building.

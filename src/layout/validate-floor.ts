@@ -1,6 +1,6 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
-import { DOOR } from "./constants.js";
+import { DOOR, SPINE_KINDS } from "./constants.js";
 import { ArchitectureAccess, accessPermits, closestArchitectureCell, commonTransit } from "./architecture-access.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildNavGrid } from "./navgrid.js";
@@ -38,9 +38,17 @@ export function validateArchitecture(
     }
     const fixed = repairOne(unreached, rooms, access, ids, bounds.inner, rebuild);
     if (!fixed) {
+      // No wall can open into it: the floor keeps its circulation and loses the room,
+      // rather than the building staying closed over one unreachable corner.
       const room = unreached[0]!;
-      throw new InteriorError("E_UNREACHABLE_SPACE",
-        `no ${commonTransit(room) ? "public" : "access-domain"} shared-wall repair for ${room.id}(${room.kind}): ${missing(access, room)} unreachable body-clear cells`, floorIndex);
+      if (SPINE_KINDS.has(room.kind) || rooms.length === 1) {
+        throw new InteriorError("E_UNREACHABLE_SPACE",
+          `no ${commonTransit(room) ? "public" : "access-domain"} shared-wall repair for ${room.id}(${room.kind}): ${missing(access, room)} unreachable body-clear cells`, floorIndex);
+      }
+      rooms.splice(rooms.indexOf(room), 1);
+      for (const other of rooms) other.doors = other.doors.filter(door => door.to !== room.id);
+      access = rebuild();
+      continue;
     }
     access = fixed;
   }
