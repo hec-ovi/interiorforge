@@ -40,3 +40,13 @@ beside a facade opening, on any mode or frame:
 Needed: 0.06 m on the slit window and 0.37 m on the cheek window, as reservation depth or
 as a moved opening. Until then both buildings open on the core that crosses the
 reservation, and the crossing is recorded in the building manifest.
+
+## Exterior and Engine: connection floors of generated shells
+
+In small-city-abd7455d the generated shells p11 (floor 3), p42 (floor 16), p51 (floor 2)
+and p7 (floor 14, also 5.14 m against 4.5 m) carry a bridge `aperture` on one middle floor.
+Three reusable layouts cannot hold a floor whose openings differ, so those four buildings
+refuse with `E_BLUEPRINT_INVALID: floor N differs from the reusable middle layout`; every
+other shell of that city opens. Needed: a fourth layout kind for connection floors, or the
+aperture published as a per-floor treatment the way windows are. Until then the sweep
+lists this refusal as the contract's own.

@@ -1,6 +1,6 @@
 {
   "name": "urbe-interior",
-  "version": "0.31.14",
+  "version": "0.31.15",
   "private": true,
   "type": "module",
   "description": "TypeScript generator for shared room modules, reusable furnished floor layouts and NPC navigation.",
@@ -10,7 +10,7 @@
     "generate": "node --import tsx src/cli.ts",
     "preview": "vite --config src/ui/vite.config.ts",
     "test": "npm run build:feasibility && vitest run tests",
-    "sweep": "URBE_KIT_INDEX=../engine/out/shared/kit vitest run tests -t 'every published kit plan'",
+    "sweep": "URBE_KIT_INDEX=../engine/out/shared/kit URBE_CITY_DIR=${URBE_CITY_DIR:-../engine/out/cities/small-city-abd7455d} vitest run tests -t 'every published kit plan'",
     "typecheck": "tsc --noEmit",
     "modules": "node --import tsx src/modules/cli.ts"
   },

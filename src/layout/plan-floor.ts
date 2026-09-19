@@ -196,24 +196,24 @@ export function planFloor(
     .map((o) => {
       const world = doorWorldPoint(floor, o.edge, o.offset + o.width / 2);
       const at = worldToUv(world, frame) as [number, number];
+      const a = worldToUv(floor.outline[o.edge]!, frame);
+      const b = worldToUv(floor.outline[(o.edge + 1) % floor.outline.length]!, frame);
+      const edgeLength = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const along: Point = [(b[0] - a[0]) / edgeLength, (b[1] - a[1]) / edgeLength];
+      const inward: Point = [-along[1], along[0]];
       if (o.kind === "openFront") {
         const portal = o.portal!; // request validation requires it for this variant
-        const a = worldToUv(floor.outline[o.edge]!, frame);
-        const b = worldToUv(floor.outline[(o.edge + 1) % floor.outline.length]!, frame);
-        const edgeLength = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-        const along: Point = [(b[0] - a[0]) / edgeLength, (b[1] - a[1]) / edgeLength];
         return {
-          at, width: portal.clearWidth,
+          at, inward, width: portal.clearWidth,
           openFront: {
             clearHeight: portal.clearHeight, clearDepth: portal.clearDepth,
-            position: at, angleDeg: (Math.atan2(along[1], along[0]) * 180) / Math.PI,
-            inward: [-along[1], along[0]] as Point,
+            position: at, angleDeg: (Math.atan2(along[1], along[0]) * 180) / Math.PI, inward,
           },
         };
       }
       const leaves = o.leaves
         ?? Math.min(4, Math.max(1, Math.round(o.width / DOOR.single))) as 1 | 2 | 3 | 4;
-      return { at, width: o.width, leaves, clearDepth: o.door?.motion?.clearDepth };
+      return { at, inward, width: o.width, leaves, clearDepth: o.door?.motion?.clearDepth };
     });
   attachOutsideDoors(rooms, exteriorDoors, ids, bounds.inner);
 

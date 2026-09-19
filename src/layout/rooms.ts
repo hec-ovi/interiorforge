@@ -568,53 +568,88 @@ export function fillServiceSegment(
   return rooms;
 }
 
-/** Facade connections: attach each traversable blueprint opening to the room it lands on. */
+/** How far past the plate edge a connection looks for the floor standing behind it. */
+const BEHIND_PLATE = 0.3;
+/** Samples across an opening's span, looking for the room floor behind it. */
+const SPAN_STEP = 0.25;
+
+type OutsideOpening = { at: [number, number]; inward: Point; width: number } & ({
+  leaves: 1 | 2 | 3 | 4; clearDepth?: number; openFront?: never;
+} | {
+  openFront: {
+    clearHeight: number; clearDepth: number; position: Point; angleDeg: number; inward: Point;
+  }; leaves?: never;
+});
+
+/** Facade connections: attach each traversable blueprint opening to the room whose floor
+ *  stands behind it, across Exterior's open band. A wide portal facing a core wall on its
+ *  axis connects through the part of its span that meets room floor; the rest stays open
+ *  band. A room only touching the opening's sides never owns it. */
 export function attachOutsideDoors(
-  rooms: PlanRoom[], uvDoorPoints: ({ at: [number, number]; width: number } & ({
-    leaves: 1 | 2 | 3 | 4; clearDepth?: number; openFront?: never;
-  } | {
-    openFront: {
-      clearHeight: number; clearDepth: number; position: Point; angleDeg: number; inward: Point;
-    }; leaves?: never;
-  }))[],
-  ids: IdGen, plate?: readonly Point[],
+  rooms: PlanRoom[], uvDoorPoints: OutsideOpening[], ids: IdGen, plate?: readonly Point[],
 ): void {
   for (const opening of uvDoorPoints) {
-    const [u, v] = opening.at;
+    const [u, v] = opening.at, inward = opening.inward, along: Point = [inward[1], -inward[0]];
     // The opening sits on the shell outline; its room starts at the plate, across Exterior's open band.
     const band = plate ? Math.abs(boundaryDistance([u, v], plate)) : 0;
-    const probe = opening.openFront
-      ? [u + opening.openFront.inward[0] * 0.5, v + opening.openFront.inward[1] * 0.5] as Point
-      : null;
-    const owner = probe ? rooms.find((room) => room.polygon || room.holes?.length ? roomContains(room, probe) : pointInUvRect(probe, room.rect, 0.01)) : undefined;
-    let best: { room: PlanRoom; edge: PlanDoor["edge"]; dist: number; position?: Point } | null = null;
-    for (const room of owner ? [owner] : rooms) {
-      const r = room.rect;
-      // strips snap inward from the true facade, and the plate stands off it by the open band
-      const near = 0.7 + band;
-      if (!owner && !room.polygon && !room.holes?.length
-        && (u < r.u - near || u > r.u + r.lu + near || v < r.v - near || v > r.v + r.lv + near)) continue;
-      for (const segment of roomEdges(room)) {
-        if (!segment.edge) continue;
-        const position = footOnSegment([u, v], segment.a, segment.b);
-        const dist = Math.hypot(u - position[0], v - position[1]);
-        if (!best || dist < best.dist) best = { room, edge: segment.edge, dist, position };
-      }
-    }
-    if (best && (best.dist < 1.2 + band || opening.openFront)) {
+    const behind = (t: number): Point => [u + along[0] * t + inward[0] * (band + BEHIND_PLATE), v + along[1] * t + inward[1] * (band + BEHIND_PLATE)];
+    const inside = (room: PlanRoom, p: Point): boolean => room.polygon || room.holes?.length ? roomContains(room, p) : pointInUvRect(p, room.rect, 0.01);
+    // Rooms standing behind the opening's centre first, then by how close their walls come.
+    const ordered = [...rooms].sort((a, b) => Number(inside(b, behind(0))) - Number(inside(a, behind(0)))
+      || nearestEdge(a, [u, v]).dist - nearestEdge(b, [u, v]).dist);
+    for (const room of ordered) {
+      const span = meetingSpan(room, opening.width, behind, inside);
+      if (!span) continue;
+      const centre: [number, number] = [u + along[0] * span.at, v + along[1] * span.at];
+      const best = nearestEdge(room, centre);
+      if (!best.edge || (best.dist >= 1.2 + band && !opening.openFront)) continue;
+      const at = best.edge.startsWith("v") ? centre[0] : centre[1];
       const connection: PlanDoor = opening.openFront
         ? {
-            id: ids.door(), to: "outside", width: opening.width,
-            edge: best.edge, at: best.edge.startsWith("v") ? u : v,
-            openFront: opening.openFront,
+            id: ids.door(), to: "outside", width: span.width, edge: best.edge, at,
+            openFront: { ...opening.openFront, position: centre },
           }
         : {
-            id: ids.door(), to: "outside", leaves: opening.leaves, width: opening.width,
-            edge: best.edge, at: best.edge.startsWith("v") ? u : v,
+            id: ids.door(), to: "outside", leaves: opening.leaves, width: span.width, edge: best.edge, at,
             ...(best.position ? { position: best.position } : {}),
             ...(opening.clearDepth === undefined ? {} : { clearDepth: opening.clearDepth }),
           };
-      best.room.doors.push(connection);
+      room.doors.push(connection);
+      break;
     }
   }
+}
+
+/** The part of an opening's span that meets a room's floor behind the band: the run around
+ *  the centre when the centre does, otherwise the longest run. Null when no floor meets it. */
+function meetingSpan(
+  room: PlanRoom, width: number, behind: (t: number) => Point, inside: (room: PlanRoom, p: Point) => boolean,
+): { at: number; width: number } | null {
+  const half = Math.max(0, width / 2 - DOOR.min / 2);
+  const samples: number[] = [];
+  for (let t = -half; t <= half + 1e-9; t += SPAN_STEP) samples.push(t);
+  if (!samples.includes(0)) samples.push(0);
+  samples.sort((a, b) => a - b);
+  const runs: [number, number][] = [];
+  for (const t of samples) {
+    if (!inside(room, behind(t))) continue;
+    const last = runs.at(-1);
+    if (last && t - last[1] <= SPAN_STEP + 1e-9) last[1] = t;
+    else runs.push([t, t]);
+  }
+  if (!runs.length) return null;
+  const run = runs.find(([lo, hi]) => lo <= 0 && hi >= 0) ?? runs.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]))[0]!;
+  if (run[0] <= -half + 1e-9 && run[1] >= half - 1e-9) return { at: 0, width };
+  return { at: (run[0] + run[1]) / 2, width: Math.max(DOOR.min, run[1] - run[0] + DOOR.min) };
+}
+
+function nearestEdge(room: PlanRoom, point: Point): { edge: PlanDoor["edge"] | null; dist: number; position?: Point } {
+  let best: { edge: PlanDoor["edge"] | null; dist: number; position?: Point } = { edge: null, dist: Infinity };
+  for (const segment of roomEdges(room)) {
+    if (!segment.edge) continue;
+    const position = footOnSegment(point, segment.a, segment.b);
+    const dist = Math.hypot(point[0] - position[0], point[1] - position[1]);
+    if (dist < best.dist) best = { edge: segment.edge, dist, position };
+  }
+  return best;
 }

@@ -19,7 +19,8 @@ primary stair position. Explicit allowed axes constrain the frame search.
 
 Room footprints preserve clockwise holes and connected public space around core
 solids. Facade seats constrain partition endpoints. Ground entrances consume exact
-opening approaches and moving door depth. Internal doors fit shared wall intervals, and a repair door tries every shared wall a room owns. The corridor keeps floor in front of every stair and lift door.
+opening approaches and moving door depth; each lands on the room whose floor stands behind
+it across the open band, through the part of its span that meets that floor. Internal doors fit shared wall intervals, and a repair door tries every shared wall a room owns. The corridor keeps floor in front of every stair and lift door.
 Rooms use the 0.5 m construction grid with measured facade closures. Source rotation
 is retained; exported navigation stays aligned to world XZ.
 

@@ -1,4 +1,4 @@
-# Interior 0.31.14
+# Interior 0.31.15
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -58,7 +58,7 @@ Rooms, surfaces, walls, the vertical core and prop bounds fit the floor's publis
 kept behind `facade.wallDepth`, defaulting to 0.12 m; a floor without one uses its
 outline inset by that depth. The band between that rectangle and the outline is the
 exterior's own slab: open floor, walkable, carrying no partition and no interior
-surface, and an exterior door reaches its room across it. Window returns fit between
+surface, and an exterior door reaches its room across it, through the part of its span that meets that room's floor. Window returns fit between
 adjacent backing planes. Door thresholds join the floor to source passages; a pocket door's passage is its published `door.clearance`, and the cassette beside it is solid wall.
 
 Construction uses the 0.5 m grid. Plain floor, ceiling and wall fields fit complete

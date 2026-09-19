@@ -43,7 +43,7 @@ export function reserveCirculation(
   const trees = new Map<WalkGrid, Int32Array>();
   const endpoints: CirculationEndpoint[] = [];
   const routes: FloorCirculation["routes"] = [];
-  const add = (id: string, kind: CirculationEndpoint["kind"], source: string, point: Point, room?: PlanRoom): void => {
+  const add = (id: string, kind: CirculationEndpoint["kind"], source: string, point: Point, room?: PlanRoom, reach = DOOR.clearance / 2): void => {
     if (endpoints.some((endpoint) => endpoint.id === id)) return;
     const routeGrid = room ? access.gridFor(room) : access.publicGrid();
     let previous = trees.get(routeGrid);
@@ -51,7 +51,7 @@ export function reserveCirculation(
       previous = routeGrid.predecessors(access.origin, room ? access.transitionFor(room) : access.publicTransition());
       trees.set(routeGrid, previous);
     }
-    const maxDisplacement = kind === "room" ? null : DOOR.clearance / 2;
+    const maxDisplacement = kind === "room" ? null : reach;
     const target = closestArchitectureCell(routeGrid, point, room, core.frame, maxDisplacement);
     if (previous[target] === -1) throw new InteriorError("E_UNREACHABLE_SPACE", `physical circulation cannot reach ${id} through its access domain`, floor);
     const reversed: Point[] = [];
@@ -71,7 +71,9 @@ export function reserveCirculation(
         ?? (door.edge === "v0" ? [0, 1] : door.edge === "v1" ? [0, -1] : door.edge === "u0" ? [1, 0] : [-1, 0]);
       const depth = DOOR.clearance - AGENT_RADIUS;
       const approach: Point = [p[0] + inward[0] * depth, p[1] + inward[1] * depth];
-      add(`door:${door.id}:${room.id}`, door.to === "outside" ? "entrance" : "door", door.id, uvToWorld(approach, core.frame), room);
+      // An entrance is approached anywhere across its leaf; a portal across the open band it crosses.
+      add(`door:${door.id}:${room.id}`, door.to === "outside" ? "entrance" : "door", door.id, uvToWorld(approach, core.frame), room,
+        door.to === "outside" ? Math.max(DOOR.clearance / 2, door.width / 2) : undefined);
       const other = rooms.find((candidate) => candidate.id === door.to);
       if (other) add(`door:${door.id}:${other.id}`, "door", door.id,
         uvToWorld([p[0] - inward[0] * depth, p[1] - inward[1] * depth], core.frame), other);
