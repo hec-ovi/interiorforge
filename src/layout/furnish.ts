@@ -5,10 +5,11 @@ import type { Rng } from "../core/rng.js";
 import type { FloorKind, FurnitureKind } from "../core/types.js";
 import { doorZonesByRoom } from "./clearance.js";
 import type { PlanFurniture, PlanRoom } from "./plan-types.js";
+import { doorUvPoint } from "./plan-floor.js";
 import type { IdGen } from "./rooms.js";
 import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
-import { roomArea, roomCoversRect, roomEdges } from "./room-shape.js";
+import { roomAnchor, roomArea, roomContains, roomCoversRect, roomEdges } from "./room-shape.js";
 import { BATHROOM_WALL_CLEARANCE, fitBathroomRecipe } from "./bathroom-recipe.js";
 import { fitLuxuryGroup } from "./luxury/fit.js";
 import type { LuxuryGroup } from "./luxury/schema.js";
@@ -18,14 +19,14 @@ type Edge = "v0" | "v1" | "u0" | "u1";
 
 const SIZES: Record<FurnitureKind, Size3> = {
   bed_double: [1.6, 2.1, 0.55], bed_single: [1.0, 2.05, 0.55], wardrobe: [1.6, 0.65, 2.0],
-  kitchen_block: [2.4, 0.65, 0.95], fridge: [0.7, 0.7, 1.8], sofa: [1.8, 0.85, 0.8],
+  kitchen_block: [2.4, 0.65, 1.05], fridge: [0.7, 0.7, 1.8], sofa: [1.8, 0.85, 0.8],
   low_table: [0.9, 0.5, 0.4], dining_table: [0.9, 0.9, 0.75], chair: [0.45, 0.45, 0.9],
   toilet: [0.4, 0.65, 0.75], sink: [0.5, 0.45, 0.85], shower: [0.9, 0.9, 2.0],
   desk: [1.6, 0.8, 0.75], office_chair: [0.65, 0.65, 1.15], meeting_table: [2.8, 1.2, 0.75],
   shelf: [1.8, 0.5, 2.0], counter: [2.0, 0.7, 0.9], reception_desk: [2.6, 0.9, 1.1],
   bar_counter: [3.0, 0.65, 1.1], stool: [0.4, 0.4, 0.65], gym_machine: [1.2, 2.0, 1.5],
-  bench: [1.8, 0.4, 0.45], plant: [0.5, 0.5, 1.4], display_rack: [1.4, 0.6, 1.6],
-  wall_shelf: [1.2, 0.28, 0.4], display_screen: [1.2, 0.08, 0.7], wall_art: [0.9, 0.06, 0.7],
+  bench: [1.8, 0.4, 0.45], plant: [0.5, 0.5, 1.3], display_rack: [1.4, 0.6, 1.6],
+  wall_shelf: [1.2, 0.28, 0.4], display_screen: [1.2, 0.08, 0.7], wall_art: [0.7, 0.06, 1.05],
   crate: [0.62, 0.62, 0.55], floor_clutter: [0.8, 0.8, 0.8],
   sleeping_pod: [2.5, 1.5, 2.0],
   ornament_wall: [3.0, 0.5, 2.0], room_divider: [2.5, 0.5, 2.0],
@@ -33,11 +34,14 @@ const SIZES: Record<FurnitureKind, Size3> = {
 
 /** Pieces that hang on a wall, and how high their base sits. */
 const MOUNT: Partial<Record<FurnitureKind, number>> = {
-  wall_shelf: 1.35, display_screen: 1.45, wall_art: 1.5,
+  wall_shelf: 1.35, display_screen: 1.45, wall_art: 1.0,
 };
 
-/** Staff furniture stands off its wall so a vendor or receptionist fits behind it. */
-const STANDOFF: Partial<Record<FurnitureKind, number>> = { bar_counter: 0.9, reception_desk: 0.9, counter: 0.9 };
+/** Staff furniture stands off its wall so a vendor or receptionist fits behind it; a bar
+ *  keeps room for its back shelf as well. */
+const STANDOFF: Partial<Record<FurnitureKind, number>> = { bar_counter: 1.2, reception_desk: 0.9, counter: 1.2 };
+/** Carpet zones stop this far inside a fitted group's reservation. */
+const CARPET_INSET = 0.15;
 
 /** A very large plate would otherwise fill with hundreds of identical pieces: enough to read
  *  as a working floor, cheap enough to carry a whole city. */
@@ -65,24 +69,56 @@ class RoomPlacer {
     doorZones: UvRect[],
     openingZones: readonly UvRect[],
     private readonly bounds: FloorBounds,
+    private readonly carpets: { room: string; rect: UvRect }[],
   ) {
     this.blocked.push(...doorZones, ...openingZones);
     this.rect = usableRect(room.rect, (edge) => this.isFacade(edge), bounds.facadeDepth);
   }
 
-  /** Item with its back against a room edge; walks the edge from a seeded start. */
-  alongEdge(kind: FurnitureKind, edge: Edge): PlanFurniture | null {
+  /** Item with its back against a room edge; walks the edge from a seeded start, or from
+   *  the edge's middle outward for a piece centred on its wall. */
+  alongEdge(kind: FurnitureKind, edge: Edge, centred = false): PlanFurniture | null {
     if (this.room.polygon || this.room.holes?.length) return this.alongPolygonEdge(kind, edge);
     const [su, sv] = [SIZES[kind][0], SIZES[kind][1]];
     const r = this.rect;
     const inset = 0.06 + (STANDOFF[kind] ?? 0);
     const alongLen = edge.startsWith("v") ? r.lu : r.lv;
     if (su > alongLen - 0.2) return null;
-    const start = this.rng.range(0, Math.max(0.01, alongLen - su - 0.2));
-    for (let off = 0; off <= alongLen - su - 0.1; off += 0.25) {
-      const a = (start + off) % (alongLen - su - 0.1);
-      const fp = edgeFootprint(r, edge, a + 0.1, su, sv, inset);
-      if (this.fits(fp, kind)) return this.commit(kind, fp, edgeRotation(edge));
+    const span = alongLen - su - 0.1;
+    const start = centred ? span / 2 : this.rng.range(0, Math.max(0.01, alongLen - su - 0.2));
+    for (let off = 0; off <= span; off += 0.25) {
+      for (const a of centred ? [start + off / 2, start - off / 2] : [(start + off) % span]) {
+        if (a < 0 || a > span) continue;
+        const fp = edgeFootprint(r, edge, a + 0.1, su, sv, inset);
+        if (this.fits(fp, kind)) return this.commit(kind, fp, edgeRotation(edge));
+      }
+    }
+    return null;
+  }
+
+  /** A piece on the axis of the room's entrance, facing it: as deep into the room as it
+   *  fits, so a desk greets whoever walks in with the core beyond it. */
+  onAxis(kind: FurnitureKind): PlanFurniture | null {
+    const entry = this.room.doors.find((d) => d.to === "outside") ?? this.room.doors[0];
+    if (!entry) return null;
+    const door = doorUvPoint(entry, this.room), alongU = entry.edge.startsWith("v");
+    const centre = roomAnchor(this.room);
+    const sign = Math.sign((alongU ? centre[1] - door[1] : centre[0] - door[0]) || 1);
+    const inward: Point = alongU ? [0, sign] : [sign, 0];
+    // faces back toward the door: rotation 0 faces +v, 90 faces +u
+    const rotation = (alongU ? (sign > 0 ? 180 : 0) : (sign > 0 ? 270 : 90)) as 0 | 90 | 180 | 270;
+    const [su, sv] = [SIZES[kind][0], SIZES[kind][1]];
+    const [lu, lv] = alongU ? [su, sv] : [sv, su];
+    // The axis runs from the door to the first wall across it: the core's face in a lobby.
+    let reach = 2;
+    while (reach < 60 && roomContains(this.room, [door[0] + inward[0] * (reach + 0.25), door[1] + inward[1] * (reach + 0.25)])) reach += 0.25;
+    // As deep as it goes, sliding at most a metre off the axis to clear the reserved route.
+    for (let t = Math.floor((reach - (alongU ? lv : lu) / 2 - 0.06) * 2) / 2; t >= 2; t -= 0.5) {
+      for (const slide of [0, 0.25, -0.25, 0.5, -0.5, 0.75, -0.75, 1, -1]) {
+        const at: Point = [door[0] + inward[0] * t + inward[1] * slide, door[1] + inward[1] * t + inward[0] * slide];
+        const fp: UvRect = { u: at[0] - lu / 2, v: at[1] - lv / 2, lu, lv };
+        if (this.fits(fp, kind)) return this.commit(kind, fp, rotation);
+      }
     }
     return null;
   }
@@ -121,6 +157,10 @@ class RoomPlacer {
       this.blocked.push(footprint);
     }
     this.blocked.push(group.reservation);
+    if (kind !== "kitchen") {
+      const r = group.reservation;
+      this.carpets.push({ room: this.room.id, rect: { u: r.u + CARPET_INSET, v: r.v + CARPET_INSET, lu: r.lu - 2 * CARPET_INSET, lv: r.lv - 2 * CARPET_INSET } });
+    }
     return true;
   }
 
@@ -206,11 +246,12 @@ class RoomPlacer {
     }
   }
 
-  /** One chair on the working side of a piece, e.g. a task chair at a desk. */
-  seatAt(item: PlanFurniture, kind: "chair" | "office_chair"): void {
+  /** One chair on the working side of a piece: in front of a desk, or behind a counter
+   *  whose staff face the room. */
+  seatAt(item: PlanFurniture, kind: "chair" | "office_chair", behind = false): void {
     const fp = footprintOf(item);
     const [cw, cd] = [SIZES[kind][0], SIZES[kind][1]];
-    const side = oppositeRotation(item.rotationDeg);
+    const side = behind ? item.rotationDeg : oppositeRotation(item.rotationDeg);
     const span = side % 180 === 0 ? fp.lu : fp.lv;
     const rect = seatFootprint(fp, side, span / 2, cw, cd);
     if (this.fits(rect, kind, this.rects.get(item.id))) this.commit(kind, rect, side);
@@ -325,6 +366,16 @@ function edgeFootprint(r: UvRect, edge: Edge, along: number, su: number, sv: num
   }
 }
 
+/** The wall a placed piece has its back to. */
+function edgeBehind(item: PlanFurniture): Edge {
+  switch (item.rotationDeg) {
+    case 0: return "v0";
+    case 180: return "v1";
+    case 90: return "u0";
+    default: return "u1";
+  }
+}
+
 function edgeRotation(edge: Edge): 0 | 90 | 180 | 270 {
   // item faces away from its back wall
   switch (edge) {
@@ -337,13 +388,13 @@ function edgeRotation(edge: Edge): 0 | 90 | 180 | 270 {
 
 export function furnish(
   rooms: PlanRoom[], floorKind: FloorKind, rng: Rng, ids: IdGen, bounds: FloorBounds,
-  openingZones: readonly UvRect[] = [], tier = "rich",
+  openingZones: readonly UvRect[] = [], tier = "rich", carpets: { room: string; rect: UvRect }[] = [],
 ): PlanFurniture[] {
   const out: PlanFurniture[] = [];
   const zones = doorZonesByRoom(rooms);
   for (const room of rooms) {
     const p = new RoomPlacer(
-      room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), openingZones, bounds,
+      room, rng, ids, out, (zones.get(room.id) ?? []).map((z) => z.rect), openingZones, bounds, carpets,
     );
     const area = roomArea(room);
     const luxury = tier === "rich" || tier === "high_rich";
@@ -405,6 +456,7 @@ export function furnish(
           if (!p.bathroom()) {
             throw new InteriorError("E_FLOOR_TOO_SMALL", `${room.id} cannot fit the complete bathroom recipe and fixture clearances`);
           }
+          if (luxury) p.anyEdge("plant");
           break;
         }
         p.anyEdge("toilet");
@@ -436,22 +488,28 @@ export function furnish(
         break;
       }
       case "reception": {
-        const desk = p.anyEdge("reception_desk", ["v1", "u1", "u0"]);
-        if (desk) p.seatAt(desk, "office_chair");
+        // the desk stands on the axis of the entrance; seating bays and lit planter cases flank it
+        const desk = p.onAxis("reception_desk") ?? p.anyEdge("reception_desk", ["v1", "u1", "u0"]);
+        if (desk) p.seatAt(desk, "office_chair", true);
+        if (luxury && area >= 60) p.group("seating");
         if (!seating) {
           p.anyEdge("sofa");
           p.center("low_table");
         }
-        p.anyEdge("plant");
-        p.anyEdge("plant");
+        for (let i = 0; i < (luxury ? 4 : 2); i++) p.anyEdge("plant");
         p.wallPiece("display_screen");
         p.wallPiece("wall_art");
         break;
       }
       case "dining_area":
       case "bar": {
+        // a counter run with its back bar and stools, dining between planted screens
         const bar = p.anyEdge("bar_counter", ["v1", "u1", "u0"]);
-        if (bar) p.stoolsAt(bar, 4);
+        if (bar) {
+          p.stoolsAt(bar, 5);
+          p.alongEdge("shelf", edgeBehind(bar), true);
+        }
+        if (luxury && area >= 40) p.grid("room_divider", 3.0, 2);
         for (const table of p.grid("dining_table", 1.4, Math.floor(area / 9))) {
           p.seatsAround(table, "chair", 1, [0, 180]);
         }
@@ -505,6 +563,7 @@ export function furnish(
           p.center("low_table");
         }
         p.anyEdge("plant");
+        if (luxury) p.anyEdge("plant");
         p.wallPiece("wall_art");
         break;
       case "concourse":

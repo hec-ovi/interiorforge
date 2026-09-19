@@ -1,6 +1,7 @@
 import "./style.css";
 import { polygonArea } from "../core/geom.js";
-import { generateInterior, makePlacementFixture } from "../index.js";
+import { generate as generateInterior } from "../placements/generate.js";
+import { makePlacementFixture } from "../blueprint/placement-fixture.js";
 import type { InteriorRequest } from "../core/types.js";
 import type { AppParams, AppState } from "./app-state.js";
 import { createAppState } from "./app-state.js";
@@ -13,10 +14,12 @@ import { previewSample, showSample } from "./samples/index.js";
 import type { PreviewSample } from "./samples/schema.js";
 import { createSampleTour } from "./components/sample-tour.js";
 
-export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: string): AppState {
+export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: string, viewIndex = 0): AppState {
   const state = createAppState();
   const sample = previewSample(sampleName);
-  if (sample) state.setParams({ ...state.params, ...sample.fixture });
+  if (sample?.fixture) state.setParams({ ...state.params, ...sample.fixture });
+  /** Tells a capture the scene it asked for is standing. */
+  const ready = (): void => { root.dataset.ready = "1"; };
   const tour = sample ? createSampleTour(sample.title, sample.views, index => {
     showSample(sample, state, viewer, index);
   }) : undefined;
@@ -29,13 +32,14 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
     state.setParams(params);
     state.setBusy(true);
     try {
-      const request = makePlacementFixture({ ...params, outline: [[0,0],[40,0],[40,40],[0,40]] });
-      if (review) request.assignments = review.assignments;
+      const request = review?.plan ? await planRequest(review) : makePlacementFixture({ ...params, outline: [[0,0],[40,0],[40,40],[0,40]] });
+      if (review?.assignments) request.assignments = review.assignments;
       const result = await generateInterior(request);
       state.setResult(result);
       await viewer.setPlacements(result);
       applySlice();
-      if (review) showSample(review, state, viewer);
+      if (review) showSample(review, state, viewer, viewIndex);
+      ready();
       toast.success(
         review ? `${review.title} · Seed ${params.seed}`
           : `Generated ${result.building.floors.length}F ${params.type} (${params.tier}) · Seed ${params.seed}`,
@@ -46,6 +50,14 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
     } finally {
       state.setBusy(false);
     }
+  }
+
+  /** A published kit plan from the shared resources route, generated as the sample's building. */
+  async function planRequest(review: PreviewSample): Promise<InteriorRequest> {
+    const response = await fetch(`/shared/${review.plan}`);
+    if (!response.ok) throw new Error(`plan ${review.plan} is unavailable: HTTP ${response.status}`);
+    const blueprint = await response.json() as InteriorRequest["blueprint"];
+    return { seed: review.building!.id, building: review.building!, blueprint, materialTheme: "cyberpunk" };
   }
 
   /** Loads the assembled blueprint and optional building request metadata. */
@@ -152,7 +164,8 @@ async function boot(): Promise<void> {
   if (!root) return; // test environment mounts explicitly
   try {
     const { createViewer3d } = await import("./views/viewer3d.js");
-    mountApp(root, createViewer3d(), new URLSearchParams(window.location.search).get("sample") ?? undefined);
+    const query = new URLSearchParams(window.location.search);
+    mountApp(root, createViewer3d(), query.get("sample") ?? undefined, Number(query.get("view") ?? 0));
   } catch (err) {
     toast.error(err instanceof Error ? err.message : String(err), "Preview Failed");
   }

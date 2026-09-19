@@ -35,7 +35,7 @@ export function planUpperLoft(lower: FloorInterior, floor: BlueprintFloor, core:
   const lights=[...planLights([room],core,polygon,ceilingElevation,ceilingElevation,ids,request.building.tier)
     .filter(l=>l.room===room.id),...furnitureLights(furniture,core.frame,floor.elevation,request.building.tier),
     ...loftLights(loft,lower.elevation,ceilingElevation,request.building.tier).filter(light=>light.room===room.id)];
-  return {grid,uv:{outline:floor.outline.map(p=>worldToUv(p,core.frame)),rooms:[room],furniture,sealed:[]},
+  return {grid,uv:{outline:floor.outline.map(p=>worldToUv(p,core.frame)),rooms:[room],furniture,sealed:[],carpets:[]},
     interior:{floor:floor.index,kind:lower.kind,elevation:floor.elevation,height:floor.height,ceilingElevation,
       coreAngleDeg:core.frame.angleDeg,core:{stairs:[],elevators:[],shafts:[]},openingReservations:[],
       mezzanineOf:lower.floor,rooms:[{id:room.id,kind:room.kind,polygon:loft.platform,doors:[],...(room.unit?{unit:room.unit}:{})}],

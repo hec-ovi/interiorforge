@@ -8,7 +8,8 @@ base URL or preloaded theme. Directory selection uses the option,
 `URBE_MATERIALS_DIR`, then sibling materials. Missing catalogs produce keys mode.
 
 `MaterialLibrary` resolves keys and variants. `applyMaterials` attaches base color,
-normal, occlusion, metallic roughness and emission maps with physical UV scaling.
+normal, occlusion, metallic roughness and emission maps; geometry carries tile-unit UVs,
+one unit per published repeat, so maps bind without a transform.
 Existing textured prop materials remain intact. Packed metallic roughness bytes retain
 roughness in G and metallic in B. Repeated inputs produce the same output.
 

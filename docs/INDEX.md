@@ -13,10 +13,10 @@ decisions. [Dimensions](RESEARCH.md) lists construction constants.
 | [Luxury](../src/layout/luxury/CONTRACT.md) | Fit complete furniture groups | Layout | [Parameters](../src/layout/luxury/schema.ts) |
 | [Geometry](../src/geometry/CONTRACT.md) | Measure wall boundaries and emitted clearance | Core, Layout, GLB | [Floor](../schemas/floor.schema.json), [blueprint](../schemas/blueprint.schema.json) |
 | [GLB](../src/glb/CONTRACT.md) | Build indexed meshes and read or write GLB | Core, glTF Transform | [Mesh parameters](../src/glb/mesh-builder.ts) |
-| [Modules](../src/modules/CONTRACT.md) | Publish reusable room geometry | GLB, meshoptimizer | [Catalog](../schemas/modules.schema.json) |
+| [Modules](../src/modules/CONTRACT.md) | Publish reusable room geometry: surfaces, lights, core and built-in furniture wearing Materials keys | GLB, Materials, meshoptimizer | [Catalog](../schemas/modules.schema.json), [finishes](../src/modules/finishes.ts) |
 | [Assets](../src/assets/CONTRACT.md) | Resolve existing furniture models by ID | glTF Transform, Core | [Catalog](../src/assets/schemas/catalog.schema.json) |
 | [NPC](../src/npc/CONTRACT.md) | Produce anchors, staffing and navigation | Core, Layout | [NPC](../schemas/npc.schema.json) |
-| [Placements](../src/placements/CONTRACT.md) | Publish three layouts and floor references | Blueprint, Layout, Geometry, Modules, Assets, NPC | [Layout](../schemas/floor-placement.schema.json), [building](../schemas/building.schema.json) |
+| [Placements](../src/placements/CONTRACT.md) | Publish three layouts and floor references, built per family as panel frames, slabs, ceilings, lights and furniture | Blueprint, Layout, Geometry, Modules, Assets, NPC | [Layout](../schemas/floor-placement.schema.json), [building](../schemas/building.schema.json), [finish](../src/placements/finish.ts) |
 | [Materials](../src/materials/CONTRACT.md) | Resolve canonical material keys for consumers | Materials catalog, GLB | [Parameters](../src/materials/index.ts) |
 | [Preview](../src/ui/CONTRACT.md) | Draw module instances and inspect navigation | Root API, Modules, Assets, NPC, Three.js | [Placement result](../src/placements/types.ts) |
 | [Samples](../src/ui/samples/CONTRACT.md) | Configure room review cameras | Preview | [Parameters](../src/ui/samples/schema.ts) |
@@ -25,8 +25,10 @@ decisions. [Dimensions](RESEARCH.md) lists construction constants.
 `src/cli.ts` writes building files. `src/modules/cli.ts` publishes the city kit.
 `src/feasibility.ts` builds the browser entry with `npm run build:feasibility`.
 
-Seventeen public contract tests run with `npm test`; the kit-plan test also takes the short generated shells of the newest assembled city, and `npm run sweep` runs it over every published index and every shell of the city `URBE_CITY_DIR` names. They cover backing containment and
-recorded service reductions. One checks the compiled `dist/feasibility.js` entry.
+Twenty-one public contract tests run with `npm test`, one per promise; the kit-plan
+test takes six plans of the newest published index and the short generated shells of the
+newest assembled city, and `npm run sweep` runs it over every plan of every index and
+every shell of the city `URBE_CITY_DIR` names. One checks the compiled `dist/feasibility.js` entry.
 Budget proof uses Exterior `planAssembly` through its
 public source entry and records `out/proof/budget.json`. Each measured export includes
 three JSON layouts, building.json and all shared modules. Budget buildings measure

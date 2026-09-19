@@ -1,0 +1,160 @@
+[
+  {
+    "name": "hotel",
+    "title": "Hotel lobby",
+    "plan": "plans/a6c92ccad320e412/mirror-frame-hotel-rich-6x4x6f.blueprint.json",
+    "building": {
+      "id": "mirror-frame-hotel-rich-6x4x6f",
+      "type": "hotel",
+      "tier": "rich"
+    },
+    "views": [
+      {
+        "title": "Desk on axis",
+        "floor": 0,
+        "furniture": "reception_desk",
+        "offset": [
+          0,
+          9
+        ],
+        "heading": 0
+      },
+      {
+        "title": "Seating bay",
+        "floor": 0,
+        "furniture": "sofa",
+        "width": 2.8,
+        "offset": [
+          0.6,
+          3.6
+        ],
+        "heading": 0
+      },
+      {
+        "title": "Planter case",
+        "floor": 0,
+        "furniture": "plant",
+        "offset": [
+          0.8,
+          2.6
+        ],
+        "heading": 0
+      },
+      {
+        "title": "Guest room",
+        "floor": 1,
+        "furniture": "bed_double",
+        "offset": [
+          0.7,
+          3
+        ],
+        "heading": 0
+      }
+    ]
+  },
+  {
+    "name": "restaurant",
+    "title": "Restaurant",
+    "plan": "plans/d993927727b1b631/faceted-bays-restaurant-rich-4x3x2f.blueprint.json",
+    "building": {
+      "id": "faceted-bays-restaurant-rich-4x3x2f",
+      "type": "restaurant",
+      "tier": "rich"
+    },
+    "views": [
+      {
+        "title": "Bar",
+        "floor": 0,
+        "furniture": "bar_counter",
+        "offset": [
+          0.8,
+          4.2
+        ],
+        "heading": 0
+      },
+      {
+        "title": "Dining",
+        "floor": 0,
+        "room": "dining_area",
+        "offset": [
+          0,
+          0
+        ],
+        "heading": 0
+      },
+      {
+        "title": "Kitchen run",
+        "floor": 0,
+        "furniture": "kitchen_block",
+        "offset": [
+          0,
+          3.2
+        ],
+        "heading": 0
+      }
+    ]
+  },
+  {
+    "name": "residence",
+    "title": "Luxury residence",
+    "plan": "plans/7b602628342aec79/faceted-bays-residential-rich-5x5x3f.blueprint.json",
+    "building": {
+      "id": "faceted-bays-residential-rich-5x5x3f",
+      "type": "residential",
+      "tier": "high_rich"
+    },
+    "views": [
+      {
+        "title": "Suite",
+        "floor": 2,
+        "furniture": "bed_double",
+        "offset": [
+          0.7,
+          3
+        ],
+        "heading": 0
+      },
+      {
+        "title": "Breakfast bar",
+        "floor": 2,
+        "furniture": "bar_counter",
+        "offset": [
+          0.5,
+          3.4
+        ],
+        "heading": 0
+      },
+      {
+        "title": "Living",
+        "floor": 2,
+        "furniture": "sofa",
+        "width": 3.5,
+        "offset": [
+          1,
+          4.2
+        ],
+        "heading": 0
+      },
+      {
+        "title": "Bathroom",
+        "floor": 2,
+        "furniture": "shower",
+        "offset": [
+          1,
+          2.2
+        ],
+        "heading": 0
+      },
+      {
+        "title": "Lobby",
+        "floor": 0,
+        "furniture": "reception_desk",
+        "offset": [
+          0,
+          8
+        ],
+        "heading": 0
+      }
+    ]
+  }
+]

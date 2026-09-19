@@ -381,6 +381,7 @@ export type AnchorKind =
 
 export type NpcRole =
   | "receptionist" | "security" | "vendor" | "barista" | "waiter" | "cook" | "clerk"
+  | "host" | "bartender" | "porter"
   | "office_worker" | "executive" | "cleaner" | "resident" | "trainer" | "guest";
 
 export type Animation =

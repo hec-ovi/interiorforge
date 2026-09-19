@@ -3,7 +3,7 @@ name: urbe-interior
 description: Generate shared Interior modules and three reusable placement layouts from an assembled Exterior blueprint.
 ---
 
-# Interior 0.31.15
+# Interior 0.32.0
 
 Use this box to publish the room module kit once, then placement JSON per building.
 Run commands from Interior. The consumer supplies an assembled Exterior blueprint.
@@ -31,8 +31,10 @@ Each placement gives `module` or `prop`, `id`, `room`, `position`, `rotationY`,
 `scale` and optional source `opening` or core `connector`. Use metres and radians
 about positive Y.
 Add `building.floors[].elevation` to layout Y and use its `openings` map for blueprint
-identities. Module origins and material slots are in `modules.json`; props resolve
-through the existing Assets catalog. Resource bases belong to the consumer.
+identities. Module origins and material slots (`key#variant`, tile-unit UVs) are in
+`modules.json`; props resolve through the existing Assets catalog. Resource bases belong
+to the consumer. `npm run preview` with `?sample=hotel`, `restaurant` or `residence`
+shows a published kit plan furnished in its family.
 
 Use `expandBuilding(result)` for absolute floor data and NPC records, then
 `findPath(npc, from, to)` for routes. Each endpoint has `floor` and `position: [x,z]`.

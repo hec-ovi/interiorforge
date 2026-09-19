@@ -9,7 +9,7 @@ import { NodeIO, getBounds } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { MeshoptDecoder } from 'meshoptimizer';
 import { generate, expandBuilding, findPath, coreFeasibility, makePlacementFixture } from '../src/index.js';
-import type { PlacementResult, InteriorRequest, BuildingType, Tier } from '../src/index.js';
+import type { PlacementResult, InteriorRequest, BuildingType, Tier, FloorKind, FloorPlacement, Placement } from '../src/index.js';
 import { loadTheme } from '../src/materials/load.js';
 import { assembly } from './fixtures.js';
 const exec = promisify(execFile);
@@ -78,12 +78,13 @@ it('publishes indexed quantized meshopt module GLBs with accurate geometry and b
             expect(Math.abs(-bounds.min[i]! - entry.origin[i])).toBeLessThan(.0001);
         }
         expect(doc.getRoot().listMeshes().flatMap(m => m.listPrimitives()).reduce((n, p) => n + p.getIndices()!.getCount() / 3, 0)).toBe(entry.triangles);
-        expect(doc.getRoot().listMaterials().map(m => m.getName())).toEqual(entry.materialSlots);
+        // The GLB names each material by its key and carries the variant in extras, as the engine reads it.
+        expect(doc.getRoot().listMaterials().map(m => { const variant = (m.getExtras() as { materialVariant?: string }).materialVariant; return variant ? `${m.getName()}#${variant}` : m.getName(); })).toEqual(entry.materialSlots);
     }
-    // Published keys must name entries or aliases the materials theme carries.
+    // Published keys must name entries or aliases the materials theme carries, with a variant it publishes.
     const theme = loadTheme('cyberpunk');
     const slots: string[] = modules.modules.flatMap((entry: any) => entry.materialSlots);
-    expect(theme ? slots.filter(key => !theme.library.entry(key)) : []).toEqual([]);
+    expect(theme ? slots.filter(slot => { const [key, variant] = slot.split('#'); const entry = theme.library.entry(key!); return !entry || (variant && !entry.variants.some(v => v.id === variant)); }) : []).toEqual([]);
 });
 it('generates byte identical tables and module files for identical inputs', async () => {
     const before = JSON.stringify(request);
@@ -110,7 +111,7 @@ it('reuses exactly one middle layout and maps every opening and door to the asse
         expect(ref.treatments?.every(t => windows.some(o => o.id === t.opening)) ?? false).toBe(windows.length > 0);
         for (const opening of original.openings.filter(o => o.kind === 'door')) {
             expect(result.layouts[ref.layout]!.placements.find(p => ref.openings[p.id] === opening.id)?.module).toBe('door-frame');
-            expect(result.layouts[ref.layout]!.placements.some(p => p.module === 'floor-tile' && ref.openings[p.opening ?? ''] === opening.id)).toBe(true);
+            expect(result.layouts[ref.layout]!.placements.some(p => p.module?.startsWith('floor-slab') && ref.openings[p.opening ?? ''] === opening.id)).toBe(true);
             expect(result.layouts[ref.layout]!.floor.rooms.flatMap(r => r.doors).some(d => ref.openings[d.id] === opening.id)).toBe(true);
         }
     }
@@ -154,9 +155,15 @@ it('builds inside the published room envelope, core included, on a notched, curv
             }
         }
 });
-/** One published index, or a directory of them: every kit.json under it is swept. */
-const kitIndex = process.env.URBE_KIT_INDEX ?? '../engine/out/shared/kit/374dc6b2dfdb9187/kit.json';
-const kitFiles = (path: string): string[] => !existsSync(path) ? []
+/** One published index, or a directory of them: every kit.json under it is swept. Without
+ *  `URBE_KIT_INDEX` the suite takes a small sample of the newest index on disk. */
+const kitRoot = '../engine/out/shared/kit';
+const newestIndex = (): string | undefined => !existsSync(kitRoot) ? undefined
+    : readdirSync(kitRoot).map(name => join(kitRoot, name, 'kit.json')).filter(file => existsSync(file))
+        .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
+const kitIndex = process.env.URBE_KIT_INDEX ?? newestIndex() ?? '';
+const kitSample = process.env.URBE_KIT_INDEX ? Infinity : 6;
+const kitFiles = (path: string): string[] => !path || !existsSync(path) ? []
     : statSync(path).isDirectory()
         ? readdirSync(path).map(name => join(path, name, 'kit.json')).filter(file => existsSync(file))
         : [path];
@@ -178,7 +185,7 @@ it.skipIf(!kitFiles(kitIndex).length && !shellBlueprints(cityDir).length)('opens
     const plans = new Map<string, { id: string; type: BuildingType; tier: Tier }>();
     for (const file of kitFiles(kitIndex)) {
         const kit = JSON.parse(await readFile(file, 'utf8'));
-        for (const plan of kit.plans) {
+        for (const plan of kit.plans.slice(0, kitSample)) {
             // An index can outlive the artifacts it names; a plan that is gone is not a refusal.
             const path = resolve(dirname(realpathSync(file)), '../..', plan.blueprint);
             if (existsSync(path)) plans.set(path, { id: plan.id, type: 'residential', tier: 'mid' });
@@ -201,6 +208,36 @@ it.skipIf(!kitFiles(kitIndex).length && !shellBlueprints(cityDir).length)('opens
     // A generated shell whose connection floor carries a bridge aperture has no reusable
     // middle layout: that refusal is the contract's own and is listed in docs/ISSUES.md.
     expect(refused.filter(reason => !reason.includes('differs from the reusable middle layout'))).toEqual([]);
+});
+/** The fixture's entrance as Exterior 0.58.12 publishes it: two leaves retracting into a cassette. */
+function pocketDoor(opening: any, wallDepth: number): void {
+    const leaves = 2, leafWidth = opening.width / leaves, travel = leafWidth + .05, chamber = leafWidth + .08, backDepth = Math.min(.22, wallDepth);
+    opening.leaves = leaves;
+    opening.door = {
+        ...opening.door,
+        motion: { kind: 'pocket', maxTravel: travel, clearDepth: 0, leaves: [0, 1].map(leaf => ({ leaf, travelU: leaf ? travel : -travel,
+            pocket: { offset: leaf ? opening.offset + opening.width : opening.offset - chamber, sill: 0, width: chamber, height: opening.height + .02, frontDepth: .09, backDepth: backDepth - .03 } })) },
+        clearance: { offset: opening.offset, sill: 0, width: opening.width, height: opening.height, backDepth },
+        cassette: { offset: opening.offset - chamber - .03, sill: 0, width: opening.width + 2 * chamber + .06, height: opening.height + .08, backDepth }
+    };
+}
+it('opens a pocket door on its published clearance and joins the threshold behind its cassette', async () => {
+    const pocketed = structuredClone(request), ground = pocketed.blueprint.floors[0]!, wallDepth = pocketed.blueprint.facade!.wallDepth!;
+    const door = ground.openings.find(o => o.kind === 'door')!;
+    pocketDoor(door, wallDepth);
+    const cassette = door.door!.cassette!;
+    ground.openings = ground.openings.filter(o => o === door || o.edge !== door.edge
+        || o.offset + o.width <= cassette.offset || o.offset >= cassette.offset + cassette.width);
+    const built = await generate(pocketed);
+    const layout = built.layouts.ground!, frame = layout.placements.find(p => p.id === door.id)!;
+    const threshold = layout.placements.find(p => p.module?.startsWith('floor-slab') && p.opening === door.id)!;
+    expect(frame.module).toBe('door-frame');
+    expect(frame.scale[0]).toBeCloseTo(door.door!.clearance!.width);
+    const a = ground.outline[door.edge]!, b = ground.outline[(door.edge + 1) % ground.outline.length]!;
+    const inward = ((b[0] - a[0]) * (threshold.position[2] - a[1]) - (b[1] - a[1]) * (threshold.position[0] - a[0])) / Math.hypot(b[0] - a[0], b[1] - a[1]);
+    // The tile spans from the cassette back plane to the plate, so its centre sits behind both.
+    expect(inward - threshold.scale[2] * .25).toBeGreaterThanOrEqual(cassette.backDepth - 1e-6);
+    expect(inward + threshold.scale[2] * .25).toBeLessThanOrEqual(wallDepth + 1e-6);
 });
 it('publishes ground and crown alone for a two floor building', async () => {
     const pair = structuredClone(request), ground = pair.blueprint.floors[0]!, crown = pair.blueprint.floors.at(-1)!;
@@ -271,7 +308,7 @@ it('rejects a stair roof exit below the promised standing clearance', { timeout:
     modified.blueprint.roof.bulkhead!.doorHeight = 2.5;
     const accepted = await generate(modified);
     expect(accepted.layouts.crown!.npc.nav.roofAccess?.floor).toBe(6);
-    expect(accepted.layouts.crown!.placements.some(p => p.connector === 'stair-a' && p.module === 'floor-tile'
+    expect(accepted.layouts.crown!.placements.some(p => p.connector === 'stair-a' && p.module?.startsWith('floor-slab')
         && Math.abs(p.position[1] - top.height) < .0001)).toBe(true);
 });
 it('keeps module geometry and prop bounds inside the published or default backing inset', async () => {
@@ -294,7 +331,7 @@ it('keeps module geometry and prop bounds inside the published or default backin
             const outline = modified.blueprint.floors[source]!.outline;
             for (const p of placements) {
                 // Door thresholds join the inset floor to the published exterior passage.
-                if (p.module === 'floor-tile' && p.opening) continue;
+                if (p.module?.startsWith('floor-slab') && p.opening) continue;
                 const module = p.module && modules.modules.find((m: any) => m.id === p.module);
                 const asset = p.prop && catalog.assets.find((a: any) => a.id === p.prop);
                 const size = module ? module.size : [asset.dimensionsMeters[0], asset.dimensionsMeters[2], asset.dimensionsMeters[1]];
@@ -345,6 +382,83 @@ it('degrades service programs and rejects invalid inputs or floors without room 
     const check = ajv.getSchema('https://urbe.dev/interior/building.schema.json')!;
     expect(check(reduced.building), JSON.stringify(check.errors)).toBe(true);
     await expect(generate(makePlacementFixture({ width: 6, depth: 6, floors: 3 }))).rejects.toMatchObject({ code: 'E_FLOOR_TOO_SMALL' });
+});
+/** The fixture as a venue of one program, furnished in that building's own family. */
+function asVenue(type: BuildingType, tier: Tier, ground: FloorKind, upper: FloorKind): InteriorRequest {
+    const venue = structuredClone(request);
+    venue.building = { ...venue.building, type, tier };
+    venue.assignments = venue.blueprint.floors.map(f => ({ floor: f.index, kind: f.index === 0 ? ground : upper }));
+    return venue;
+}
+const wallPiece = (p: Placement, kind: string) => p.module?.startsWith(`wall-panel-${kind}`);
+/** A piece's centre along and across its own partition line. */
+const alongOf = (p: Placement) => p.position[0] * Math.cos(p.rotationY) - p.position[2] * Math.sin(p.rotationY);
+const acrossOf = (p: Placement) => p.position[0] * Math.sin(p.rotationY) + p.position[2] * Math.cos(p.rotationY);
+const same = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
+it('frames every fitted partition run as a nine-slice with corners, edges, aligned fields and lit joints', () => {
+    const layout = result.layouts.ground!, ceiling = layout.floor.ceilingElevation - layout.floor.elevation;
+    const corners = layout.placements.filter(p => wallPiece(p, 'corner')), edges = layout.placements.filter(p => wallPiece(p, 'edge'));
+    const fields = layout.placements.filter(p => wallPiece(p, 'field')), lines = layout.placements.filter(p => p.module?.startsWith('wall-light-line'));
+    expect(fields.length).toBeGreaterThan(0);
+    for (const corner of corners) expect(corner.scale).toEqual([1, 1, 1]);
+    for (const field of fields) {
+        expect(field.scale[0] * .5).toBeLessThanOrEqual(2.5 + 1e-6);
+        expect(field.scale[1] * .5).toBeCloseTo(ceiling - 1, 5);
+        expect(field.position[1]).toBeCloseTo(.5, 6);
+        // The top edge of its run spans the field, and a corner closes each end of that edge.
+        const top = edges.find(e => same(e.rotationY, field.rotationY) && same(e.position[1], ceiling - .5) && same(acrossOf(e), acrossOf(field))
+            && Math.abs(alongOf(e) - alongOf(field)) <= e.scale[0] * .25 + 1e-6)!;
+        expect(top, field.id).toBeDefined();
+        for (const end of [-1, 1]) {
+            expect(corners.some(c => same(c.rotationY, top.rotationY) && same(c.position[1], top.position[1]) && same(acrossOf(c), acrossOf(top))
+                && same(alongOf(c), alongOf(top) + end * (top.scale[0] * .25 + .25))), `${field.id} corner ${end}`).toBe(true);
+        }
+        // Lit joints at the bottom and top of the run, each a published emitter.
+        for (const y of [.5, ceiling - .5]) {
+            const line = lines.find(l => same(l.rotationY, top.rotationY) && same(l.position[1], y) && same(alongOf(l), alongOf(top)) && Math.abs(acrossOf(l) - acrossOf(top)) < .1)!;
+            expect(line, `${field.id} line at ${y}`).toBeDefined();
+            expect(layout.floor.lights.find(light => light.id === line.id)?.kind).toBe('cove');
+        }
+    }
+});
+it('publishes every fixture module as an emitter and keeps each room lit within a bounded set', () => {
+    for (const layout of Object.values(result.layouts)) {
+        const lights = new Map(layout.floor.lights.map(l => [l.id, l]));
+        const fixtures = layout.placements.filter(p => /^(ceiling-spot|ceiling-led-strip|ceiling-cove|wall-light-line)/.test(p.module ?? ''));
+        expect(fixtures.length).toBeGreaterThan(0);
+        for (const fixture of fixtures) expect(lights.has(fixture.id), fixture.id).toBe(true);
+        for (const light of layout.floor.lights) if (!light.furniture) expect(layout.placements.some(p => p.id === light.id), light.id).toBe(true);
+        for (const room of layout.floor.rooms) {
+            const own = layout.floor.lights.filter(l => l.room === room.id);
+            expect(own.some(l => l.kind === 'spot' || l.kind === 'strip'), room.id).toBe(true);
+            // a cove piece per ten metres of wall, two lines per frame and a few spots: a lobby stays under this
+            expect(own.length, room.id).toBeLessThanOrEqual(64);
+        }
+    }
+});
+it('furnishes a lobby, a restaurant and a residence with the pieces their programs name, staffed and lit', { timeout: 30000 }, async () => {
+    const kinds = (layout: FloorPlacement, room?: string) => layout.floor.furniture
+        .filter(f => !room || layout.floor.rooms.find(r => r.id === f.room)?.kind === room).map(f => f.kind);
+    const roles = (layout: FloorPlacement) => layout.npc.roles.map(r => r.role);
+    const hotel = await generate(asVenue('hotel', 'rich', 'lobby', 'hotel_rooms')), lobby = hotel.layouts.ground!;
+    expect(kinds(lobby, 'reception')).toEqual(expect.arrayContaining(['reception_desk', 'plant', 'sofa']));
+    // The desk stands on the axis of the entrance, facing it.
+    const desk = lobby.floor.furniture.find(f => f.kind === 'reception_desk')!, hall = lobby.floor.rooms.find(r => r.id === desk.room)!;
+    const entrance = hall.doors.find(d => d.to === 'outside')!, a = entrance.angleDeg * Math.PI / 180;
+    const along = ([x, z]: readonly number[]) => x! * Math.cos(a) + z! * Math.sin(a);
+    expect(Math.abs(along(desk.position) - along(entrance.position))).toBeLessThanOrEqual(1);
+    expect((desk.rotationDeg - entrance.angleDeg + 360) % 360).toBe(180);
+    expect(roles(lobby)).toEqual(expect.arrayContaining(['receptionist', 'porter', 'security', 'guest']));
+    const restaurant = await generate(asVenue('restaurant', 'rich', 'restaurant', 'restaurant')), dining = restaurant.layouts.ground!;
+    expect(kinds(dining, 'dining_area')).toEqual(expect.arrayContaining(['bar_counter', 'stool', 'shelf', 'dining_table', 'chair', 'room_divider']));
+    expect(kinds(dining, 'kitchen')).toContain('kitchen_block');
+    for (const item of dining.floor.furniture.filter(f => ['bar_counter', 'stool', 'dining_table', 'chair'].includes(f.kind)))
+        expect(dining.placements.find(p => p.id === item.id)?.module, item.kind).toMatch(/^fit-/);
+    expect(roles(dining)).toEqual(expect.arrayContaining(['host', 'waiter', 'cook', 'bartender', 'guest']));
+    expect(dining.floor.lights.some(l => l.kind === 'spot' && dining.floor.rooms.find(r => r.id === l.room)?.kind === 'dining_area')).toBe(true);
+    const home = await generate(asVenue('residential', 'high_rich', 'lobby', 'residence_studio')), flat = home.layouts.middle!;
+    expect(kinds(flat)).toEqual(expect.arrayContaining(['kitchen_block', 'bar_counter', 'stool', 'bed_double', 'wardrobe', 'shower', 'sink', 'toilet', 'plant']));
+    expect(flat.placements.some(p => p.module === 'floor-carpet')).toBe(true);
 });
 it('keeps both furnished buildings including the shared module kit below 2 MB and 30 seconds', async () => {
     const proof = [];

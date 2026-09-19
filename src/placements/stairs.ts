@@ -6,14 +6,14 @@ import { uvToWorld } from '../layout/uv.js';
 import { baseLanding, computeStairSteps, entryAtLowEnd, stairClearWidth, stairRunHeadroom, type RunStep } from '../geometry/stairs.js';
 import { surface } from './surfaces.js';
 import type { PlacementBuilder } from './builder.js';
-export function stairs(builder: PlacementBuilder, core: CorePlan, climb: number, roofOnly = false): Map<string, RunStep[]> {
+export function stairs(builder: PlacementBuilder, core: CorePlan, climb: number, slabModule: string, roofOnly = false): Map<string, RunStep[]> {
     const runs = new Map<string, RunStep[]>();
     for (const which of (core.stairB ? ['a', 'b'] : ['a']) as ('a' | 'b')[]) {
         const shaft = which === 'a' ? core.stairA : core.stairB!, id = `stair-${which}`, low = entryAtLowEnd(core, which);
         if (stairClearWidth(shaft) < STAIR.flightWidth - 1e-6)
             throw new InteriorError('E_UNREACHABLE_SPACE', `${id} clear width below 1.2 m`);
         const landing = baseLanding(shaft, low, 0);
-        surface(builder, 'floor-tile', id, landing, 0, core.frame);
+        surface(builder, slabModule, id, landing, 0, core.frame);
         if (!climb || roofOnly && which === 'b')
             continue;
         const plan = planFlights(climb);
@@ -46,7 +46,7 @@ export function stairs(builder: PlacementBuilder, core: CorePlan, climb: number,
             builder.module(`stair-flight-${plan.risersPerFlight}`, id, [x, first.y - plan.rise, z], [width / 1.45, plan.rise / .17, 1], rotation);
             if (flight < plan.flights - 1) {
                 const turn = steps[(flight + 1) * (plan.risersPerFlight + 1) - 1]!;
-                surface(builder, 'floor-tile', id, turn, turn.y, core.frame);
+                surface(builder, slabModule, id, turn, turn.y, core.frame);
             }
         }
     }

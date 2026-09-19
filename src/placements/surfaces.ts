@@ -4,6 +4,13 @@ import type { Point } from '../core/geom.js';
 import type { Frame, UvRect } from '../layout/uv.js';
 import { uvToWorld } from '../layout/uv.js';
 import type { PlacementBuilder } from './builder.js';
+import type { RoomFinish } from './finish.js';
+
+/** Widest panel a fitted field or slab covers with one map. */
+export const PANEL = 2.5;
+/** Fitted ceiling band width, one construction cell. */
+const BAND = 0.5;
+
 /** Exact rectangular strips, including room holes. Boundaries preserve source coordinates. */
 export function rectangles(polygon: Point[], holes: Point[][] = []): UvRect[] {
     const rings = [polygon, ...holes], xs = new Set<number>(), zs = new Set<number>();
@@ -34,8 +41,45 @@ export function rectangles(polygon: Point[], holes: Point[][] = []): UvRect[] {
     }
     return result;
 }
-/** Plain tile fields share one mesh; scale fits each complete rectangular run. */
+
+/** One fitted module over a complete rectangular run: the map fits the run once. */
 export function surface(builder: PlacementBuilder, module: string, room: string, rect: UvRect, y: number, frame: Frame): void {
     const [x, z] = uvToWorld([rect.u + rect.lu / 2, rect.v + rect.lv / 2], frame);
     builder.module(module, room, [x, y, z], [rect.lu / .5, 1, rect.lv / .5], -frame.angleDeg * Math.PI / 180);
+}
+
+/** Equal panels no wider than PANEL along each axis, so a slab or field wears its map at
+ *  most a quarter stretched and the seams land on one grid. */
+export function panels(rect: UvRect): UvRect[] {
+    const nu = Math.max(1, Math.ceil(rect.lu / PANEL - 1e-9)), nv = Math.max(1, Math.ceil(rect.lv / PANEL - 1e-9));
+    const lu = rect.lu / nu, lv = rect.lv / nv, out: UvRect[] = [];
+    for (let j = 0; j < nv; j++)
+        for (let i = 0; i < nu; i++)
+            out.push({ u: rect.u + i * lu, v: rect.v + j * lv, lu, lv });
+    return out;
+}
+
+/** Floor slabs over a room rectangle. */
+export function slabs(builder: PlacementBuilder, module: string, room: string, rect: UvRect, y: number, frame: Frame): void {
+    for (const panel of panels(rect)) surface(builder, module, room, panel, y, frame);
+}
+
+/** A ceiling over a room rectangle: the fitted outer band where the rectangle can hold one,
+ *  inset fields inside it, and the family's exposed services along the run. */
+export function ceiling(builder: PlacementBuilder, finish: RoomFinish, room: string, rect: UvRect, y: number, frame: Frame): void {
+    const banded = finish.band && rect.lu >= 2 * BAND + 1 && rect.lv >= 2 * BAND + 1;
+    if (banded) {
+        surface(builder, finish.band!, room, { u: rect.u, v: rect.v, lu: rect.lu, lv: BAND }, y, frame);
+        surface(builder, finish.band!, room, { u: rect.u, v: rect.v + rect.lv - BAND, lu: rect.lu, lv: BAND }, y, frame);
+        surface(builder, finish.band!, room, { u: rect.u, v: rect.v + BAND, lu: BAND, lv: rect.lv - 2 * BAND }, y, frame);
+        surface(builder, finish.band!, room, { u: rect.u + rect.lu - BAND, v: rect.v + BAND, lu: BAND, lv: rect.lv - 2 * BAND }, y, frame);
+    }
+    const field = banded ? { u: rect.u + BAND, v: rect.v + BAND, lu: rect.lu - 2 * BAND, lv: rect.lv - 2 * BAND } : rect;
+    for (const panel of panels(field)) surface(builder, finish.ceiling, room, panel, y, frame);
+    if (finish.services && Math.max(rect.lu, rect.lv) >= 2) {
+        const alongU = rect.lu >= rect.lv;
+        const [x, z] = uvToWorld([rect.u + rect.lu / 2, rect.v + rect.lv / 2], frame);
+        builder.module(finish.services, room, [x, y, z], [(alongU ? rect.lu : rect.lv) / .5, 1, 1],
+            -frame.angleDeg * Math.PI / 180 + (alongU ? 0 : -Math.PI / 2));
+    }
 }

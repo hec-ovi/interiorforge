@@ -27,6 +27,12 @@ export function buildRoles(
     roles.push({ id, role, floor, homeAnchor: home.id, count });
     routines.push({ role: id, steps: steps.length > 0 ? steps : [step(home, [30, 90], "idle_stand")] });
   };
+  /** Guests sit where the venue seats them, moving between a few seats. */
+  const guests = (seats: Anchor[], floor: number, count: [number, number]) => {
+    if (seats.length === 0) return;
+    addRole("guest", floor, seats[0]!, [Math.min(count[0], seats.length), Math.min(count[1], seats.length)],
+      seats.slice(0, 3).map((seat) => step(seat, [20, 60], "idle_sit")));
+  };
 
   for (const floor of floors) {
     const f = floor.floor;
@@ -34,14 +40,25 @@ export function buildRoles(
     switch (floor.kind) {
       case "lobby": {
         const counter = on("counter_spot", "reception")[0];
+        const idle = on("idle_spot", "reception")[0];
+        const entrance = on("entrance")[0];
         if (counter) {
           addRole("receptionist", f, counter, [1, 1], [
             step(counter, [90, 300], "work_serve"),
             optional(on("toilet")[0], [3, 6], "use_toilet"),
             step(counter, [120, 360], "work_serve"),
-            optional(on("idle_spot", "reception")[0], [5, 12], "idle_stand"),
+            optional(idle, [5, 12], "idle_stand"),
           ].filter(Boolean) as RoutineStep[]);
         }
+        // a hotel's porter waits between the door and the desk; guests sit in the bays
+        if (request.building.type === "hotel" && (entrance ?? idle)) {
+          addRole("porter", f, (entrance ?? idle)!, [1, 1], [
+            optional(entrance, [20, 60], "idle_stand"),
+            optional(idle, [10, 30], "idle_stand"),
+            optional(counter, [5, 10], "idle_stand"),
+          ].filter(Boolean) as RoutineStep[]);
+        }
+        guests(on("seat", "reception"), f, [1, 3]);
         const patrol = on("patrol_point")[0];
         if (patrol) {
           const rounds = securityRound(ctx, patrol);
@@ -58,14 +75,28 @@ export function buildRoles(
             step(cookSpot, [90, 240], "work_cook"),
           ].filter(Boolean) as RoutineStep[]);
         }
-        const bar = on("counter_spot", "dining_area")[0];
-        const tables = on("seat", "dining_area").slice(0, 3);
+        const bar = on("counter_spot", "dining_area")[0] ?? on("counter_spot", "bar")[0];
+        const seats = [...on("seat", "dining_area"), ...on("seat", "bar")];
+        const tables = seats.slice(0, 3);
+        const entrance = on("entrance")[0] ?? on("idle_spot", "dining_area")[0];
         if (bar) {
+          addRole("bartender", f, bar, [1, 1], [
+            step(bar, [120, 300], "work_serve"),
+            optional(on("toilet")[0], [3, 6], "use_toilet"),
+            step(bar, [90, 240], "work_serve"),
+          ].filter(Boolean) as RoutineStep[]);
           addRole("waiter", f, bar, [1, 2], [
             step(bar, [15, 40], "work_serve"),
             ...tables.map((t) => step(t, [3, 8], "work_serve")),
           ]);
         }
+        if (entrance) {
+          addRole("host", f, entrance, [1, 1], [
+            step(entrance, [30, 90], "idle_stand"),
+            ...tables.slice(0, 1).map((t) => step(t, [2, 5], "work_serve")),
+          ]);
+        }
+        guests(seats, f, [2, 6]);
         break;
       }
       case "coffee_shop": {
@@ -77,6 +108,7 @@ export function buildRoles(
             step(bar, [90, 240], "work_serve"),
           ].filter(Boolean) as RoutineStep[]);
         }
+        guests(on("seat", "dining_area"), f, [1, 4]);
         break;
       }
       // one shop occupies a commerce floor; a mall floor holds one shop per unit. Either
@@ -87,7 +119,7 @@ export function buildRoles(
           const counter = inRoom(ctx, f, shop.id, "counter_spot")[0];
           if (!counter) continue;
           const racks = inRoom(ctx, f, shop.id, "work_spot");
-          addRole("clerk", f, counter, [1, Math.max(1, Math.min(3, Math.ceil(racks.length / 2)))], [
+          addRole("vendor", f, counter, [1, Math.max(1, Math.min(3, Math.ceil(racks.length / 2)))], [
             step(counter, [60, 180], "work_serve"),
             ...racks.slice(0, 2).map((r) => step(r, [8, 20], "work_stock")),
             optional(on("toilet")[0], [3, 6], "use_toilet"),
@@ -124,6 +156,8 @@ export function buildRoles(
             step(exec, [90, 240], "work_type"),
           ].filter(Boolean) as RoutineStep[]);
         }
+        const patrol = on("patrol_point")[0];
+        if (patrol) addRole("security", f, patrol, [1, 1], securityRound(ctx, patrol));
         break;
       }
       case "residence_studio":
@@ -158,7 +192,6 @@ export function buildRoles(
     });
     routines.push({ role: id, steps: stops.map((s) => step(s, [10, 20], "sweep")) });
   }
-  void request;
   return { roles, routines };
 }
 

@@ -48,6 +48,11 @@ export class MaterialLibrary {
     return this.index.theme;
   }
 
+  /** The index this library resolves against, for consumers that carry it elsewhere. */
+  get themeIndex(): ThemeIndex {
+    return this.index;
+  }
+
   entry(key: string): MaterialEntry | undefined {
     return this.byKey.get(key);
   }

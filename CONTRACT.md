@@ -1,4 +1,4 @@
-# Interior 0.31.15
+# Interior 0.32.0
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -7,7 +7,7 @@ Places shared room modules and catalog furniture in three reusable building layo
 | Export from `src/index.ts` | Input | Output |
 | --- | --- | --- |
 | `generate`, alias `generateInterior` | [Request](schemas/request.schema.json) with [assembled blueprint](schemas/blueprint.schema.json) | Promise of `{building, layouts}` |
-| `buildModules` | None | Promise of `{catalog, files}`, a manifest and map of GLB bytes |
+| `buildModules` | Optional preloaded theme index | Promise of `{catalog, files}`, a manifest and map of GLB bytes |
 | `writePlacements` | Generation result, output directory | Writes building and layout JSON |
 | `expandBuilding` | Generation result | `{floors, npc}` with unique floor identities and absolute elevations |
 | `findPath` | Expanded NPC data, two `{floor, position: [x,z]}` endpoints | Walk and connector legs, or null |
@@ -26,18 +26,23 @@ connectors. The manifest names the layouts it publishes. An irregular outline is
 `roomEnvelope`. Every middle floor must share its outline,
 height, doors and explicit program. Windows vary per floor by design, and so do opening
 IDs and exterior dressing (material, panes, glazing, scenery, section ids). Default
-programs derive from blueprint kinds, with the first middle floor defining its program.
-Input objects remain unchanged. Optional `shellGlb` is metadata; generation consumes
-the assembled blueprint. No shell, texture or furniture geometry is loaded.
+programs derive from blueprint kinds, with the first middle floor defining its program;
+a generic `residential` plan slug takes the parcel's own program in a corporate, office
+or hotel building, and a `commerce` slug takes the venue a restaurant, coffee shop or
+mall parcel names. Input objects remain unchanged. Optional `shellGlb` is metadata;
+generation consumes the assembled blueprint. No shell, texture or furniture geometry is loaded.
 
 ## Files and frames
 
-`npm run modules -- --out <dir>` writes 17 shared GLBs and `modules.json`, following
+`npm run modules -- --out <dir>` writes 72 shared GLBs and `modules.json`, following
 [modules.schema.json](schemas/modules.schema.json). Each entry gives `id`, relative
 `file`, bounds `size` in XYZ metres, `origin` measured from bounds minimum to the
 authored zero, `materialSlots`, triangle count and complete file byte count. GLBs
-are indexed, quantized and require `EXT_meshopt_compression`. Material names are
-keys only. The catalog is published once for the city.
+are indexed, quantized and require `EXT_meshopt_compression`. A slot is
+`theme/kind/tier#variant`: the GLB material is named by the key and carries the variant
+in `extras.materialVariant`; no texture images travel. UVs are tile units, one unit per
+published `tiling.worldSize` repeat, read from the sibling Materials theme when it is
+present. The catalog is published once for the city.
 
 `npm run generate -- --request request.json --out <dir>` writes `building.json`
 and `layouts/ground.json`, `layouts/middle.json`, `layouts/crown.json`.
@@ -54,6 +59,35 @@ Preserve each GLB node's authored transform, including quantization transforms.
 The GLB already contains its authored origin; `origin` is descriptive metadata.
 XZ stays in the blueprint frame; layout Y starts at the walking surface.
 
+## The look
+
+A building is furnished in one family: `luxury` for rich and high rich tiers, `capsule`
+for mid, `damaged` for poor, `industrial` for factory and military parcels. Each room
+takes its finish from the family and its kind ([finish table](src/placements/finish.ts)).
+
+Partitions are nine-slice panel frames per face: one-cell corners, edges fitted along the
+run and up the height, centre fields split into panels no wider than 2.5 m, and a lit
+joint at the top and bottom of every frame, published as `cove` light records. Runs
+shorter than 1.5 m, door headers and unframed families take one fitted plain field. An
+office, meeting or executive room looks onto public space through a glass field in the
+same frame. Corners tile at metre scale; every other piece wears its map once.
+
+Floors are slabs no wider than 2.5 m over a dark underlay (stone, obsidian, marble or
+timber by room), with a carpet under every fitted seating or suite group. Ceilings carry a
+fitted outer band, inset fields, recessed spot modules and a cove module on every cove
+record; damaged and industrial families hang exposed services instead of a band.
+
+Every light record has a module standing at it, and every lit module has a record: spots,
+strips and coves from the room plan, the frames' joints from the walls, and furniture
+lenses published with their `furniture` id. Furniture kinds with a built-in module
+(desks, counters, kitchen runs, beds with planted headboards, wardrobes, showers, basins,
+lit planters, planted screens, aquarium walls, screens, art, shelves, stools, chairs,
+sofas, tables, capsule pods, crates) are scaled per axis to their record; the rest resolve
+catalog props. Programs: a lobby stands its desk on the axis of the wall facing the
+entrance with seating bays and planter cases; a restaurant runs a counter with its back
+bar and stools, dining tables between planted screens; a residence fits a kitchen run with
+a breakfast bar, a suite and a bathroom with a glazed shower and a planter.
+
 Rooms, surfaces, walls, the vertical core and prop bounds fit the floor's published `roomEnvelope`,
 kept behind `facade.wallDepth`, defaulting to 0.12 m; a floor without one uses its
 outline inset by that depth. The band between that rectangle and the outline is the
@@ -61,18 +95,15 @@ exterior's own slab: open floor, walkable, carrying no partition and no interior
 surface, and an exterior door reaches its room across it, through the part of its span that meets that room's floor. Window returns fit between
 adjacent backing planes. Door thresholds join the floor to source passages; a pocket door's passage is its published `door.clearance`, and the cassette beside it is solid wall.
 
-Construction uses the 0.5 m grid. Plain floor, ceiling and wall fields fit complete
-rectangular runs through scale. Measured facade attachments and closing boundaries
+Construction uses the 0.5 m grid. Measured facade attachments and closing boundaries
 retain exact source coordinates. Stair variants have 7 through 14 treads at 0.28 m
-pitch; their fitted rise stays between 0.16 and 0.18 m. Furniture scales uniformly.
+pitch; their fitted rise stays between 0.16 and 0.18 m. Props scale uniformly.
 Prop IDs resolve through the existing [catalog](src/assets/catalog.json), whose
-`modelUri` is relative to that catalog. Only furniture with a fitting catalog model
-receives a prop placement and furniture anchors. Frames and LED housings are modules.
+`modelUri` is relative to that catalog.
 
 `building.modules` and `building.props` identify city resource catalogs, resolved
 against the consumer's resource base. Layout file paths resolve beside building.json.
-Resolve module material slots through `materialTheme` and `tier`; canonical slot
-kinds remain unchanged. Prop materials belong to their existing models.
+Modules carry their finish keys; prop materials belong to their existing models.
 
 `building.floors[].openings` maps the layout's door IDs to this floor's door IDs, and
 `treatments` carries this floor's own window returns, built from its own openings. Exterior door placement and room connection IDs match the blueprint.
@@ -95,7 +126,10 @@ car placements describe its stop pose. Landing doors remain at every floor.
 Layout NPC records use `sourceFloor` and local identities. `expandBuilding` applies
 floor identities, opening mappings, elevations and building connectors for Simulation.
 Its navigation retains anchors, roles, routines, standing opportunities and floor grids.
-A fitted roof retains its navigation access; a housing that cannot take the stair leaves the roof out of the navigation instead of closing the building. Runtime actor dimensions and dynamic
+Every venue publishes the roles that run it and its guests: a restaurant its host,
+waiters, cook and bartender, a coffee shop its barista, a hotel its receptionist and porter,
+a shop its vendor, an office its receptionist and guard, each on counter, seat and work
+anchors. A fitted roof retains its navigation access; a housing that cannot take the stair leaves the roof out of the navigation instead of closing the building. Runtime actor dimensions and dynamic
 obstructions require consumer agreement in [issues](docs/ISSUES.md).
 
 ## Validation and limits
@@ -122,6 +156,7 @@ prop geometry and Exterior assets are city resources, outside the building expor
 ## Dependencies
 
 [Exterior piece kit](../exterior/src/kit/CONTRACT.md) supplies assembled blueprints.
-[Assets](src/assets/CONTRACT.md) supplies prop IDs. Materials resolves keys at draw time.
-GLB serialization uses glTF Transform 4 and meshoptimizer 1.1. Tests, proof details
-and box boundaries are in [docs/INDEX.md](docs/INDEX.md).
+[Assets](src/assets/CONTRACT.md) supplies prop IDs. [Materials](../materials/CONTRACT.md)
+publishes the keys the modules wear and their tile sizes. GLB serialization uses glTF
+Transform 4 and meshoptimizer 1.1. Tests, proof details and box boundaries are in
+[docs/INDEX.md](docs/INDEX.md).

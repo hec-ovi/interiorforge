@@ -1,6 +1,6 @@
-import type { Document, Material, Texture, TextureInfo } from "@gltf-transform/core";
+import type { Document, Material, Texture } from "@gltf-transform/core";
 import {
-  KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsTransmission, KHRTextureTransform,
+  KHRMaterialsEmissiveStrength, KHRMaterialsIOR, KHRMaterialsTransmission,
 } from "@gltf-transform/extensions";
 import { InteriorError } from "../core/errors.js";
 import type { MapSlot, MaterialEntry, MaterialLibrary } from "./theme.js";
@@ -16,10 +16,10 @@ export interface ApplyOptions {
 }
 
 /** Resolves every material key in the document against the materials database and hangs the
- *  real maps on it. Materials that already carry textures (a shell that arrived finished)
- *  and names that are not `theme/kind/tier` are left alone. */
+ *  real maps on it. Geometry carries UVs in tile units, one unit per published repeat, so
+ *  the maps bind as they are. Materials that already carry textures (a shell that arrived
+ *  finished) and names that are not `theme/kind/tier` are left alone. */
 export function applyMaterials(doc: Document, library: MaterialLibrary, options: ApplyOptions): number {
-  const transform = doc.createExtension(KHRTextureTransform).setRequired(false);
   const textures = new Map<string, Texture>();
   let applied = 0;
 
@@ -30,16 +30,14 @@ export function applyMaterials(doc: Document, library: MaterialLibrary, options:
     if (!entry) {
       throw new InteriorError("E_MATERIAL_UNRESOLVED", `materials theme "${library.theme}" has no entry for ${key}`);
     }
-    dressMaterial(doc, material, entry, textures, options, transform);
+    dressMaterial(doc, material, entry, textures, options);
     applied++;
   }
-  if (textures.size === 0) transform.dispose();
   return applied;
 }
 
 function dressMaterial(
-  doc: Document, material: Material, entry: MaterialEntry, cache: Map<string, Texture>,
-  options: ApplyOptions, transform: KHRTextureTransform,
+  doc: Document, material: Material, entry: MaterialEntry, cache: Map<string, Texture>, options: ApplyOptions,
 ): void {
   // the geometry names a preferred variant in extras; fall back to the canonical one
   const wanted = (material.getExtras() as { materialVariant?: string }).materialVariant;
@@ -50,29 +48,22 @@ function dressMaterial(
   material.setRoughnessFactor(physical.roughnessFactor ?? 1);
   if (physical.alphaMode) material.setAlphaMode(physical.alphaMode);
 
-  const attach = (slot: MapSlot, set: (t: Texture) => void, info: () => TextureInfo | null): void => {
+  const attach = (slot: MapSlot, set: (t: Texture) => void): void => {
     const path = variant.maps[slot];
-    if (!path) return;
-    set(texture(doc, cache, entry.key, slot, path, options));
-    const target = info();
-    // world-meter UVs: tiled maps repeat every worldSize meters, exact placements are 0..1
-    if (target && entry.alignment === "tile" && entry.tiling) {
-      const [w, h] = entry.tiling.worldSize;
-      target.setExtension("KHR_texture_transform", transform.createTransform().setScale([1 / w, 1 / h]));
-    }
+    if (path) set(texture(doc, cache, entry.key, slot, path, options));
   };
 
-  attach("basecolor", (t) => material.setBaseColorTexture(t), () => material.getBaseColorTextureInfo());
+  attach("basecolor", (t) => material.setBaseColorTexture(t));
   if (variant.maps.metallicRoughness) {
-    attach("metallicRoughness", (t) => material.setMetallicRoughnessTexture(t), () => material.getMetallicRoughnessTextureInfo());
+    attach("metallicRoughness", (t) => material.setMetallicRoughnessTexture(t));
     // The packed linear channels contain the final response, not scalar multipliers.
     material.setMetallicFactor(1).setRoughnessFactor(1);
   }
-  attach("normal", (t) => material.setNormalTexture(t), () => material.getNormalTextureInfo());
-  attach("ao", (t) => material.setOcclusionTexture(t), () => material.getOcclusionTextureInfo());
+  attach("normal", (t) => material.setNormalTexture(t));
+  attach("ao", (t) => material.setOcclusionTexture(t));
   if (variant.maps.emission) {
     material.setEmissiveFactor([1, 1, 1]);
-    attach("emission", (t) => material.setEmissiveTexture(t), () => material.getEmissiveTextureInfo());
+    attach("emission", (t) => material.setEmissiveTexture(t));
     if (physical.emissiveStrength !== undefined && physical.emissiveStrength !== 1) {
       const ext = doc.createExtension(KHRMaterialsEmissiveStrength).setRequired(false);
       material.setExtension("KHR_materials_emissive_strength",

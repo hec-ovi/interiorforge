@@ -50,3 +50,38 @@ refuse with `E_BLUEPRINT_INVALID: floor N differs from the reusable middle layou
 other shell of that city opens. Needed: a fourth layout kind for connection floors, or the
 aperture published as a per-floor treatment the way windows are. Until then the sweep
 lists this refusal as the contract's own.
+
+## Materials: interior finishes
+
+The 0.32.0 module set wears existing theme keys; these looks have no key yet, so the modules
+take the closest published finish named beside each ask. All tile keys at 2 m unless noted.
+
+| Key wanted | Intended look | Standing in today |
+| --- | --- | --- |
+| `cyberpunk/interior-travertine/rich` | warm ivory vein-cut travertine, honed, fine horizontal sediment layers (the user's own prompt) | `interior-luxury-wall/rich` |
+| `cyberpunk/interior-walnut/rich` | smoked walnut veneer, quarter-sawn, fine vertical grain, no plank joints | `interior-luxury-timber/rich` |
+| `cyberpunk/interior-ribbed-timber/rich` (0.5 x 2 m) | vertical fluted walnut slats at 0.04 m pitch for feature fields, bar fronts and screens | `wood/high_rich#1` |
+| `cyberpunk/interior-marble-dark/rich` (tile 2 m and an exact 1:1 plate) | honed obsidian marble with fine pale veins for lobby floors, counter tops and feature fields | `tile/high_rich#slab` |
+| `cyberpunk/interior-marble-light/high_rich` (exact 1:1) | white Calacatta marble for bathroom floors, showers and basins | `tile/rich#slab` |
+| `cyberpunk/interior-velvet/high_rich` (1 m) | olive graphite velvet with sheen for stools, chairs and sofa cushions | `fabric/high_rich#flat` |
+| `cyberpunk/interior-linen/high_rich` (1 m) | ivory linen bedding | `ivory-panel/mid#native` |
+| `cyberpunk/interior-artwork/rich` (exact 2:3, several variants) | abstract framed artworks, dark grounds with one saturated hue | `corporate-screen/mid#native` |
+| `cyberpunk/interior-mesh-grating/mid` (0.5 m, opacity mask) | expanded steel mesh for lift gates and guard screens | plain `metal/mid#zinc` bars |
+| `cyberpunk/interior-grating-floor/mid` (0.5 m) | open bar grating for industrial platforms and walkways | `interior-damaged-steel/poor` |
+| `cyberpunk/interior-pipe/poor` (1 m) | rusted galvanised pipe and cable tray for exposed services | `interior-damaged-steel/poor` |
+
+## Engine: drawing the 0.32.0 module set
+
+- Module GLB UVs are tile units, one UV unit per `tiling.worldSize` repeat (the Materials
+  binding rule); draw them with no further tiling transform. Fitted pieces (edges, fields,
+  slabs, ceilings, screens) wear their map once, fixed pieces (corners) wear it at metre scale.
+- Every slot is `key#variant`: the GLB material is named by the key and carries
+  `userData.materialVariant`, as before.
+- Collider intent by id prefix: `wall-panel-*`, `wall-field-*`, `wall-light-line*`, `floor-*`,
+  `ceiling-band-*`, `ceiling-field-*` and `fit-*` are their bounds; `ceiling-spot*`,
+  `ceiling-cove-*`, `ceiling-led-strip`, `ceiling-services`, `wall-screen`, `wall-art` and
+  `wall-shelf` carry none. `door-frame`, `window-return`, `stair-flight-*`, `lift-car` and
+  `lift-doors` keep their existing rules.
+- Light records: `cove` records now also stand at wall height (the panel frames' lit joints,
+  facing up at the top and down at the bottom) and furniture-owned records are published
+  with their `furniture` id; the module at that id carries the lens.

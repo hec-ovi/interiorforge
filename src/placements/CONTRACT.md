@@ -11,10 +11,19 @@ Generation plans ground, first middle and crown once; two floors plan ground and
 alone, and a stack with no room for a core plans its ground floor alone. All middle floors reference
 that middle layout. Their outline, height, doors and explicit programs must match;
 the manifest maps the layout's door IDs to each floor's own. Windows vary per floor,
-so each floor publishes its own window returns in `building.floors[].treatments`. Rectangular surface
-runs retain holes. Wall runs retain doors and facade clearances. Furniture references
-existing catalog IDs and keeps one uniform scale. Unsupported furnishings produce
-no prop or furniture anchor. Decoration frames and LED housings are module placements.
+so each floor publishes its own window returns in `building.floors[].treatments`.
+
+The building's [family](finish.ts) (luxury, capsule, damaged, industrial) and each room's
+kind pick its modules. [Walls](walls.ts) build one face per room on every partition run:
+a nine-slice frame (one-cell corners, fitted edges, fields no wider than 2.5 m, a lit joint
+top and bottom published as a `cove` record) where the run is at least 1.5 m long and
+high, a plain fitted field otherwise, a glass field where an office room looks onto
+public space, and a door frame in every hole. [Surfaces](surfaces.ts) lay slabs no wider
+than 2.5 m, carpets under fitted groups, and ceilings with a fitted band, inset fields and
+the family's services. Each room-plan light stands as its module: spot, strip or cove.
+Furniture with a built-in module scales per axis to its record; other furniture
+references existing catalog IDs at one uniform scale, and furnishings fitting neither
+produce no prop or furniture anchor.
 
 Transforms apply positive XYZ scale, radians about positive Y, position, then floor
 elevation. No geometry is serialized here. Temporary transformed vertices prove shell,

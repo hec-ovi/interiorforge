@@ -46,6 +46,8 @@ export interface UvFloorData {
   rooms: PlanRoom[];
   furniture: PlanFurniture[];
   sealed: UvRect[];
+  /** carpet zones under fitted seating and suites */
+  carpets: { room: string; rect: UvRect }[];
 }
 
 export interface PlannedFloor {
@@ -79,7 +81,7 @@ export function planFloor(
       },
       // upper half of a double-height space: no slab, nothing walkable
       grid: new WalkGrid([b.x, b.z], CELL, Math.ceil(b.w / CELL), Math.ceil(b.d / CELL)),
-      uv: { outline: uvOutline, rooms: [], furniture: [], sealed: [] },
+      uv: { outline: uvOutline, rooms: [], furniture: [], sealed: [], carpets: [] },
     };
   }
 
@@ -246,8 +248,9 @@ export function planFloor(
     floor.index, upperFloor.index, floor.elevation, upperFloor.elevation,
     floor.elevation + ceilingUnder(floor.openings, spaceHeight),
     insetPolygon(upperFloor.outline.map(p=>worldToUv(p,frame)),shellWallDepth(request.blueprint.facade)+.15)) : null;
+  const carpets: UvFloorData["carpets"] = [];
   const furniture = furnish(rooms, kind, rng, ids, bounds,
-    [...placementKeepouts, ...(loft?.reserved ?? [])], request.building.tier);
+    [...placementKeepouts, ...(loft?.reserved ?? [])], request.building.tier, carpets);
   blockPhysicalFurniture(architecture, frame, furniture);
   if (loft) blockLoftSolids(architecture, loft.solids, frame);
   verifyCirculation(circulation, architecture);
@@ -275,7 +278,7 @@ export function planFloor(
         .concat(loft ? loftLights(loft.plan, floor.elevation, ceilingElevation, request.building.tier).filter(light => light.room === loft.plan.lowerRoom) : []),
     },
     grid,
-    uv: { outline: uvOutline, rooms, furniture, sealed, programChanges: facadePlan?.changes },
+    uv: { outline: uvOutline, rooms, furniture, sealed, carpets, programChanges: facadePlan?.changes },
   };
 }
 

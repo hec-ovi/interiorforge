@@ -152,10 +152,12 @@ const VENUE_BY_TYPE: Partial<Record<BuildingType, FloorKind>> = {
 };
 
 function kindFromSlug(slug: string, type: BuildingType, floor: number, rng: Rng): FloorKind {
-  if (slug === "residential") return rng.next() < 0.35 ? "residence_studio" : "apartment";
-  // exterior's generic venue slug: a shop floor is a shop whatever storey it sits on
-  if (slug === "shop") return VENUE_BY_TYPE[type] ?? "retail";
-  const known = SLUG_KIND[slug];
+  // A plan's generic upper-floor slug stands for whatever the parcel is: homes in a
+  // residential tower, offices in a corporate one; a corporate lobby stays a lobby.
+  if (slug === "residential" && type === "residential") return rng.next() < 0.35 ? "residence_studio" : "apartment";
+  // exterior's generic venue slugs: a shop floor is the venue its parcel names
+  if (slug === "shop" || (slug === "commerce" && VENUE_BY_TYPE[type])) return VENUE_BY_TYPE[type] ?? "retail";
+  const known = slug === "residential" ? undefined : SLUG_KIND[slug];
   if (known) return known;
   if (floor < 0) return "parking";
   if (floor === 0) return "lobby";

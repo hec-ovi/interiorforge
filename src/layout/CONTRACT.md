@@ -52,7 +52,13 @@ Stairs retain 1.2 m clear lanes, 0.16 to 0.18 m risers, 0.28 m treads, 1.2 m lan
 and 2.1 m headroom. `planRoofAccess` returns a fitted landing and roof connection, or null when the published
 housing does not take the stair: the building opens and the roof stays unreachable. Shared [stair parameters](constants.ts) also govern module placement.
 
-[Luxury](luxury/CONTRACT.md) fits coordinated furniture groups.
+Furnishing follows the room's program: a reception stands its desk centred on the wall
+facing the entrance with seating bays and planter cases; a dining room or bar runs its
+counter with a back shelf and stools, dining tables and planted screens; a bathroom takes
+its recipe and a planter; a bedroom, living room and studio take [Luxury](luxury/CONTRACT.md)
+groups, each with a carpet zone published in `uv.carpets`. Room lighting plans spots,
+strips and a cove per room kind; every built-in furniture lens publishes its own record
+with its `furniture` id, at the position the module carries it.
 [Lofts](lofts/CONTRACT.md) supports planning tools with multiple storeys; public
 placement requests cover single storeys. Emitted meshes belong to Modules and Assets.
 

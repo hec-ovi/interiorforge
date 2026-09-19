@@ -26,6 +26,28 @@ function materialsRoute(): Plugin {
   };
 }
 
+/** Where the city's shared resources stand: `URBE_SHARED_DIR`, else the sibling engine's
+ *  published kit plans. The plan samples fetch their blueprints from here. */
+function sharedDir(): string {
+  return process.env.URBE_SHARED_DIR ?? fileURLToPath(new URL("../../../engine/out/shared", import.meta.url));
+}
+
+function sharedRoute(): Plugin {
+  const root = sharedDir();
+  return {
+    name: "urbe-shared",
+    configureServer(server) {
+      server.middlewares.use("/shared", (req, res, next) => {
+        const rel = normalize(decodeURIComponent((req.url ?? "/").split("?")[0]!)).replace(/^(\.\.[/\\])+/, "");
+        const file = join(root, rel);
+        if (!file.startsWith(root) || !existsSync(file)) return next();
+        res.setHeader("content-type", MIME[extname(file)] ?? "application/octet-stream");
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
+
 /** Exposes ignored, license-restricted imports to the local preview only. */
 function interiorAssetsRoute(): Plugin {
   const root = fileURLToPath(new URL("../assets/models", import.meta.url));
@@ -46,5 +68,5 @@ function interiorAssetsRoute(): Plugin {
 
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
-  plugins: [materialsRoute(), interiorAssetsRoute()],
+  plugins: [materialsRoute(), sharedRoute(), interiorAssetsRoute()],
 });

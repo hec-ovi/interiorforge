@@ -58,6 +58,7 @@
           "role": {
             "enum": [
               "receptionist", "security", "vendor", "barista", "waiter", "cook", "clerk",
+              "host", "bartender", "porter",
               "office_worker", "executive", "cleaner", "resident", "trainer", "guest"
             ]
           },

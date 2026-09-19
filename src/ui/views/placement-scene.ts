@@ -1,20 +1,38 @@
-import { Group, Mesh, InstancedMesh, Matrix4, Quaternion, Vector3 } from 'three';
+import { Group, Mesh, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from 'meshoptimizer';
-import { buildModules } from '../../modules/index.js';
+import { moduleRecipes } from '../../modules/recipes.js';
+import { MODULE_THEME, tileScale } from '../../modules/index.js';
 import { loadAssetCatalog } from '../../assets/catalog.js';
 import { readBundledAssetModel } from '../../assets/bundled.js';
-import { writeGlb } from '../../glb/io.js';
+import { createDocument, writeGlb } from '../../glb/io.js';
+import { applyMaterials, MaterialLibrary, type ThemeIndex } from '../../materials/index.js';
 import type { PlacementResult } from '../../placements/types.js';
+
+/** The materials database, served by the preview at this route. */
+const MATERIALS_URL = '/materials/themes';
+/** A lit diffuser reads as a light source, not a bright surface. */
+const DIFFUSER_EMISSIVE = 6;
+
 let shared: Promise<Map<string, Group>> | undefined;
+
+/** Every shared module, dressed in its published maps when the materials route answers. */
 async function moduleScenes(): Promise<Map<string, Group>> {
-    const kit = await buildModules(), loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), scenes = new Map<string, Group>();
-    for (const entry of kit.catalog.modules) {
-        const data = kit.files.get(entry.file)!;
-        scenes.set(entry.id, (await loader.parseAsync(new Uint8Array(data).buffer, '')).scene);
+    const theme = await fetch(`${MATERIALS_URL}/${MODULE_THEME}/theme.json`).then(r => r.ok ? r.json() as Promise<ThemeIndex> : null).catch(() => null);
+    const library = theme ? new MaterialLibrary(theme) : null;
+    const loader = new GLTFLoader(), scenes = new Map<string, Group>();
+    for (const recipe of moduleRecipes(tileScale(theme))) {
+        const doc = createDocument(recipe.mesh);
+        if (library) applyMaterials(doc, library, { baseUrl: `${MATERIALS_URL}/${MODULE_THEME}`, embed: false, readMap: () => new Uint8Array() });
+        const scene = (await loader.parseAsync(new Uint8Array(await writeGlb(doc)).buffer, '')).scene;
+        scene.traverse(node => {
+            const material = (node as Mesh).material as MeshStandardMaterial | undefined;
+            if (material?.name?.includes('/light-fixture/') || material?.name?.includes('/interior-led-')) material.emissiveIntensity = DIFFUSER_EMISSIVE;
+        });
+        scenes.set(recipe.id, scene);
     }
     return scenes;
 }
+
 export async function placementScene(result: PlacementResult): Promise<Group> {
     const modules = await (shared ??= moduleScenes()), sources = new Map(modules), catalog = loadAssetCatalog(), loader = new GLTFLoader();
     const ids = [...new Set(Object.values(result.layouts).flatMap(l => l.placements.flatMap(p => p.prop ? [p.prop] : [])))];

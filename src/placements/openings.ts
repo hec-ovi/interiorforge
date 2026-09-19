@@ -5,7 +5,7 @@ import { SHELL_WALL, shellWallDepth } from '../layout/shell.js';
 import type { PlacementBuilder } from './builder.js';
 /** Doors belong to the reusable layout: the middle-layout signature holds them identical.
  *  Windows vary per floor, so their returns are published as that floor's own treatments. */
-export function openings(builder: PlacementBuilder, bp: BlueprintFloor, floor: FloorInterior, request: InteriorRequest, want: 'doors' | 'windows'): void {
+export function openings(builder: PlacementBuilder, bp: BlueprintFloor, floor: FloorInterior, request: InteriorRequest, want: 'doors' | 'windows', slabOf: (room: string) => string = () => 'floor-slab-stone'): void {
     const depth = shellWallDepth(request.blueprint.facade);
     for (const opening of bp.openings) {
         if ((opening.kind === 'window') !== (want === 'windows'))
@@ -32,7 +32,7 @@ export function openings(builder: PlacementBuilder, bp: BlueprintFloor, floor: F
             if (field.sill === 0 && depth > thresholdDepth) {
                 const threshold = edgePoint(face, field.offset + field.width / 2, (depth + thresholdDepth) / 2);
                 const clearWidth = opening.portal?.clearWidth ?? field.width - 2 * SHELL_WALL.recess;
-                builder.module('floor-tile', owner.id, [threshold[0], 0, threshold[1]], [clearWidth / .5, 1, (depth - thresholdDepth) / .5], rotation, { id: `threshold:${opening.id}`, opening: opening.id });
+                builder.module(slabOf(owner.id), owner.id, [threshold[0], 0, threshold[1]], [clearWidth / .5, 1, (depth - thresholdDepth) / .5], rotation, { id: `threshold:${opening.id}`, opening: opening.id });
             }
             const connection = floor.rooms.flatMap(r => r.doors).filter(d => d.to === 'outside')
                 .sort((a, b) => Math.hypot(a.position[0] - p[0], a.position[1] - p[1]) - Math.hypot(b.position[0] - p[0], b.position[1] - p[1]))[0];

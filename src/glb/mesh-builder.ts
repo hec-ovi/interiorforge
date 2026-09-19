@@ -40,12 +40,22 @@ export interface UvFrame {
 
 const WORLD_FRAME: UvFrame = { cos: 1, sin: 0 };
 
+/** UV units per metre for one material: a tiled material repeats once per UV unit, so a
+ *  module authored in metres divides by the material's world size. Identity keeps metres. */
+export type UvScale = (material: string) => [number, number];
+
+const METRES: UvScale = () => [1, 1];
+
 export class MeshBuilder {
   /**
    * @param frame the building frame every floor, ceiling and roof tile follows
    * @param origin the frame-space corner tiles count from; without one, each polygon counts from its own corner
+   * @param uvScale UV units per metre per material, applied to every world-mode face
    */
-  constructor(private readonly frame: UvFrame = WORLD_FRAME, private readonly origin: Point | null = null) {}
+  constructor(
+    private readonly frame: UvFrame = WORLD_FRAME, private readonly origin: Point | null = null,
+    private readonly uvScale: UvScale = METRES,
+  ) {}
 
   private readonly groups = new Map<string, MeshGroup>();
   private sealed = false;
@@ -68,10 +78,15 @@ export class MeshBuilder {
     const g = this.group(material);
     const base = g.positions.length / 3;
     const bottom = Math.min(v0[1], v1[1], v2[1], v3[1]);
+    const [su, sv] = this.uvScale(material);
     [v0, v1, v2, v3].forEach((v, i) => {
       g.positions.push(...v);
       g.normals.push(...n);
-      g.uvs.push(...(uv === "unit" ? UNIT_QUAD[i]! : this.faceUv(v, v0, n, bottom)));
+      if (uv === "unit") g.uvs.push(...UNIT_QUAD[i]!);
+      else {
+        const [fu, fv] = this.faceUv(v, v0, n, bottom);
+        g.uvs.push(fu * su, fv * sv);
+      }
     });
     g.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
@@ -107,11 +122,15 @@ export class MeshBuilder {
     // without one lets each polygon count from its own corner
     const framed = polygon.map(([x, z]) => this.toFrame(x, z));
     const origin: Point = this.origin ?? [Math.min(...framed.map((p) => p[0])), Math.min(...framed.map((p) => p[1]))];
+    const [su, sv] = this.uvScale(material);
     for (const [x, z] of polygon) {
       g.positions.push(x, y, z);
       g.normals.push(...n);
       if (uv === "unit") g.uvs.push((x - x0) / w, (z - z0) / d);
-      else g.uvs.push(...this.planUv(x, z, origin));
+      else {
+        const [pu, pv] = this.planUv(x, z, origin);
+        g.uvs.push(pu * su, pv * sv);
+      }
     }
     for (const [a, b, c] of triangulate(polygon)) {
       // shoelace-CCW in XZ faces -Y; flip for an upward surface
@@ -121,7 +140,7 @@ export class MeshBuilder {
   }
 
   /** Axis-aligned box with outward normals. north = +Z, east = +X. */
-  addBox(material: string, r: Rect, y0: number, y1: number, faces: readonly BoxFace[] = ALL_FACES): void {
+  addBox(material: string, r: Rect, y0: number, y1: number, faces: readonly BoxFace[] = ALL_FACES, uv: UvMode = "world"): void {
     const { x, z, w, d } = r;
     const quads: Record<BoxFace, [Vec3, Vec3, Vec3, Vec3]> = {
       top: [[x, y1, z], [x, y1, z + d], [x + w, y1, z + d], [x + w, y1, z]],
@@ -131,7 +150,7 @@ export class MeshBuilder {
       north: [[x + w, y0, z + d], [x + w, y1, z + d], [x, y1, z + d], [x, y0, z + d]],
       south: [[x, y0, z], [x, y1, z], [x + w, y1, z], [x + w, y0, z]],
     };
-    for (const face of faces) this.addQuad(material, quads[face]);
+    for (const face of faces) this.addQuad(material, quads[face], uv);
   }
 
   /** Vertical prism over a CCW plan polygon: outward side quads plus its caps. `caps` drops
