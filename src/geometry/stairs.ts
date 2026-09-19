@@ -134,3 +134,11 @@ export function entryAtLowEnd(core: CorePlan, stair: "a" | "b"): boolean {
     ? entry[0] < shaft.u + shaft.lu / 2
     : entry[1] < shaft.v + shaft.lv / 2;
 }
+
+/** Clear height over a stair run repeated on the floor above, for one floor height. */
+export function stairRunHeadroom(shaft: UvRect, entryLowEnd: boolean, climb: number): number {
+  const slab = 0.15 * planFlights(climb).rise / 0.17;
+  const run = [baseLanding(shaft, entryLowEnd, 0), ...computeStairSteps(shaft, entryLowEnd, 0, climb)]
+    .map(step => ({ ...step, slab }));
+  return minHeadroom([...run, ...run.map(step => ({ ...step, y: step.y + climb }))]);
+}

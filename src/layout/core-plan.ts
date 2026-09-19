@@ -28,6 +28,8 @@ export interface CorePlan {
   u1: number;
   depth: number;
   stairStyle: StairStyle;
+  /** set when the only core the plate holds crosses an exterior opening reservation */
+  reservationCrossing?: CoreAdjacencyFailure;
   stairDepth: number;
   elevatorCount: number;
   stairA: UvRect;
@@ -93,7 +95,7 @@ function platesOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame, 
 
 function envelopeOf(
   blueprint: InteriorRequest["blueprint"], frame: Frame, depth: number,
-  bulkheadUv: Point | null = null,
+  bulkheadUv: Point | null = null, singleStair = false,
 ): CoreEnvelope {
   const floors = blueprint.floors;
   const uvFloors = platesOf(floors, frame, depth);
@@ -102,7 +104,7 @@ function envelopeOf(
   const vLen = bounds.d;
   const area = polygonArea(floors[groundIndex]!.outline);
   const aboveFloors = floors.filter((f) => f.index >= 0).length;
-  const twoStairs = area > TWO_STAIRS.areaOver || aboveFloors > TWO_STAIRS.floorsOver;
+  const twoStairs = !singleStair && (area > TWO_STAIRS.areaOver || aboveFloors > TWO_STAIRS.floorsOver);
 
   // the row the stair head wants: centred under the roof housing when the exterior published one
   const idealVFace = vLen < SINGLE_LOADED_BELOW
@@ -326,7 +328,7 @@ function withinCap(env: CoreEnvelope, placement: Placement): boolean {
 /** The one frame-and-placement decision behind both planCore and coreFeasibility. The
  *  principal frame wins whenever it holds a core, so nothing that already builds changes;
  *  only parcels it cannot serve pay for the rotated sweep. */
-function selectEnvelope(blueprint: InteriorRequest["blueprint"]): CoreChoice {
+function selectEnvelope(blueprint: InteriorRequest["blueprint"], singleStair = false): CoreChoice {
   const floors = blueprint.floors;
   const depth = facadeDepth(blueprint.facade);
   const ground = floors.find((f) => f.index === 0)! as Ground;
@@ -348,7 +350,7 @@ function selectEnvelope(blueprint: InteriorRequest["blueprint"]): CoreChoice {
   const angles = allowed ?? frameAngles(base);
   const firstFrame = frameAt(roofAngle ?? angles[0]!, ground);
   const attempt = (frame: Frame, bulk: Point | null): CoreChoice => {
-    const env = envelopeOf(blueprint, frame, depth, bulk);
+    const env = envelopeOf(blueprint, frame, depth, bulk, singleStair);
     return { env, placement: env.crossDepthOk ? selectPlacement(env) : null };
   };
   const first = attempt(firstFrame, bulkUv(firstFrame));
@@ -506,30 +508,44 @@ export function coreFeasibility(blueprint: InteriorRequest["blueprint"]): CoreFe
 }
 
 /** Places the vertical core once per building; every floor reuses these rects. */
-export function planCore(request: InteriorRequest, assignments: FloorAssignment[]): CorePlan {
-  const { env, placement } = selectEnvelope(request.blueprint);
+export function planCore(request: InteriorRequest, assignments: FloorAssignment[], singleStair = false): CorePlan {
+  const { env, placement } = selectEnvelope(request.blueprint, singleStair);
   const { frame, stairDepth } = env;
 
   const blocker = blockerOf(env, placement);
-  if (!placement || blocker) {
+  const chosen = placement ?? selectPlacement(env, false);
+  if (!chosen || (blocker && blocker !== "opening_reservations")) {
     throw new InteriorError("E_FLOOR_TOO_SMALL", unfitDetail(env, blocker ?? "band", placement));
   }
 
-  const { mode, vFace } = placement;
-  let elevatorCount = mode === "walkup" ? 0
-    : Math.min(elevatorsFor(request, env.area, env.aboveFloors, env.topElevation), Math.max(1, placement.maxElevators));
-  let layout = coreLayout(env, placement, elevatorCount);
-  while (!layout && elevatorCount > 1) layout = coreLayout(env, placement, --elevatorCount);
-  if (!layout) {
+  const { mode, vFace } = chosen;
+  const wanted = mode === "walkup" ? 0
+    : Math.min(elevatorsFor(request, env.area, env.aboveFloors, env.topElevation), Math.max(1, chosen.maxElevators));
+  const fit = (respect: boolean): { layout: CoreLayout; cars: number } | null => {
+    for (let cars = wanted; cars >= (mode === "walkup" ? 0 : 1); cars--) {
+      const layout = coreLayout(env, chosen, cars, respect);
+      if (layout) return { layout, cars };
+      if (cars === 0) break;
+    }
+    return null;
+  };
+  // Exterior's opening reservation and the only core the plate holds can overlap. The
+  // building opens on the loose core and the manifest records the crossing; the numbers
+  // are filed in docs/ISSUES.md under "Exterior: opening reservations".
+  const strict = fit(true), fitted = strict ?? fit(false);
+  if (!fitted) {
     throw new InteriorError("E_FLOOR_TOO_SMALL", "no vertical core placement clears the exterior opening reservations");
   }
+  const loose = !strict;
+  const { layout, cars: elevatorCount } = fitted;
 
   const u0 = layout.u0;
   const plan: CorePlan = {
     frame, mode, vFace, ...layout, u0, depth: Math.max(...coreSolids(layout).map(([, rect]) => rect.v + rect.lv - vFace)),
     stairStyle: "u_return", stairDepth, elevatorCount,
+    ...(loose && env.adjacencyFailure ? { reservationCrossing: env.adjacencyFailure } : {}),
   };
-  ensureCoreFitsAllFloors(request, plan);
+  ensureCoreFitsAllFloors(request, plan, !loose);
   return plan;
 }
 
@@ -626,11 +642,12 @@ function elevatorsFor(request: InteriorRequest, area: number, aboveFloors: numbe
 /** Final invariant: every core rect sits inside every floor. The selector already proved it
  *  with the same predicate on the same band, so a throw here means a layout bug, not a
  *  parcel the gate approved. */
-function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan): void {
+function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan, respectReservations = true): void {
   const named: [string, UvRect][] = [...coreSolids(plan), ["service stub", plan.stub]];
   const depth = facadeDepth(request.blueprint.facade);
   const plates = platesOf(request.blueprint.floors, plan.frame, depth);
-  const failure = new CoreFacadeClearance(request.blueprint, plan.frame, depth).conflict(coreSolids(plan));
+  const failure = respectReservations
+    ? new CoreFacadeClearance(request.blueprint, plan.frame, depth).conflict(coreSolids(plan)) : undefined;
   if (failure) throw new InteriorError("E_FLOOR_TOO_SMALL", adjacencyDetail(failure), failure.floor);
   for (const [i, floor] of request.blueprint.floors.entries()) {
     const keepouts = openingKeepouts(floor, plan.frame, depth);
@@ -642,7 +659,8 @@ function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan): void
           floor.index,
         );
       }
-      const conflict = id === "service stub" ? undefined : keepouts.find((keepout) => overlapsOpening(rect, keepout.rect));
+      const conflict = id === "service stub" || !respectReservations ? undefined
+        : keepouts.find((keepout) => overlapsOpening(rect, keepout.rect));
       if (conflict) {
         throw new InteriorError(
           "E_FLOOR_TOO_SMALL",

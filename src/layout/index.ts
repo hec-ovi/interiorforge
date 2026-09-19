@@ -4,6 +4,8 @@ import type { WalkGrid } from "../core/grid.js";
 import type { FloorAssignment, FloorInterior, InteriorRequest } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
 import { planCore } from "./core-plan.js";
+import { entryAtLowEnd, stairRunHeadroom } from "../geometry/stairs.js";
+import { STAIR } from "./constants.js";
 import type { UvFloorData } from "./plan-floor.js";
 import { planFloor } from "./plan-floor.js";
 import type { FloorCirculation } from "./circulation.js";
@@ -27,7 +29,10 @@ export interface BuildingPlan {
 /** Plans every floor of one building. `request` must already be validated; `assignments`
  *  must cover every blueprint floor (blueprint box resolves them). */
 export function planBuilding(request: InteriorRequest, assignments: FloorAssignment[], selected?: ReadonlySet<number>): BuildingPlan {
-  const core = planCore(request, assignments);
+  // Two stairs are the norm; a second stair whose flights cannot keep their headroom on
+  // every floor is not built at all, so navigation and routines follow the stairs there are.
+  const first = planCore(request, assignments);
+  const core = first.stairB && !stairRunFits(first, request) ? planCore(request, assignments, true) : first;
   const byIndex = new Map(request.blueprint.floors.map((f) => [f.index, f]));
   const sorted = [...assignments].sort((a, b) => a.floor - b.floor);
 
@@ -57,4 +62,11 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
     }
   }
   return { floors, core, navGrids, uvFloors, circulation, assignments: sorted };
+}
+
+/** Whether stair B keeps the published headroom for every floor height it repeats on. */
+function stairRunFits(core: CorePlan, request: InteriorRequest): boolean {
+  const low = entryAtLowEnd(core, "b");
+  return request.blueprint.floors.every((floor) =>
+    stairRunHeadroom(core.stairB!, low, floor.height) >= STAIR.headroom - 1e-6);
 }

@@ -32,6 +32,20 @@
       "type": "string",
       "minLength": 1
     },
+    "reservationCrossing": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "present when the only core the plate holds crosses an exterior opening reservation",
+      "required": ["floor", "opening", "coreSolid", "requiredDepth", "availableDepth"],
+      "properties": {
+        "floor": { "type": "integer" },
+        "opening": { "type": "string", "minLength": 1 },
+        "coreSolid": { "type": "string", "minLength": 1 },
+        "role": { "type": "string" },
+        "requiredDepth": { "type": "number" },
+        "availableDepth": { "type": "number" }
+      }
+    },
     "layouts": {
       "type": "object",
       "additionalProperties": false,

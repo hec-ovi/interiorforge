@@ -3,7 +3,7 @@ import { STAIR, WALL } from '../layout/constants.js';
 import { planFlights } from '../layout/stair-plan.js';
 import type { CorePlan } from '../layout/core-plan.js';
 import { uvToWorld } from '../layout/uv.js';
-import { baseLanding, computeStairSteps, entryAtLowEnd, minHeadroom, stairClearWidth, type RunStep } from '../geometry/stairs.js';
+import { baseLanding, computeStairSteps, entryAtLowEnd, stairClearWidth, stairRunHeadroom, type RunStep } from '../geometry/stairs.js';
 import { surface } from './surfaces.js';
 import type { PlacementBuilder } from './builder.js';
 export function stairs(builder: PlacementBuilder, core: CorePlan, climb: number, roofOnly = false): Map<string, RunStep[]> {
@@ -21,8 +21,7 @@ export function stairs(builder: PlacementBuilder, core: CorePlan, climb: number,
             throw new InteriorError('E_UNREACHABLE_SPACE', `${id} cannot keep riser clearance`);
         const steps = computeStairSteps(shaft, low, 0, climb), slab = .15 * plan.rise / .17;
         const run = [landing, ...steps].map(s => ({ ...s, slab }));
-        const repeated = [...run, ...run.map(s => ({ ...s, y: s.y + climb }))];
-        if (minHeadroom(repeated) < STAIR.headroom - 1e-6)
+        if (stairRunHeadroom(shaft, low, climb) < STAIR.headroom - 1e-6)
             throw new InteriorError('E_UNREACHABLE_SPACE', `${id} headroom below 2.1 m`);
         runs.set(id, run);
         for (let flight = 0; flight < plan.flights; flight++) {

@@ -75,7 +75,8 @@ export async function generate(input: unknown): Promise<PlacementResult> {
     return {
         building: {
             version: 1, generatorVersion: version.version, buildingId: request.building.id, modules: 'modules.json', props: 'catalog.json',
-            materialTheme: request.materialTheme, tier: request.building.tier, layouts: Object.fromEntries(names.map(name => [name, `layouts/${name}.json`])), floors: refs, connectors
+            materialTheme: request.materialTheme, tier: request.building.tier, layouts: Object.fromEntries(names.map(name => [name, `layouts/${name}.json`])), floors: refs, connectors,
+            ...(plan.core.reservationCrossing ? { reservationCrossing: plan.core.reservationCrossing } : {})
         }, layouts
     };
 }

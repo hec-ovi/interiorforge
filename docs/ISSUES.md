@@ -26,3 +26,17 @@ Needed: the cutout's deep side runs along the core frame's v axis, at least 6.2 
 centred on the stair shaft, or the housing footprint turned a quarter turn. Until then
 those buildings generate with no roof access: the stair stops at the top floor and the
 roof stays unreachable.
+
+## Exterior: opening reservations
+
+The faceted-bays plans leave no core position that keeps the published circulation depth
+beside a facade opening, on any mode or frame:
+
+| Plan | Floor | Opening | Core solid | Circulation depth required | Available |
+| --- | --- | --- | --- | --- | --- |
+| faceted-bays-4x3x3f | 1 | `w:1:fb:2:0:19:0:slit:0:0` | stair-a | 1.20 m | 1.14 m |
+| faceted-bays-4x3x36f | 2 | `w:2:fb:2:1:22:0:cheek:0:0` | stair-a | 1.20 m | 0.83 m |
+
+Needed: 0.06 m on the slit window and 0.37 m on the cheek window, as reservation depth or
+as a moved opening. Until then both buildings open on the core that crosses the
+reservation, and the crossing is recorded in the building manifest.

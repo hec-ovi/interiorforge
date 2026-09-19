@@ -42,6 +42,8 @@ export interface BuildingManifest {
         program?: { kind: FloorKind; changes: ProgramChange[] };
     }[];
     connectors: NpcSupport['nav']['connectors'];
+    /** set when the only core the plate holds crosses an exterior opening reservation */
+    reservationCrossing?: { floor: number; opening: string; coreSolid: string; role: string; requiredDepth: number; availableDepth: number };
 }
 export interface PlacementResult {
     building: BuildingManifest;

@@ -1,4 +1,4 @@
-# Interior 0.31.9
+# Interior 0.31.10
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -74,7 +74,9 @@ kinds remain unchanged. Prop materials belong to their existing models.
 
 `building.floors[].openings` maps the layout's door IDs to this floor's door IDs, and
 `treatments` carries this floor's own window returns, built from its own openings. Exterior door placement and room connection IDs match the blueprint.
-Core placements carry `connector` and an actual corridor room ID.
+Core placements carry `connector` and an actual corridor room ID. A second stair is built
+only where its flights keep the published headroom. `building.reservationCrossing` names
+the exterior opening the core crosses when the plate holds no clear position.
 Floors with reduced service rooms carry `program: {kind, changes}` in building.json.
 Each change names the room kind, requested width and depth, and fitted dimensions
 or null for an omitted room. Reduction order is executive office, meeting, storage,
