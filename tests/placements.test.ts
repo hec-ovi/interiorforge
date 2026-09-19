@@ -182,6 +182,36 @@ it.skipIf(!kitFiles(kitIndex).length)('opens or degrades every published kit pla
     }
     expect(refused).toEqual([]);
 });
+/** The fixture's entrance as Exterior 0.58.12 publishes it: two leaves retracting into a cassette. */
+function pocketDoor(opening: any, wallDepth: number): void {
+    const leaves = 2, leafWidth = opening.width / leaves, travel = leafWidth + .05, chamber = leafWidth + .08, backDepth = Math.min(.22, wallDepth);
+    opening.leaves = leaves;
+    opening.door = {
+        ...opening.door,
+        motion: { kind: 'pocket', maxTravel: travel, clearDepth: 0, leaves: [0, 1].map(leaf => ({ leaf, travelU: leaf ? travel : -travel,
+            pocket: { offset: leaf ? opening.offset + opening.width : opening.offset - chamber, sill: 0, width: chamber, height: opening.height + .02, frontDepth: .09, backDepth: backDepth - .03 } })) },
+        clearance: { offset: opening.offset, sill: 0, width: opening.width, height: opening.height, backDepth },
+        cassette: { offset: opening.offset - chamber - .03, sill: 0, width: opening.width + 2 * chamber + .06, height: opening.height + .08, backDepth }
+    };
+}
+it('opens a pocket door on its published clearance and joins the threshold behind its cassette', async () => {
+    const pocketed = structuredClone(request), ground = pocketed.blueprint.floors[0]!, wallDepth = pocketed.blueprint.facade!.wallDepth!;
+    const door = ground.openings.find(o => o.kind === 'door')!;
+    pocketDoor(door, wallDepth);
+    const cassette = door.door!.cassette!;
+    ground.openings = ground.openings.filter(o => o === door || o.edge !== door.edge
+        || o.offset + o.width <= cassette.offset || o.offset >= cassette.offset + cassette.width);
+    const built = await generate(pocketed);
+    const layout = built.layouts.ground!, frame = layout.placements.find(p => p.id === door.id)!;
+    const threshold = layout.placements.find(p => p.module === 'floor-tile' && p.opening === door.id)!;
+    expect(frame.module).toBe('door-frame');
+    expect(frame.scale[0]).toBeCloseTo(door.door!.clearance!.width);
+    const a = ground.outline[door.edge]!, b = ground.outline[(door.edge + 1) % ground.outline.length]!;
+    const inward = ((b[0] - a[0]) * (threshold.position[2] - a[1]) - (b[1] - a[1]) * (threshold.position[0] - a[0])) / Math.hypot(b[0] - a[0], b[1] - a[1]);
+    // The tile spans from the cassette back plane to the plate, so its centre sits behind both.
+    expect(inward - threshold.scale[2] * .25).toBeGreaterThanOrEqual(cassette.backDepth - 1e-6);
+    expect(inward + threshold.scale[2] * .25).toBeLessThanOrEqual(wallDepth + 1e-6);
+});
 it('publishes ground and crown alone for a two floor building', async () => {
     const pair = structuredClone(request), ground = pair.blueprint.floors[0]!, crown = pair.blueprint.floors.at(-1)!;
     crown.index = 1;

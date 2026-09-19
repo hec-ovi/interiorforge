@@ -173,7 +173,7 @@
                   "type": "object",
                   "additionalProperties": true,
                   "allOf": [{
-                    "if": { "required": ["motion"], "properties": { "motion": { "required": ["kind"], "properties": { "kind": { "const": "pocket" } } } } },
+                    "if": { "type": "object", "required": ["motion"], "properties": { "motion": { "type": "object", "required": ["kind"], "properties": { "kind": { "const": "pocket" } } } } },
                     "then": { "required": ["clearance", "cassette"] },
                     "else": { "not": { "anyOf": [{ "required": ["clearance"] }, { "required": ["cassette"] }] } }
                   }],

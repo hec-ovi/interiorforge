@@ -24,7 +24,7 @@ Walls, surfaces, window returns and prop bounds stay inside the floor's `roomEnv
 or, without one, inside `facade.wallDepth`, default 0.12 m. The band out to the outline
 is open floor over the exterior slab: no partition, no surface, walkable for navigation.
 Window return width includes its jambs at adjacent backing planes. Source openings
-retain their dimensions. Exterior thresholds join the inset plate to the passage.
+retain their dimensions. Exterior thresholds join the inset plate to the passage, which for a pocket door is its published clearance behind the cassette back plane.
 `building.floors[].program` records reduced services as requested and fitted width
 and depth, or null for omission. Repeated floors carry their source layout's changes.
 

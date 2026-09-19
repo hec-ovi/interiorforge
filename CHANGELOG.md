@@ -1,5 +1,7 @@
 # Changelog
 
+0.31.14: a pocket door opens on its published clearance: the frame and threshold stand on that passage behind the cassette back plane, and the cassette beside it stays solid wall, so every Exterior 0.58.12 plan generates.
+
 0.31.13: a stack with basements, or with published indices starting above zero, opens on its lowest above-ground floor.
 
 0.31.12: the pier check reads the walls the floor actually builds, a room whose partition finds no pier leaves the floor, only a stack with no core opens as its ground floor, and core feasibility publishes the stair the furnished building stands on.
