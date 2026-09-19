@@ -68,6 +68,13 @@ function ensureCoreReached(access: ArchitectureAccess, core: CorePlan, floorInde
   }
 }
 
+/** Shared wall, then position along it: the widest wall is probed across its length, the
+ *  narrower arms of a wrapped room at their middle. */
+const STRETCH_PROBES: [number, number][] = [
+  ...[0.5, 0.1, 0.9, 0.3, 0.7].map(fraction => [0, fraction] as [number, number]),
+  [1, 0.5], [1, 0.1], [1, 0.9], [2, 0.5], [3, 0.5],
+];
+
 function repairOne(
   unreached: PlanRoom[], rooms: PlanRoom[], access: ArchitectureAccess,
   ids: IdGen, plate: readonly Point[], rebuild: () => ArchitectureAccess,
@@ -84,13 +91,13 @@ function repairOne(
         ...room.doors.filter((d) => d.to === target.id),
         ...target.doors.filter((d) => d.to === room.id),
       ];
-      for (const fraction of [0.5, 0.1, 0.9, 0.3, 0.7]) {
-        const door = doorBetween(room, target.id, target, ids, 1, DOOR.single, fraction);
-        if (!door) break;
+      for (const [stretch, fraction] of STRETCH_PROBES) {
+        const door = doorBetween(room, target.id, target, ids, 1, DOOR.single, fraction, stretch);
+        if (!door) continue;
         // a repair door lands after the refit pass, so it takes the plate test itself
         if (fitDoorToStretch(door, room, target, plate) === null) {
           room.doors.pop();
-          break;
+          continue;
         }
         if (existing.every(d => Math.abs(d.at - door.at) > 0.7)) {
           const candidate = rebuild();

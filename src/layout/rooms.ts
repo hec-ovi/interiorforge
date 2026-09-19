@@ -108,11 +108,14 @@ export function lineRuns(poly: readonly Point[], alongU: boolean, c: number): [n
  *  along the interval (repair probes several positions). */
 export function doorBetween(
   owner: PlanRoom, toId: string, to: UvRect | RoomShape, ids: IdGen,
-  leaves: 1 | 2 | 3 | 4 = 1, width = DOOR.single, fraction = 0.5,
+  leaves: 1 | 2 | 3 | 4 = 1, width = DOOR.single, fraction = 0.5, stretch = 0,
 ): PlanDoor | null {
   const target = "rect" in to ? to : { rect: to };
   const polygonal = owner.polygon || owner.holes?.length || target.polygon || target.holes?.length;
-  const shared = polygonal ? sharedRoomEdges(owner, target)[0] : sharedEdge(owner.rect, target.rect);
+  // Each shared stretch is a separate wall: a room wrapping the corridor reaches its far
+  // arm only through the stretch that arm owns.
+  const shared = polygonal ? sharedRoomEdges(owner, target)[stretch]
+    : stretch === 0 ? sharedEdge(owner.rect, target.rect) : undefined;
   if (!shared || shared.hi - shared.lo < MIN_STRETCH) return null;
   const { edge, lo, hi } = shared;
   let w = doorWidthOn(hi - lo, width);

@@ -3,7 +3,7 @@ import { clipPolygonToRect, polygonArea, polygonBounds, type Point } from "../co
 import type { Rng } from "../core/rng.js";
 import type { BlueprintFloor, FloorKind, InteriorRequest, RoomKind } from "../core/types.js";
 import { BODY_CLEAR, DOOR, ROOM } from "./constants.js";
-import type { CorePlan } from "./core-plan.js";
+import { elevatorWaitUv, stairEntryUv, type CorePlan } from "./core-plan.js";
 import { FacadeSeats, facadeSlots } from "./facade-seats.js";
 import { FacadeAccess } from "./facade-access.js";
 import { coreRectsOf } from "./pier-align.js";
@@ -43,10 +43,12 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
   const changes: ProgramChange[] = [];
   const corridorRect = { ...frame.corridor };
   const trim = Math.min(MIN_UNIT.endCommon, Math.max(0, (corridorRect.lu - 4) / 2));
-  // Mechanical service rooms surround a corridor that owns every core front.
-  const startTrim = kind === "mechanical" ? Math.min(trim, Math.max(0, core.u0 - corridorRect.u)) : trim;
-  const coreEnd = frame.stairB?.u ?? core.u1;
-  const endTrim = kind === "mechanical" ? Math.min(trim, Math.max(0, corridorRect.u + corridorRect.lu - coreEnd)) : trim;
+  // The corridor owns every core front: a trimmed end would leave a stair or lift door
+  // standing on its end wall, with no floor to approach it from.
+  const fronts = [stairEntryUv(core, "a"), ...(core.stairB ? [stairEntryUv(core, "b")] : []),
+    ...core.elevators.map((_, index) => elevatorWaitUv(core, index))].map(point => point[0]);
+  const startTrim = Math.min(trim, Math.max(0, Math.min(...fronts) - DOOR.clearance - corridorRect.u));
+  const endTrim = Math.min(trim, Math.max(0, corridorRect.u + corridorRect.lu - Math.max(...fronts) - DOOR.clearance));
   corridorRect.u += startTrim;
   corridorRect.lu -= startTrim + endTrim;
   const corridor: PlanRoom = { id: `f${floor.index < 0 ? `m${-floor.index}` : floor.index}-corridor`,

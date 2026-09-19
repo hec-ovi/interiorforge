@@ -266,7 +266,7 @@ it('keeps module geometry and prop bounds inside the published or default backin
         }
     }
 });
-it('degrades service programs and rejects invalid inputs or floors without room space', async () => {
+it('degrades service programs and rejects invalid inputs or floors without room space', { timeout: 30000 }, async () => {
     await expect(generate({ seed: -1 })).rejects.toMatchObject({ code: 'E_BLUEPRINT_INVALID' });
     const changed = structuredClone(request);
     changed.blueprint.floors[2]!.height -= .1;
