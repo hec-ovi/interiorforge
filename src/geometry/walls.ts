@@ -76,11 +76,13 @@ export function canonicalHoles(holes: readonly WallHole[]): WallHole[] {
     }
     return [...unique.values()].sort((a, b) => a.at - b.at || a.y0 - b.y0 || a.y1 - b.y1);
 }
-export function roomSegments(room: PlanRoom, uvOutline: readonly Point[], facadeDepth: number): RoomSegment[] {
+/** The room boundaries a partition stands on. An edge lying on the buildable plate's own
+ *  boundary is the open perimeter, where the facade lining or Exterior's slab stands instead. */
+export function roomSegments(room: PlanRoom, plate: readonly Point[]): RoomSegment[] {
     const out: RoomSegment[] = [];
-    for (const { a, b, edge } of roomEdges(room, uvOutline)) {
+    for (const { a, b, edge } of roomEdges(room, plate)) {
         const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-        if (onFacadeBand(a, b, mid, uvOutline, facadeDepth))
+        if (onPlateBoundary(a, b, mid, plate))
             continue;
         if (Math.abs(a[1] - b[1]) < 1e-6) {
             out.push({ axis: "H", c: a[1], a: Math.min(a[0], b[0]), b: Math.max(a[0], b[0]), edge });
@@ -92,24 +94,24 @@ export function roomSegments(room: PlanRoom, uvOutline: readonly Point[], facade
     }
     return out;
 }
-function onFacadeBand(a: Point, b: Point, mid: Point, outline: readonly Point[], facadeDepth: number): boolean {
+function onPlateBoundary(a: Point, b: Point, mid: Point, plate: readonly Point[]): boolean {
     const dx = b[0] - a[0];
     const dz = b[1] - a[1];
     const length = Math.hypot(dx, dz);
     if (length < 1e-6)
         return false;
-    for (let i = 0; i < outline.length; i++) {
-        const edgeA = outline[i]!;
-        const edgeB = outline[(i + 1) % outline.length]!;
+    for (let i = 0; i < plate.length; i++) {
+        const edgeA = plate[i]!;
+        const edgeB = plate[(i + 1) % plate.length]!;
         const ex = edgeB[0] - edgeA[0];
         const ez = edgeB[1] - edgeA[1];
         const edgeLength = Math.hypot(ex, ez);
         if (edgeLength < 1e-6)
             continue;
         const parallel = Math.abs((dx * ex + dz * ez) / (length * edgeLength));
-        // Layout cells can put the room edge up to half a finish tile behind the exact inset.
-        // That one-sided snapped edge is still the facade lining's boundary, not a partition.
-        if (parallel > 0.999 && distanceToSegment(mid, edgeA, edgeB) <= facadeDepth + TILE / 2)
+        // Layout cells can put the room edge up to half a finish tile behind the exact plate.
+        // That one-sided snapped edge is still the plate's boundary, not a partition.
+        if (parallel > 0.999 && distanceToSegment(mid, edgeA, edgeB) <= TILE / 2)
             return true;
     }
     return false;

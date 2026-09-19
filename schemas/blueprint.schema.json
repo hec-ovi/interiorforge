@@ -123,6 +123,7 @@
             "items": { "$ref": "#/$defs/point2" },
             "description": "CCW simple polygon of the floor plate, [x, z]"
           },
+          "roomEnvelope": { "$ref": "#/$defs/roomEnvelope" },
           "openings": {
             "type": "array",
             "items": {
@@ -204,6 +205,28 @@
     }
   },
   "$defs": {
+    "roomEnvelope": {
+      "type": "object",
+      "required": ["corners", "origin", "axisU", "axisV", "width", "depth", "vertical", "grid"],
+      "additionalProperties": true,
+      "description": "Exterior's contained rectangle on the construction grid: rooms, surfaces and walls fit it, and the band out to the outline stays open floor over the exterior slab",
+      "properties": {
+        "corners": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/point2" } },
+        "origin": { "$ref": "#/$defs/point2" },
+        "axisU": { "$ref": "#/$defs/point2" },
+        "axisV": { "$ref": "#/$defs/point2" },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "depth": { "type": "number", "exclusiveMinimum": 0 },
+        "vertical": {
+          "type": "object", "required": ["min", "max"], "additionalProperties": true,
+          "properties": { "min": { "type": "number" }, "max": { "type": "number" } }
+        },
+        "grid": {
+          "type": "object", "required": ["origin", "angle", "spacing"], "additionalProperties": true,
+          "properties": { "origin": { "$ref": "#/$defs/point2" }, "angle": { "type": "number" }, "spacing": { "type": "number", "exclusiveMinimum": 0 } }
+        }
+      }
+    },
     "doorEnvelope": {
       "type": "object", "required": ["offset", "sill", "width", "height", "backDepth"], "additionalProperties": false,
       "properties": {

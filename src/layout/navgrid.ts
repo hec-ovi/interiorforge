@@ -27,7 +27,7 @@ export function buildNavGrid(
   furniture: PlanFurniture[], sealed: UvRect[], core: CorePlan, physical = false,
 ): ArchitecturalGrid {
   const frame = core.frame;
-  const uvOutline = bounds.outline;
+  const plate = bounds.inner;
   const grid: ArchitecturalGrid = WalkGrid.forPolygon(worldOutline, physical ? CELL / 4 : CELL, polygonBounds(worldOutline));
   if (physical) grid.architecture = new ArchitectureTransitions(grid, frame);
 
@@ -38,7 +38,7 @@ export function buildNavGrid(
   }
 
   for (const room of rooms) {
-    for (const [a, b] of roomWallSegments(room, uvOutline)) {
+    for (const [a, b] of roomWallSegments(room, plate)) {
       blockSegment(grid, uvToWorld(a, frame), uvToWorld(b, frame), WALL_BAND);
     }
   }
@@ -108,12 +108,13 @@ export function blockPhysicalFurniture(grid: ArchitecturalGrid, frame: Frame, fu
   }
 }
 
-/** Interior wall segments of a room in uv space: its clipped polygon edges off the facade. */
-function roomWallSegments(room: PlanRoom, uvOutline: readonly Point[]): [Point, Point][] {
+/** Interior wall segments of a room in uv space: its polygon edges off the buildable plate's
+ *  own boundary, where the facade lining or Exterior's open slab stands instead of a wall. */
+function roomWallSegments(room: PlanRoom, plate: readonly Point[]): [Point, Point][] {
   const out: [Point, Point][] = [];
-  for (const { a, b } of roomEdges(room, uvOutline)) {
+  for (const { a, b } of roomEdges(room, plate)) {
     const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    if (!onBoundary(mid, uvOutline)) out.push([a, b]);
+    if (!onBoundary(mid, plate)) out.push([a, b]);
   }
   return out;
 }

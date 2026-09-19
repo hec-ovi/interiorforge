@@ -1,4 +1,4 @@
-# Interior 0.31.3
+# Interior 0.31.4
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -18,8 +18,9 @@ Places shared room modules and catalog furniture in three reusable building layo
 `npm run build:feasibility` compiles the browser entry `src/feasibility.ts` to
 `dist/feasibility.js`.
 
-Generation accepts rectangular construction axes, at least three floors starting at
-zero, and one storey per assignment. Every middle floor must share its outline,
+Generation accepts a rectangular construction plate, at least three floors starting
+at zero, and one storey per assignment. An irregular outline is read through its
+`roomEnvelope`. Every middle floor must share its outline,
 height, opening rectangles and explicit program. Opening IDs and exterior dressing
 (material, panes, glazing, scenery, section ids) may differ. Default programs derive
 from blueprint kinds, with the first middle floor defining its program.
@@ -49,9 +50,12 @@ Preserve each GLB node's authored transform, including quantization transforms.
 The GLB already contains its authored origin; `origin` is descriptive metadata.
 XZ stays in the blueprint frame; layout Y starts at the walking surface.
 
-The usable rectangle is the footprint inset by `facade.wallDepth`, defaulting to
-0.12 m. Room surfaces, walls and prop bounds stay inside it. Window returns fit
-between adjacent backing planes. Door thresholds join the floor to source passages.
+Rooms, surfaces, walls and prop bounds fit the floor's published `roomEnvelope`,
+kept behind `facade.wallDepth`, defaulting to 0.12 m; a floor without one uses its
+outline inset by that depth. The band between that rectangle and the outline is the
+exterior's own slab: open floor, walkable, carrying no partition and no interior
+surface, and an exterior door reaches its room across it. Window returns fit between
+adjacent backing planes. Door thresholds join the floor to source passages.
 
 Construction uses the 0.5 m grid. Plain floor, ceiling and wall fields fit complete
 rectangular runs through scale. Measured facade attachments and closing boundaries

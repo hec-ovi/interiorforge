@@ -111,6 +111,20 @@ export interface Opening {
   [extra: string]: unknown;
 }
 
+/** Exterior's contained rectangle on the construction grid: where Interior builds. */
+export interface RoomEnvelope {
+  /** CCW, in world XZ */
+  corners: Point[];
+  origin: Point;
+  axisU: Point;
+  axisV: Point;
+  width: number;
+  depth: number;
+  /** walking elevation through the clear-height allowance */
+  vertical: { min: number; max: number };
+  grid: { origin: Point; angle: number; spacing: number };
+}
+
 /** Consumer view of the canonical exterior blueprint; extra exterior fields pass through untouched. */
 export interface BlueprintFloor {
   index: number;
@@ -120,6 +134,8 @@ export interface BlueprintFloor {
   height: number;
   outline: Point[];
   openings: Opening[];
+  /** buildable rectangle; the band out to the outline is Exterior's open slab */
+  roomEnvelope?: RoomEnvelope;
   [extra: string]: unknown;
 }
 

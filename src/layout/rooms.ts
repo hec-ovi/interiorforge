@@ -1,5 +1,5 @@
 import type { Point } from "../core/geom.js";
-import { clipPolygonToRect, footOnSegment, polygonArea } from "../core/geom.js";
+import { boundaryDistance, clipPolygonToRect, footOnSegment, polygonArea } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
 import type { FloorKind, RoomKind } from "../core/types.js";
 import { CORRIDOR, DOOR, ELEVATOR, ROOM, WALL } from "./constants.js";
@@ -574,37 +574,31 @@ export function attachOutsideDoors(
       clearHeight: number; clearDepth: number; position: Point; angleDeg: number; inward: Point;
     }; leaves?: never;
   }))[],
-  ids: IdGen,
+  ids: IdGen, plate?: readonly Point[],
 ): void {
   for (const opening of uvDoorPoints) {
     const [u, v] = opening.at;
+    // The opening sits on the shell outline; its room starts at the plate, across Exterior's open band.
+    const band = plate ? Math.abs(boundaryDistance([u, v], plate)) : 0;
     const probe = opening.openFront
       ? [u + opening.openFront.inward[0] * 0.5, v + opening.openFront.inward[1] * 0.5] as Point
       : null;
     const owner = probe ? rooms.find((room) => room.polygon || room.holes?.length ? roomContains(room, probe) : pointInUvRect(probe, room.rect, 0.01)) : undefined;
     let best: { room: PlanRoom; edge: PlanDoor["edge"]; dist: number; position?: Point } | null = null;
     for (const room of owner ? [owner] : rooms) {
-      if (room.polygon || room.holes?.length) {
-        for (const segment of roomEdges(room)) {
-          if (!segment.edge) continue;
-          const position = footOnSegment([u, v], segment.a, segment.b);
-          const dist = Math.hypot(u - position[0], v - position[1]);
-          if (!best || dist < best.dist) best = { room, edge: segment.edge, dist, position };
-        }
-        continue;
-      }
       const r = room.rect;
-      // strips snap inward from the true facade, so allow a generous band
-      if (!owner && (u < r.u - 0.7 || u > r.u + r.lu + 0.7 || v < r.v - 0.7 || v > r.v + r.lv + 0.7)) continue;
-      const edges: [PlanDoor["edge"], number][] = [
-        ["v0", Math.abs(v - r.v)], ["v1", Math.abs(v - (r.v + r.lv))],
-        ["u0", Math.abs(u - r.u)], ["u1", Math.abs(u - (r.u + r.lu))],
-      ];
-      for (const [edge, dist] of edges) {
-        if (!best || dist < best.dist) best = { room, edge, dist };
+      // strips snap inward from the true facade, and the plate stands off it by the open band
+      const near = 0.7 + band;
+      if (!owner && !room.polygon && !room.holes?.length
+        && (u < r.u - near || u > r.u + r.lu + near || v < r.v - near || v > r.v + r.lv + near)) continue;
+      for (const segment of roomEdges(room)) {
+        if (!segment.edge) continue;
+        const position = footOnSegment([u, v], segment.a, segment.b);
+        const dist = Math.hypot(u - position[0], v - position[1]);
+        if (!best || dist < best.dist) best = { room, edge: segment.edge, dist, position };
       }
     }
-    if (best && (best.dist < 1.2 || opening.openFront)) {
+    if (best && (best.dist < 1.2 + band || opening.openFront)) {
       const connection: PlanDoor = opening.openFront
         ? {
             id: ids.door(), to: "outside", width: opening.width,

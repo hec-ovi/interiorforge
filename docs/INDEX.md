@@ -8,7 +8,7 @@ decisions. [Dimensions](RESEARCH.md) lists construction constants.
 | --- | --- | --- | --- |
 | [Core](../src/core/CONTRACT.md) | Geometry, grids, seeds and shared types | Exterior blueprint | [Types](../src/core/types.ts) |
 | [Blueprint](../src/blueprint/CONTRACT.md) | Validate requests and construct samples | Core, GLB | [Request](../schemas/request.schema.json), [blueprint](../schemas/blueprint.schema.json) |
-| [Layout](../src/layout/CONTRACT.md) | Fit rooms inside the backing plane and reduce service programs to fit | Core | [Floor](../schemas/floor.schema.json), [program changes](../schemas/building.schema.json), [circulation](../src/layout/schema/circulation.schema.json), [core fit](../src/layout/schema/core-feasibility.schema.json), [constants](../schemas/core-feasibility.json) |
+| [Layout](../src/layout/CONTRACT.md) | Fit rooms inside the published room envelope and reduce service programs to fit | Core | [Floor](../schemas/floor.schema.json), [program changes](../schemas/building.schema.json), [circulation](../src/layout/schema/circulation.schema.json), [core fit](../src/layout/schema/core-feasibility.schema.json), [constants](../schemas/core-feasibility.json) |
 | [Lofts](../src/layout/lofts/CONTRACT.md) | Fit planning surfaces for multiple storeys | Layout, Core | [Floor](../schemas/floor.schema.json) |
 | [Luxury](../src/layout/luxury/CONTRACT.md) | Fit complete furniture groups | Layout | [Parameters](../src/layout/luxury/schema.ts) |
 | [Geometry](../src/geometry/CONTRACT.md) | Measure wall boundaries and emitted clearance | Core, Layout, GLB | [Floor](../schemas/floor.schema.json), [blueprint](../schemas/blueprint.schema.json) |
@@ -25,7 +25,7 @@ decisions. [Dimensions](RESEARCH.md) lists construction constants.
 `src/cli.ts` writes building files. `src/modules/cli.ts` publishes the city kit.
 `src/feasibility.ts` builds the browser entry with `npm run build:feasibility`.
 
-Ten public contract tests run with `npm test`. They cover backing containment and
+Twelve public contract tests run with `npm test`. They cover backing containment and
 recorded service reductions. One checks the compiled `dist/feasibility.js` entry.
 Budget proof uses Exterior `planAssembly` through its
 public source entry and records `out/proof/budget.json`. Each measured export includes

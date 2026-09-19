@@ -28,7 +28,7 @@ import {
   attachOutsideDoors, clipRatio, fillCoreBacking, fillOfficeStrip, fillServiceSegment,
   fillShopStrip, fillUnitStrip, fillVenue, idGen, MIN_STRETCH,
 } from "./rooms.js";
-import { floorBounds, shellWallDepth } from "./shell.js";
+import { constructionPlate, floorBounds, shellWallDepth } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { toWorldPolygon, uvRectToFrameRect, uvToWorld, worldToUv } from "./uv.js";
 import { validateArchitecture } from "./validate-floor.js";
@@ -62,7 +62,7 @@ export function planFloor(
 ): PlannedFloor {
   const frame = core.frame;
   const uvOutline = floor.outline.map((p) => worldToUv(p, frame));
-  const bounds = floorBounds(uvOutline, request.blueprint.facade);
+  const bounds = floorBounds(floor, frame, request.blueprint.facade);
   const ids = idGen(floor.index);
   const rng = createRng(request.seed, "floor", floor.index);
 
@@ -83,7 +83,7 @@ export function planFloor(
     };
   }
 
-  const slabPlate = insetPolygon(uvOutline, shellWallDepth(request.blueprint.facade));
+  const slabPlate = constructionPlate(floor, frame, shellWallDepth(request.blueprint.facade));
   const floorFrame = buildFrame(core, floor, slabPlate);
   const isHall = HALL_FLOOR_KINDS.has(kind);
   const isMall = kind === "mall_floor";
@@ -215,7 +215,7 @@ export function planFloor(
         ?? Math.min(4, Math.max(1, Math.round(o.width / DOOR.single))) as 1 | 2 | 3 | 4;
       return { at, width: o.width, leaves, clearDepth: o.door?.motion?.clearDepth };
     });
-  attachOutsideDoors(rooms, exteriorDoors, ids);
+  attachOutsideDoors(rooms, exteriorDoors, ids, bounds.inner);
 
   const facadeKeepouts = openingKeepouts(floor, frame, bounds.facadeDepth);
   const sealed = [...backing.sealed, ...extraSealed.filter((s) => clipRatio(s, uvOutline) > 0.05)];

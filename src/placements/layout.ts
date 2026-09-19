@@ -1,4 +1,3 @@
-import { insetPolygon } from '../core/geom.js';
 import { assertDoorwaysClear, floorDoorways, openFrontClearances } from '../geometry/door-clear.js';
 import type { BlueprintFloor, InteriorRequest } from '../core/types.js';
 import type { RoofAccessPlan } from '../layout/roof-access.js';
@@ -6,7 +5,7 @@ import { baseLanding, entryAtLowEnd } from '../geometry/stairs.js';
 import type { BuildingPlan } from '../layout/index.js';
 import { roomPolygon } from '../layout/room-shape.js';
 import { uvToWorld } from '../layout/uv.js';
-import { shellWallDepth } from '../layout/shell.js';
+import { constructionPlate, shellWallDepth } from '../layout/shell.js';
 import { assertInsideShell } from '../geometry/shell-fit.js';
 import { stairClearance } from '../geometry/stair-clearance.js';
 import { InteriorError } from '../core/errors.js';
@@ -20,7 +19,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     const floor = plan.floors.find(f => f.floor === bp.index)!, uv = plan.uvFloors.get(bp.index)!, core = plan.core;
     const builder = new PlacementBuilder();
     const ceiling = floor.ceilingElevation - floor.elevation;
-    const plate = insetPolygon(uv.outline, shellWallDepth(request.blueprint.facade));
+    const plate = constructionPlate(bp, core.frame, shellWallDepth(request.blueprint.facade));
     for (const room of uv.rooms)
         for (const rect of rectangles(roomPolygon(room, plate), room.holes)) {
             surface(builder, 'floor-tile', room.id, rect, 0, core.frame);

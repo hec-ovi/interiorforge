@@ -1,7 +1,9 @@
 import type { Point } from "../core/geom.js";
-import { insetPolygon } from "../core/geom.js";
-import type { Facade } from "../core/types.js";
+import { clipPolygonToRect, insetPolygon, polygonBounds } from "../core/geom.js";
+import type { BlueprintFloor, Facade } from "../core/types.js";
 import { WALL_BACKING_DEPTH } from "./constants.js";
+import type { Frame } from "./uv.js";
+import { toUvPolygon } from "./uv.js";
 
 /** The shell's wall, as the interior keeps clear of it. The skin sits on the floor outline
  *  and the reveals, frames and glazing units behind it reach `depth` inward. The blueprint's
@@ -37,7 +39,17 @@ export interface FloorBounds {
   facadeDepth: number;
 }
 
-export function floorBounds(uvOutline: Point[], facade: Facade | undefined): FloorBounds {
+export function floorBounds(floor: BlueprintFloor, frame: Frame, facade: Facade | undefined): FloorBounds {
   const depth = facadeDepth(facade);
-  return { outline: uvOutline, inner: insetPolygon(uvOutline, depth), facadeDepth: depth };
+  return { outline: toUvPolygon(floor.outline, frame), inner: constructionPlate(floor, frame, depth), facadeDepth: depth };
+}
+
+/** Where Interior builds, in uv space: the floor's published room envelope kept behind `depth`
+ *  of shell, or the outline inset by it when Exterior publishes no envelope. The band between
+ *  the plate and the outline is Exterior's slab: open floor, walkable, no interior surface. */
+export function constructionPlate(floor: BlueprintFloor, frame: Frame, depth: number): Point[] {
+  const inset = insetPolygon(toUvPolygon(floor.outline, frame), depth);
+  if (!floor.roomEnvelope) return inset;
+  const clipped = clipPolygonToRect(inset, polygonBounds(toUvPolygon(floor.roomEnvelope.corners, frame)));
+  return clipped.length >= 3 ? clipped : inset;
 }

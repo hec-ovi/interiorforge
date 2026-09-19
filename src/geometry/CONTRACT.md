@@ -8,7 +8,8 @@ Inputs are [floor data](../../schemas/floor.schema.json), the
 and successful clearance, or an InteriorError.
 
 `walls.ts` extracts shared wall intervals, facade endpoint reservations and doorway
-heads. `stairs.ts` computes landings, flight steps, clear width and stacked headroom.
+heads; a room edge on the buildable plate's own boundary is open perimeter, not a
+partition. `stairs.ts` computes landings, flight steps, clear width and stacked headroom.
 `core-geo.ts` supplies shaft rectangles and lift doorway cuts. `door-clear.ts` checks
 actual triangles against doorway volumes. `stair-clearance.ts` probes actual tread
 and landing headroom. `shell-fit.ts` measures every transformed vertex against shell

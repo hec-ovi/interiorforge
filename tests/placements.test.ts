@@ -124,6 +124,32 @@ it('accepts vertically separate windows and rejects a true rectangular overlap',
     modified.blueprint.floors[1]!.openings[1]!.sill = .75;
     await expect(generate(modified)).rejects.toMatchObject({ code: 'E_BLUEPRINT_INVALID' });
 });
+/** The left facade reshaped like a kit family's: two balcony notches and a rounded recess. */
+function balconyEdge(size: number): [number, number][] {
+    const curve: [number, number][] = [];
+    for (let step = 1; step < 8; step++)
+        curve.push([.8 * Math.sin((step * Math.PI) / 8), 26 - (12 * step) / 8]);
+    return [[0, 30], [2, 30], [2, 26], [0, 26], ...curve, [0, 14], [2, 14], [2, 10], [0, 10]];
+}
+it('builds inside the published room envelope on a notched, curved outline', async () => {
+    const shaped = structuredClone(request), corners: [number, number][] = [[3, 3], [37, 3], [37, 37], [3, 37]];
+    for (const floor of shaped.blueprint.floors) {
+        floor.outline = [[0, 0], [40, 0], [40, 40], [0, 40], ...balconyEdge(40)];
+        floor.openings = floor.openings.filter(o => o.edge < 3);
+        floor.roomEnvelope = { ...floor.roomEnvelope!, corners, origin: [3, 3], width: 34, depth: 34 };
+    }
+    const generated = await generate(shaped);
+    for (const [name, layout] of Object.entries(generated.layouts))
+        for (const p of layout.placements) {
+            // Openings keep their treatment on the shell outline and the vertical core its own gate.
+            if (p.opening || p.connector) continue;
+            for (const [axis, world] of [[0, 0], [1, 2]] as const) {
+                const span = corners.map(c => c[axis]!);
+                expect(p.position[world], `${name}/${p.id}`).toBeGreaterThanOrEqual(Math.min(...span) - 1e-6);
+                expect(p.position[world], `${name}/${p.id}`).toBeLessThanOrEqual(Math.max(...span) + 1e-6);
+            }
+        }
+});
 it('reuses one middle layout when floors differ only in exterior dressing', async () => {
     const dressed = structuredClone(request), middles = dressed.blueprint.floors.slice(1, -1);
     for (const floor of middles)

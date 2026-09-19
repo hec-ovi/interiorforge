@@ -18,7 +18,9 @@ Transforms apply positive XYZ scale, radians about positive Y, position, then fl
 elevation. No geometry is serialized here. Temporary transformed vertices prove shell,
 door and stair clearance. Prop bounds participate in those checks.
 
-Walls, window returns and prop bounds stay inside `facade.wallDepth`, default 0.12 m.
+Walls, surfaces, window returns and prop bounds stay inside the floor's `roomEnvelope`,
+or, without one, inside `facade.wallDepth`, default 0.12 m. The band out to the outline
+is open floor over the exterior slab: no partition, no surface, walkable for navigation.
 Window return width includes its jambs at adjacent backing planes. Source openings
 retain their dimensions. Exterior thresholds join the inset plate to the passage.
 `building.floors[].program` records reduced services as requested and fitted width

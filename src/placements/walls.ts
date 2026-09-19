@@ -1,10 +1,10 @@
-import { insetPolygon, polygonBounds } from '../core/geom.js';
+import { polygonBounds } from '../core/geom.js';
 import type { BlueprintFloor, FloorInterior, InteriorRequest } from '../core/types.js';
 import type { CorePlan } from '../layout/core-plan.js';
 import type { UvFloorData } from '../layout/plan-floor.js';
 import { doorUvPoint } from '../layout/plan-floor.js';
 import { Facade } from '../layout/openings.js';
-import { facadeDepth } from '../layout/shell.js';
+import { constructionPlate, facadeDepth } from '../layout/shell.js';
 import { uvToWorld } from '../layout/uv.js';
 import { canonicalHoles, doorHeadHeight, roomSegments, reserveFacadeEnds, type WallHole } from '../geometry/walls.js';
 import { stairEntryHole } from '../geometry/stairs.js';
@@ -22,7 +22,7 @@ export function walls(builder: PlacementBuilder, floor: FloorInterior, uv: UvFlo
         }[];
         holes: WallHole[];
     };
-    const plate = polygonBounds(insetPolygon(uv.outline, depth));
+    const buildable = constructionPlate(bp, frame, depth), plate = polygonBounds(buildable);
     const lines = new Map<string, Line>();
     const line = (axis: 'H' | 'V', c: number) => {
         const key = `${axis}:${c.toFixed(6)}`;
@@ -36,7 +36,7 @@ export function walls(builder: PlacementBuilder, floor: FloorInterior, uv: UvFlo
     const rooms = [...uv.rooms, ...coreRects(core).map((rect, i) => ({ id: `core:${i}`, kind: 'mechanical_room' as const, rect, doors: [] })),
         ...uv.sealed.map((rect, i) => ({ id: `sealed:${i}`, kind: 'mechanical_room' as const, rect, doors: [] }))];
     for (const room of rooms) {
-        for (const raw of roomSegments(room, uv.outline, depth)) {
+        for (const raw of roomSegments(room, buildable)) {
             const segment = reserveFacadeEnds(raw, facade, bp, frame, depth);
             if (segment) {
                 const a = Math.max(segment.a, segment.axis === 'H' ? plate.x : plate.z), b = Math.min(segment.b, segment.axis === 'H' ? plate.x + plate.w : plate.z + plate.d);
