@@ -25,7 +25,7 @@ decisions. [Dimensions](RESEARCH.md) lists construction constants.
 `src/cli.ts` writes building files. `src/modules/cli.ts` publishes the city kit.
 `src/feasibility.ts` builds the browser entry with `npm run build:feasibility`.
 
-Fifteen public contract tests run with `npm test`. They cover backing containment and
+Fifteen public contract tests run with `npm test`; `npm run sweep` runs the kit-plan test over every published index. They cover backing containment and
 recorded service reductions. One checks the compiled `dist/feasibility.js` entry.
 Budget proof uses Exterior `planAssembly` through its
 public source entry and records `out/proof/budget.json`. Each measured export includes

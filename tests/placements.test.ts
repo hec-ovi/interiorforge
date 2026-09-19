@@ -1,6 +1,6 @@
 import { beforeAll, afterAll, expect, it } from 'vitest';
 import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -154,17 +154,24 @@ it('builds inside the published room envelope, core included, on a notched, curv
             }
         }
 });
-const kitIndex = process.env.URBE_KIT_INDEX
-    ?? '../engine/out/shared/kit/374dc6b2dfdb9187/kit.json';
-it.skipIf(!existsSync(kitIndex))('opens or degrades every published kit plan', { timeout: 240000 }, async () => {
-    const kit = JSON.parse(await readFile(kitIndex, 'utf8'));
-    const base = resolve(dirname(kitIndex), '../..');
+/** One published index, or a directory of them: every kit.json under it is swept. */
+const kitIndex = process.env.URBE_KIT_INDEX ?? '../engine/out/shared/kit/374dc6b2dfdb9187/kit.json';
+const kitFiles = (path: string): string[] => !existsSync(path) ? []
+    : statSync(path).isDirectory()
+        ? readdirSync(path).map(name => join(path, name, 'kit.json')).filter(file => existsSync(file))
+        : [path];
+it.skipIf(!kitFiles(kitIndex).length)('opens or degrades every published kit plan', { timeout: 3600000 }, async () => {
+    const plans = new Map<string, string>();
+    for (const file of kitFiles(kitIndex)) {
+        const kit = JSON.parse(await readFile(file, 'utf8'));
+        for (const plan of kit.plans) plans.set(resolve(dirname(realpathSync(file)), '../..', plan.blueprint), plan.id);
+    }
     const refused: string[] = [];
-    for (const plan of kit.plans) {
-        const blueprint = JSON.parse(await readFile(resolve(base, plan.blueprint), 'utf8'));
-        const built = await generate({ seed: plan.id, building: { id: plan.id, type: 'residential', tier: 'mid' }, blueprint, materialTheme: 'cyberpunk' })
+    for (const [path, id] of plans) {
+        const blueprint = JSON.parse(await readFile(path, 'utf8'));
+        const built = await generate({ seed: id, building: { id, type: 'residential', tier: 'mid' }, blueprint, materialTheme: 'cyberpunk' })
             .catch((error: { code?: string; message?: string }) => {
-                refused.push(`${plan.id}: ${error.code ?? ''} ${error.message ?? ''}`);
+                refused.push(`${id}: ${error.code ?? ''} ${error.message ?? ''}`);
                 return null;
             });
         if (built) expect(built.building.floors.length).toBeGreaterThan(0);

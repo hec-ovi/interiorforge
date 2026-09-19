@@ -219,14 +219,25 @@ export function planFloor(
 
   const facadeKeepouts = openingKeepouts(floor, frame, bounds.facadeDepth);
   const sealed = [...backing.sealed, ...extraSealed.filter((s) => clipRatio(s, uvOutline) > 0.05)];
-  const architectureAccess = validateArchitecture(floor.outline, bounds, rooms, sealed, core, floor.index, ids);
+  let architectureAccess = validateArchitecture(floor.outline, bounds, rooms, sealed, core, floor.index, ids);
+  // A partition the facade gives no pier to is never built, so the room it would close is
+  // not a room: the floor drops it and keeps the rest, the same way it drops one nobody
+  // can reach. Only a floor left with circulation alone still fails.
+  while (facadePlan) {
+    const conflicts = partitionConflicts({ rooms: rooms.map(room => roomToWorld(room, uvOutline, frame)) },
+      floor, request.blueprint.facade, toWorldPolygon(bounds.inner, frame));
+    if (!conflicts.length) break;
+    const room = rooms.find(item => item.id === conflicts[0]!.room);
+    if (!room || rooms.length <= 2) {
+      throw new InteriorError("E_FLOOR_TOO_SMALL",
+        `facade partition has no structural seat: ${conflicts[0]!.room} at ${conflicts[0]!.opening}`, floor.index);
+    }
+    rooms.splice(rooms.indexOf(room), 1);
+    for (const other of rooms) other.doors = other.doors.filter(door => door.to !== room.id);
+    architectureAccess = validateArchitecture(floor.outline, bounds, rooms, sealed, core, floor.index, ids);
+  }
   const architecture = architectureAccess.physical;
   const worldRooms = rooms.map(room => roomToWorld(room, uvOutline, frame));
-  if (facadePlan) {
-    const conflicts = partitionConflicts({ rooms: worldRooms }, floor, request.blueprint.facade);
-    if (conflicts.length) throw new InteriorError("E_FLOOR_TOO_SMALL",
-      `facade partition has no structural seat: ${conflicts[0]!.room} at ${conflicts[0]!.opening}`, floor.index);
-  }
   const circulation = reserveCirculation(architecture, rooms, core, floor.index, architectureAccess);
   const placementKeepouts = [...facadeKeepouts.map(item => item.rect), ...circulationKeepouts(circulation, frame)];
   const upperFloor = request.blueprint.floors.find(f => f.index === floor.index + 1);

@@ -1,6 +1,6 @@
 import { validateRequest, resolveAssignments } from '../blueprint/validate.js';
 import { InteriorError } from '../core/errors.js';
-import { planBuilding } from '../layout/index.js';
+import { coreFeasibility, planBuilding } from '../layout/index.js';
 import { buildNpcSupport } from '../npc/index.js';
 import { planRoofAccess } from '../layout/roof-access.js';
 import type { BlueprintFloor, NpcSupport, Opening } from '../core/types.js';
@@ -30,7 +30,9 @@ export async function generate(input: unknown): Promise<PlacementResult> {
     }
     catch (error) {
         // No core stands on this stack's plates: the building opens as its ground floor.
-        if (alone || !(error instanceof InteriorError) || error.code !== 'E_FLOOR_TOO_SMALL')
+        // Anything a floor itself failed on is that floor's business, not the stack's.
+        if (alone || !(error instanceof InteriorError) || error.code !== 'E_FLOOR_TOO_SMALL'
+            || coreFeasibility(request.blueprint).fits)
             throw error;
         return generate({ ...request, blueprint: { ...request.blueprint, floors: [floors[0]!], roof: undefined },
             ...(request.assignments ? { assignments: request.assignments.filter(a => a.floor === 0) } : {}) });

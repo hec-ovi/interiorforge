@@ -1,5 +1,7 @@
 # Changelog
 
+0.31.12: the pier check reads the walls the floor actually builds, a room whose partition finds no pier leaves the floor, and only a stack with no core opens as its ground floor.
+
 0.31.11: a stack whose plates hold no core opens as its ground floor alone.
 
 0.31.10: a building opens on the core its plate holds, recording any exterior reservation that core crosses, and builds one stair where a second cannot keep its headroom.

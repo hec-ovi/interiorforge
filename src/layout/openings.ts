@@ -1,6 +1,8 @@
 import type { Point } from "../core/geom.js";
+import { distanceToSegment } from "../core/geom.js";
 import type { BlueprintFloor, Facade as BlueprintFacade, FloorInterior, Opening } from "../core/types.js";
 import { WALL } from "./constants.js";
+import { TILE } from "./tile-fit.js";
 import { facadeDepth, shellWallDepth } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { worldToUv } from "./uv.js";
@@ -144,7 +146,12 @@ export interface PartitionConflict {
  *  partitions land on the piers between the blueprint's openings. */
 export function partitionConflicts(
   floor: Pick<FloorInterior, "rooms">, bpFloor: BlueprintFloor, blueprintFacade?: BlueprintFacade,
+  plate?: readonly Point[],
 ): PartitionConflict[] {
+  // An edge on the buildable plate's own boundary is open perimeter: the wall builder emits
+  // nothing there, so it needs no pier.
+  const onPlate = (point: Point): boolean => !!plate && plate.some((corner, index) =>
+    distanceToSegment(point, corner, plate[(index + 1) % plate.length]!) <= TILE / 2);
   const facade = new Facade(bpFloor, blueprintFacade);
   const out: PartitionConflict[] = [];
   const seen = new Set<string>();
@@ -163,6 +170,7 @@ export function partitionConflicts(
           < 0.02 * Math.hypot(b[0] - a[0], b[1] - a[1]) * Math.hypot(faceB[0] - faceA[0], faceB[1] - faceA[1]);
         if (parallel && along && (along.distance < 0.002
           || Math.abs(along.distance - shellWallDepth(blueprintFacade)) < 0.002)) continue;
+        if (onPlate(mid)) continue;
         for (const end of [a, b]) {
           const opening = facade.crossedBy(end, WALL / 2, reach);
           if (!opening) continue;

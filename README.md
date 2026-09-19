@@ -1,4 +1,4 @@
-# Interior 0.31.11
+# Interior 0.31.12
 
 A TypeScript generator for furnished buildings made from shared room modules.
 One building stores ground, middle and crown layouts. Every middle floor references
