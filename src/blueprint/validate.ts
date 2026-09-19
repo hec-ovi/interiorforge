@@ -28,8 +28,9 @@ export function validateRequest(input: unknown): InteriorRequest {
 function validateBlueprint({ blueprint }: InteriorRequest): void {
   const floors = blueprint.floors;
   const base = floors[0]!.index;
-  if (!floors.some((f) => f.index === 0)) {
-    throw new InteriorError("E_BLUEPRINT_INVALID", "blueprint has no ground floor (index 0)");
+  // A published stack may start above zero; its lowest above-ground floor is the ground.
+  if (!floors.some((f) => f.index >= 0)) {
+    throw new InteriorError("E_BLUEPRINT_INVALID", "blueprint has no floor at or above index 0");
   }
   floors.forEach((floor, i) => {
     if (floor.index !== base + i) {

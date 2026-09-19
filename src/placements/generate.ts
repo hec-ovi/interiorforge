@@ -3,16 +3,23 @@ import { InteriorError } from '../core/errors.js';
 import { coreFeasibility, planBuilding } from '../layout/index.js';
 import { buildNpcSupport } from '../npc/index.js';
 import { planRoofAccess } from '../layout/roof-access.js';
-import type { BlueprintFloor, NpcSupport, Opening } from '../core/types.js';
+import type { BlueprintFloor, InteriorRequest, NpcSupport, Opening } from '../core/types.js';
 import { corePlacement } from '../layout/core-plan.js';
 import { placeLayout } from './layout.js';
 import { windowTreatments } from './treatments.js';
 import type { LayoutId, PlacementResult, FloorPlacement } from './types.js';
 import version from '../../package.json' with { type: 'json' };
 export async function generate(input: unknown): Promise<PlacementResult> {
-    const request = validateRequest(input), floors = request.blueprint.floors;
-    if (floors.length < 1 || floors[0]!.index !== 0)
-        throw new InteriorError('E_BLUEPRINT_INVALID', 'placement buildings require at least one floor starting at zero');
+    const published = validateRequest(input);
+    // Basements stay closed, and the lowest above-ground floor is the ground layout even
+    // when the published indices start above zero.
+    const above = published.blueprint.floors.filter(floor => floor.index >= 0);
+    if (!above.length)
+        throw new InteriorError('E_BLUEPRINT_INVALID', 'placement buildings require a floor at or above index zero');
+    const request: InteriorRequest = above.length === published.blueprint.floors.length ? published
+        : { ...published, blueprint: { ...published.blueprint, floors: above },
+            ...(published.assignments ? { assignments: published.assignments.filter(a => a.floor >= 0) } : {}) };
+    const floors = request.blueprint.floors;
     // Two floors are ground and crown; the middle layout exists only where a floor repeats it.
     const assignments = resolveAssignments(request), repeats = floors.length > 2, alone = floors.length === 1;
     const samples = alone ? [floors[0]!] : repeats ? [floors[0]!, floors[1]!, floors.at(-1)!] : [floors[0]!, floors.at(-1)!];
@@ -78,7 +85,8 @@ export async function generate(input: unknown): Promise<PlacementResult> {
     });
     const connectors = alone ? [] : npc.nav.connectors.map(c => {
         const served = floors.map(f => f.index);
-        const entries = Object.fromEntries(served.map(f => [f, c.entryByFloor[String(f === 0 ? 0 : f === floors.length - 1 ? f : 1)]!]));
+        const entries = Object.fromEntries(floors.map((floor, i) => [floor.index,
+            c.entryByFloor[String(samples[i === 0 ? 0 : i === floors.length - 1 ? samples.length - 1 : 1]!.index)]!]));
         if (npc.nav.roofAccess && c.id === 'stair-a') {
             served.push(npc.nav.roofAccess.floor);
             entries[npc.nav.roofAccess.floor] = npc.nav.roofAccess.entry;

@@ -99,7 +99,8 @@ function envelopeOf(
 ): CoreEnvelope {
   const floors = blueprint.floors;
   const uvFloors = platesOf(floors, frame, depth);
-  const groundIndex = floors.findIndex((f) => f.index === 0);
+  // the lowest above-ground plate: a published stack may start above index zero
+  const groundIndex = floors.reduce((low, floor, i) => floor.index < floors[low]!.index ? i : low, 0);
   const bounds = polygonBounds(uvFloors[groundIndex]!);
   const vLen = bounds.d;
   const area = polygonArea(floors[groundIndex]!.outline);
@@ -331,7 +332,7 @@ function withinCap(env: CoreEnvelope, placement: Placement): boolean {
 function selectEnvelope(blueprint: InteriorRequest["blueprint"], singleStair = false): CoreChoice {
   const floors = blueprint.floors;
   const depth = facadeDepth(blueprint.facade);
-  const ground = floors.find((f) => f.index === 0)! as Ground;
+  const ground = floors.reduce((low, floor) => floor.index < low.index ? floor : low, floors[0]!) as Ground;
   const base = principalAngle(ground.outline);
   const allowed = blueprint.coreFrame?.anglesDeg;
   const canonical = (angle: number): number => ((angle % 180) + 180) % 180;

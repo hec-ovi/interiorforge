@@ -194,6 +194,15 @@ it('publishes ground and crown alone for a two floor building', async () => {
     expect(built.building.floors.map(f => f.layout)).toEqual(['ground', 'crown']);
     expect(expandBuilding(built).npc.anchors.some(a => a.kind === 'entrance')).toBe(true);
 });
+it('opens a stack with a basement on its lowest above-ground floor', async () => {
+    const stacked = structuredClone(request), ground = stacked.blueprint.floors[0]!;
+    stacked.blueprint.floors.unshift({ ...structuredClone(ground), index: -1, kind: 'basement', elevation: -ground.height, openings: [] });
+    if (stacked.assignments) stacked.assignments.unshift({ floor: -1, kind: 'parking' });
+    const built = await generate(stacked);
+    // The basement stays closed and the published indices are kept as they are.
+    expect(built.building.floors.map(f => f.index)).toEqual(request.blueprint.floors.map(f => f.index));
+    expect(built.building.floors[0]!.layout).toBe('ground');
+});
 it('places the core where its published feasibility says it will', () => {
     const fit = coreFeasibility(request.blueprint, request.building.type);
     expect(fit.fits).toBe(true);

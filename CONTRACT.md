@@ -1,4 +1,4 @@
-# Interior 0.31.12
+# Interior 0.31.13
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -18,8 +18,9 @@ Places shared room modules and catalog furniture in three reusable building layo
 `npm run build:feasibility` compiles the browser entry `src/feasibility.ts` to
 `dist/feasibility.js`.
 
-Generation accepts a rectangular construction plate, at least one floor starting at
-zero, and one storey per assignment. Two floors publish `ground` and `crown` alone, and
+Generation accepts a rectangular construction plate, at least one floor at or above
+index zero, and one storey per assignment. Basements stay closed and the lowest
+above-ground floor is the ground layout, whatever index it carries. Two floors publish `ground` and `crown` alone, and
 a stack whose plates hold no vertical core opens as its ground floor alone, with no
 connectors. The manifest names the layouts it publishes. An irregular outline is read through its
 `roomEnvelope`. Every middle floor must share its outline,
