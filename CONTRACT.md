@@ -1,4 +1,4 @@
-# Interior 0.31.5
+# Interior 0.31.6
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -18,8 +18,9 @@ Places shared room modules and catalog furniture in three reusable building layo
 `npm run build:feasibility` compiles the browser entry `src/feasibility.ts` to
 `dist/feasibility.js`.
 
-Generation accepts a rectangular construction plate, at least three floors starting
-at zero, and one storey per assignment. An irregular outline is read through its
+Generation accepts a rectangular construction plate, at least two floors starting at
+zero, and one storey per assignment. Two floors publish `ground` and `crown` alone,
+and the manifest names the layouts it publishes. An irregular outline is read through its
 `roomEnvelope`. Every middle floor must share its outline,
 height, doors and explicit program. Windows vary per floor by design, and so do opening
 IDs and exterior dressing (material, panes, glazing, scenery, section ids). Default
@@ -40,7 +41,8 @@ keys only. The catalog is published once for the city.
 and `layouts/ground.json`, `layouts/middle.json`, `layouts/crown.json`.
 [Building schema](schemas/building.schema.json),
 [layout schema](schemas/floor-placement.schema.json), [types](src/placements/types.ts).
-Floor zero uses ground, indices 1 through F minus 2 use middle, and F minus 1 uses crown.
+Floor zero uses ground, indices 1 through F minus 2 use middle, and F minus 1 uses
+crown; a two floor building has no middle layout and writes two files.
 Each layout contains floor metadata, source openings, placements and NPC data.
 
 Placements name exactly one `module` or `prop`, an instance `id`, `room`, XYZ

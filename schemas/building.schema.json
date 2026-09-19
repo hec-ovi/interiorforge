@@ -49,9 +49,9 @@
           "minLength": 1
         }
       },
+      "description": "a two floor building publishes ground and crown only",
       "required": [
         "ground",
-        "middle",
         "crown"
       ]
     },

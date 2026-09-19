@@ -28,7 +28,7 @@ export async function placementScene(result: PlacementResult): Promise<Group> {
     }
     const matrices = new Map<string, Matrix4[]>(), axis = new Vector3(0, 1, 0);
     for (const floor of result.building.floors)
-        for (const p of result.layouts[floor.layout].placements) {
+        for (const p of [...result.layouts[floor.layout]!.placements, ...(floor.treatments ?? [])]) {
             const id = p.module ?? p.prop!, items = matrices.get(id) ?? [];
             items.push(new Matrix4().compose(new Vector3(p.position[0], p.position[1] + floor.elevation, p.position[2]), new Quaternion().setFromAxisAngle(axis, p.rotationY), new Vector3(...p.scale)));
             matrices.set(id, items);

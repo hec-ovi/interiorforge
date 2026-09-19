@@ -109,9 +109,9 @@ it('reuses exactly one middle layout and maps every opening and door to the asse
         // Windows vary per floor, so their returns ride with the floor instead of the layout.
         expect(ref.treatments?.every(t => windows.some(o => o.id === t.opening)) ?? false).toBe(windows.length > 0);
         for (const opening of original.openings.filter(o => o.kind === 'door')) {
-            expect(result.layouts[ref.layout].placements.find(p => ref.openings[p.id] === opening.id)?.module).toBe('door-frame');
-            expect(result.layouts[ref.layout].placements.some(p => p.module === 'floor-tile' && ref.openings[p.opening ?? ''] === opening.id)).toBe(true);
-            expect(result.layouts[ref.layout].floor.rooms.flatMap(r => r.doors).some(d => ref.openings[d.id] === opening.id)).toBe(true);
+            expect(result.layouts[ref.layout]!.placements.find(p => ref.openings[p.id] === opening.id)?.module).toBe('door-frame');
+            expect(result.layouts[ref.layout]!.placements.some(p => p.module === 'floor-tile' && ref.openings[p.opening ?? ''] === opening.id)).toBe(true);
+            expect(result.layouts[ref.layout]!.floor.rooms.flatMap(r => r.doors).some(d => ref.openings[d.id] === opening.id)).toBe(true);
         }
     }
 });
@@ -124,7 +124,7 @@ it('accepts vertically separate windows and rejects a true rectangular overlap',
         f.openings.splice(0, 1, lower, upper);
     }
     const accepted = await generate(modified);
-    expect(accepted.layouts.middle.openings.slice(0, 2).map(o => o.sill)).toEqual([.5, 2]);
+    expect(accepted.layouts.middle!.openings.slice(0, 2).map(o => o.sill)).toEqual([.5, 2]);
     modified.blueprint.floors[1]!.openings[1]!.sill = .75;
     await expect(generate(modified)).rejects.toMatchObject({ code: 'E_BLUEPRINT_INVALID' });
 });
@@ -169,6 +169,18 @@ it.skipIf(!existsSync(kitIndex))('never rejects a published kit plan for a windo
     }
     expect(rejected).toEqual([]);
 });
+it('publishes ground and crown alone for a two floor building', async () => {
+    const pair = structuredClone(request), ground = pair.blueprint.floors[0]!, crown = pair.blueprint.floors.at(-1)!;
+    crown.index = 1;
+    crown.elevation = ground.height;
+    pair.blueprint.floors = [ground, crown];
+    if (pair.blueprint.roof) pair.blueprint.roof.elevation = crown.elevation + crown.height;
+    const built = await generate(pair);
+    expect(Object.keys(built.layouts)).toEqual(['ground', 'crown']);
+    expect(built.building.layouts.middle).toBeUndefined();
+    expect(built.building.floors.map(f => f.layout)).toEqual(['ground', 'crown']);
+    expect(expandBuilding(built).npc.anchors.some(a => a.kind === 'entrance')).toBe(true);
+});
 it('leaves no room space beside the core thinner than a body', () => {
     const body = .6, inside = (room: any, point: number[]) => {
         const ring: number[][] = room.polygon ?? [[room.rect.x, room.rect.z], [room.rect.x + room.rect.w, room.rect.z],
@@ -211,8 +223,8 @@ it('rejects a stair roof exit below the promised standing clearance', { timeout:
     await expect(generate(modified)).rejects.toMatchObject({ code: 'E_UNREACHABLE_SPACE' });
     modified.blueprint.roof.bulkhead!.doorHeight = 2.5;
     const accepted = await generate(modified);
-    expect(accepted.layouts.crown.npc.nav.roofAccess?.floor).toBe(6);
-    expect(accepted.layouts.crown.placements.some(p => p.connector === 'stair-a' && p.module === 'floor-tile'
+    expect(accepted.layouts.crown!.npc.nav.roofAccess?.floor).toBe(6);
+    expect(accepted.layouts.crown!.placements.some(p => p.connector === 'stair-a' && p.module === 'floor-tile'
         && Math.abs(p.position[1] - top.height) < .0001)).toBe(true);
 });
 it('keeps module geometry and prop bounds inside the published or default backing inset', async () => {
@@ -274,7 +286,7 @@ it('degrades service programs and rejects invalid inputs or floors without room 
     const changes = [{ kind: 'storage', requested: [3, 3], fitted: null }, { kind: 'toilets', requested: [3, 3], fitted: [2, 2] }];
     for (const floor of reduced.building.floors) {
         expect(floor.program).toEqual({ kind: 'retail', changes });
-        const rooms = reduced.layouts[floor.layout].floor.rooms;
+        const rooms = reduced.layouts[floor.layout]!.floor.rooms;
         expect(rooms.some(room => room.kind === 'sales_floor')).toBe(true);
         expect(rooms.some(room => room.kind === 'storage')).toBe(false);
         const toilets = rooms.find(room => room.kind === 'toilets')!;

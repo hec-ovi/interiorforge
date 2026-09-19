@@ -7,7 +7,8 @@ Converts three planned floors into shared module and catalog prop transforms.
 [layouts](../../schemas/floor-placement.schema.json). [Types](types.ts) define the
 same transport. `writePlacements(result, out)` writes four compact JSON files.
 
-Generation plans ground, first middle and crown once. All middle floors reference
+Generation plans ground, first middle and crown once; two floors plan ground and crown
+alone and publish no middle layout. All middle floors reference
 that middle layout. Their outline, height, doors and explicit programs must match;
 the manifest maps the layout's door IDs to each floor's own. Windows vary per floor,
 so each floor publishes its own window returns in `building.floors[].treatments`. Rectangular surface

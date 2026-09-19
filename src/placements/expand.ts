@@ -7,10 +7,10 @@ export function expandBuilding(result: PlacementResult): {
 } {
     const floors: FloorInterior[] = [], npc: NpcSupport = {
         buildingId: result.building.buildingId, anchors: [], roles: [], routines: [], placements: [],
-        nav: { cellSize: result.layouts.ground.npc.nav.cellSize, floors: [], connectors: result.building.connectors }
+        nav: { cellSize: result.layouts.ground!.npc.nav.cellSize, floors: [], connectors: result.building.connectors }
     };
     for (const ref of result.building.floors) {
-        const source = result.layouts[ref.layout];
+        const source = result.layouts[ref.layout]!;
         const ids = new Set<string>();
         const collect = (value: unknown): void => { if (Array.isArray(value))
             value.forEach(collect);

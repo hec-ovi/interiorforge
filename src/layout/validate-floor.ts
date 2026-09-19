@@ -22,8 +22,15 @@ export function validateArchitecture(
   );
   let access = rebuild();
   for (;;) {
+    // Floor nobody can stand in is void, not a room: drop it and the doors that named it.
     const empty = rooms.find(room => access.cells(room).length === 0);
-    if (empty) throw new InteriorError("E_UNREACHABLE_SPACE", `room ${empty.id}(${empty.kind}) has no body-clear cell`, floorIndex);
+    if (empty) {
+      if (rooms.length === 1) throw new InteriorError("E_UNREACHABLE_SPACE", `room ${empty.id}(${empty.kind}) has no body-clear cell`, floorIndex);
+      rooms.splice(rooms.indexOf(empty), 1);
+      for (const room of rooms) room.doors = room.doors.filter(door => door.to !== empty.id);
+      access = rebuild();
+      continue;
+    }
     const unreached = rooms.filter(room => missing(access, room) > 0);
     if (unreached.length === 0) {
       ensureCoreReached(access, core, floorIndex);

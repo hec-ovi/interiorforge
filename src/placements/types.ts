@@ -30,7 +30,8 @@ export interface BuildingManifest {
     props: string;
     materialTheme: string;
     tier: string;
-    layouts: Record<LayoutId, string>;
+    /** a two floor building publishes ground and crown only */
+    layouts: Partial<Record<LayoutId, string>>;
     floors: {
         index: number;
         layout: LayoutId;
@@ -44,5 +45,5 @@ export interface BuildingManifest {
 }
 export interface PlacementResult {
     building: BuildingManifest;
-    layouts: Record<LayoutId, FloorPlacement>;
+    layouts: Partial<Record<LayoutId, FloorPlacement>>;
 }
