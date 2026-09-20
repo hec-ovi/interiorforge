@@ -4,8 +4,9 @@ Configures generated room review cameras.
 
 `previewSample(name)` returns a [sample](schema.ts) or undefined.
 `showSample(sample, state, viewer, viewIndex?)` selects its floor and room and places
-the eye camera at a piece of furniture or in the largest room of a kind. A view its
-floor cannot place leaves the floor overview.
+the eye camera at a piece of furniture or in the largest room of a kind. The eye is pulled
+back along its own offset until it stands inside that room with 1 m clear of any wall
+face. A view its floor cannot place leaves the floor overview.
 
 The luxury sample is a three-floor fixture (ground, middle, crown). The
 [plan samples](plans.json) (hotel, restaurant, residence) name a published kit plan

@@ -1,4 +1,4 @@
-# Interior 0.32.1
+# Interior 0.33.0
 
 Places shared room modules and catalog furniture in three reusable building layouts.
 
@@ -55,6 +55,8 @@ Each layout contains floor metadata, source openings, placements and NPC data.
 Placements name exactly one `module` or `prop`, an instance `id`, `room`, XYZ
 `position`, positive XYZ `scale` and `rotationY` in radians. Apply scale, then
 rotation about positive Y, then position, then the building floor's elevation.
+A stretched placement also carries `uvRepeat`, `[u, v]`: multiply the module's own UVs by
+it. Absent means `[1, 1]`.
 Preserve each GLB node's authored transform, including quantization transforms.
 The GLB already contains its authored origin; `origin` is descriptive metadata.
 XZ stays in the blueprint frame; layout Y starts at the walking surface.
@@ -65,17 +67,44 @@ A building is furnished in one family: `luxury` for rich and high rich tiers, `c
 for mid, `damaged` for poor, `industrial` for factory and military parcels. Each room
 takes its finish from the family and its kind ([finish table](src/placements/finish.ts)).
 
-Partitions are nine-slice panel frames per face: one-cell corners, edges fitted along the
-run and up the height, centre fields split into panels no wider than 2.5 m, and a lit
-joint at the top and bottom of every frame, published as `cove` light records. Runs
-shorter than 1.5 m, door headers and unframed families take one fitted plain field. An
-office, meeting or executive room looks onto public space through a glass field in the
-same frame. Corners tile at metre scale; every other piece wears its map once.
+Every wall face a room owns is a nine-slice panel frame, its own face on the shell
+included: one fitted field over the whole run as the backing, four one-cell corners, a
+rail along the head and the foot, a stile up each end, and a lit joint at the top and
+bottom, published as `cove` light records. Each member is 12 mm short of its cell, so the
+joints between them show field. A run shorter than 1.5 m, a door header and the unframed
+families (damaged, industrial) take one fitted plain field instead. An office, meeting or
+executive room looks onto public space through a glass field in the same frame. A frame
+band always contrasts its field: walnut on the light walls, ivory on the dark ones.
 
-Floors are slabs no wider than 2.5 m over a dark underlay (stone, obsidian, marble or
-timber by room), with a carpet under every fitted seating or suite group. Ceilings carry a
-fitted outer band, inset fields, recessed spot modules and a cove module on every cove
-record; damaged and industrial families hang exposed services instead of a band.
+A room's face on the shell is cut by every opening carried by any floor that reuses this
+layout, so one lined run serves floors whose windows sit elsewhere; an angled facade edge
+keeps the shell's own face.
+
+Floors are one fitted slab per room rectangle over a dark screed (stone, obsidian, marble
+or timber by room). Ceilings carry a fitted outer band, an inset field, recessed spot
+modules and a cove module on every cove record; damaged and industrial families hang
+exposed services instead of a band. Carpets lie under the seating and suite groups a rich
+interior fits, in homes, lounges, receptions and the seated bay of a large shop floor.
+
+Every room is lit to the illuminance its kind asks for, measured as the flux it publishes
+over its own floor area, not as a fixture count. Ceiling luminaires stand on a grid across
+the whole plate, about one per 24 m2 and between 8 and 96 in a room, so a hall is lit
+across its middle and not only around its edge; each carries the share that lands the room
+in its band, from a downlight to a high bay.
+
+| Room kind | lux |
+| --- | --- |
+| sales floor, dining area, bar, reception, lounge, concourse, counter area | 150 to 300 |
+| corridor, elevator lobby | 150 to 350 |
+| office, meeting, executive, kitchen, gym floor | 280 to 500 |
+| bathroom, toilets, locker room | 140 to 300 |
+| bedroom, living, studio | 70 to 200 |
+| storage, mechanical room | 70 to 160 |
+| parking area | 60 to 150 |
+| open terrace | 25 to 120 |
+
+A mid tier carries three quarters of its band and a poor tier half, so a worn interior
+stays dim by design.
 
 Every light record has a module standing at it, and every lit module has a record: spots,
 strips and coves from the room plan, the frames' joints from the walls, and furniture
@@ -86,7 +115,10 @@ sofas, tables, capsule pods, crates) are scaled per axis to their record; the re
 catalog props. Programs: a lobby stands its desk on the axis of the wall facing the
 entrance with seating bays and planter cases; a restaurant runs a counter with its back
 bar and stools, dining tables between planted screens; a residence fits a kitchen run with
-a breakfast bar, a suite and a bathroom with a glazed shower and a planter.
+a breakfast bar, a suite and a bathroom with a glazed shower and a planter. A hall
+furnishes by its floor area, not by a fixed handful: a shop floor takes its checkout,
+shelving along the walls, display aisles across the plate and, past 80 m2, a seated bay on
+its carpet, so a 2000 m2 room reads as a shop and not as an empty plate.
 
 Rooms, surfaces, walls, the vertical core and prop bounds fit the floor's published `roomEnvelope`,
 kept behind `facade.wallDepth`, defaulting to 0.12 m; a floor without one uses its

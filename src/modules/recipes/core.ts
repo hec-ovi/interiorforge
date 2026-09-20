@@ -38,10 +38,10 @@ export const coreRecipes: RecipeSet = (add) => {
     k.box(FINISH.liftCar, [0.92, 0, -1], [0.08, 2.5, 2]);
     k.box(FINISH.liftCar, [-0.92, 0, 0.92], [1.84, 2.5, 0.08]);
     k.box(FINISH.liftCar, [-1, 2.5, -1], [2, 0.1, 2]);
-    k.cbox(FINISH.lensWarm, [0, 2.49, 0], [1.2, 0.01, 0.3], "unit");
+    k.cbox(FINISH.lensWarm, [0, 2.49, 0], [1.2, 0.01, 0.3]);
   });
   add("lift-doors", (k) => {
-    k.box(FINISH.liftDoor, [-0.55, 0, -0.03], [0.545, 2.2, 0.06], "unit");
-    k.box(FINISH.liftDoor, [0.005, 0, -0.03], [0.545, 2.2, 0.06], "unit");
+    k.box(FINISH.liftDoor, [-0.55, 0, -0.03], [0.545, 2.2, 0.06]);
+    k.box(FINISH.liftDoor, [0.005, 0, -0.03], [0.545, 2.2, 0.06]);
   });
 };

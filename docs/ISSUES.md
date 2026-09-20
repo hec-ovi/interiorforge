@@ -51,6 +51,21 @@ other shell of that city opens. Needed: a fourth layout kind for connection floo
 aperture published as a per-floor treatment the way windows are. Until then the sweep
 lists this refusal as the contract's own.
 
+## Interior: a 4.5 m storey the stair shaft cannot climb
+
+Five mirror-frame commercial kit plans refuse with `E_UNREACHABLE_SPACE: stair-a headroom
+below 2.1 m`: `3eefdd53c30737bc/mirror-frame-commercial-high_rich-3x4x19f`,
+`490ddc6b0f266419/mirror-frame-commercial-rich-3x4x2f`,
+`b0dab3dcb95bf958/mirror-frame-commercial-rich-3x4x7f`,
+`cacf25d3e8117225/mirror-frame-commercial-high_rich-3x4x2f` and
+`ec28eaa8ec3d5f49/mirror-frame-commercial-high_rich-3x4x11f`. Each is a 4.5 m storey whose
+shaft cannot fit the flights `planFlights` asks for and still keep 2.1 m over the walk
+line; `stairRunHeadroom` reads the shaft and the climb only, so the refusal is ours and
+predates the framed wall faces (the same five refuse at 0.32.1). Other hashes of the same
+plan names open. Fix: the shaft grows, the flights split differently, or the building
+degrades the way a stack with no core does. Until then the sweep lists this refusal as the
+contract's own.
+
 ## Materials: interior finishes
 
 The 0.32.0 module set wears existing theme keys; these looks have no key yet, so the modules
@@ -70,11 +85,21 @@ take the closest published finish named beside each ask. All tile keys at 2 m un
 | `cyberpunk/interior-grating-floor/mid` (0.5 m) | open bar grating for industrial platforms and walkways | `interior-damaged-steel/poor` |
 | `cyberpunk/interior-pipe/poor` (1 m) | rusted galvanised pipe and cable tray for exposed services | `interior-damaged-steel/poor` |
 
-## Engine: drawing the 0.32.0 module set
+## Engine: drawing the 0.33.0 module set
 
-- Module GLB UVs are tile units, one UV unit per `tiling.worldSize` repeat (the Materials
-  binding rule); draw them with no further tiling transform. Fitted pieces (edges, fields,
-  slabs, ceilings, screens) wear their map once, fixed pieces (corners) wear it at metre scale.
+- Every module GLB now wears tile-unit UVs, one UV unit per `tiling.worldSize` repeat, on
+  every tiled slot; only an exact slot wears its map once over the face. Nothing is authored
+  0..1 per face any more.
+- A placement that stretches its module carries `uvRepeat: [u, v]`. Multiply that module's
+  UVs by it, per instance; absent means `[1, 1]`. That is the whole rule: the material's own
+  metre size is already baked into the module's UVs, so no per-material lookup is needed.
+  Without it a 10 m rail shows one map repeat where the 0.5 m corner beside it shows a
+  repeat per metre. Interior's own preview does it with an instanced `aUvRepeat` attribute
+  multiplying every map varying after `#include <uv_vertex>`.
+- Room lighting is now published to an illuminance band per room kind (CONTRACT.md), which
+  raises the flux a large venue hall publishes by about five times and the fixture count
+  across its plate from ten to up to twenty-eight. A big room's fixtures are brighter, not
+  just more numerous.
 - Every slot is `key#variant`: the GLB material is named by the key and carries
   `userData.materialVariant`, as before.
 - Collider intent by id prefix: `wall-panel-*`, `wall-field-*`, `wall-light-line*`, `floor-*`,

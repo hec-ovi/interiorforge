@@ -11,6 +11,8 @@ import { MeshoptDecoder } from 'meshoptimizer';
 import { generate, expandBuilding, findPath, coreFeasibility, makePlacementFixture } from '../src/index.js';
 import type { PlacementResult, InteriorRequest, BuildingType, Tier, FloorKind, FloorPlacement, Placement } from '../src/index.js';
 import { loadTheme } from '../src/materials/load.js';
+import { roomFootprintArea } from '../src/core/room-footprint.js';
+import { luxBand } from '../src/layout/lighting.js';
 import { assembly } from './fixtures.js';
 const exec = promisify(execFile);
 let dir: string, request: InteriorRequest, result: PlacementResult;
@@ -211,9 +213,11 @@ it.skipIf(!kitFiles(kitIndex).length && !shellBlueprints(cityDir).length)('opens
             });
         if (built) expect(built.building.floors.length).toBeGreaterThan(0);
     }
-    // A generated shell whose connection floor carries a bridge aperture has no reusable
-    // middle layout: that refusal is the contract's own and is listed in docs/ISSUES.md.
-    expect(refused.filter(reason => !reason.includes('differs from the reusable middle layout'))).toEqual([]);
+    // Two refusals are the contract's own and are listed in docs/ISSUES.md: a generated
+    // shell whose connection floor carries a bridge aperture has no reusable middle layout,
+    // and a 4.5 m storey whose shaft cannot keep 2.1 m over the stair's walk line.
+    const known = /differs from the reusable middle layout|stair-. headroom below 2\.1 m/;
+    expect(refused.filter(reason => !known.test(reason))).toEqual([]);
 });
 /** The fixture's entrance as Exterior 0.58.12 publishes it: two leaves retracting into a cassette. */
 function pocketDoor(opening: any, wallDepth: number): void {
@@ -406,33 +410,106 @@ const wallPiece = (p: Placement, kind: string) => p.module?.startsWith(`wall-pan
 const alongOf = (p: Placement) => p.position[0] * Math.cos(p.rotationY) - p.position[2] * Math.sin(p.rotationY);
 const acrossOf = (p: Placement) => p.position[0] * Math.sin(p.rotationY) + p.position[2] * Math.cos(p.rotationY);
 const same = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
-it('frames every fitted partition run as a nine-slice with corners, edges, aligned fields and lit joints', () => {
+/** Distance from a point to a segment, in plan. */
+const toEdge = ([px, pz]: readonly number[], a: readonly number[], b: readonly number[]) => {
+    const dx = b[0]! - a[0]!, dz = b[1]! - a[1]!, len = dx * dx + dz * dz;
+    const t = len ? Math.max(0, Math.min(1, ((px! - a[0]!) * dx + (pz! - a[1]!) * dz) / len)) : 0;
+    return Math.hypot(px! - (a[0]! + t * dx), pz! - (a[1]! + t * dz));
+};
+it('frames every wall face a room owns, its own face on the shell included, with lit joints', () => {
     const layout = result.layouts.ground!, ceiling = layout.floor.ceilingElevation - layout.floor.elevation;
-    const corners = layout.placements.filter(p => wallPiece(p, 'corner')), edges = layout.placements.filter(p => wallPiece(p, 'edge'));
-    const fields = layout.placements.filter(p => wallPiece(p, 'field')), lines = layout.placements.filter(p => p.module?.startsWith('wall-light-line'));
+    const corners = layout.placements.filter(p => wallPiece(p, 'corner')), rails = layout.placements.filter(p => wallPiece(p, 'rail'));
+    const stiles = layout.placements.filter(p => wallPiece(p, 'stile'));
+    // a glass field is the same frame without the lit joints, so it is measured on its own
+    const fields = layout.placements.filter(p => wallPiece(p, 'field') && !p.module!.endsWith('glass'));
+    const lines = layout.placements.filter(p => p.module?.startsWith('wall-light-line'));
     expect(fields.length).toBeGreaterThan(0);
-    for (const corner of corners) expect(corner.scale).toEqual([1, 1, 1]);
     for (const field of fields) {
-        expect(field.scale[0] * .5).toBeLessThanOrEqual(2.5 + 1e-6);
-        expect(field.scale[1] * .5).toBeCloseTo(ceiling - 1, 5);
-        expect(field.position[1]).toBeCloseTo(.5, 6);
-        // The top edge of its run spans the field, and a corner closes each end of that edge.
-        const top = edges.find(e => same(e.rotationY, field.rotationY) && same(e.position[1], ceiling - .5) && same(acrossOf(e), acrossOf(field))
-            && Math.abs(alongOf(e) - alongOf(field)) <= e.scale[0] * .25 + 1e-6)!;
-        expect(top, field.id).toBeDefined();
+        // the field is the backing the frame stands on: the whole run, floor to ceiling
+        expect(field.position[1]).toBeCloseTo(0, 6);
+        expect(field.scale[1] * .5).toBeCloseTo(ceiling, 5);
+        const half = field.scale[0] * .25;
         for (const end of [-1, 1]) {
-            expect(corners.some(c => same(c.rotationY, top.rotationY) && same(c.position[1], top.position[1]) && same(acrossOf(c), acrossOf(top))
-                && same(alongOf(c), alongOf(top) + end * (top.scale[0] * .25 + .25))), `${field.id} corner ${end}`).toBe(true);
+            const t = alongOf(field) + end * (half - .25);
+            for (const y of [0, ceiling - .5]) {
+                expect(corners.some(c => same(c.rotationY, field.rotationY) && same(c.position[1], y) && same(acrossOf(c), acrossOf(field)) && same(alongOf(c), t)),
+                    `${field.id} corner ${end} at ${y}`).toBe(true);
+            }
+            expect(stiles.some(c => same(c.rotationY, field.rotationY) && same(c.position[1], .5) && same(acrossOf(c), acrossOf(field)) && same(alongOf(c), t)),
+                `${field.id} stile ${end}`).toBe(true);
+        }
+        for (const y of [0, ceiling - .5]) {
+            const rail = rails.find(r => same(r.rotationY, field.rotationY) && same(r.position[1], y) && same(acrossOf(r), acrossOf(field)) && same(alongOf(r), alongOf(field)))!;
+            expect(rail, `${field.id} rail at ${y}`).toBeDefined();
+            expect(rail.scale[0] * .5).toBeCloseTo(field.scale[0] * .5 - 1, 5);
         }
         // Lit joints at the bottom and top of the run, each a published emitter.
         for (const y of [.5, ceiling - .5]) {
-            const line = lines.find(l => same(l.rotationY, top.rotationY) && same(l.position[1], y) && same(alongOf(l), alongOf(top)) && Math.abs(acrossOf(l) - acrossOf(top)) < .1)!;
+            const line = lines.find(l => same(l.rotationY, field.rotationY) && same(l.position[1], y) && same(alongOf(l), alongOf(field)) && Math.abs(acrossOf(l) - acrossOf(field)) < .2)!;
             expect(line, `${field.id} line at ${y}`).toBeDefined();
             expect(layout.floor.lights.find(light => light.id === line.id)?.kind).toBe('cove');
         }
     }
+    // Nothing is left to the shell: every straight run of the biggest room's own boundary
+    // carries a wall face of that room.
+    const biggest = [...layout.floor.rooms].sort((a, b) => roomFootprintArea({ polygon: b.polygon, holes: b.holes }) - roomFootprintArea({ polygon: a.polygon, holes: a.holes }))[0]!;
+    const faces = layout.placements.filter(p => p.room === biggest.id && /^wall-(panel|field)/.test(p.module ?? ''));
+    for (let i = 0; i < biggest.polygon.length; i++) {
+        const a = biggest.polygon[i]!, b = biggest.polygon[(i + 1) % biggest.polygon.length]!;
+        if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 3) continue;
+        expect(faces.some(p => toEdge([p.position[0], p.position[2]], a, b) < .45), `${biggest.id} edge ${i}`).toBe(true);
+    }
 });
-it('publishes every fixture module as an emitter and keeps each room lit within a bounded set', () => {
+it('publishes the repeat of every stretched piece, over modules whose UVs are tile units', async () => {
+    for (const layout of Object.values(result.layouts)) {
+        for (const p of layout.placements) {
+            if (!p.module) continue;
+            const stretched = p.scale.some(v => v !== 1);
+            if (!stretched) {
+                expect(p.uvRepeat, p.id).toBeUndefined();
+                continue;
+            }
+            expect(p.uvRepeat, `${p.module} ${p.id}`).toEqual([p.scale[0], p.scale[1] !== 1 ? p.scale[1] : p.scale[2]]);
+        }
+    }
+    // One convention in the kit: a tiled module spans its own metres over the material's
+    // published world size, so a published repeat lands the map at that size however wide
+    // the placement fits it.
+    const theme = loadTheme('cyberpunk');
+    const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
+    for (const id of ['wall-panel-rail-timber', 'floor-slab-obsidian', 'ceiling-band-ivory', 'wall-panel-field-dark']) {
+        const entry = modules.modules.find((m: any) => m.id === id)!;
+        const doc = await io.readBinary(await readFile(join(dir, 'modules', entry.file)));
+        for (const primitive of doc.getRoot().listMeshes().flatMap(mesh => mesh.listPrimitives())) {
+            const key = primitive.getMaterial()!.getName();
+            const size = theme!.library.entry(key)!.tiling!.worldSize;
+            const uv = primitive.getAttribute('TEXCOORD_0')!;
+            let widest = 0;
+            for (let i = 0; i < uv.getCount(); i++) widest = Math.max(widest, Math.abs(uv.getElement(i, [0, 0])[0]!));
+            // the widest face of the piece, in tile units: its own metres over the map's size
+            expect(widest, `${id} ${key}`).toBeCloseTo(entry.size[0] / size[0], 3);
+        }
+    }
+});
+it('lights every room to the illuminance its kind asks for, the venue hall included', async () => {
+    const shop = await generate(asVenue('commerce', 'rich', 'retail', 'retail'));
+    for (const built of [result, shop]) {
+        for (const layout of Object.values(built.layouts)) {
+            for (const room of layout.floor.rooms) {
+                const area = roomFootprintArea({ polygon: room.polygon, holes: room.holes });
+                if (area < 4) continue;
+                const lumens = layout.floor.lights.filter(l => l.room === room.id).reduce((sum, l) => sum + l.intensity, 0);
+                const [low, high] = luxBand(room.kind, built.building.tier);
+                expect(lumens / area, `${built.building.buildingId} ${room.id} ${room.kind} over ${area.toFixed(0)} m2`).toBeGreaterThanOrEqual(low - 1);
+                expect(lumens / area, `${built.building.buildingId} ${room.id} ${room.kind} over ${area.toFixed(0)} m2`).toBeLessThanOrEqual(high + 1);
+            }
+        }
+    }
+    const hall = Object.values(shop.layouts).flatMap(l => l.floor.rooms).filter(r => r.kind === 'sales_floor')
+        .sort((a, b) => roomFootprintArea({ polygon: b.polygon }) - roomFootprintArea({ polygon: a.polygon }))[0]!;
+    expect(roomFootprintArea({ polygon: hall.polygon, holes: hall.holes })).toBeGreaterThan(200);
+});
+it('publishes every fixture module as an emitter and lights every room with one of its own', () => {
     for (const layout of Object.values(result.layouts)) {
         const lights = new Map(layout.floor.lights.map(l => [l.id, l]));
         const fixtures = layout.placements.filter(p => /^(ceiling-spot|ceiling-led-strip|ceiling-cove|wall-light-line)/.test(p.module ?? ''));
@@ -442,8 +519,6 @@ it('publishes every fixture module as an emitter and keeps each room lit within 
         for (const room of layout.floor.rooms) {
             const own = layout.floor.lights.filter(l => l.room === room.id);
             expect(own.some(l => l.kind === 'spot' || l.kind === 'strip'), room.id).toBe(true);
-            // a cove piece per ten metres of wall, two lines per frame and a few spots: a lobby stays under this
-            expect(own.length, room.id).toBeLessThanOrEqual(64);
         }
     }
 });

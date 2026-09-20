@@ -43,10 +43,11 @@ const STANDOFF: Partial<Record<FurnitureKind, number>> = { bar_counter: 1.2, rec
 /** Carpet zones stop this far inside a fitted group's reservation. */
 const CARPET_INSET = 0.15;
 
-/** A very large plate would otherwise fill with hundreds of identical pieces: enough to read
- *  as a working floor, cheap enough to carry a whole city. */
+/** Ceiling on one grid run: a hall fills with aisles instead of stopping at a fixed handful,
+ *  and the caller's own count per square metre decides below this. Enough to read as a
+ *  working floor, cheap enough to carry a whole city. */
 const GRID_CAP: Partial<Record<FurnitureKind, number>> = {
-  desk: 24, dining_table: 18, gym_machine: 14, display_rack: 10, crate: 6,
+  desk: 40, dining_table: 40, gym_machine: 30, display_rack: 60, crate: 20,
 };
 
 const SEAT_GAP = 0.1; // a pulled-in chair, still clear of the table's nav margin
@@ -386,6 +387,12 @@ function edgeRotation(edge: Edge): 0 | 90 | 180 | 270 {
   }
 }
 
+/** How many of one wall piece a room of this area carries: one per `per` square metres,
+ *  at least one and never more than `cap`. */
+function runs(area: number, per: number, cap: number): number {
+  return Math.max(1, Math.min(cap, Math.floor(area / per)));
+}
+
 export function furnish(
   rooms: PlanRoom[], floorKind: FloorKind, rng: Rng, ids: IdGen, bounds: FloorBounds,
   openingZones: readonly UvRect[] = [], tier = "rich", carpets: { room: string; rect: UvRect }[] = [],
@@ -509,10 +516,11 @@ export function furnish(
           p.stoolsAt(bar, 5);
           p.alongEdge("shelf", edgeBehind(bar), true);
         }
-        if (luxury && area >= 40) p.grid("room_divider", 3.0, 2);
+        if (luxury && area >= 40) p.grid("room_divider", 3.0, runs(area, 40, 4));
         for (const table of p.grid("dining_table", 1.4, Math.floor(area / 9))) {
           p.seatsAround(table, "chair", 1, [0, 180]);
         }
+        for (let i = 0; i < runs(area, 90, 5); i++) p.anyEdge("plant");
         p.wallPiece("display_screen");
         p.wallPiece("wall_art");
         break;
@@ -523,17 +531,18 @@ export function furnish(
         p.wallPiece("display_screen");
         break;
       }
-      case "sales_floor":
+      case "sales_floor": {
         // checkout against a wall (the clerk stands behind it), shelving on the walls,
-        // display racks in aisles across the open floor
+        // display racks in aisles across the open floor, a seated bay in a big shop
         p.anyEdge("counter", ["v1", "u1", "u0"]);
-        p.anyEdge("shelf");
-        p.anyEdge("shelf");
-        if (area >= 24) p.anyEdge("shelf");
+        for (let i = 0; i < runs(area, 24, 8); i++) p.anyEdge("shelf");
         p.grid("display_rack", 1.5, Math.max(1, Math.floor(area / 14)));
+        if (luxury && area >= 80 && !seating) p.group("seating");
+        for (let i = 0; i < runs(area, 90, 5); i++) p.anyEdge("plant");
         p.wallPiece("display_screen");
         p.wallPiece("wall_shelf");
         break;
+      }
       case "gym_floor":
         p.grid("gym_machine", 1.2, Math.floor(area / 12));
         p.anyEdge("bench");

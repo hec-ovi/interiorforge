@@ -9,7 +9,7 @@ export type Family = "luxury" | "capsule" | "damaged" | "industrial";
 export interface RoomFinish {
   family: Family;
   /** nine-slice frame pieces; absent where the family builds plain fields */
-  frame?: { corner: string; edge: string; field: string; line: string; kelvin: number; color?: [number, number, number] };
+  frame?: { corner: string; rail: string; stile: string; field: string; line: string; kelvin: number; color?: [number, number, number] };
   /** plain field over short runs, door headers and unframed families */
   field: string;
   floor: string;
@@ -39,8 +39,12 @@ const SERVICE_ROOMS: ReadonlySet<RoomKind> = new Set(["storage", "mechanical_roo
 /** Rooms whose partitions toward public space are glazed. */
 export const GLAZED_ROOMS: ReadonlySet<RoomKind> = new Set(["office_private", "meeting", "executive_office"]);
 
-const TIMBER_FRAME = { corner: "wall-panel-corner-timber", edge: "wall-panel-edge-timber", line: "wall-light-line", kelvin: 2700 };
-const STEEL_FRAME = { corner: "wall-panel-corner-steel", edge: "wall-panel-edge-steel", line: "wall-light-line-cool", kelvin: 6500, color: [0.025, 0.72, 1] as [number, number, number] };
+/** A frame band always contrasts its field: walnut against the light walls, ivory against
+ *  the dark ones, so the nine slices read as a frame and not as one flat tone. */
+const members = (name: string) => ({ corner: `wall-panel-corner-${name}`, rail: `wall-panel-rail-${name}`, stile: `wall-panel-stile-${name}` });
+const TIMBER_FRAME = { ...members("timber"), line: "wall-light-line", kelvin: 2700 };
+const IVORY_FRAME = { ...members("ivory"), line: "wall-light-line", kelvin: 2700 };
+const STEEL_FRAME = { ...members("steel"), line: "wall-light-line-cool", kelvin: 6500, color: [0.025, 0.72, 1] as [number, number, number] };
 
 export function roomFinish(family: Family, room: RoomKind, floorKind: FloorKind): RoomFinish {
   switch (family) {
@@ -68,7 +72,10 @@ export function roomFinish(family: Family, room: RoomKind, floorKind: FloorKind)
       return {
         family, field: `wall-field-${palette}`, floor, ceiling: dark ? "ceiling-field-dark" : "ceiling-field-light",
         cove: "ceiling-cove-timber", spot: "ceiling-spot",
-        ...(SERVICE_ROOMS.has(room) ? {} : { frame: { ...TIMBER_FRAME, field: `wall-panel-field-${palette}` }, band: "ceiling-band-timber" }),
+        ...(SERVICE_ROOMS.has(room) ? {} : {
+          frame: { ...(dark ? IVORY_FRAME : TIMBER_FRAME), field: `wall-panel-field-${palette}` },
+          band: dark ? "ceiling-band-ivory" : "ceiling-band-timber",
+        }),
       };
     }
   }

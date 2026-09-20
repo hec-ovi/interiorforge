@@ -3,7 +3,8 @@ import type { BlueprintFloor, FloorKind, InteriorRequest, RoomKind } from '../co
 import type { RoofAccessPlan } from '../layout/roof-access.js';
 import { baseLanding, entryAtLowEnd } from '../geometry/stairs.js';
 import type { BuildingPlan } from '../layout/index.js';
-import { roomPolygon } from '../layout/room-shape.js';
+import { roomArea, roomPolygon } from '../layout/room-shape.js';
+import { balanceIllumination } from '../layout/lighting.js';
 import { uvToWorld } from '../layout/uv.js';
 import { constructionPlate, shellWallDepth } from '../layout/shell.js';
 import { assertInsideShell } from '../geometry/shell-fit.js';
@@ -17,7 +18,7 @@ import { openings } from './openings.js';
 import { stairs } from './stairs.js';
 import { props } from './props.js';
 
-export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: InteriorRequest, climb: number, roof?: RoofAccessPlan | null): PlacementBuilder {
+export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: InteriorRequest, climb: number, roof?: RoofAccessPlan | null, shared: readonly BlueprintFloor[] = [bp]): PlacementBuilder {
     const floor = plan.floors.find(f => f.floor === bp.index)!, uv = plan.uvFloors.get(bp.index)!, core = plan.core;
     const builder = new PlacementBuilder();
     const ceilingY = floor.ceilingElevation - floor.elevation;
@@ -44,7 +45,10 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
 
     // Every fixture the floor plan lit stands before the walls add their own lines.
     const planned = floor.lights.filter(light => !light.furniture);
-    floor.lights.push(...walls(builder, floor, uv, core, bp, request, finishOf, tag));
+    floor.lights.push(...walls(builder, floor, uv, core, bp, request, finishOf, tag, shared));
+    // Every record the room publishes is in now, so each luminaire takes the share that
+    // lands the room in its kind's illuminance band.
+    balanceIllumination(uv.rooms.map(room => ({ id: room.id, kind: room.kind, area: roomArea(room, plate) })), floor.lights, request.building.tier);
     openings(builder, bp, floor, request, 'doors', room => finishOf(room).floor);
     const runs = stairs(builder, core, climb, plain.floor, !!roof);
     if (roof) {

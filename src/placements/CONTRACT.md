@@ -14,19 +14,25 @@ the manifest maps the layout's door IDs to each floor's own. Windows vary per fl
 so each floor publishes its own window returns in `building.floors[].treatments`.
 
 The building's [family](finish.ts) (luxury, capsule, damaged, industrial) and each room's
-kind pick its modules. [Walls](walls.ts) build one face per room on every partition run:
-a nine-slice frame (one-cell corners, fitted edges, fields no wider than 2.5 m, a lit joint
-top and bottom published as a `cove` record) where the run is at least 1.5 m long and
-high, a plain fitted field otherwise, a glass field where an office room looks onto
-public space, and a door frame in every hole. [Surfaces](surfaces.ts) lay slabs no wider
-than 2.5 m, carpets under fitted groups, and ceilings with a fitted band, inset fields and
-the family's services. Each room-plan light stands as its module: spot, strip or cove.
+kind pick its modules. [Walls](walls.ts) build one face per room on every run it owns,
+its own face on the construction plate boundary included: a nine-slice frame (one fitted
+field over the whole run as the backing, four one-cell corners, a rail at the head and the
+foot, a stile at each end, a lit joint top and bottom published as a `cove` record) where
+the run is at least 1.5 m long and high, a plain fitted field otherwise, a glass field
+where an office room looks onto public space, and a door frame in every interior hole. A
+boundary run is cut by the openings of every floor that reuses the layout; the shell's own
+openings keep their frame and return. [Surfaces](surfaces.ts) lay one slab per room
+rectangle, carpets under fitted groups, and ceilings with a fitted band, an inset field
+and the family's services. Each room-plan light stands as its module: spot, strip or cove,
+and [balanceIllumination](../layout/lighting.ts) sets what each delivers so the room lands
+in its kind's lux band.
 Furniture with a built-in module scales per axis to its record; other furniture
 references existing catalog IDs at one uniform scale, and furnishings fitting neither
 produce no prop or furniture anchor.
 
 Transforms apply positive XYZ scale, radians about positive Y, position, then floor
-elevation. No geometry is serialized here. Temporary transformed vertices prove shell,
+elevation. A stretched placement publishes `uvRepeat`, the factor its module's tile-unit
+UVs multiply by, so a fitted piece never stretches its map past the material's own size. No geometry is serialized here. Temporary transformed vertices prove shell,
 door and stair clearance. Prop bounds participate in those checks.
 
 Walls, surfaces, window returns and prop bounds stay inside the floor's `roomEnvelope`,

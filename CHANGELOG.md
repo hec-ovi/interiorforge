@@ -1,5 +1,7 @@
 # Changelog
 
+0.33.0: every wall face a room owns is a nine-slice frame, its own face on the shell included, with 12 mm joints cut into the members and a frame band that contrasts its field; a stretched placement publishes `uvRepeat` so a fitted piece wears its map at the size the material publishes, and every module's UVs are tile units; rooms are lit to an illuminance band per kind, measured over their own floor area, with fixtures across the whole plate; halls furnish by area, so a shop floor fills with aisles, shelving, a seated bay and its carpet.
+
 0.32.1: a pocket door connection publishes `clearDepth` 0 and the floor schema admits it; an open front still carries a positive traversable depth.
 
 0.32.0: buildings furnish to the interior references: partitions are nine-slice panel frames with lit joints per room finish, floors are fitted slabs with carpets under seating, ceilings carry a fitted band, inset fields, spots and lit coves, every lit module publishes its emitter, built-in furniture modules (desks, counters, kitchen runs, planted beds, wardrobes, showers, basins, planters, screens, seating) furnish lobby, restaurant, office and residence programs by family, and every venue publishes its staff and guests.

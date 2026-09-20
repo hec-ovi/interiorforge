@@ -9,6 +9,9 @@ export interface Placement {
     position: Vector3;
     rotationY: number;
     scale: Vector3;
+    /** how many times the module's own UVs repeat over this placement: the stretch of a
+     *  fitted piece, so its map keeps its published metre size. Absent means [1, 1]. */
+    uvRepeat?: [number, number];
     room: string;
     opening?: string;
     connector?: string;

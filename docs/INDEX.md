@@ -25,7 +25,7 @@ decisions. [Dimensions](RESEARCH.md) lists construction constants.
 `src/cli.ts` writes building files. `src/modules/cli.ts` publishes the city kit.
 `src/feasibility.ts` builds the browser entry with `npm run build:feasibility`.
 
-Twenty-one public contract tests run with `npm test`, one per promise; the kit-plan
+Twenty-three public contract tests run with `npm test`, one per promise; the kit-plan
 test takes six plans of the newest published index and the short generated shells of the
 newest assembled city, and `npm run sweep` runs it over every plan of every index and
 every shell of the city `URBE_CITY_DIR` names. One checks the compiled `dist/feasibility.js` entry.

@@ -1,6 +1,6 @@
 import { polygonBounds } from '../core/geom.js';
 import type { Point } from '../core/geom.js';
-import type { BlueprintFloor, FloorInterior, InteriorRequest, LightFixture, RoomKind } from '../core/types.js';
+import type { BlueprintFloor, FloorInterior, InteriorRequest, LightFixture, Opening, RoomKind } from '../core/types.js';
 import type { CorePlan } from '../layout/core-plan.js';
 import type { UvFloorData } from '../layout/plan-floor.js';
 import { doorUvPoint } from '../layout/plan-floor.js';
@@ -8,13 +8,13 @@ import type { PlanRoom } from '../layout/plan-types.js';
 import { Facade } from '../layout/openings.js';
 import { constructionPlate, facadeDepth } from '../layout/shell.js';
 import type { Frame } from '../layout/uv.js';
-import { uvToWorld } from '../layout/uv.js';
+import { uvToWorld, worldToUv } from '../layout/uv.js';
+import { edgeFrame, edgePoint } from '../geometry/shell-fit.js';
 import { canonicalHoles, doorHeadHeight, roomSegments, reserveFacadeEnds, type WallHole } from '../geometry/walls.js';
 import { stairEntryHole } from '../geometry/stairs.js';
 import { elevatorDoorHole } from '../geometry/core-geo.js';
 import type { PlacementBuilder } from './builder.js';
 import { GLAZED_ROOMS, type RoomFinish } from './finish.js';
-import { PANEL } from './surfaces.js';
 
 /** Fixed frame piece: corners are one cell, edges one cell wide. */
 const PIECE = 0.5;
@@ -24,15 +24,19 @@ const MIN_FRAME = 3 * PIECE;
 const CASING_DEPTH = 0.2;
 /** A light line stops this far short of the corners. */
 const LINE_GAP = 0.02;
-/** The lens sits in the recess joint, this far off the partition line. */
-const LINE_OFFSET = 0.06;
+/** The bar stands proud of the frame face, off the partition line. */
+const LINE_OFFSET = 0.09;
+/** A lined boundary run clears this much beside every opening it passes. */
+const OPENING_MARGIN = 0.06;
+/** How far off a boundary run an opening still belongs to it. */
+const BOUNDARY_REACH = 0.7;
 const LINE_LUMENS_PER_METRE = 55;
 
 /** Public rooms an office's glazed partition looks onto. */
 const GLAZED_ONTO: ReadonlySet<RoomKind> = new Set(["corridor", "elevator_lobby", "concourse", "office_open", "reception", "lounge"]);
 
 interface Run { a: number; b: number; room: string; kind: RoomKind; side: 1 | -1; draw: boolean }
-interface Line { axis: 'H' | 'V'; c: number; runs: Run[]; holes: WallHole[] }
+interface Line { axis: 'H' | 'V'; c: number; runs: Run[]; holes: WallHole[]; boundary: boolean }
 
 /** Every partition face of a floor: nine-slice panel frames with light lines where a run
  *  fits one, plain fields elsewhere, glass fields between an office and the public space
@@ -40,6 +44,7 @@ interface Line { axis: 'H' | 'V'; c: number; runs: Run[]; holes: WallHole[] }
 export function walls(
     builder: PlacementBuilder, floor: FloorInterior, uv: UvFloorData, core: CorePlan, bp: BlueprintFloor,
     request: InteriorRequest, finishOf: (room: string, kind: RoomKind) => RoomFinish, tag: string,
+    shared: readonly BlueprintFloor[] = [bp],
 ): LightFixture[] {
     let lineCount = 0;
     const nextLineId = () => `${tag}-wl${lineCount++}`;
@@ -47,11 +52,11 @@ export function walls(
     const buildable = constructionPlate(bp, frame, depth), plate = polygonBounds(buildable);
     const height = floor.ceilingElevation - floor.elevation;
     const lines = new Map<string, Line>();
-    const line = (axis: 'H' | 'V', c: number): Line => {
-        const key = `${axis}:${c.toFixed(6)}`;
+    const line = (axis: 'H' | 'V', c: number, boundary = false): Line => {
+        const key = `${boundary ? 'B' : 'P'}:${axis}:${c.toFixed(6)}`;
         let value = lines.get(key);
         if (!value) {
-            value = { axis, c, runs: [], holes: [] };
+            value = { axis, c, runs: [], holes: [], boundary };
             lines.set(key, value);
         }
         return value;
@@ -68,12 +73,13 @@ export function walls(
     ];
     for (const room of owners) {
         for (const raw of roomSegments(room, buildable)) {
-            const segment = reserveFacadeEnds(raw, facade, bp, frame, depth);
+            // The shell's own face carries no partition reservation: its openings cut it instead.
+            const segment = raw.boundary ? raw : reserveFacadeEnds(raw, facade, bp, frame, depth);
             if (!segment || !segment.edge) continue;
             const a = Math.max(segment.a, segment.axis === 'H' ? plate.x : plate.z), b = Math.min(segment.b, segment.axis === 'H' ? plate.x + plate.w : plate.z + plate.d);
             if (b <= a + 1e-6) continue;
             const side = segment.edge === 'v0' || segment.edge === 'u0' ? 1 : -1;
-            line(segment.axis, segment.c).runs.push({ a, b, room: room.id, kind: room.kind, side, draw: room.draw });
+            line(segment.axis, segment.c, !!segment.boundary).runs.push({ a, b, room: room.id, kind: room.kind, side, draw: room.draw });
         }
         for (const door of room.doors) {
             if (door.to === 'outside' || door.openFront) continue;
@@ -83,6 +89,14 @@ export function walls(
     }
     for (const h of [stairEntryHole(core, 'a', 0), ...(core.stairB ? [stairEntryHole(core, 'b', 0)] : []), ...core.elevators.map((_, i) => elevatorDoorHole(core, i, 0))])
         line(h.axis, h.c).holes.push(h.hole);
+    // Every opening any floor sharing this layout puts in the shell cuts the lining, so one
+    // lined run serves a floor whose windows sit somewhere else.
+    const boundaries = [...lines.values()].filter(l => l.boundary);
+    for (const cut of shellCuts(shared, frame, height)) {
+        const owner = boundaries.find(l => l.axis === cut.axis && Math.abs(l.c - cut.c) <= BOUNDARY_REACH
+            && l.runs.some(run => run.a < cut.hole.at + cut.hole.width / 2 && run.b > cut.hole.at - cut.hole.width / 2));
+        if (owner) owner.holes.push(cut.hole);
+    }
 
     const kinds = new Map(owners.map(room => [room.id, room.kind]));
     const lights: LightFixture[] = [];
@@ -102,6 +116,7 @@ export function walls(
                 const lo = Math.max(run.a, hole.at - hole.width / 2), hi = Math.min(run.b, hole.at + hole.width / 2);
                 if (hi <= lo + 1e-6) continue;
                 if (lo > cursor + 1e-6) face.build(cursor, lo, glazed, mirror);
+                if (hole.y0 > 0.05) face.plain(lo, hi, 0, hole.y0);
                 if (height - hole.y1 > 0.05) face.plain(lo, hi, hole.y1, height);
                 cursor = Math.max(cursor, hi);
             }
@@ -109,6 +124,7 @@ export function walls(
         }
     }
     for (const l of lines.values()) {
+        if (l.boundary) continue;
         for (const h of canonicalHoles(l.holes)) {
             const inside = (r: Run) => h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01;
             const owner = l.runs.find(r => r.draw && inside(r)) ?? l.runs.find(inside);
@@ -118,6 +134,34 @@ export function walls(
         }
     }
     return lights;
+}
+
+/** Every opening the shell carries on the floors sharing one layout, as a hole on the
+ *  boundary line it stands in. An angled facade edge has no axis line and is skipped. */
+function shellCuts(floors: readonly BlueprintFloor[], frame: Frame, height: number): { axis: 'H' | 'V'; c: number; hole: WallHole }[] {
+    const out: { axis: 'H' | 'V'; c: number; hole: WallHole }[] = [];
+    for (const bp of floors) {
+        for (const opening of bp.openings) {
+            const span = openingSpan(opening);
+            const face = edgeFrame(bp.outline, opening.edge);
+            const a = worldToUv(edgePoint(face, span.from, 0), frame), b = worldToUv(edgePoint(face, span.to, 0), frame);
+            const axis: 'H' | 'V' | null = Math.abs(a[1] - b[1]) < 1e-6 ? 'H' : Math.abs(a[0] - b[0]) < 1e-6 ? 'V' : null;
+            if (!axis) continue;
+            const along = axis === 'H' ? [a[0], b[0]] : [a[1], b[1]];
+            const lo = Math.min(...along) - OPENING_MARGIN, hi = Math.max(...along) + OPENING_MARGIN;
+            out.push({ axis, c: axis === 'H' ? a[1] : a[0],
+                hole: { at: (lo + hi) / 2, width: hi - lo, y0: span.sill, y1: Math.min(height, span.sill + span.height) } });
+        }
+    }
+    return out;
+}
+
+/** The clear rectangle an opening asks the lining to leave: its own field, widened to the
+ *  cassette a pocket door's leaves retract into. */
+function openingSpan(opening: Opening): { from: number; to: number; sill: number; height: number } {
+    const field = opening.kind === 'window' ? opening.glazing ?? opening : opening.door?.cassette ?? opening.door?.clearance ?? opening;
+    const sill = opening.kind === 'window' ? field.sill ?? 0 : 0;
+    return { from: field.offset, to: field.offset + field.width, sill, height: field.height };
 }
 
 /** One room's face of one partition run: its pieces stand on the line and face the room. */
@@ -135,7 +179,9 @@ class Face {
         this.rotation = Math.atan2(w[0]!, w[1]!);
     }
 
-    /** A run between holes: a nine-slice frame where one fits, a plain field otherwise. */
+    /** A run between holes: a nine-slice frame where one fits, a plain field otherwise. The
+     *  field is one fitted backing over the whole run; the four corners, two rails and two
+     *  stiles stand on it, each a shadow gap short of its cell. */
     build(a: number, b: number, glazed: boolean, mirror: boolean): void {
         const length = b - a, frame = this.finish.frame;
         if (!frame || length < MIN_FRAME - 1e-6 || this.height < MIN_FRAME - 1e-6) {
@@ -145,13 +191,10 @@ class Face {
         // Across the partition from an office's own glass, nothing stands: the plate is shared.
         if (mirror) return;
         const mid = (a + b) / 2, top = this.height - PIECE, inner = length - 2 * PIECE, tall = this.height - 2 * PIECE;
+        this.piece(glazed ? 'wall-panel-field-glass' : frame.field, mid, 0, [length / PIECE, this.height / PIECE, 1]);
         for (const t of [a + PIECE / 2, b - PIECE / 2]) for (const y of [0, top]) this.piece(frame.corner, t, y, [1, 1, 1]);
-        for (const y of [0, top]) this.piece(frame.edge, mid, y, [inner / PIECE, 1, 1]);
-        for (const t of [a + PIECE / 2, b - PIECE / 2]) this.piece(frame.edge, t, PIECE, [1, tall / PIECE, 1]);
-        const count = Math.max(1, Math.ceil(inner / PANEL - 1e-9)), width = inner / count;
-        for (let i = 0; i < count; i++) {
-            this.piece(glazed ? 'wall-panel-field-glass' : frame.field, a + PIECE + width * (i + 0.5), PIECE, [width / PIECE, tall / PIECE, 1]);
-        }
+        for (const y of [0, top]) this.piece(frame.rail, mid, y, [inner / PIECE, 1, 1]);
+        for (const t of [a + PIECE / 2, b - PIECE / 2]) this.piece(frame.stile, t, PIECE, [1, tall / PIECE, 1]);
         if (glazed) return;
         for (const [y, facing] of [[PIECE, 'down'], [top, 'up']] as const) this.lightLine(mid, y, inner - 2 * LINE_GAP, facing);
     }

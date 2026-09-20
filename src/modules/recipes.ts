@@ -1,5 +1,5 @@
 import type { UvScale } from "../glb/mesh-builder.js";
-import { Kit } from "./kit.js";
+import { Kit, type Alignment } from "./kit.js";
 import type { ModuleRecipe } from "./types.js";
 import { surfaceRecipes } from "./recipes/surfaces.js";
 import { lightRecipes } from "./recipes/lights.js";
@@ -14,14 +14,15 @@ export type RecipeSet = (add: (id: string, draw: (kit: Kit) => void) => void) =>
 const SETS: RecipeSet[] = [surfaceRecipes, lightRecipes, coreRecipes, furnitureRecipes];
 
 /** Every shared module, authored in metres. `tile` gives UV units per metre per material
- *  slot, so world faces tile at the material's published size; without it metres stay. */
-export function moduleRecipes(tile: UvScale = () => [1, 1]): ModuleRecipe[] {
+ *  slot, so tiled faces wear one UV unit per map repeat; without it metres stay. `alignment`
+ *  says which slots are exact, so those faces wear their map once instead. */
+export function moduleRecipes(tile: UvScale = () => [1, 1], alignment?: Alignment): ModuleRecipe[] {
   const recipes: ModuleRecipe[] = [];
   const ids = new Set<string>();
   const add = (id: string, draw: (kit: Kit) => void): void => {
     if (ids.has(id)) throw new Error(`duplicate module ${id}`);
     ids.add(id);
-    const kit = new Kit(tile);
+    const kit = new Kit(tile, alignment);
     draw(kit);
     kit.mesh.seal();
     const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];

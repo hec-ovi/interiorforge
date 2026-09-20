@@ -1,4 +1,4 @@
-# Interior 0.32.1
+# Interior 0.33.0
 
 A TypeScript generator for furnished buildings made from shared room modules.
 One building stores ground, middle and crown layouts. Every middle floor references
@@ -37,7 +37,7 @@ published kit plan at its review cameras.
 
 Contract tests cover the CLI and public calls, JSON schemas, indexed compressed
 modules, deterministic bytes, middle reuse, opening rectangles, pocket doors, navigation,
-stair and backing clearance, service program reductions, nine-slice frames, published
-emitters, furnished programs with their staff, both building budgets, and the compiled
-feasibility entry. Tests use at most two workers. `out/proof/budget.json` records
+stair and backing clearance, service program reductions, framed wall faces, published
+repeats over tile-unit modules, room illuminance bands, published emitters, furnished
+programs with their staff, both building budgets, and the compiled feasibility entry. Tests use at most two workers. `out/proof/budget.json` records
 measured bytes, seconds and placement counts.

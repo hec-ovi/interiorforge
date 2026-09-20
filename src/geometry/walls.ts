@@ -25,6 +25,8 @@ export interface RoomSegment {
     a: number;
     b: number;
     edge: EdgeName | null;
+    /** the room's own face on the construction plate boundary, lined against the shell */
+    boundary?: boolean;
 }
 export function doorHeadHeight(leaves: number, clearHeight: number): number {
     const head = leaves >= 3 ? 3.0 : 2.5;
@@ -78,19 +80,21 @@ export function canonicalHoles(holes: readonly WallHole[]): WallHole[] {
 }
 /** The room boundaries a partition stands on. An edge lying on the buildable plate's own
  *  boundary is the open perimeter, where the facade lining or Exterior's slab stands instead. */
+/** Every wall face a room owns: its partitions, and its own face on the plate boundary
+ *  marked `boundary` so the caller lines it against the shell instead of the next room. An
+ *  angled facade edge has no axis and stays the shell's own face. */
 export function roomSegments(room: PlanRoom, plate: readonly Point[]): RoomSegment[] {
     const out: RoomSegment[] = [];
     for (const { a, b, edge } of roomEdges(room, plate)) {
         const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-        if (onPlateBoundary(a, b, mid, plate))
-            continue;
+        const boundary = onPlateBoundary(a, b, mid, plate);
         if (Math.abs(a[1] - b[1]) < 1e-6) {
-            out.push({ axis: "H", c: a[1], a: Math.min(a[0], b[0]), b: Math.max(a[0], b[0]), edge });
+            out.push({ axis: "H", c: a[1], a: Math.min(a[0], b[0]), b: Math.max(a[0], b[0]), edge, boundary });
         }
         else if (Math.abs(a[0] - b[0]) < 1e-6) {
-            out.push({ axis: "V", c: a[0], a: Math.min(a[1], b[1]), b: Math.max(a[1], b[1]), edge });
+            out.push({ axis: "V", c: a[0], a: Math.min(a[1], b[1]), b: Math.max(a[1], b[1]), edge, boundary });
         }
-        // other angles only occur on the facade, which the boundary test skipped
+        // other angles only occur on the facade, which keeps its own face there
     }
     return out;
 }

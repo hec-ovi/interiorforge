@@ -47,8 +47,12 @@ export async function generate(input: unknown): Promise<PlacementResult> {
     }
     const roof = planRoofAccess(request, plan.core);
     const crown = samples.length - 1;
+    // A layout lines the shell for every floor that reuses it, so one lining clears the
+    // windows of all of them.
+    const sharing = (i: number): BlueprintFloor[] => i === 0 ? [floors[0]!]
+        : i === crown ? [floors.at(-1)!] : floors.slice(1, -1);
     const tables = samples.map((bp, i) => placeLayout(plan, bp, request,
-        i < crown ? bp.height : roof ? roof.access.elevation - bp.elevation : 0, i === crown ? roof : undefined));
+        i < crown ? bp.height : roof ? roof.access.elevation - bp.elevation : 0, i === crown ? roof : undefined, sharing(i)));
     const npc = buildNpcSupport(plan, request);
     const layouts: Partial<Record<LayoutId, FloorPlacement>> = {};
     samples.forEach((bp, i) => {

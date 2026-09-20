@@ -31,6 +31,13 @@ export function tileScale(theme: ThemeIndex | null | undefined): UvScale {
   };
 }
 
+/** Which slots the theme aligns exactly: those wear their map once over the face. Without
+ *  a theme every slot tiles, so a standalone kit keeps metre UVs. */
+export function slotAlignment(theme: ThemeIndex | null | undefined): (slot: string) => "tile" | "exact" {
+  const library = theme ? new MaterialLibrary(theme) : null;
+  return (slot) => library?.entry(splitVariant(slot)[0])?.alignment === "exact" ? "exact" : "tile";
+}
+
 /** Publishes geometry once. Building generation does not serialize or load it. */
 export async function buildModules(options: ModuleOptions = {}): Promise<{
   catalog: ModuleCatalog;
@@ -41,7 +48,7 @@ export async function buildModules(options: ModuleOptions = {}): Promise<{
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
     .registerDependencies({ "meshopt.encoder": MeshoptEncoder, "meshopt.decoder": MeshoptDecoder });
   const catalog: ModuleCatalog = { version: 1, grid: 0.5, modules: [] }, files = new Map<string, Uint8Array>();
-  for (const recipe of moduleRecipes(tileScale(theme))) {
+  for (const recipe of moduleRecipes(tileScale(theme), slotAlignment(theme))) {
     const doc = createDocument(recipe.mesh).setLogger(new Logger(Logger.Verbosity.SILENT));
     const triangles = recipe.mesh.materials().reduce((sum, slot) => sum + recipe.mesh.getGroup(slot)!.indices.length / 3, 0);
     await doc.transform(weld(), meshopt({ encoder: MeshoptEncoder, level: "medium", quantizePosition: 16 }));

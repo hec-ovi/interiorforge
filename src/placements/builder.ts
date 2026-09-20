@@ -10,9 +10,14 @@ export class PlacementBuilder {
         if (scale.some(n => !Number.isFinite(n) || n <= 0) || position.some(n => !Number.isFinite(n))) {
             throw new InteriorError('E_SHELL_BREACH', `invalid transform for ${module}`);
         }
+        // A module wears tile-unit UVs, so a stretched placement repeats them by the same
+        // factor: u along local x, v along local y where the piece stands up, along local z
+        // where it lies flat. Unstretched pieces publish nothing.
+        const repeat: [number, number] = [scale[0], scale[1] !== 1 ? scale[1] : scale[2]].map(clean) as [number, number];
         const placement: Placement = {
             id: `module:${this.placements.length}`, module, room,
-            position: position.map(clean) as Vec3, rotationY: clean(rotationY), scale: scale.map(clean) as Vec3, ...extra
+            position: position.map(clean) as Vec3, rotationY: clean(rotationY), scale: scale.map(clean) as Vec3,
+            ...(repeat[0] !== 1 || repeat[1] !== 1 ? { uvRepeat: repeat } : {}), ...extra
         };
         this.placements.push(placement);
         const recipe = recipes.get(module);

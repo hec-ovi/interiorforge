@@ -13,18 +13,18 @@ export const lightRecipes: RecipeSet = (add) => {
   }
   // a linear luminaire: a steel housing with its lit face hanging under the ceiling
   add("ceiling-led-strip", (k) => {
-    k.cbox(FINISH.zinc, [0, 0, 0], [0.5, 0.06, 0.08], "unit");
-    k.cbox(FINISH.lensCool, [0, -0.005, 0], [0.48, 0.005, 0.06], "unit");
+    k.cbox(FINISH.zinc, [0, 0, 0], [0.5, 0.06, 0.08]);
+    k.cbox(FINISH.lensCool, [0, -0.005, 0], [0.48, 0.005, 0.06]);
   });
   // a lit cove: the fascia hangs from the ceiling plane and the lens on top washes it
   for (const [name, fascia, lens] of [["timber", FINISH.timber, FINISH.lensWarm], ["steel", FINISH.steel, FINISH.lensCool]] as const) {
     add(`ceiling-cove-${name}`, (k) => {
-      k.cbox(fascia, [0, -0.06, 0], [0.5, 0.26, 0.03], "unit");
-      k.cbox(lens, [0, 0, 0], [0.5, 0.012, 0.05], "unit");
+      k.cbox(fascia, [0, -0.06, 0], [0.5, 0.26, 0.03]);
+      k.cbox(lens, [0, 0, 0], [0.5, 0.012, 0.05]);
     });
   }
-  // the light line at a panel frame's top and bottom joint, in the recess between edge and field
+  // the light line at a panel frame's top and bottom joint, a bar standing just proud of the rail
   for (const [name, lens] of [["", FINISH.lensWarm], ["-cool", FINISH.lensCool]] as const) {
-    add(`wall-light-line${name}`, (k) => k.cbox(lens, [0, -0.009, 0.06], [0.5, 0.018, 0.03], "unit"));
+    add(`wall-light-line${name}`, (k) => k.cbox(lens, [0, -0.009, 0], [0.5, 0.018, 0.03]));
   }
 };

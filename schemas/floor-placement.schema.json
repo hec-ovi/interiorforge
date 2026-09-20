@@ -65,6 +65,16 @@
             "minItems": 3,
             "maxItems": 3
           },
+          "uvRepeat": {
+            "type": "array",
+            "description": "repeats of the module's own UVs over this placement, u then v; absent means [1, 1]",
+            "items": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
           "room": {
             "type": "string",
             "minLength": 1

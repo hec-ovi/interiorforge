@@ -75,10 +75,10 @@
       {
         "title": "Dining",
         "floor": 0,
-        "room": "dining_area",
+        "furniture": "dining_table",
         "offset": [
           0,
-          0
+          3.2
         ],
         "heading": 0
       },

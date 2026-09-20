@@ -14,6 +14,8 @@ the city's shared resources (`URBE_SHARED_DIR`, default the sibling engine's
 `Viewer3D.setPlacements(result)` consumes the [placement result](../placements/types.ts).
 It loads shared modules and catalog models, retains their authored transforms and
 creates Three.js instances using placement scale, rotation, position and floor elevation.
+Each instance multiplies its module's map coordinates by the placement's `uvRepeat`, so a
+fitted piece wears its map at the size the material publishes.
 Modules wear their published maps from the materials route, lit diffusers at preview
 emissive strength, and fall back to key colours without it. Local catalog models use the asset route.
 Floor slicing, room inspection, light sources, eye cameras and navigation remain available.

@@ -1,7 +1,7 @@
-import { Group, Mesh, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
+import { Group, InstancedBufferAttribute, Mesh, InstancedMesh, Matrix4, Material, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { moduleRecipes } from '../../modules/recipes.js';
-import { MODULE_THEME, tileScale } from '../../modules/index.js';
+import { MODULE_THEME, slotAlignment, tileScale } from '../../modules/index.js';
 import { loadAssetCatalog } from '../../assets/catalog.js';
 import { readBundledAssetModel } from '../../assets/bundled.js';
 import { createDocument, writeGlb } from '../../glb/io.js';
@@ -13,6 +13,24 @@ const MATERIALS_URL = '/materials/themes';
 /** A lit diffuser reads as a light source, not a bright surface. */
 const DIFFUSER_EMISSIVE = 6;
 
+/** Every map coordinate of one instance takes that placement's published repeat, so a
+ *  fitted piece wears its map at the size the material publishes however wide it stands. */
+const REPEAT_UV = ["MAP", "NORMALMAP", "ROUGHNESSMAP", "METALNESSMAP", "AOMAP", "EMISSIVEMAP", "ALPHAMAP"]
+  .map((map) => {
+    const varying = `v${map[0]}${map.slice(1).toLowerCase().replace("map", "Map")}Uv`;
+    return `#ifdef USE_${map}\n\t${varying} *= aUvRepeat;\n#endif`;
+  }).join("\n");
+
+function repeating(material: Material | Material[]): Material {
+  const one = (Array.isArray(material) ? material[0]! : material).clone();
+  one.onBeforeCompile = (shader) => {
+    shader.vertexShader = `attribute vec2 aUvRepeat;\n${shader.vertexShader}`
+      .replace("#include <uv_vertex>", `#include <uv_vertex>\n${REPEAT_UV}`);
+  };
+  one.customProgramCacheKey = () => "uvRepeat";
+  return one;
+}
+
 let shared: Promise<Map<string, Group>> | undefined;
 
 /** Every shared module, dressed in its published maps when the materials route answers. */
@@ -20,7 +38,7 @@ async function moduleScenes(): Promise<Map<string, Group>> {
     const theme = await fetch(`${MATERIALS_URL}/${MODULE_THEME}/theme.json`).then(r => r.ok ? r.json() as Promise<ThemeIndex> : null).catch(() => null);
     const library = theme ? new MaterialLibrary(theme) : null;
     const loader = new GLTFLoader(), scenes = new Map<string, Group>();
-    for (const recipe of moduleRecipes(tileScale(theme))) {
+    for (const recipe of moduleRecipes(tileScale(theme), slotAlignment(theme))) {
         const doc = createDocument(recipe.mesh);
         if (library) applyMaterials(doc, library, { baseUrl: `${MATERIALS_URL}/${MODULE_THEME}`, embed: false, readMap: () => new Uint8Array() });
         const scene = (await loader.parseAsync(new Uint8Array(await writeGlb(doc)).buffer, '')).scene;
@@ -44,11 +62,11 @@ export async function placementScene(result: PlacementResult): Promise<Group> {
         }
         catch { /* The catalog declares local assets; the city resource pack supplies them. */ }
     }
-    const matrices = new Map<string, Matrix4[]>(), axis = new Vector3(0, 1, 0);
+    const matrices = new Map<string, { matrix: Matrix4; repeat: [number, number] }[]>(), axis = new Vector3(0, 1, 0);
     for (const floor of result.building.floors)
         for (const p of [...result.layouts[floor.layout]!.placements, ...(floor.treatments ?? [])]) {
             const id = p.module ?? p.prop!, items = matrices.get(id) ?? [];
-            items.push(new Matrix4().compose(new Vector3(p.position[0], p.position[1] + floor.elevation, p.position[2]), new Quaternion().setFromAxisAngle(axis, p.rotationY), new Vector3(...p.scale)));
+            items.push({ matrix: new Matrix4().compose(new Vector3(p.position[0], p.position[1] + floor.elevation, p.position[2]), new Quaternion().setFromAxisAngle(axis, p.rotationY), new Vector3(...p.scale)), repeat: p.uvRepeat ?? [1, 1] });
             matrices.set(id, items);
         }
     const group = new Group();
@@ -60,9 +78,15 @@ export async function placementScene(result: PlacementResult): Promise<Group> {
         source.traverse(node => {
             if (!(node instanceof Mesh))
                 return;
-            const instance = new InstancedMesh(node.geometry, node.material, items.length);
-            items.forEach((matrix, i) => instance.setMatrixAt(i, matrix.clone().multiply(node.matrixWorld)));
+            const instance = new InstancedMesh(node.geometry, repeating(node.material), items.length);
+            const repeats = new Float32Array(items.length * 2);
+            items.forEach((item, i) => {
+                instance.setMatrixAt(i, item.matrix.clone().multiply(node.matrixWorld));
+                repeats.set(item.repeat, i * 2);
+            });
             instance.instanceMatrix.needsUpdate = true;
+            instance.geometry = instance.geometry.clone();
+            instance.geometry.setAttribute('aUvRepeat', new InstancedBufferAttribute(repeats, 2));
             group.add(instance);
         });
     }

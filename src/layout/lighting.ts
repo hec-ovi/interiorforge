@@ -9,7 +9,7 @@ import type { PlanRoom } from "./plan-types.js";
 import type { IdGen } from "./rooms.js";
 import type { Frame, UvRect } from "./uv.js";
 import { uvToWorld } from "./uv.js";
-import { roomAnchor, roomClearance, roomCoversRect, roomEdges } from "./room-shape.js";
+import { roomAnchor, roomArea, roomClearance, roomCoversRect, roomEdges } from "./room-shape.js";
 
 /** Every room, corridor and stairwell emits its own light fixtures: the engine instantiates
  *  real lights from them and the geometry pass builds the matching emissive housings. */
@@ -20,7 +20,12 @@ const COVE_INSET = 0.22; // cove line off the wall face, clear of the panel fram
 const MIN_RUN = 0.8; // shorter than this and a strip becomes a spot
 const STRIP_MAX = 3.0; // a luminaire is a fixture, not a room-long bar
 const STRIP_FILL = 0.97; // strips nearly abut, so a row reads as one line of light
-const MAX_PER_ROOM = 10;
+/** Ceiling fixtures one room carries: about one per this much floor, between these bounds,
+ *  so a shop floor gets a grid across its plate and a cupboard still gets one downlight. */
+const FIXTURE_AREA = 24;
+const FIXTURES_PER_ROOM = { min: 8, max: 96 };
+/** Flux one ceiling luminaire may carry: a downlight up to a high bay over a shop floor. */
+const FIXTURE_LUMENS = { min: 260, max: 9000 };
 const MIN_COVE_SIDE = 2.0;
 const COVE_SEGMENT = 10.0; // cove segments abut, so a long wall reads as one line
 const COVE_MAX_PER_SIDE = 8;
@@ -44,7 +49,7 @@ interface LightStyle {
   fixture: "strip" | "spot";
   /** meters between fixture rows (strips) or points (spots) */
   spacing: number;
-  /** luminous flux per fixture, lumens */
+  /** starting flux per fixture, lumens; the room's band sets the published value */
   lumens: number;
   colorTemperatureK: number;
   /** emissive line at the wall-ceiling junction */
@@ -89,6 +94,51 @@ const STYLE: Record<RoomKind, LightStyle> = {
 /** Stairwells get one downlight per storey, at the head of the flight. */
 const STAIR_LIGHT = { lumens: 1600, colorTemperatureK: 4000 };
 
+/** Illuminance each room kind asks for, lux, measured as the flux its own fixtures publish
+ *  over its own floor area. A venue's main room lands in the band a shop or a dining room
+ *  is lit to; circulation and homes sit lower, plant rooms lower still. */
+export const LUX_BAND: Record<RoomKind, [number, number]> = {
+  corridor: [150, 350], elevator_lobby: [150, 350], concourse: [150, 300],
+  reception: [150, 300], lounge: [150, 300], sales_floor: [150, 300], counter_area: [150, 300],
+  dining_area: [150, 300], bar: [150, 300],
+  office_open: [280, 500], office_private: [280, 500], meeting: [280, 500], executive_office: [280, 500],
+  kitchen: [280, 500], gym_floor: [280, 500],
+  bedroom: [70, 200], living: [70, 200], studio_main: [70, 200], terrace_open: [25, 120],
+  bathroom: [140, 300], toilets: [140, 300], locker_room: [140, 300],
+  storage: [70, 160], mechanical_room: [70, 160], parking_area: [60, 150],
+};
+
+/** A poorer interior is dimmer by design; its band scales with it. */
+const TIER_LUX: Record<string, number> = { poor: 0.5, mid: 0.75 };
+
+export function luxBand(kind: RoomKind, tier?: string): [number, number] {
+  const scale = tier ? TIER_LUX[tier] ?? 1 : 1;
+  const band = LUX_BAND[kind];
+  return [band[0] * scale, band[1] * scale];
+}
+
+/** Sets what each ceiling luminaire delivers so the room lands in its band, counting every
+ *  record it publishes: coves, the frames' lit joints and furniture lenses all contribute,
+ *  and the ceiling fixtures carry whatever is left. Runs once the walls have added theirs. */
+export function balanceIllumination(
+  rooms: readonly { id: string; kind: RoomKind; area: number }[], lights: LightFixture[], tier?: string,
+): void {
+  for (const room of rooms) {
+    if (room.area < 1) continue;
+    const own = lights.filter((light) => light.room === room.id);
+    const ceiling = own.filter((light) => light.kind !== "cove" && !light.furniture);
+    if (!ceiling.length) continue;
+    const fixed = own.reduce((sum, light) => sum + (ceiling.includes(light) ? 0 : light.intensity), 0);
+    const [min, max] = luxBand(room.kind, tier);
+    const target = ((min + max) / 2) * room.area;
+    const each = clamp((target - fixed) / ceiling.length, FIXTURE_LUMENS.min, FIXTURE_LUMENS.max);
+    for (const light of ceiling) {
+      light.intensity = Math.round(each);
+      light.range = rangeOf(light.intensity, light.kind);
+    }
+  }
+}
+
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
@@ -97,28 +147,22 @@ function round3(v: number): number {
   return Math.round(v * 1000) / 1000;
 }
 
-/** Fit a complete grid to the fixture budget, minimizing the widest axis spacing. */
-function spotGrid(longSpan: number, shortSpan: number, spacing: number): [number, number] {
-  const maxLong = clamp(Math.round(longSpan / spacing), 1, MAX_PER_ROOM);
-  const maxShort = clamp(Math.round(shortSpan / spacing), 1, 3);
-  if (maxLong * maxShort <= MAX_PER_ROOM) return [maxLong, maxShort];
-  let selected: [number, number] = [1, 1];
-  let widest = Infinity;
-  let deviation = Infinity;
-  for (let long = 1; long <= maxLong; long++) {
-    for (let short = 1; short <= maxShort && long * short <= MAX_PER_ROOM; short++) {
-      const longStep = longSpan / long;
-      const shortStep = shortSpan / short;
-      const candidate = Math.max(longStep, shortStep);
-      const difference = Math.abs(longStep - spacing) + Math.abs(shortStep - spacing);
-      if (candidate < widest || (candidate === widest && difference < deviation)) {
-        selected = [long, short];
-        widest = candidate;
-        deviation = difference;
-      }
-    }
+/** How many ceiling fixtures a room of this area may carry. */
+function fixtureBudget(area: number): number {
+  return clamp(Math.ceil(area / FIXTURE_AREA), FIXTURES_PER_ROOM.min, FIXTURES_PER_ROOM.max);
+}
+
+/** A grid over the whole plate at the style's spacing, thinned evenly to the fixture budget
+ *  so a big room keeps fixtures across its middle instead of only around its edge. */
+function spotGrid(longSpan: number, shortSpan: number, spacing: number, budget: number): [number, number] {
+  let long = clamp(Math.round(longSpan / spacing), 1, budget);
+  let short = clamp(Math.round(shortSpan / spacing), 1, budget);
+  while (long * short > budget) {
+    if (long / longSpan >= short / shortSpan && long > 1) long--;
+    else if (short > 1) short--;
+    else break;
   }
-  return selected;
+  return [long, short];
 }
 
 /** Useful radius: a lumen budget spread over a hemisphere reads about this far. A cove
@@ -173,9 +217,11 @@ class FloorLighting {
 
   room(room: PlanRoom): void {
     const base = STYLE[room.kind];
-    const style = this.tier === "poor" ? { ...base, spacing: 4.2, lumens: 520, colorTemperatureK: 3200, cove: false }
-      : this.tier === "mid" ? { ...base, spacing: 3.8, lumens: 420, colorTemperatureK: 2900, cove: false }
-      : this.tier ? { ...base, lumens: Math.round(base.lumens * .55), spacing: base.spacing * 1.2 } : base;
+    // Tier picks the spacing and the tone; how much each fixture delivers comes from the
+    // room's own illuminance band.
+    const style = this.tier === "poor" ? { ...base, spacing: 4.2, colorTemperatureK: 3200, cove: false }
+      : this.tier === "mid" ? { ...base, spacing: 3.8, colorTemperatureK: 2900, cove: false }
+      : this.tier ? { ...base, spacing: base.spacing * 1.2 } : base;
     if (!style) return;
     this.activeRoom = room;
     const before = this.out.length;
@@ -216,8 +262,9 @@ class FloorLighting {
     const runLen = alongU ? r.lu : r.lv;
     const crossLen = alongU ? r.lv : r.lu;
     if (runLen < MIN_RUN) return;
-    const rows = clamp(Math.round(crossLen / style.spacing), 1, 3);
-    const cols = clamp(Math.round(runLen / style.spacing), 1, Math.floor(MAX_PER_ROOM / rows));
+    const budget = fixtureBudget(roomArea(room));
+    const rows = clamp(Math.round(crossLen / style.spacing), 1, Math.max(1, Math.floor(Math.sqrt(budget))));
+    const cols = clamp(Math.round(runLen / style.spacing), 1, Math.max(1, Math.floor(budget / rows)));
     const slot = runLen / cols;
     const length = Math.max(MIN_RUN, Math.min(STRIP_MAX, slot * STRIP_FILL));
     for (let row = 0; row < rows; row++) {
@@ -245,7 +292,7 @@ class FloorLighting {
   private spots(room: PlanRoom, style: LightStyle): void {
     const r = room.rect;
     const alongU = r.lu >= r.lv;
-    const [long, short] = spotGrid(alongU ? r.lu : r.lv, alongU ? r.lv : r.lu, style.spacing);
+    const [long, short] = spotGrid(alongU ? r.lu : r.lv, alongU ? r.lv : r.lu, style.spacing, fixtureBudget(roomArea(room)));
     const cols = alongU ? long : short;
     const rows = alongU ? short : long;
     for (let row = 0; row < rows; row++) {
