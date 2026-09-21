@@ -6,6 +6,9 @@ export const FINISH = {
   timber: "cyberpunk/interior-luxury-timber/rich#field",
   ivory: "cyberpunk/interior-luxury-wall/rich#field",
   dark: "cyberpunk/wood/high_rich#1",
+  // Neutral architectural fields, distinct from the deliberate timber furniture finish.
+  charcoal: "cyberpunk/corporate-panel/mid#native",
+  graphite: "cyberpunk/wall/high_rich#panel-graphite",
   slate: "cyberpunk/wall/high_rich#plain",
   stone: "cyberpunk/interior-luxury-floor/rich#field",
   obsidian: "cyberpunk/tile/high_rich#slab",

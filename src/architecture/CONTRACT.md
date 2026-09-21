@@ -7,6 +7,11 @@ finish. Explicit assignments always win. Otherwise the actual parcel's programme
 selects office, apartment or hotel rooms above its lobby. Tier and industrial-use
 finishes remain authoritative.
 
+Corporate-sectors and mirror-shutters use the real charcoal
+`cyberpunk/corporate-panel/mid#native` field; mirror-frame uses
+`cyberpunk/wall/high_rich#panel-graphite`. These architectural dark fields do not use
+wood maps. Deliberate timber trim, furniture and garden floors retain their own slots.
+
 The seven reviewed families (`balcony-grid`, `corporate-sectors`, `faceted-bays`,
 `white-grid`, `mirror-shutters`, `mirror-frame`, `garden-taper`) publish their own closed
 inner facade, frames and returns. With `roomEnvelope` present, `shellOwnsFacade` keeps

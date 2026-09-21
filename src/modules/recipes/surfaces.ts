@@ -18,7 +18,8 @@ const FRAME = 0.095;
  *  higher, so the band reads as the fitted outer frame. */
 export const surfaceRecipes: RecipeSet = (add) => {
   const frames = { timber: FINISH.timber, steel: FINISH.steel, ivory: FINISH.ivory, graphite: FINISH.black } as const;
-  const panelFields = { ivory: FINISH.ivory, dark: FINISH.dark, slate: FINISH.slate, capsule: FINISH.capsuleWall, mineral: FINISH.mineral } as const;
+  const panelFields = { ivory: FINISH.ivory, dark: FINISH.dark, slate: FINISH.slate, capsule: FINISH.capsuleWall,
+    mineral: FINISH.mineral, charcoal: FINISH.charcoal, graphite: FINISH.graphite } as const;
   const plainFields = { ...panelFields, damaged: FINISH.damagedWall, steel: FINISH.zinc } as const;
   const member = (slot: string, width: number, height: number) => (k: Kit) =>
     k.cbox(slot, [0, (CELL - height) / 2, FRAME / 2], [width, height, FRAME]);

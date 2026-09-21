@@ -39,3 +39,17 @@ module kit: mirror-frame **1,680,012 bytes / 2.883 s**; corporate-sectors
 **1,675,266 bytes / 2.493 s**. Rendered Engine walkthroughs, runtime collision and
 seated NPC/quest acceptance are recorded by their consumer, not inferred from these
 producer tests.
+
+## Rendered finish correction, 0.35.1
+
+The Engine's first upper-floor renders exposed an incorrect wood slot covering the
+corporate-sectors, mirror-frame and mirror-shutters corridor fields. The corrected
+recipes use actual charcoal corporate panels or graphite wall panels; deliberate
+furniture timber and family frame/floor distinctions remain. Nine targeted architecture
+and real-family tests pass, including the actual generated wall material slots, and
+typecheck passes.
+
+Regenerated Engine screenshots were inspected in
+`engine/out/diagnostics/family-panel-final/review-{corporate-sectors,mirror-frame,mirror-shutters}-upper.png`.
+All three show neutral panel fields without wood grain. Their render report records
+zero browser errors, unresolved materials or unknown variants.

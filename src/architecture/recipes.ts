@@ -6,17 +6,17 @@ import type { Family, RoomFinish } from '../placements/finish.js';
 export interface InteriorRecipe {
     id: string;
     frontage: [number, number];
-    field: 'ivory' | 'dark' | 'mineral';
+    field: 'ivory' | 'dark' | 'mineral' | 'charcoal' | 'graphite';
     frame: 'timber' | 'ivory' | 'steel' | 'graphite';
     floor: 'stone' | 'plank' | 'obsidian' | 'marble';
 }
 
 export const INTERIOR_RECIPES: readonly InteriorRecipe[] = [
     { id: 'balcony-grid', frontage: [9, 11], field: 'mineral', frame: 'graphite', floor: 'stone' },
-    { id: 'corporate-sectors', frontage: [10, 14], field: 'dark', frame: 'steel', floor: 'obsidian' },
+    { id: 'corporate-sectors', frontage: [10, 14], field: 'charcoal', frame: 'steel', floor: 'obsidian' },
     { id: 'faceted-bays', frontage: [8, 10], field: 'ivory', frame: 'timber', floor: 'stone' },
-    { id: 'mirror-frame', frontage: [8, 12], field: 'dark', frame: 'ivory', floor: 'marble' },
-    { id: 'mirror-shutters', frontage: [6, 9], field: 'dark', frame: 'steel', floor: 'stone' },
+    { id: 'mirror-frame', frontage: [8, 12], field: 'graphite', frame: 'ivory', floor: 'marble' },
+    { id: 'mirror-shutters', frontage: [6, 9], field: 'charcoal', frame: 'steel', floor: 'stone' },
     { id: 'white-grid', frontage: [7, 9], field: 'ivory', frame: 'steel', floor: 'marble' },
     { id: 'garden-taper', frontage: [10, 12], field: 'ivory', frame: 'timber', floor: 'plank' },
     { id: 'rounded-corner', frontage: [8, 12], field: 'ivory', frame: 'timber', floor: 'marble' },
@@ -64,7 +64,7 @@ export function architectureFinish(request: InteriorRequest, family: Family, roo
     const cool = recipe.frame === 'steel' || recipe.frame === 'graphite';
     return { ...base,
         ...(!service ? { field: `wall-field-${recipe.field}`, floor: `floor-slab-${recipe.floor}`,
-            ceiling: `ceiling-field-${recipe.field === 'dark' ? 'dark' : 'light'}` } : {}),
+            ceiling: `ceiling-field-${['dark', 'charcoal', 'graphite'].includes(recipe.field) ? 'dark' : 'light'}` } : {}),
         ...(base.band ? {band: `ceiling-band-${recipe.frame}`} : {}),
         cove: `ceiling-cove-${recipe.frame === 'graphite' ? 'graphite' : cool ? 'steel' : 'timber'}`,
         spot: cool ? 'ceiling-spot-cool' : base.spot,
