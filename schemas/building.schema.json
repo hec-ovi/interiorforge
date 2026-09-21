@@ -5,6 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "architecture": { "type": "string", "description": "Exterior architecture selecting the paired interior recipe." },
     "version": {
       "const": 1
     },
@@ -82,10 +83,12 @@
           "minLength": 1
         }
       },
-      "description": "a two floor building publishes ground and crown only",
+      "patternProperties": {
+        "^floor-[0-9]+$": { "type": "string", "minLength": 1 }
+      },
+      "description": "Repeated floors share a layout; distinct intermediate plates use floor-<index>. Single-floor buildings publish only ground.",
       "required": [
-        "ground",
-        "crown"
+        "ground"
       ]
     },
     "floors": {
@@ -98,11 +101,8 @@
             "type": "integer"
           },
           "layout": {
-            "enum": [
-              "ground",
-              "middle",
-              "crown"
-            ]
+            "type": "string",
+            "pattern": "^(ground|middle|crown|floor-[0-9]+)$"
           },
           "elevation": {
             "type": "number"
@@ -151,7 +151,7 @@
           "openings"
         ]
       },
-      "minItems": 3
+      "minItems": 1
     },
     "connectors": {
       "$ref": "npc.schema.json#/properties/nav/properties/connectors"

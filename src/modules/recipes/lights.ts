@@ -17,7 +17,7 @@ export const lightRecipes: RecipeSet = (add) => {
     k.cbox(FINISH.lensCool, [0, -0.005, 0], [0.48, 0.005, 0.06]);
   });
   // a lit cove: the fascia hangs from the ceiling plane and the lens on top washes it
-  for (const [name, fascia, lens] of [["timber", FINISH.timber, FINISH.lensWarm], ["steel", FINISH.steel, FINISH.lensCool]] as const) {
+  for (const [name, fascia, lens] of [["timber", FINISH.timber, FINISH.lensWarm], ["steel", FINISH.steel, FINISH.lensCool], ["graphite", FINISH.black, FINISH.lensCool]] as const) {
     add(`ceiling-cove-${name}`, (k) => {
       k.cbox(fascia, [0, -0.06, 0], [0.5, 0.26, 0.03]);
       k.cbox(lens, [0, 0, 0], [0.5, 0.012, 0.05]);

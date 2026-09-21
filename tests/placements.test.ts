@@ -425,26 +425,27 @@ it('frames every wall face a room owns, its own face on the shell included, with
     const lines = layout.placements.filter(p => p.module?.startsWith('wall-light-line'));
     expect(fields.length).toBeGreaterThan(0);
     for (const field of fields) {
-        // the field is the backing the frame stands on: the whole run, floor to ceiling
+        // Stair enclosures close the service band as well as the occupied room height.
+        const height = field.connector?.startsWith('stair-') ? layout.floor.height : ceiling;
         expect(field.position[1]).toBeCloseTo(0, 6);
-        expect(field.scale[1] * .5).toBeCloseTo(ceiling, 5);
+        expect(field.scale[1] * .5).toBeCloseTo(height, 5);
         const half = field.scale[0] * .25;
         for (const end of [-1, 1]) {
             const t = alongOf(field) + end * (half - .25);
-            for (const y of [0, ceiling - .5]) {
+            for (const y of [0, height - .5]) {
                 expect(corners.some(c => same(c.rotationY, field.rotationY) && same(c.position[1], y) && same(acrossOf(c), acrossOf(field)) && same(alongOf(c), t)),
                     `${field.id} corner ${end} at ${y}`).toBe(true);
             }
             expect(stiles.some(c => same(c.rotationY, field.rotationY) && same(c.position[1], .5) && same(acrossOf(c), acrossOf(field)) && same(alongOf(c), t)),
                 `${field.id} stile ${end}`).toBe(true);
         }
-        for (const y of [0, ceiling - .5]) {
+        for (const y of [0, height - .5]) {
             const rail = rails.find(r => same(r.rotationY, field.rotationY) && same(r.position[1], y) && same(acrossOf(r), acrossOf(field)) && same(alongOf(r), alongOf(field)))!;
             expect(rail, `${field.id} rail at ${y}`).toBeDefined();
             expect(rail.scale[0] * .5).toBeCloseTo(field.scale[0] * .5 - 1, 5);
         }
         // Lit joints at the bottom and top of the run, each a published emitter.
-        for (const y of [.5, ceiling - .5]) {
+        for (const y of [.5, height - .5]) {
             const line = lines.find(l => same(l.rotationY, field.rotationY) && same(l.position[1], y) && same(alongOf(l), alongOf(field)) && Math.abs(acrossOf(l) - acrossOf(field)) < .2)!;
             expect(line, `${field.id} line at ${y}`).toBeDefined();
             expect(layout.floor.lights.find(light => light.id === line.id)?.kind).toBe('cove');

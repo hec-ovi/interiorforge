@@ -1,6 +1,19 @@
-# Interior 0.33.0
+# Interior 0.35.0
 
-Places shared room modules and catalog furniture in three reusable building layouts.
+Places shared room modules and catalog furniture in reusable building layouts.
+
+## Architectural pairing
+
+Every named Exterior architecture has a registered Interior recipe in
+`src/architecture/recipes.ts`, selected automatically from `blueprint.assembly.architecture`.
+`INTERIOR_RECIPES` and `interiorRecipe(request)` expose that registry. Each recipe owns
+its preferred frontage widths, wall/frame palette, floor finish and ceiling treatment;
+the common planner still enforces the exact shell openings, circulation and core.
+The building output publishes optional `architecture`, identifying the chosen recipe.
+Unlabelled legacy shells keep their existing generic interiors. Explicit floor
+assignments always win; otherwise shared commercial/residential shells take the
+actual parcel's office, home or hotel program, with a lobby at ground level.
+Tier and industrial-use rules remain authoritative over luxury finishes.
 
 ## Calls
 
@@ -23,8 +36,11 @@ index zero, and one storey per assignment. Basements stay closed and the lowest
 above-ground floor is the ground layout, whatever index it carries. Two floors publish `ground` and `crown` alone, and
 a stack whose plates hold no vertical core opens as its ground floor alone, with no
 connectors. The manifest names the layouts it publishes. An irregular outline is read through its
-`roomEnvelope`. Every middle floor must share its outline,
-height, doors and explicit program. Windows vary per floor by design, and so do opening
+`roomEnvelope`. Intermediate floors share a layout only when their outline, room envelope,
+height, doors and program agree. A differing intermediate floor publishes `floor-<index>`;
+later floors with that same construction and program can reuse it. This preserves tapered
+landmark plates and connection floors without projecting lower rooms outside their shell.
+Windows vary per floor by design, and so do opening
 IDs and exterior dressing (material, panes, glazing, scenery, section ids). Default
 programs derive from blueprint kinds, with the first middle floor defining its program;
 a generic `residential` plan slug takes the parcel's own program in a corporate, office
@@ -34,7 +50,7 @@ generation consumes the assembled blueprint. No shell, texture or furniture geom
 
 ## Files and frames
 
-`npm run modules -- --out <dir>` writes 72 shared GLBs and `modules.json`, following
+`npm run modules -- --out <dir>` writes shared GLBs and `modules.json`, following
 [modules.schema.json](schemas/modules.schema.json). Each entry gives `id`, relative
 `file`, bounds `size` in XYZ metres, `origin` measured from bounds minimum to the
 authored zero, `materialSlots`, triangle count and complete file byte count. GLBs
@@ -45,11 +61,12 @@ published `tiling.worldSize` repeat, read from the sibling Materials theme when 
 present. The catalog is published once for the city.
 
 `npm run generate -- --request request.json --out <dir>` writes `building.json`
-and `layouts/ground.json`, `layouts/middle.json`, `layouts/crown.json`.
+and each declared `layouts/<id>.json`: `ground`, `middle`, `crown`, plus `floor-<index>`
+where an intermediate plate or program differs. Consumers load the manifest's entries.
 [Building schema](schemas/building.schema.json),
 [layout schema](schemas/floor-placement.schema.json), [types](src/placements/types.ts).
-Floor zero uses ground, indices 1 through F minus 2 use middle, and F minus 1 uses
-crown; a two floor building has no middle layout and writes two files.
+The lowest floor uses ground, ordinary intermediate floors use middle, and the highest
+uses crown; a two floor building has no middle layout and writes two files.
 Each layout contains floor metadata, source openings, placements and NPC data.
 
 Placements name exactly one `module` or `prop`, an instance `id`, `room`, XYZ
@@ -76,8 +93,17 @@ families (damaged, industrial) take one fitted plain field instead. An office, m
 executive room looks onto public space through a glass field in the same frame. A frame
 band always contrasts its field: walnut on the light walls, ivory on the dark ones.
 
+For paired `balcony-grid`, `corporate-sectors`, `faceted-bays`, `white-grid`,
+`mirror-shutters`, `mirror-frame` and `garden-taper` blueprints with a room envelope, Exterior owns
+the closed inner facade, window frames and finished returns. Interior keeps those
+exact surfaces instead of adding scaled window-return rings or a second wall around
+the inset construction rectangle. That rectangle bounds room partitions; the band
+out to the real facade remains open. Core enclosures retain their walls. The rule
+uses each generated blueprint and applies at every supported footprint and floor count.
+
 A room's face on the shell is cut by every opening carried by any floor that reuses this
-layout, so one lined run serves floors whose windows sit elsewhere; an angled facade edge
+layout, projected inward onto each facing lining even when a recessed or curved facade
+stands metres beyond the room envelope, so one lined run serves floors whose windows sit elsewhere; an angled facade edge
 keeps the shell's own face.
 
 Floors are one fitted slab per room rectangle over a dark screed (stone, obsidian, marble
@@ -109,7 +135,7 @@ stays dim by design.
 Every light record has a module standing at it, and every lit module has a record: spots,
 strips and coves from the room plan, the frames' joints from the walls, and furniture
 lenses published with their `furniture` id. Furniture kinds with a built-in module
-(desks, counters, kitchen runs, beds with planted headboards, wardrobes, showers, basins,
+(desks, counters, kitchen runs, beds with planted headboards, wardrobes, showers, toilets, basins,
 lit planters, planted screens, aquarium walls, screens, art, shelves, stools, chairs,
 sofas, tables, capsule pods, crates) are scaled per axis to their record; the rest resolve
 catalog props. Programs: a lobby stands its desk on the axis of the wall facing the
@@ -130,6 +156,15 @@ adjacent backing planes. Door thresholds join the floor to source passages; a po
 Construction uses the 0.5 m grid. Measured facade attachments and closing boundaries
 retain exact source coordinates. Stair variants have 7 through 14 treads at 0.28 m
 pitch; their fitted rise stays between 0.16 and 0.18 m. Props scale uniformly.
+Stair risers and soffits are closed. Stairwell walls use a full-depth service finish at
+every tier and reach the full storey height. The lowest shaft has a complete finished
+floor; landings reach partition lines beneath the wall finish. Shafts without an onward
+flight have a ceiling. Arrival landings and doorway thresholds meet without uncovered strips.
+Partition casings use separate `door-jamb` and `door-header` modules with fixed
+80 mm members; wall cutouts follow their outer bounds to avoid coincident surfaces.
+Threshold pieces fill only uncovered floor area. Lift thresholds meet the car floor.
+A fitted roof door can face either enclosure axis; its landing and navigation
+entry use that face's actual width or depth.
 Prop IDs resolve through the existing [catalog](src/assets/catalog.json), whose
 `modelUri` is relative to that catalog.
 
@@ -173,8 +208,8 @@ Identical input and resource catalogs produce identical JSON and module bytes.
 
 | Error code | Meaning |
 | --- | --- |
-| `E_BLUEPRINT_INVALID` | Invalid schema, opening overlap or incompatible reusable floors |
-| `E_ASSIGNMENT_INVALID` | Incomplete assignments, differing middle programs or multiple storeys |
+| `E_BLUEPRINT_INVALID` | Invalid schema, opening overlap or unsupported construction axes |
+| `E_ASSIGNMENT_INVALID` | Incomplete assignments or multiple storeys |
 | `E_FLOOR_TOO_SMALL` | Floor cannot hold one room beside its core and circulation |
 | `E_UNREACHABLE_SPACE` | Circulation, door, stair or anchor fails clearance; an unreachable room is dropped instead |
 | `E_SHELL_BREACH` | Module geometry or prop bounds reach forbidden shell space |

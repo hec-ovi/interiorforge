@@ -15,21 +15,20 @@ import { stairEntryHole } from '../geometry/stairs.js';
 import { elevatorDoorHole } from '../geometry/core-geo.js';
 import type { PlacementBuilder } from './builder.js';
 import { GLAZED_ROOMS, type RoomFinish } from './finish.js';
+import { shellOwnsFacade } from '../architecture/recipes.js';
 
 /** Fixed frame piece: corners are one cell, edges one cell wide. */
 const PIECE = 0.5;
 /** The shortest run and height a nine-slice frame fits; anything less is a plain field. */
 const MIN_FRAME = 3 * PIECE;
 /** A partition casing stands just proud of the frames on both faces. */
-const CASING_DEPTH = 0.2;
+const CASING_MEMBER = 0.08;
 /** A light line stops this far short of the corners. */
 const LINE_GAP = 0.02;
 /** The bar stands proud of the frame face, off the partition line. */
 const LINE_OFFSET = 0.09;
 /** A lined boundary run clears this much beside every opening it passes. */
 const OPENING_MARGIN = 0.06;
-/** How far off a boundary run an opening still belongs to it. */
-const BOUNDARY_REACH = 0.7;
 const LINE_LUMENS_PER_METRE = 55;
 
 /** Public rooms an office's glazed partition looks onto. */
@@ -63,8 +62,8 @@ export function walls(
     };
     // The core's shafts and the sealed voids own their faces too: a stairwell's are drawn in the
     // corridor's finish, a lift shaft's and a void's are never seen.
-    type Owner = PlanRoom & { draw: boolean };
-    const pseudo = (id: string, rect: PlanRoom['rect'], draw: boolean): Owner => ({ id, kind: 'mechanical_room', rect, doors: [], draw });
+    type Owner = PlanRoom & { draw: boolean; structural?: boolean };
+    const pseudo = (id: string, rect: PlanRoom['rect'], draw: boolean): Owner => ({ id, kind: 'mechanical_room', rect, doors: [], draw, structural: true });
     const owners: Owner[] = [
         ...uv.rooms.map(room => ({ ...room, draw: true })),
         pseudo('stair-a', core.stairA, true), ...(core.stairB ? [pseudo('stair-b', core.stairB, true)] : []),
@@ -73,18 +72,37 @@ export function walls(
     ];
     for (const room of owners) {
         for (const raw of roomSegments(room, buildable)) {
+            // The paired facade is already closed by Exterior. The rectangular room
+            // envelope is an open perimeter band, not a wall to float behind its glass.
+            // Core solids keep their enclosing walls even when they meet that boundary.
+            if (raw.boundary && shellOwnsFacade(request, bp) && !room.structural) continue;
             // The shell's own face carries no partition reservation: its openings cut it instead.
-            const segment = raw.boundary ? raw : reserveFacadeEnds(raw, facade, bp, frame, depth);
+            const segment = raw.boundary || room.structural ? raw : reserveFacadeEnds(raw, facade, bp, frame, depth);
             if (!segment || !segment.edge) continue;
             const a = Math.max(segment.a, segment.axis === 'H' ? plate.x : plate.z), b = Math.min(segment.b, segment.axis === 'H' ? plate.x + plate.w : plate.z + plate.d);
             if (b <= a + 1e-6) continue;
             const side = segment.edge === 'v0' || segment.edge === 'u0' ? 1 : -1;
-            line(segment.axis, segment.c, !!segment.boundary).runs.push({ a, b, room: room.id, kind: room.kind, side, draw: room.draw });
+            // Core enclosures remain walls at the room-envelope boundary. Exterior
+            // windows cut facade linings, never the stairwell behind that facade.
+            line(segment.axis, segment.c, !!segment.boundary && !room.structural).runs.push({ a, b, room: room.id, kind: room.kind, side, draw: room.draw });
         }
         for (const door of room.doors) {
-            if (door.to === 'outside' || door.openFront) continue;
-            const [u, v] = doorUvPoint(door, room), head = doorHeadHeight(door.leaves, height);
-            line(door.edge.startsWith('v') ? 'H' : 'V', door.edge.startsWith('v') ? v : u).holes.push({ at: door.edge.startsWith('v') ? u : v, width: door.width, y0: 0, y1: head });
+            if (door.openFront) continue;
+            const [u, v] = doorUvPoint(door, room);
+            let head = doorHeadHeight(door.leaves, height);
+            const axis = door.edge.startsWith('v') ? 'H' : 'V', c = axis === 'H' ? v : u;
+            if (door.to === 'outside') {
+                const world = uvToWorld([u, v], frame);
+                const sources = bp.openings.filter(o => o.kind !== 'window').map(opening => {
+                    const p = edgePoint(edgeFrame(bp.outline, opening.edge), opening.offset + opening.width / 2, 0);
+                    return { opening, distance: Math.hypot(p[0] - world[0], p[1] - world[1]) };
+                }).sort((a,b) => a.distance-b.distance);
+                if (sources[0]) head = Math.min(height, openingSpan(sources[0].opening).height);
+            }
+            // Exterior connections also cut snapped room ends that lie farther from the
+            // construction boundary than a lining. Their published passage remains real.
+            const owner = [...lines.values()].find(l => l.axis === axis && Math.abs(l.c-c)<1e-6 && l.runs.some(run => run.room === room.id));
+            (owner ?? line(axis,c)).holes.push({ at: axis === 'H' ? u : v, width: door.width, y0: 0, y1: head });
         }
     }
     for (const h of [stairEntryHole(core, 'a', 0), ...(core.stairB ? [stairEntryHole(core, 'b', 0)] : []), ...core.elevators.map((_, i) => elevatorDoorHole(core, i, 0))])
@@ -92,11 +110,7 @@ export function walls(
     // Every opening any floor sharing this layout puts in the shell cuts the lining, so one
     // lined run serves a floor whose windows sit somewhere else.
     const boundaries = [...lines.values()].filter(l => l.boundary);
-    for (const cut of shellCuts(shared, frame, height)) {
-        const owner = boundaries.find(l => l.axis === cut.axis && Math.abs(l.c - cut.c) <= BOUNDARY_REACH
-            && l.runs.some(run => run.a < cut.hole.at + cut.hole.width / 2 && run.b > cut.hole.at - cut.hole.width / 2));
-        if (owner) owner.holes.push(cut.hole);
-    }
+    projectShellCuts(shared, frame, height, boundaries);
 
     const kinds = new Map(owners.map(room => [room.id, room.kind]));
     const lights: LightFixture[] = [];
@@ -104,8 +118,14 @@ export function walls(
         const holes = canonicalHoles(l.holes);
         for (const run of l.runs) {
             if (!run.draw) continue;
-            const finish = finishOf(run.room, run.kind);
-            const face = new Face(builder, l, run, frame, height, floor.elevation, finish, nextLineId, lights);
+            const baseFinish = finishOf(run.room, run.kind);
+            // A stair's structural enclosure reaches its flights at every height.
+            // The thin backing behind decorative frame joints leaves an open channel
+            // beside a flight; use the full-depth service finish for every tier.
+            const finish = run.room.startsWith('stair-') ? { ...baseFinish, frame: undefined } : baseFinish;
+            // Stairwell walls close the full storey, including the ceiling service band.
+            const runHeight = run.room.startsWith('stair-') ? bp.height : height;
+            const face = new Face(builder, l, run, frame, runHeight, floor.elevation, finish, nextLineId, lights);
             // The other side of this run: a glazed office looks through glass onto public space.
             const across = l.runs.find(other => other.side !== run.side && other.a < run.b - 1e-6 && other.b > run.a + 1e-6);
             const glazed = !!finish.frame && GLAZED_ROOMS.has(run.kind) && !!across && GLAZED_ONTO.has(kinds.get(across.room)!);
@@ -113,11 +133,13 @@ export function walls(
             // Glass is one plate seen from both rooms: the office side owns it, the public side keeps its frame.
             let cursor = run.a;
             for (const hole of holes) {
-                const lo = Math.max(run.a, hole.at - hole.width / 2), hi = Math.min(run.b, hole.at + hole.width / 2);
+                const casing = l.boundary ? 0 : CASING_MEMBER;
+                const lo = Math.max(run.a, hole.at - hole.width / 2 - casing), hi = Math.min(run.b, hole.at + hole.width / 2 + casing);
+                const head = hole.y1 + casing;
                 if (hi <= lo + 1e-6) continue;
                 if (lo > cursor + 1e-6) face.build(cursor, lo, glazed, mirror);
                 if (hole.y0 > 0.05) face.plain(lo, hi, 0, hole.y0);
-                if (height - hole.y1 > 0.05) face.plain(lo, hi, hole.y1, height);
+                if (runHeight - head > 0.05) face.plain(lo, hi, head, runHeight);
                 cursor = Math.max(cursor, hi);
             }
             if (run.b > cursor + 1e-6) face.build(cursor, run.b, glazed, mirror);
@@ -129,37 +151,52 @@ export function walls(
             const inside = (r: Run) => h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01;
             const owner = l.runs.find(r => r.draw && inside(r)) ?? l.runs.find(inside);
             if (!owner) continue;
+            const rotation = -frame.angleDeg * Math.PI / 180 + (l.axis === 'V' ? -Math.PI / 2 : 0);
+            for (const t of [h.at - h.width / 2 - CASING_MEMBER / 2, h.at + h.width / 2 + CASING_MEMBER / 2]) {
+                const [x, z] = uvToWorld(l.axis === 'H' ? [t, l.c] : [l.c, t], frame);
+                builder.module('door-jamb', owner.room, [x, h.y0, z], [1, (h.y1 - h.y0) / .5, 1], rotation);
+            }
             const [x, z] = uvToWorld(l.axis === 'H' ? [h.at, l.c] : [l.c, h.at], frame);
-            builder.module('door-frame', owner.room, [x, 0, z], [h.width, h.y1 / 2.5, CASING_DEPTH / .14], -frame.angleDeg * Math.PI / 180 + (l.axis === 'V' ? -Math.PI / 2 : 0));
+            builder.module('door-header', owner.room, [x, h.y1, z], [(h.width + 2 * CASING_MEMBER) / .5, 1, 1], rotation);
         }
     }
     return lights;
 }
 
-/** Every opening the shell carries on the floors sharing one layout, as a hole on the
- *  boundary line it stands in. An angled facade edge has no axis line and is skipped. */
-function shellCuts(floors: readonly BlueprintFloor[], frame: Frame, height: number): { axis: 'H' | 'V'; c: number; hole: WallHole }[] {
-    const out: { axis: 'H' | 'V'; c: number; hole: WallHole }[] = [];
+/** Projects openings along their inward normals onto the room's axis-aligned boundary
+ *  linings, including curved facade segments and independently snapped adjacent rooms. */
+function projectShellCuts(floors: readonly BlueprintFloor[], frame: Frame, height: number, boundaries: Line[]): void {
     for (const bp of floors) {
         for (const opening of bp.openings) {
             const span = openingSpan(opening);
             const face = edgeFrame(bp.outline, opening.edge);
             const a = worldToUv(edgePoint(face, span.from, 0), frame), b = worldToUv(edgePoint(face, span.to, 0), frame);
-            const axis: 'H' | 'V' | null = Math.abs(a[1] - b[1]) < 1e-6 ? 'H' : Math.abs(a[0] - b[0]) < 1e-6 ? 'V' : null;
-            if (!axis) continue;
-            const along = axis === 'H' ? [a[0], b[0]] : [a[1], b[1]];
-            const lo = Math.min(...along) - OPENING_MARGIN, hi = Math.max(...along) + OPENING_MARGIN;
-            out.push({ axis, c: axis === 'H' ? a[1] : a[0],
-                hole: { at: (lo + hi) / 2, width: hi - lo, y0: span.sill, y1: Math.min(height, span.sill + span.height) } });
+            const inward = worldToUv(edgePoint(face, span.from, 1), frame).map((v, i) => v - a[i]!) as Point;
+            const mid: Point = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+            // The room envelope can be metres behind recessed or curved glazing. Project
+            // the published opening inward onto each facing room boundary. Adjacent rooms
+            // can snap their linings to slightly different depths along one opening.
+            const candidates = boundaries.flatMap(line => {
+                const across = line.axis === 'H' ? 1 : 0, along = 1 - across;
+                if (Math.abs(inward[across]!) < 1e-6) return [];
+                const distance = (line.c - mid[across]!) / inward[across]!;
+                if (distance < -1e-6) return [];
+                const project = (p: Point) => p[along]! + (line.c - p[across]!) / inward[across]! * inward[along]!;
+                const lo = Math.min(project(a), project(b)) - OPENING_MARGIN;
+                const hi = Math.max(project(a), project(b)) + OPENING_MARGIN;
+                if (!line.runs.some(run => run.side * inward[across]! > 0
+                    && run.a < hi && run.b > lo)) return [];
+                return [{ line, distance, lo, hi }];
+            });
+            for (const owner of candidates) owner.line.holes.push({ at: (owner.lo + owner.hi) / 2, width: owner.hi - owner.lo,
+                y0: span.sill, y1: Math.min(height, span.sill + span.height) });
         }
     }
-    return out;
 }
 
-/** The clear rectangle an opening asks the lining to leave: its own field, widened to the
- *  cassette a pocket door's leaves retract into. */
+/** Glazing and usable door passages remain clear through the inset room lining. */
 function openingSpan(opening: Opening): { from: number; to: number; sill: number; height: number } {
-    const field = opening.kind === 'window' ? opening.glazing ?? opening : opening.door?.cassette ?? opening.door?.clearance ?? opening;
+    const field = opening.kind === 'window' ? opening.glazing ?? opening : opening.door?.clearance ?? opening;
     const sill = opening.kind === 'window' ? field.sill ?? 0 : 0;
     return { from: field.offset, to: field.offset + field.width, sill, height: field.height };
 }

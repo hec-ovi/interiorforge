@@ -42,6 +42,8 @@ Unit programs without a fitting suite retain their main room and omit its servic
 [building manifest](../../schemas/building.schema.json), with null for omission.
 `E_FLOOR_TOO_SMALL` means there is no room space beside the core and circulation.
 
+Doorways facing unstandable room slivers close before access repair; replacement
+openings retain a bounded body-clear approach on both owned sides.
 Architectural access uses continuous body sweeps and room ownership. Private unit
 routes use their unit and public rooms. Every room component and core approach must
 remain reachable. Repair doors must reduce unreachable cells without losing reached

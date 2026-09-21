@@ -98,5 +98,7 @@ function overlaps(a: UvRect, b: UvRect, gap = 0): boolean {
 }
 
 function rotation(edge: EdgeName): BathroomPlacement["rotationDeg"] {
+  // All sanitary modules have their back at -Z and their usable front at +Z.
+  // Positive glTF Y rotation sends +Z toward +U; the building frame is applied later.
   return edge === "v0" ? 0 : edge === "v1" ? 180 : edge === "u0" ? 90 : 270;
 }

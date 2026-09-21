@@ -1,4 +1,5 @@
 export { generate, generate as generateInterior } from './placements/generate.js';
+export { INTERIOR_RECIPES, interiorRecipe } from './architecture/recipes.js';
 export { writePlacements } from './placements/write.js';
 export { buildModules } from './modules/index.js';
 export { makeFixture, type FixtureOptions } from './blueprint/fixture.js';

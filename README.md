@@ -1,4 +1,4 @@
-# Interior 0.33.0
+# Interior 0.35.0
 
 A TypeScript generator for furnished buildings made from shared room modules.
 One building stores ground, middle and crown layouts. Every middle floor references
@@ -22,7 +22,7 @@ An omitted seed is random and can be reused.
 
 The city shares `modules.json`, its GLBs and the existing furniture catalog: panel
 frames, slabs, ceiling bands and fields, light housings, the core and built-in
-furniture, each wearing a Materials key. Each building has `building.json` and three
+furniture, each wearing a Materials key. Each building has `building.json` and shared
 layout JSON files. The Engine instances module and prop IDs using `position`,
 `rotationY`, `scale` and floor elevation. The preview uses those same placements,
 textured from the sibling Materials box; `?sample=hotel|restaurant|residence` opens a

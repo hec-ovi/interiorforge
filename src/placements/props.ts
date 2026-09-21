@@ -19,20 +19,23 @@ const LUXURY: Partial<Record<FurnitureKind, Fit>> = {
     counter: { module: 'fit-bar-counter', size: [3, 0.65, 1.1] }, kitchen_block: { module: 'fit-kitchen-run', size: [2.4, 0.65, 1.05] },
     bed_double: { module: 'fit-bed', size: [1.6, 2.1, 0.55] }, bed_single: { module: 'fit-bed', size: [1.6, 2.1, 0.55] },
     wardrobe: { module: 'fit-wardrobe', size: [1.6, 0.65, 2] }, shower: { module: 'fit-shower', size: [0.9, 0.9, 2] },
+    toilet: { module: 'fit-toilet', size: [0.4, 0.65, 0.75] },
     sink: { module: 'fit-basin', size: [0.5, 0.45, 0.85] }, plant: { module: 'fit-planter', size: [0.5, 0.5, 1.3] },
     room_divider: { module: 'fit-planted-screen', size: [2.5, 0.5, 2] }, ornament_wall: { module: 'fit-aquarium-wall', size: [3, 0.5, 2] },
     display_screen: { module: 'wall-screen', size: [1.2, 0.08, 0.7] }, wall_art: { module: 'wall-art', size: [0.7, 0.06, 1.05] },
     shelf: { module: 'fit-shelf', size: [1.8, 0.5, 2] }, wall_shelf: { module: 'wall-shelf', size: [1.2, 0.28, 0.4] },
 };
 const CAPSULE: Partial<Record<FurnitureKind, Fit>> = {
+    toilet: LUXURY.toilet!, sink: { module: 'fit-basin-steel', size: [0.5, 0.45, 0.85] },
     sleeping_pod: { module: 'fit-capsule-pod', size: [2.5, 1.5, 2] }, stool: LUXURY.stool!, bench: LUXURY.bench!,
     plant: LUXURY.plant!, shelf: LUXURY.shelf!, display_screen: LUXURY.display_screen!, wall_art: LUXURY.wall_art!,
 };
 const DAMAGED: Partial<Record<FurnitureKind, Fit>> = {
+    toilet: LUXURY.toilet!, sink: { module: 'fit-basin-worn', size: [0.5, 0.45, 0.85] },
     crate: { module: 'fit-crate', size: [0.62, 0.62, 0.55] }, display_screen: LUXURY.display_screen!, wall_art: LUXURY.wall_art!,
 };
 const BUILT_IN: Record<Family, Partial<Record<FurnitureKind, Fit>>> = {
-    luxury: LUXURY, capsule: CAPSULE, damaged: DAMAGED, industrial: { ...DAMAGED, shelf: LUXURY.shelf!, bench: LUXURY.bench! },
+    luxury: LUXURY, capsule: CAPSULE, damaged: DAMAGED, industrial: { ...DAMAGED, sink: CAPSULE.sink!, shelf: LUXURY.shelf!, bench: LUXURY.bench! },
 };
 
 /** Built-in modules and catalog props both own furniture anchors; furniture that fits

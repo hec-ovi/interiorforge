@@ -4,10 +4,11 @@ import { WalkGrid, type GridTransition } from "../core/grid.js";
 import type { RoomFootprint } from "../core/room-footprint.js";
 import { RigidFrame2D } from "../core/rigid-frame.js";
 import type { RoomKind } from "../core/types.js";
-import { BODY_CLEAR, SPINE_KINDS } from "./constants.js";
+import { AGENT_RADIUS, BODY_CLEAR, DOOR, SPINE_KINDS } from "./constants.js";
 import { ArchitectureDomain } from "./architecture-domain.js";
 import type { ArchitecturalGrid } from "./navgrid.js";
-import type { PlanRoom } from "./plan-types.js";
+import type { PlanDoor, PlanRoom } from "./plan-types.js";
+import { doorUvPoint } from "./plan-floor.js";
 import { roomAnchor, roomContains, roomPolygon } from "./room-shape.js";
 import { uvRectWorldBounds, uvToWorld, worldToUv, type Frame } from "./uv.js";
 
@@ -174,9 +175,30 @@ export class ArchitectureAccess {
   }
 }
 
+/** The two physical approaches to the actual mounted opening, in the layout frame. */
+export function doorApproaches(door: PlanDoor, room: PlanRoom): [Point, Point] {
+  const p = doorUvPoint(door, room);
+  const inward: Point = door.openFront?.inward
+    ?? (door.edge === "v0" ? [0, 1] : door.edge === "v1" ? [0, -1] : door.edge === "u0" ? [1, 0] : [-1, 0]);
+  const depth = DOOR.clearance - AGENT_RADIUS;
+  return [
+    [p[0] + inward[0] * depth, p[1] + inward[1] * depth],
+    [p[0] - inward[0] * depth, p[1] - inward[1] * depth],
+  ];
+}
+
 export function closestArchitectureCell(
   grid: WalkGrid, point: Point, room: PlanRoom | undefined, frame: Frame, maxDisplacement: number | null = null,
 ): number {
+  const cell = findArchitectureCell(grid, point, room, frame, maxDisplacement);
+  if (cell !== null) return cell;
+  throw new InteriorError("E_UNREACHABLE_SPACE", `no circulation approach for ${room?.id ?? "core"} within ${maxDisplacement ?? "room"} m of ${JSON.stringify(point)}`);
+}
+
+/** A missing bounded approach lets the architecture repair or close the doorway itself. */
+export function findArchitectureCell(
+  grid: WalkGrid, point: Point, room: PlanRoom | undefined, frame: Frame, maxDisplacement: number | null = null,
+): number | null {
   const [c0, r0] = grid.cellAt(point);
   const limit = maxDisplacement === null ? Math.max(grid.cols, grid.rows) : Math.ceil(maxDisplacement / grid.cellSize) + 1;
   for (let ring = 0; ring <= limit; ring++) {
@@ -193,5 +215,5 @@ export function closestArchitectureCell(
     }
     if (best !== -1) return best;
   }
-  throw new InteriorError("E_UNREACHABLE_SPACE", `no circulation approach for ${room?.id ?? "core"} within ${maxDisplacement ?? "room"} m of ${JSON.stringify(point)}`);
+  return null;
 }

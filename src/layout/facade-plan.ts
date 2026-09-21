@@ -13,6 +13,7 @@ import { roomCoversRect, sharedRoomEdges } from "./room-shape.js";
 import { doorBetween, MIN_STRETCH, type IdGen } from "./rooms.js";
 import type { UvRect } from "./uv.js";
 import { fitServiceProgram, type ProgramChange } from "./service-program.js";
+import { interiorRecipe } from '../architecture/recipes.js';
 
 const UNIT_PROGRAM: Partial<Record<FloorKind, { main: RoomKind; service: RoomKind }>> = {
   apartment: { main: "studio_main", service: "bathroom" },
@@ -69,7 +70,8 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
     for (const [strip, side] of strips) {
       if (strip.lv < MIN_UNIT.depth) continue;
       const cuts = seats.cuts(strip, side, MIN_UNIT.endCommon);
-      const slots = facadeSlots(cuts, rng.range(8, 12), (low, high) => {
+      const frontage = interiorRecipe(request)?.frontage ?? [8, 12];
+      const slots = facadeSlots(cuts, rng.range(frontage[0]!, frontage[1]!), (low, high) => {
         const rect = access.unit(strip, side, low, high);
         if (rect.lu < MIN_UNIT.width || rect.lv < MIN_UNIT.depth || occupied.some(cut => overlaps(rect, cut))) return false;
         const polygon = clipPolygonToRect(plate, toRect(rect));

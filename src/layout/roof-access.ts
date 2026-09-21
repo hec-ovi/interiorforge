@@ -29,10 +29,11 @@ export function planRoofAccess(request: InteriorRequest, core: CorePlan): RoofAc
   const normalLength = Math.hypot(...bulkhead.doorNormal);
   const axisDot = (bulkhead.axis[0] * core.frame.cos + bulkhead.axis[1] * core.frame.sin) / (axisLength || 1);
   const frameCross: Point = [-core.frame.sin, core.frame.cos];
-  const normalDot = (bulkhead.doorNormal[0] * frameCross[0] + bulkhead.doorNormal[1] * frameCross[1]) / (normalLength || 1);
+  const normalU = (bulkhead.doorNormal[0] * core.frame.cos + bulkhead.doorNormal[1] * core.frame.sin) / (normalLength || 1);
+  const normalV = (bulkhead.doorNormal[0] * frameCross[0] + bulkhead.doorNormal[1] * frameCross[1]) / (normalLength || 1);
   // The housing is Exterior's; when the core could not stand under it the building still
   // opens and the roof stays unreachable. Mismatches are filed in docs/ISSUES.md.
-  if (Math.abs(axisDot) < 0.999 || Math.abs(normalDot) < 0.999) return null;
+  if (Math.abs(axisDot) < 0.999 || Math.max(Math.abs(normalU), Math.abs(normalV)) < 0.999) return null;
   if (bulkhead.doorHeight + 1e-6 < STAIR.headroom) {
     throw new InteriorError(
       "E_UNREACHABLE_SPACE",
@@ -49,27 +50,25 @@ export function planRoofAccess(request: InteriorRequest, core: CorePlan): RoofAc
     || Math.abs(shaftCenterV - centerV) + shaft.lv / 2 > bulkhead.depth / 2 + 1e-6
   ) return null;
 
-  const side = normalDot < 0 ? -1 : 1;
-  const doorV = centerV + side * bulkhead.depth / 2;
-  // Stair geometry starts half a wall inside the shaft. Meet that finished edge so the
-  // platform and arrival landing share a full-width boundary instead of a narrow void.
-  const shaftV = side < 0 ? shaft.v + WALL / 2 : shaft.v + shaft.lv - WALL / 2;
-  const v0 = Math.min(doorV, shaftV);
-  const v1 = Math.max(doorV, shaftV);
-  const landingUv: Rect = {
-    x: centerU - bulkhead.width / 2 + WALL,
-    z: v0,
-    w: bulkhead.width - 2 * WALL,
-    d: v1 - v0,
-  };
-  if (landingUv.w + 1e-6 < STAIR.landing || landingUv.d < 0.05) {
+  const alongU = Math.abs(normalU) > .999;
+  const side = (alongU ? normalU : normalV) < 0 ? -1 : 1;
+  const doorAt = (alongU ? centerU : centerV) + side * (alongU ? bulkhead.width : bulkhead.depth) / 2;
+  // The navigable platform meets the clear landing inside the wall. Its structural
+  // floor may overlap the shaft slab beneath that finish; placement takes their union.
+  const shaftAt = alongU ? (side < 0 ? shaft.u + WALL / 2 : shaft.u + shaft.lu - WALL / 2)
+    : (side < 0 ? shaft.v + WALL / 2 : shaft.v + shaft.lv - WALL / 2);
+  const low = Math.min(doorAt, shaftAt), high = Math.max(doorAt, shaftAt);
+  const landingUv: Rect = alongU
+    ? { x: low, z: centerV - bulkhead.depth / 2 + WALL, w: high - low, d: bulkhead.depth - 2 * WALL }
+    : { x: centerU - bulkhead.width / 2 + WALL, z: low, w: bulkhead.width - 2 * WALL, d: high - low };
+  if ((alongU ? landingUv.d : landingUv.w) + 1e-6 < STAIR.landing || high - low < 0.05) {
     throw new InteriorError("E_UNREACHABLE_SPACE", "roof arrival landing does not fit between stair-a and the enclosure door");
   }
 
   const normal: Point = [bulkhead.doorNormal[0] / normalLength, bulkhead.doorNormal[1] / normalLength];
   const doorPosition: Point = [
-    bulkhead.center[0] + normal[0] * bulkhead.depth / 2,
-    bulkhead.center[1] + normal[1] * bulkhead.depth / 2,
+    bulkhead.center[0] + normal[0] * (alongU ? bulkhead.width : bulkhead.depth) / 2,
+    bulkhead.center[1] + normal[1] * (alongU ? bulkhead.width : bulkhead.depth) / 2,
   ];
   const entry: Point = [
     doorPosition[0] + normal[0] * (AGENT_RADIUS + 0.3),

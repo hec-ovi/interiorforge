@@ -4,9 +4,13 @@ import { shellWallDepth } from '../layout/shell.js';
 import { PlacementBuilder } from './builder.js';
 import { openings } from './openings.js';
 import type { FloorPlacement, Placement } from './types.js';
+import { shellOwnsFacade } from '../architecture/recipes.js';
 /** Window returns of one floor, from its own openings. Windows vary per floor, so they stay
  *  out of the reusable layout and ride with the floor that owns them. */
 export function windowTreatments(bp: BlueprintFloor, layout: FloorPlacement, request: InteriorRequest): Placement[] {
+    // Keep the shell's exact glazing and finished returns. A second scaled ring shrinks
+    // the clear field, clips curved panes and leaves an unconnected frame behind it.
+    if (shellOwnsFacade(request, bp)) return [];
     const builder = new PlacementBuilder();
     openings(builder, { ...bp, elevation: 0 }, layout.floor, request, 'windows');
     assertInsideShell(builder.mesh, [{ ...bp, elevation: 0 }], shellWallDepth(request.blueprint.facade));

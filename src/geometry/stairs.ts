@@ -98,6 +98,7 @@ export interface RunStep extends UvStep {
  *  underside of the flight passing overhead. Infinity when nothing passes over. */
 export function minHeadroom(steps: readonly RunStep[]): number {
   const sorted = [...steps].sort((a, b) => a.y - b.y);
+  const maxSlab = Math.max(0, ...steps.map(step => step.slab));
   let worst = Infinity;
   for (let i = 0; i < sorted.length; i++) {
     const below = sorted[i]!;
@@ -105,7 +106,7 @@ export function minHeadroom(steps: readonly RunStep[]): number {
       const above = sorted[j]!;
       const rise = above.y - below.y;
       if (rise < OVERHEAD_MIN_RISE) continue;
-      if (rise - STAIR.slab >= worst) break; // sorted by y: nothing closer follows
+      if (rise - maxSlab >= worst) break; // sorted by y: nothing closer follows
       if (!overlaps(below, above)) continue;
       worst = rise - above.slab;
     }
@@ -114,7 +115,12 @@ export function minHeadroom(steps: readonly RunStep[]): number {
 }
 
 function overlaps(a: UvStep, b: UvStep): boolean {
-  return a.u < b.u + b.lu && b.u < a.u + a.lu && a.v < b.v + b.lv && b.v < a.v + a.lv;
+  // Neighbouring tread edges meet exactly in the authored run, but subtracting
+  // positions at its far end can produce microscopic numerical intersections.
+  // An edge contact is not an overhead surface over the walkable tread.
+  const eps = 1e-6;
+  return a.u < b.u + b.lu - eps && b.u < a.u + a.lu - eps
+    && a.v < b.v + b.lv - eps && b.v < a.v + a.lv - eps;
 }
 
 /** Entry hole for a stair shaft, uv wall-line format, from the shared access definition. */
@@ -137,7 +143,7 @@ export function entryAtLowEnd(core: CorePlan, stair: "a" | "b"): boolean {
 
 /** Clear height over a stair run repeated on the floor above, for one floor height. */
 export function stairRunHeadroom(shaft: UvRect, entryLowEnd: boolean, climb: number): number {
-  const slab = 0.15 * planFlights(climb).rise / 0.17;
+  const slab = 0.32 * planFlights(climb).rise / 0.17;
   const run = [baseLanding(shaft, entryLowEnd, 0), ...computeStairSteps(shaft, entryLowEnd, 0, climb)]
     .map(step => ({ ...step, slab }));
   return minHeadroom([...run, ...run.map(step => ({ ...step, y: step.y + climb }))]);

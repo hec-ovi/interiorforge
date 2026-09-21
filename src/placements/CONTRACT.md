@@ -1,17 +1,20 @@
 # Placements
 
-Converts three planned floors into shared module and catalog prop transforms.
+Converts distinct planned floors into shared module and catalog prop transforms.
 
 `generate(request)` accepts [request](../../schemas/request.schema.json) and returns
-[building](../../schemas/building.schema.json) plus three
+[building](../../schemas/building.schema.json) plus its declared
 [layouts](../../schemas/floor-placement.schema.json). [Types](types.ts) define the
-same transport. `writePlacements(result, out)` writes four compact JSON files.
+same transport. `writePlacements(result, out)` writes the manifest and its compact layout JSON files.
 
-Generation plans ground, first middle and crown once; two floors plan ground and crown
-alone, and a stack with no room for a core plans its ground floor alone. All middle floors reference
-that middle layout. Their outline, height, doors and explicit programs must match;
+Generation plans each distinct construction plate and program once; equal intermediate
+floors share `middle`, differing plates publish `floor-<index>`, and later equal plates
+reuse the same declared layout. Ground and crown retain their own identities. Two floors plan ground and crown
+alone, and a stack with no room for a core plans its ground floor alone. Shared layouts
+have identical outline, envelope, height, doors and programs;
 the manifest maps the layout's door IDs to each floor's own. Windows vary per floor,
-so each floor publishes its own window returns in `building.floors[].treatments`.
+so a shell without authored inner returns publishes its per-floor window returns in
+`building.floors[].treatments`. Paired architecture shells own their finished facade.
 
 The building's [family](finish.ts) (luxury, capsule, damaged, industrial) and each room's
 kind pick its modules. [Walls](walls.ts) build one face per room on every run it owns,

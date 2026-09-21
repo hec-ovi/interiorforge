@@ -41,7 +41,7 @@
             ]
           },
           "position": { "$ref": "#/$defs/point2" },
-          "facingDeg": { "type": "number" },
+          "facingDeg": { "type": "number", "description": "Positive-Y yaw in degrees: 0 faces +Z, 90 faces +X. Already in the building blueprint frame." },
           "furniture": { "type": "string", "description": "furniture id being used, when the anchor belongs to one" }
         }
       }

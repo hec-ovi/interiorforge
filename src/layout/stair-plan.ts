@@ -8,16 +8,19 @@ export interface FlightPlan {
   rise: number;
 }
 
-/** Split a climb into equal flights with risers inside the comfort band. */
+/** Split a climb into the fewest equal flights with risers inside the comfort band. */
 export function planFlights(climb: number): FlightPlan {
   const { min, ideal, max } = STAIR.riser;
   const idealCount = climb / ideal;
-  const flights = 2 * Math.ceil(idealCount / (2 * STAIR.maxRisersPerFlight));
   const low = Math.ceil(climb / max - 1e-9);
   const high = Math.floor(climb / min + 1e-9);
+  // Use the tallest allowed riser to decide whether another pair of flights is
+  // necessary. A 5 m climb fits two flights of 14 at 0.1786 m: sizing from the
+  // ideal 0.17 m instead needlessly stacks four short flights in the same shaft.
+  const flights = 2 * Math.ceil(low / (2 * STAIR.maxRisersPerFlight));
   let total: number | null = null;
   for (let count = low; count <= high; count++) {
-    if (count % flights !== 0) continue;
+    if (count % flights !== 0 || count / flights > STAIR.maxRisersPerFlight) continue;
     if (total === null || Math.abs(count - idealCount) < Math.abs(total - idealCount)) total = count;
   }
   const resolved = total ?? Math.max(flights, Math.round(idealCount / flights) * flights);

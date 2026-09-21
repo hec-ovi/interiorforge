@@ -1,11 +1,11 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
 import { DOOR, SPINE_KINDS } from "./constants.js";
-import { ArchitectureAccess, accessPermits, closestArchitectureCell, commonTransit } from "./architecture-access.js";
+import { ArchitectureAccess, accessPermits, closestArchitectureCell, commonTransit, doorApproaches, findArchitectureCell } from "./architecture-access.js";
 import type { CorePlan } from "./core-plan.js";
 import { buildNavGrid } from "./navgrid.js";
 import { elevatorWaitUv, stairEntryUv } from "./core-plan.js";
-import type { PlanRoom } from "./plan-types.js";
+import type { PlanDoor, PlanRoom } from "./plan-types.js";
 import { doorBetween, type IdGen } from "./rooms.js";
 import { fitDoorToStretch } from "./tile-fit.js";
 import type { FloorBounds } from "./shell.js";
@@ -31,12 +31,22 @@ export function validateArchitecture(
       access = rebuild();
       continue;
     }
+    // A taper or a repaired polygon can leave an old doorway facing an unusable
+    // sliver. Close that opening before checking connectivity; useful replacement
+    // doors below must keep both physical approaches, as circulation requires.
+    const obsolete = rooms.flatMap(room => room.doors.map(door => ({ room, door })))
+      .find(({ room, door }) => !doorApproachesFit(access, room, door, rooms, core));
+    if (obsolete) {
+      for (const room of rooms) room.doors = room.doors.filter(door => door.id !== obsolete.door.id);
+      access = rebuild();
+      continue;
+    }
     const unreached = rooms.filter(room => missing(access, room) > 0);
     if (unreached.length === 0) {
       ensureCoreReached(access, core, floorIndex);
       return access;
     }
-    const fixed = repairOne(unreached, rooms, access, ids, bounds.inner, rebuild);
+    const fixed = repairOne(unreached, rooms, access, ids, bounds.inner, core, rebuild);
     if (!fixed) {
       // No wall can open into it: the floor keeps its circulation and loses the room,
       // rather than the building staying closed over one unreachable corner.
@@ -52,6 +62,14 @@ export function validateArchitecture(
     }
     access = fixed;
   }
+}
+
+function doorApproachesFit(access: ArchitectureAccess, room: PlanRoom, door: PlanDoor, rooms: PlanRoom[], core: CorePlan): boolean {
+  const other = rooms.find(candidate => candidate.id === door.to);
+  if (!other) return true; // Exterior and core thresholds have their own physical checks.
+  const approaches = doorApproaches(door, room);
+  return [room, other].every((owner, i) => findArchitectureCell(access.gridFor(owner),
+    uvToWorld(approaches[i]!, core.frame), owner, core.frame, DOOR.clearance / 2) !== null);
 }
 
 function missing(access: ArchitectureAccess, room: PlanRoom): number {
@@ -85,7 +103,7 @@ const STRETCH_PROBES: [number, number][] = [
 
 function repairOne(
   unreached: PlanRoom[], rooms: PlanRoom[], access: ArchitectureAccess,
-  ids: IdGen, plate: readonly Point[], rebuild: () => ArchitectureAccess,
+  ids: IdGen, plate: readonly Point[], core: CorePlan, rebuild: () => ArchitectureAccess,
 ): ArchitectureAccess | null {
   const deficit = rooms.reduce((count, room) => count + missing(access, room), 0);
   for (const room of unreached) {
@@ -109,6 +127,10 @@ function repairOne(
         }
         if (existing.every(d => Math.abs(d.at - door.at) > 0.7)) {
           const candidate = rebuild();
+          if (!doorApproachesFit(candidate, room, door, rooms, core)) {
+            room.doors.pop();
+            continue;
+          }
           const remaining = rooms.reduce((count, item) => count + missing(candidate, item), 0);
           // A strictly decreasing integer deficit terminates without a room-count limit.
           const preserves = remaining < deficit && rooms.every(item => {

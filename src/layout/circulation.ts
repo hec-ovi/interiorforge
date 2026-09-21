@@ -2,10 +2,9 @@ import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
 import type { WalkGrid } from "../core/grid.js";
 import { AGENT_RADIUS, DOOR } from "./constants.js";
-import { ArchitectureAccess, closestArchitectureCell } from "./architecture-access.js";
+import { ArchitectureAccess, closestArchitectureCell, doorApproaches } from "./architecture-access.js";
 import { circulationSweep } from "./circulation-sweep.js";
 import type { CorePlan } from "./core-plan.js";
-import { doorUvPoint } from "./plan-floor.js";
 import { elevatorWaitUv, stairEntryUv } from "./core-plan.js";
 import type { PlanRoom } from "./plan-types.js";
 import type { ArchitecturalGrid } from "./navgrid.js";
@@ -66,17 +65,13 @@ export function reserveCirculation(
   for (const room of rooms) {
     add(`room:${room.id}`, "room", room.id, uvToWorld(roomAnchor(room), core.frame), room);
     for (const door of room.doors) {
-      const p = doorUvPoint(door, room);
-      const inward: Point = door.openFront?.inward
-        ?? (door.edge === "v0" ? [0, 1] : door.edge === "v1" ? [0, -1] : door.edge === "u0" ? [1, 0] : [-1, 0]);
-      const depth = DOOR.clearance - AGENT_RADIUS;
-      const approach: Point = [p[0] + inward[0] * depth, p[1] + inward[1] * depth];
+      const [approach, opposite] = doorApproaches(door, room);
       // An entrance is approached anywhere across its leaf; a portal across the open band it crosses.
       add(`door:${door.id}:${room.id}`, door.to === "outside" ? "entrance" : "door", door.id, uvToWorld(approach, core.frame), room,
         door.to === "outside" ? Math.max(DOOR.clearance / 2, door.width / 2) : undefined);
       const other = rooms.find((candidate) => candidate.id === door.to);
       if (other) add(`door:${door.id}:${other.id}`, "door", door.id,
-        uvToWorld([p[0] - inward[0] * depth, p[1] - inward[1] * depth], core.frame), other);
+        uvToWorld(opposite, core.frame), other);
     }
   }
   add("core:stair-a", "stair", "stair-a", uvToWorld(stairEntryUv(core, "a"), core.frame));

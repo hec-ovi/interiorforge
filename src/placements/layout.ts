@@ -15,8 +15,12 @@ import { familyOf, roomFinish, type RoomFinish } from './finish.js';
 import { ceiling, rectangles, slabs, surface } from './surfaces.js';
 import { walls } from './walls.js';
 import { openings } from './openings.js';
-import { stairs } from './stairs.js';
+import { stairs, stairLandingRect } from './stairs.js';
 import { props } from './props.js';
+import { architectureFinish, interiorRecipe } from '../architecture/recipes.js';
+import { WALL } from '../layout/constants.js';
+import { subtractRect, thresholds } from './thresholds.js';
+import { elevatorDoorHole } from '../geometry/core-geo.js';
 
 export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: InteriorRequest, climb: number, roof?: RoofAccessPlan | null, shared: readonly BlueprintFloor[] = [bp]): PlacementBuilder {
     const floor = plan.floors.find(f => f.floor === bp.index)!, uv = plan.uvFloors.get(bp.index)!, core = plan.core;
@@ -26,7 +30,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     const family = familyOf(request.building.type, request.building.tier);
     const kinds = new Map<string, RoomKind>(floor.rooms.map(room => [room.id, room.kind]));
     const common = floor.rooms.find(room => room.kind === 'corridor' || room.kind === 'elevator_lobby' || room.kind === 'concourse')!;
-    const finishOf = (room: string, kind: RoomKind = kinds.get(room) ?? common.kind): RoomFinish => roomFinish(family, kind, floor.kind as FloorKind);
+    const finishOf = (room: string, kind: RoomKind = kinds.get(room) ?? common.kind): RoomFinish => architectureFinish(request, family, kind, roomFinish(family, kind, floor.kind as FloorKind));
     const tag = `f${bp.index < 0 ? `m${-bp.index}` : bp.index}`;
 
     for (const room of uv.rooms) {
@@ -45,24 +49,41 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
 
     // Every fixture the floor plan lit stands before the walls add their own lines.
     const planned = floor.lights.filter(light => !light.furniture);
+    if (['steel', 'graphite'].includes(interiorRecipe(request)?.frame ?? '')) {
+        for (const light of planned) { light.colorTemperatureK = 4000; delete light.color; }
+    }
     floor.lights.push(...walls(builder, floor, uv, core, bp, request, finishOf, tag, shared));
     // Every record the room publishes is in now, so each luminaire takes the share that
     // lands the room in its kind's illuminance band.
     balanceIllumination(uv.rooms.map(room => ({ id: room.id, kind: room.kind, area: roomArea(room, plate) })), floor.lights, request.building.tier);
     openings(builder, bp, floor, request, 'doors', room => finishOf(room).floor);
-    const runs = stairs(builder, core, climb, plain.floor, !!roof);
+    const lowest = bp.index === Math.min(...request.blueprint.floors.map(f => f.index));
+    const runs = stairs(builder, core, climb, plain.floor, !!roof, lowest);
+    // Close the stairwell ceiling wherever this shaft has no onward flight.
+    for (const [id, shaft] of [['stair-a', core.stairA], ...(core.stairB ? [['stair-b', core.stairB] as const] : [])] as const) {
+        if (climb && (!roof || id === 'stair-a')) continue;
+        surface(builder, plain.ceiling, id, { u: shaft.u + WALL / 2, v: shaft.v + WALL / 2,
+            lu: shaft.lu - WALL, lv: shaft.lv - WALL }, ceilingY, core.frame);
+    }
     if (roof) {
         const landing = baseLanding(core.stairA, entryAtLowEnd(core, 'a'), climb);
-        surface(builder, plain.floor, 'stair-a', landing, climb, core.frame);
+        const structuralLanding = stairLandingRect(core.stairA, landing);
+        surface(builder, plain.floor, 'stair-a', structuralLanding, climb, core.frame);
         const rect = roof.landingUv;
-        surface(builder, plain.floor, 'stair-a', { u: rect.x, v: rect.z, lu: rect.w, lv: rect.d }, climb, core.frame);
+        for (const uncovered of subtractRect({ u: rect.x, v: rect.z, lu: rect.w, lv: rect.d }, structuralLanding))
+            surface(builder, plain.floor, 'stair-a', uncovered, climb, core.frame);
     }
     for (const elevator of core.elevators) {
         const rect = elevator.rect, [x, z] = uvToWorld([rect.u + rect.lu / 2, rect.v + rect.lv / 2], core.frame);
         builder.module('lift-car', elevator.id, [x, 0, z], [1, 1, 1], -core.frame.angleDeg * Math.PI / 180);
         const [dx, dz] = uvToWorld([rect.u + rect.lu / 2, core.vFace], core.frame);
         builder.module('lift-doors', elevator.id, [dx, 0, dz], [1, 1, 1], -core.frame.angleDeg * Math.PI / 180);
+        const passage = elevatorDoorHole(core, core.elevators.indexOf(elevator), 0).hole;
+        const carFront = rect.v + rect.lv / 2 - 1;
+        if (carFront > core.vFace) surface(builder, plain.floor, common.id,
+            { u: passage.at - passage.width / 2, v: core.vFace, lu: passage.width, lv: carFront - core.vFace }, 0, core.frame);
     }
+    thresholds(builder, core.frame, room => finishOf(room).floor);
     props(builder, floor, uv, family);
     for (const light of planned) {
         const finish = finishOf(light.room), position: [number, number, number] = [light.position[0], light.position[1] - floor.elevation, light.position[2]];

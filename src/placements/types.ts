@@ -1,7 +1,8 @@
 import type { FloorInterior, FloorKind, NpcSupport, Opening } from '../core/types.js';
 import type { Vector3 } from '../modules/types.js';
 import type { ProgramChange } from '../layout/service-program.js';
-export type LayoutId = 'ground' | 'middle' | 'crown';
+export type LayoutId = 'ground' | 'middle' | 'crown' | `floor-${number}`;
+export type LayoutMap<T> = Partial<Record<'ground' | 'middle' | 'crown', T>> & Record<`floor-${number}`, T>;
 export interface Placement {
     id: string;
     module?: string;
@@ -26,6 +27,7 @@ export interface FloorPlacement {
     npc: NpcSupport;
 }
 export interface BuildingManifest {
+    architecture?: string;
     version: 1;
     generatorVersion: string;
     buildingId: string;
@@ -33,8 +35,8 @@ export interface BuildingManifest {
     props: string;
     materialTheme: string;
     tier: string;
-    /** a two floor building publishes ground and crown only */
-    layouts: Partial<Record<LayoutId, string>>;
+    /** Repeated floors share a layout; a distinct intermediate plate gets floor-<index>. */
+    layouts: LayoutMap<string>;
     floors: {
         index: number;
         layout: LayoutId;
@@ -52,5 +54,5 @@ export interface BuildingManifest {
 }
 export interface PlacementResult {
     building: BuildingManifest;
-    layouts: Partial<Record<LayoutId, FloorPlacement>>;
+    layouts: LayoutMap<FloorPlacement>;
 }

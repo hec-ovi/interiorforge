@@ -12,6 +12,14 @@ and guard; homes and hotel rooms their residents and guests; every venue seats g
 Routine steps reference generated role and anchor IDs.
 Standing opportunities preserve existing approaches when their body volumes are occupied.
 
+`facingDeg` is a positive-Y yaw in degrees: zero faces +Z, 90 faces +X;
+its forward vector is `[sin(yaw), cos(yaw)]`. It already includes the building's
+rotation. A seat anchor's `position` is its reachable navigation approach and can
+stand beside a blocked sofa. Render a seated body at the placement named by its
+`furniture` ID, facing that yaw, with the animation's root offset and the actual
+scaled cushion support height. Expanded furniture IDs carry the floor prefix;
+layout placement IDs retain their local names.
+
 Placement layouts keep only their source floor's records. The building manifest owns
 complete stair and lift connectors. `expandBuilding` in Placements creates distinct
 identities and elevations for all instances. Roof access retains its extra navigation level.

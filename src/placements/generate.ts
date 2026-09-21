@@ -7,8 +7,9 @@ import type { BlueprintFloor, InteriorRequest, NpcSupport, Opening } from '../co
 import { corePlacement } from '../layout/core-plan.js';
 import { placeLayout } from './layout.js';
 import { windowTreatments } from './treatments.js';
-import type { LayoutId, PlacementResult, FloorPlacement } from './types.js';
+import type { LayoutId, LayoutMap, PlacementResult, FloorPlacement } from './types.js';
 import version from '../../package.json' with { type: 'json' };
+import { architectureAssignments, interiorRecipe } from '../architecture/recipes.js';
 export async function generate(input: unknown): Promise<PlacementResult> {
     const published = validateRequest(input);
     // Basements stay closed, and the lowest above-ground floor is the ground layout even
@@ -21,16 +22,22 @@ export async function generate(input: unknown): Promise<PlacementResult> {
             ...(published.assignments ? { assignments: published.assignments.filter(a => a.floor >= 0) } : {}) };
     const floors = request.blueprint.floors;
     // Two floors are ground and crown; the middle layout exists only where a floor repeats it.
-    const assignments = resolveAssignments(request), repeats = floors.length > 2, alone = floors.length === 1;
-    const samples = alone ? [floors[0]!] : repeats ? [floors[0]!, floors[1]!, floors.at(-1)!] : [floors[0]!, floors.at(-1)!];
-    const names: LayoutId[] = alone ? ['ground'] : repeats ? ['ground', 'middle', 'crown'] : ['ground', 'crown'];
+    const assignments = architectureAssignments(request, resolveAssignments(request)), alone = floors.length === 1;
     if (assignments.some(a => (a.spans ?? 1) !== 1))
         throw new InteriorError('E_ASSIGNMENT_INVALID', 'placement layouts require single storey assignments');
-    for (const floor of floors.slice(2, -1)) {
-        if (signature(floor) !== signature(samples[1]!))
-            throw new InteriorError('E_BLUEPRINT_INVALID', `floor ${floor.index} differs from the reusable middle layout`, floor.index);
-        if (request.assignments && assignments.find(a => a.floor === floor.index)?.kind !== assignments.find(a => a.floor === 1)?.kind)
-            throw new InteriorError('E_ASSIGNMENT_INVALID', 'middle floors must share one program');
+    // Reuse only genuinely identical construction plates. Tapered wings, connection
+    // floors and explicit programmes keep their own geometry and navigation.
+    const samples: BlueprintFloor[] = [], names: LayoutId[] = [], layoutByFloor = new Map<number, LayoutId>();
+    const reusable = new Map<string, LayoutId>();
+    for (const [index, floor] of floors.entries()) {
+        const key = signature(floor, assignments.find(a => a.floor === floor.index)!.kind);
+        let name: LayoutId;
+        if (index === 0) name = 'ground';
+        else if (index === floors.length - 1) name = 'crown';
+        else name = reusable.get(key) ?? (reusable.size ? `floor-${floor.index}` : 'middle');
+        layoutByFloor.set(floor.index, name);
+        if (!names.includes(name)) { samples.push(floor); names.push(name); }
+        if (index > 0 && index < floors.length - 1) reusable.set(key, name);
     }
     let plan;
     try {
@@ -49,12 +56,11 @@ export async function generate(input: unknown): Promise<PlacementResult> {
     const crown = samples.length - 1;
     // A layout lines the shell for every floor that reuses it, so one lining clears the
     // windows of all of them.
-    const sharing = (i: number): BlueprintFloor[] => i === 0 ? [floors[0]!]
-        : i === crown ? [floors.at(-1)!] : floors.slice(1, -1);
+    const sharing = (i: number): BlueprintFloor[] => floors.filter(floor => layoutByFloor.get(floor.index) === names[i]);
     const tables = samples.map((bp, i) => placeLayout(plan, bp, request,
         i < crown ? bp.height : roof ? roof.access.elevation - bp.elevation : 0, i === crown ? roof : undefined, sharing(i)));
     const npc = buildNpcSupport(plan, request);
-    const layouts: Partial<Record<LayoutId, FloorPlacement>> = {};
+    const layouts: LayoutMap<FloorPlacement> = {};
     samples.forEach((bp, i) => {
         const floor = structuredClone(plan.floors[i]!);
         floor.ceilingElevation -= floor.elevation;
@@ -77,7 +83,7 @@ export async function generate(input: unknown): Promise<PlacementResult> {
         layouts[names[i]!] = { version: 1, id: names[i]!, sourceFloor: bp.index, floor, openings: structuredClone(bp.openings), placements: tables[i]!.placements, npc: localNpc };
     });
     const refs = floors.map((floor, i) => {
-        const layout: LayoutId = i === 0 ? 'ground' : i === floors.length - 1 ? 'crown' : 'middle';
+        const layout = layoutByFloor.get(floor.index)!;
         const table = layouts[layout]!;
         const source = doorOpenings(table.openings), mine = doorOpenings(floor.openings);
         const changes = plan.uvFloors.get(table.sourceFloor)!.programChanges;
@@ -89,8 +95,8 @@ export async function generate(input: unknown): Promise<PlacementResult> {
     });
     const connectors = alone ? [] : npc.nav.connectors.map(c => {
         const served = floors.map(f => f.index);
-        const entries = Object.fromEntries(floors.map((floor, i) => [floor.index,
-            c.entryByFloor[String(samples[i === 0 ? 0 : i === floors.length - 1 ? samples.length - 1 : 1]!.index)]!]));
+        const entries = Object.fromEntries(floors.map(floor => [floor.index,
+            c.entryByFloor[String(layouts[layoutByFloor.get(floor.index)!]!.sourceFloor)]!]));
         if (npc.nav.roofAccess && c.id === 'stair-a') {
             served.push(npc.nav.roofAccess.floor);
             entries[npc.nav.roofAccess.floor] = npc.nav.roofAccess.entry;
@@ -100,6 +106,7 @@ export async function generate(input: unknown): Promise<PlacementResult> {
     return {
         building: {
             version: 1, generatorVersion: version.version, buildingId: request.building.id, modules: 'modules.json', props: 'catalog.json',
+            ...(interiorRecipe(request) ? { architecture: interiorRecipe(request)!.id } : {}),
             materialTheme: request.materialTheme, tier: request.building.tier, layouts: Object.fromEntries(names.map(name => [name, `layouts/${name}.json`])), floors: refs, connectors, corePlacement: corePlacement(plan.core),
             ...(plan.core.reservationCrossing ? { reservationCrossing: plan.core.reservationCrossing } : {})
         }, layouts
@@ -111,9 +118,9 @@ const openingSignatureFields = ['kind', 'doorRole', 'edge', 'offset', 'width', '
 export function doorOpenings(openings: readonly Opening[]): Opening[] {
     return openings.filter(opening => opening.kind !== 'window');
 }
-function signature(floor: BlueprintFloor): string {
+function signature(floor: BlueprintFloor, program: string): string {
     return JSON.stringify({
-        outline: floor.outline, height: floor.height, kind: floor.kind,
+        outline: floor.outline, roomEnvelope: floor.roomEnvelope?.corners, height: floor.height, program,
         openings: doorOpenings(floor.openings).map(opening => openingSignatureFields.map(field => opening[field]))
     }, (_, value) => typeof value === "number" ? Math.round(value * 1e6) / 1e6 : value);
 }

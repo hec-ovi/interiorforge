@@ -3,6 +3,7 @@ import { FINISH } from "../finishes.js";
 import type { Kit } from "../kit.js";
 import type { RecipeSet } from "../recipes.js";
 import type { Vector3 } from "../types.js";
+import { sanitaryRecipes } from "./sanitary.js";
 
 /** A lit line, centred on the point its light record aims from: 18 mm of diffuser in a
  *  30 mm reveal, so the strip reads as a joint and never as a bar. */
@@ -39,6 +40,7 @@ function tuft(k: Kit, [x, y, z]: Vector3, height: number, reach: number, seed: n
 /** Built-in furniture; authored per piece. Every piece stands on y = 0, centred in XZ, back
  *  to -z and front to +z, at the canonical size the placement table scales from. */
 export const furnitureRecipes: RecipeSet = (add) => {
+  sanitaryRecipes(add);
   add("fit-sofa", (k) => {
     for (const x of [-0.78, 0.78]) for (const z of [-0.32, 0.32]) k.rod(FINISH.bronze, [x, 0, z], [x, 0.05, z], 0.06);
     k.cbox(FINISH.timber, [0, 0.05, 0], [1.68, 0.16, 0.73]);
@@ -171,16 +173,6 @@ export const furnitureRecipes: RecipeSet = (add) => {
     k.cbox(FINISH.chrome, [0, 1.93, -0.32], [0.24, 0.04, 0.26]);
     k.rod(FINISH.bronze, [-0.35, 1.95, -0.2], [0.35, 1.95, -0.2], 0.03);
     for (const x of [-0.15, 0.15]) k.cylinder(FINISH.lensWarm, [x, 1.923, -0.2], 0.04, 0.012, 6);
-  });
-
-  add("fit-basin", (k) => {
-    k.cbox(FINISH.obsidian, [0, 0.73, 0], [0.5, 0.12, 0.45]);
-    k.cylinder(FINISH.chrome, [0, 0.75, 0.02], 0.16, 0.1);
-    k.cylinder(FINISH.black, [0, 0.77, 0.02], 0.135, 0.079);
-    k.rod(FINISH.chrome, [0, 0.85, -0.16], [0, 0.98, -0.16], 0.03);
-    k.rod(FINISH.chrome, [0, 0.965, -0.16], [0, 0.965, -0.05], 0.022);
-    k.cbox(FINISH.chrome, [0, 1.0, -0.215], [0.5, 0.7, 0.02]);
-    lens(k, [0, 0.98, -0.165], 0.4);
   });
 
   add("fit-planter", (k) => {

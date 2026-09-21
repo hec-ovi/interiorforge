@@ -20,6 +20,8 @@ export const FINISH = {
   black: "cyberpunk/paired-cladding-metal/mid#obsidian",
   glass: "cyberpunk/interior-display-glass/rich#clear",
   chrome: "cyberpunk/facade-chrome/mid#native",
+  ceramic: "cyberpunk/interior-ceramic/mid#glaze",
+  mirror: "cyberpunk/interior-mirror/mid#silver",
   leaf: "cyberpunk/interior-leaf/rich#plain",
   soil: "cyberpunk/garden-soil/mid#surface",
   stem: "cyberpunk/garden-stem/mid#surface",
@@ -53,6 +55,7 @@ export const FINISH = {
   liftDoor: "cyberpunk/elevator_door/rich#split",
   liftCar: "cyberpunk/metal/rich#zinc",
   reveal: "cyberpunk/plaster/rich#plain",
+  mineral: "cyberpunk/plaster/rich#plain",
 } as const;
 
 export type Finish = (typeof FINISH)[keyof typeof FINISH];

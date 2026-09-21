@@ -43,17 +43,16 @@ reservation, and the crossing is recorded in the building manifest.
 
 ## Exterior and Engine: connection floors of generated shells
 
-In small-city-abd7455d the generated shells p11 (floor 3), p42 (floor 16), p51 (floor 2)
-and p7 (floor 14, also 5.14 m against 4.5 m) carry a bridge `aperture` on one middle floor.
-Three reusable layouts cannot hold a floor whose openings differ, so those four buildings
-refuse with `E_BLUEPRINT_INVALID: floor N differs from the reusable middle layout`; every
-other shell of that city opens. Needed: a fourth layout kind for connection floors, or the
-aperture published as a per-floor treatment the way windows are. Until then the sweep
-lists this refusal as the contract's own.
+Resolved in Interior 0.35.0: each distinct construction plate and programme publishes
+its own reusable `floor-<index>` layout, declared in the manifest. Consumers load
+those declared IDs. Formerly, small-city-abd7455d shells p11 (floor 3), p42 (floor 16),
+p51 (floor 2) and p7 (floor 14) were rejected because the old three-layout transport
+could not hold a middle floor whose bridge aperture or height differed. Tapered garden
+landmarks use the same distinct-layout mechanism; each floor keeps its geometry and navigation.
 
 ## Interior: a 4.5 m storey the stair shaft cannot climb
 
-Five mirror-frame commercial kit plans refuse with `E_UNREACHABLE_SPACE: stair-a headroom
+Historical failure: five mirror-frame commercial kit plans refused with `E_UNREACHABLE_SPACE: stair-a headroom
 below 2.1 m`: `3eefdd53c30737bc/mirror-frame-commercial-high_rich-3x4x19f`,
 `490ddc6b0f266419/mirror-frame-commercial-rich-3x4x2f`,
 `b0dab3dcb95bf958/mirror-frame-commercial-rich-3x4x7f`,
@@ -61,10 +60,11 @@ below 2.1 m`: `3eefdd53c30737bc/mirror-frame-commercial-high_rich-3x4x19f`,
 `ec28eaa8ec3d5f49/mirror-frame-commercial-high_rich-3x4x11f`. Each is a 4.5 m storey whose
 shaft cannot fit the flights `planFlights` asks for and still keep 2.1 m over the walk
 line; `stairRunHeadroom` reads the shaft and the climb only, so the refusal is ours and
-predates the framed wall faces (the same five refuse at 0.32.1). Other hashes of the same
-plan names open. Fix: the shaft grows, the flights split differently, or the building
-degrades the way a stack with no core does. Until then the sweep lists this refusal as the
-contract's own.
+predates the framed wall faces (the same five refused at 0.32.1). Interior 0.35.0 uses
+the minimum feasible even flight count and excludes floating-point contact between
+adjacent treads from headroom overlap. Real white-grid 5 m podiums now use two 14-riser
+flights in a dynamically sized shaft; stacked physical probes cover 2.5, 4.5 and 5 m
+transitions. Archived kit hashes remain subject to their published shaft geometry.
 
 ## Materials: interior finishes
 

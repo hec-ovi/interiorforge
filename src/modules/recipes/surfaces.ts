@@ -17,8 +17,8 @@ const FRAME = 0.095;
  *  from the ceiling plane at y = 0; the band hangs to the plane and the fields sit 0.04
  *  higher, so the band reads as the fitted outer frame. */
 export const surfaceRecipes: RecipeSet = (add) => {
-  const frames = { timber: FINISH.timber, steel: FINISH.steel, ivory: FINISH.ivory } as const;
-  const panelFields = { ivory: FINISH.ivory, dark: FINISH.dark, slate: FINISH.slate, capsule: FINISH.capsuleWall } as const;
+  const frames = { timber: FINISH.timber, steel: FINISH.steel, ivory: FINISH.ivory, graphite: FINISH.black } as const;
+  const panelFields = { ivory: FINISH.ivory, dark: FINISH.dark, slate: FINISH.slate, capsule: FINISH.capsuleWall, mineral: FINISH.mineral } as const;
   const plainFields = { ...panelFields, damaged: FINISH.damagedWall, steel: FINISH.zinc } as const;
   const member = (slot: string, width: number, height: number) => (k: Kit) =>
     k.cbox(slot, [0, (CELL - height) / 2, FRAME / 2], [width, height, FRAME]);
@@ -43,7 +43,8 @@ export const surfaceRecipes: RecipeSet = (add) => {
     // the finish wears the walking surface and the screed below carries the edges; the tile
     // pattern comes from the map at its own metre size, never from a scaled geometric joint
     add(`floor-slab-${name}`, (k) => {
-      k.cbox(FINISH.black, [0, -0.15, 0], [CELL, 0.13, CELL], undefined, ["north", "south", "east", "west"]);
+      k.cbox(FINISH.black, [0, -0.15, 0], [CELL, 0.15, CELL], undefined, ["north", "south", "east", "west"]);
+      k.cbox(FINISH.concrete, [0, -0.15, 0], [CELL, 0.15, CELL], undefined, ["bottom"]);
       k.cbox(slot, [0, -0.02, 0], [CELL, 0.02, CELL], undefined, ["top"]);
     });
   }

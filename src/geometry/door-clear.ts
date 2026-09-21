@@ -4,6 +4,7 @@ import type { MeshBuilder } from "../glb/mesh-builder.js";
 import { DOOR, WALL } from "../layout/constants.js";
 import { doorUvPoint } from "../layout/plan-floor.js";
 import type { PlanRoom } from "../layout/plan-types.js";
+import { roomEdges } from '../layout/room-shape.js';
 import { BAND_PROUD, SHELL_WALL } from "../layout/shell.js";
 import type { Frame } from "../layout/uv.js";
 import { uvToWorld } from "../layout/uv.js";
@@ -41,16 +42,32 @@ export function floorDoorways(
   const out: Doorway[] = [];
   for (const room of rooms) {
     for (const door of room.doors) {
-      if (door.openFront || door.to === "outside") continue;
-      const [x, z] = uvToWorld(doorUvPoint(door, room), frame);
+      if (door.openFront) continue;
+      const point = doorUvPoint(door, room);
       const alongU = door.edge === "v0" || door.edge === "v1";
+      let width = door.width;
+      if (door.to === 'outside') {
+        // A broad exterior passage may meet only part of a narrower room/corridor.
+        // Check the actual shared passage, behind both finished side walls.
+        const axis = alongU ? 0 : 1, across = 1 - axis;
+        const edge = roomEdges(room).find(({a,b}) => Math.abs(a[across]! - point[across]!) < 1e-5
+          && Math.abs(b[across]! - point[across]!) < 1e-5
+          && Math.min(a[axis]!,b[axis]!) <= point[axis]! && Math.max(a[axis]!,b[axis]!) >= point[axis]!);
+        if (edge) {
+          const low = Math.max(point[axis]! - width / 2, Math.min(edge.a[axis]!,edge.b[axis]!) + HALF_DEPTH);
+          const high = Math.min(point[axis]! + width / 2, Math.max(edge.a[axis]!,edge.b[axis]!) - HALF_DEPTH);
+          point[axis] = (low + high) / 2;
+          width = high - low;
+        }
+      }
+      const [x, z] = uvToWorld(point, frame);
       const rad = ((alongU ? 0 : 90) + frame.angleDeg) * Math.PI / 180;
       const clear = Math.min(doorHeadHeight(door.leaves, ceilingY - elevation), DOOR.clearHeight) - 2 * MARGIN;
       out.push({
         id: `${room.id}/${door.id}`,
         center: [x, elevation + MARGIN + clear / 2, z],
         along: [Math.cos(rad), Math.sin(rad)],
-        half: [door.width / 2 - MARGIN, clear / 2, HALF_DEPTH],
+        half: [width / 2 - MARGIN, clear / 2, HALF_DEPTH],
       });
     }
   }

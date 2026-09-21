@@ -9,11 +9,8 @@
       "const": 1
     },
     "id": {
-      "enum": [
-        "ground",
-        "middle",
-        "crown"
-      ]
+      "type": "string",
+      "pattern": "^(ground|middle|crown|floor-[0-9]+)$"
     },
     "sourceFloor": {
       "type": "integer"

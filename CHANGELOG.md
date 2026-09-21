@@ -1,5 +1,7 @@
 # Changelog
 
+0.35.0: pairs all seven reviewed Exterior families with their own proportions, programme and finishes, preserving authored window frames and returns. Distinct intermediate plates and programmes publish additional `floor-<index>` layouts, allowing real tapered interiors. Structural stairs have closed risers, soffits, shaft floors and full-depth enclosures; landing and doorway joins are fitted without layered floors. Variable-height flight sizing supports the white-grid 5 m podium with two 14-riser flights. Unusable stale doorways are closed while valid room access is retained. Bathroom fixtures use authored ceramic toilets and recessed basins facing the room; seated actor yaw and support-height conventions are documented for consumers.
+
 0.33.0: every wall face a room owns is a nine-slice frame, its own face on the shell included, with 12 mm joints cut into the members and a frame band that contrasts its field; a stretched placement publishes `uvRepeat` so a fitted piece wears its map at the size the material publishes, and every module's UVs are tile units; rooms are lit to an illuminance band per kind, measured over their own floor area, with fixtures across the whole plate; halls furnish by area, so a shop floor fills with aisles, shelving, a seated bay and its carpet.
 
 0.32.1: a pocket door connection publishes `clearDepth` 0 and the floor schema admits it; an open front still carries a positive traversable depth.
