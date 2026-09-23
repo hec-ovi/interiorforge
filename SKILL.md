@@ -41,4 +41,4 @@ shows a published kit plan furnished in its family.
 Use `expandBuilding(result)` for absolute floor data and NPC records, then
 `findPath(npc, from, to)` for routes. Each endpoint has `floor` and `position: [x,z]`.
 See [CONTRACT.md](CONTRACT.md) for slab ownership, lift poses and the five generation
-error codes. Run `npm test` and `npm run typecheck` before handing the result to Engine.
+error codes.
