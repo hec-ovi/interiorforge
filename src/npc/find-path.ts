@@ -30,10 +30,11 @@ export interface NavFailure { error: { code: NavErrorCode; message: string } }
  *  Endpoints off the walkable grid snap within NAV_SNAP_RADIUS; walks use grid A* with
  *  line-of-sight smoothing and floors change only through published connectors. */
 export function findPath(request: NavRouteRequest): NavRoute | NavFailure {
-  const problem = requestProblem(request);
+  const problem = endpointProblem(request);
   if (problem) return failure("E_NAV_INPUT", problem);
   const { nav, from, to } = request;
   const cache = navCache(nav);
+  if (typeof cache === "string") return failure("E_NAV_INPUT", cache);
   const start = endpoint(cache.grids, from, "from");
   if ("error" in start) return start;
   const goal = endpoint(cache.grids, to, "to");
@@ -70,21 +71,26 @@ interface NavCache {
   walks: Map<string, Point[] | null>;
 }
 
-const caches = new WeakMap<Nav, NavCache>();
+/** Each nav object's decoded grids, or why it cannot be routed over. */
+const caches = new WeakMap<Nav, NavCache | string>();
 
-function navCache(nav: Nav): NavCache {
+function navCache(nav: Nav): NavCache | string {
   let cache = caches.get(nav);
-  if (!cache) {
-    const grids = new Map(nav.floors.map(f => [f.floor, WalkGrid.fromBase64(f.walkable, f.origin, nav.cellSize, f.cols, f.rows)]));
-    const entries = new Map<number, Point[]>();
-    for (const connector of nav.connectors) for (const floor of connector.floors) {
-      const entry = connector.entryByFloor[String(floor)];
-      if (entry) entries.set(floor, [...entries.get(floor) ?? [], entry]);
-    }
-    cache = { grids, entries, walks: new Map() };
+  if (cache === undefined) {
+    cache = navProblem(nav) ?? decode(nav);
     caches.set(nav, cache);
   }
   return cache;
+}
+
+function decode(nav: Nav): NavCache {
+  const grids = new Map(nav.floors.map(f => [f.floor, WalkGrid.fromBase64(f.walkable, f.origin, nav.cellSize, f.cols, f.rows)]));
+  const entries = new Map<number, Point[]>();
+  for (const connector of nav.connectors) for (const floor of connector.floors) {
+    const entry = connector.entryByFloor[String(floor)];
+    if (entry) entries.set(floor, [...entries.get(floor) ?? [], entry]);
+  }
+  return { grids, entries, walks: new Map() };
 }
 
 function endpoint(grids: Map<number, WalkGrid>, point: NavPoint, name: string): { floor: number; position: Point } | NavFailure {
@@ -95,11 +101,8 @@ function endpoint(grids: Map<number, WalkGrid>, point: NavPoint, name: string): 
   return { floor: point.floor, position };
 }
 
-function requestProblem(request: NavRouteRequest): string | null {
-  const nav = request?.nav;
-  if (!nav || !(nav.cellSize > 0) || !Array.isArray(nav.floors) || !Array.isArray(nav.connectors)) {
-    return "nav must carry a positive cellSize, floors and connectors";
-  }
+function endpointProblem(request: NavRouteRequest): string | null {
+  if (typeof request?.nav !== "object" || request.nav === null) return "nav must be a building's npc.nav object";
   for (const name of ["from", "to"] as const) {
     const point = request[name];
     if (!point || !Number.isInteger(point.floor) || !Number.isFinite(point.x) || !Number.isFinite(point.z)) {
@@ -107,6 +110,40 @@ function requestProblem(request: NavRouteRequest): string | null {
     }
   }
   return null;
+}
+
+/** What makes a nav unreadable: anything findPath reads that npc.schema.json's nav would reject,
+ *  or a bitmask shorter than its grid. */
+function navProblem(nav: Nav): string | null {
+  if (!(typeof nav.cellSize === "number" && nav.cellSize > 0 && Number.isFinite(nav.cellSize))) return "nav.cellSize must be a positive number";
+  if (!Array.isArray(nav.floors) || !Array.isArray(nav.connectors)) return "nav must carry floors and connectors arrays";
+  for (const [i, f] of nav.floors.entries()) {
+    if (!f || !Number.isInteger(f.floor) || !isPoint(f.origin) || !isCount(f.cols) || !isCount(f.rows)
+      || typeof f.walkable !== "string" || !BASE64.test(f.walkable)) {
+      return `nav.floors[${i}] must be {floor: integer, origin: [x, z], cols, rows: positive integers, walkable: base64}`;
+    }
+    if (Math.floor(f.walkable.replace(/=+$/, "").length * 3 / 4) < Math.ceil(f.cols * f.rows / 8)) {
+      return `nav.floors[${i}].walkable holds fewer than its ${f.cols} x ${f.rows} cells`;
+    }
+  }
+  for (const [i, c] of nav.connectors.entries()) {
+    if (!c || typeof c.id !== "string" || (c.kind !== "stair" && c.kind !== "elevator") || !Array.isArray(c.floors)
+      || !c.floors.every(Number.isInteger) || typeof c.entryByFloor !== "object" || c.entryByFloor === null
+      || !c.floors.every(floor => c.entryByFloor[String(floor)] === undefined || isPoint(c.entryByFloor[String(floor)]))) {
+      return `nav.connectors[${i}] must be {id, kind: stair or elevator, floors: integers, entryByFloor: floor to [x, z]}`;
+    }
+  }
+  return null;
+}
+
+const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
+
+function isPoint(value: unknown): value is Point {
+  return Array.isArray(value) && value.length === 2 && Number.isFinite(value[0]) && Number.isFinite(value[1]);
+}
+
+function isCount(value: unknown): value is number {
+  return Number.isInteger(value) && (value as number) > 0;
 }
 
 function describe(point: NavPoint): string {

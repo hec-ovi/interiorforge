@@ -4,7 +4,9 @@ Produces anchors, staffing, routines, standing opportunities and navigable floor
 
 `buildNpcSupport(plan, request)` takes a [Layout plan](../layout/CONTRACT.md) and
 [request](../../schemas/request.schema.json), returning [NPC data](../../schemas/npc.schema.json).
-Anchors belong to reachable room space and actual published furniture. Core anchors
+Anchors belong to reachable room space and actual published furniture: furniture that
+leaves the layout for want of a present model takes its anchors, the roles they would staff
+go with them, and role IDs number the roles that remain. Core anchors
 identify stair and lift approaches. Roles follow the floor program: a lobby staffs its
 receptionist, guard and, in a hotel, its porter; a restaurant its host, waiters, cook and
 bartender; a coffee shop its barista; a shop its vendor; an office its workers, executive
@@ -26,9 +28,10 @@ identities and elevations for all instances. Roof access retains its extra navig
 
 `findPath({nav, from, to})` ([find-path.ts](find-path.ts)) routes over the expanded
 `nav` between endpoints `{floor, x, z}`, returning `{legs, connectors}` or a coded error as
-the [root contract](../../CONTRACT.md#navigation) describes. [Connector routing](connector-route.ts)
-runs Dijkstra over the endpoints and every connector entry, pricing a walk only when its
-straight-line bound reaches the front of the queue. [Grid search](grid-path.ts) walks one
+the [root contract](../../CONTRACT.md#navigation) describes. It checks each nav object once
+and caches its decoded grids or the reason it cannot be read. [Connector routing](connector-route.ts)
+runs Dijkstra over the endpoints and every connector entry, walks and rides alternating,
+and prices a walk only when its straight-line bound reaches the front of the queue. [Grid search](grid-path.ts) walks one
 floor: A* toward the nearest of its goals, so one search per endpoint serves every entry on
 its floor, then line-of-sight smoothing. Dynamic obstacles belong to Engine.
 

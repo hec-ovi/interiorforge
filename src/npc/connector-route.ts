@@ -18,9 +18,11 @@ const ELEVATOR_BOARDING = 12;
  *  lower bound until it reaches the front of the queue. */
 interface Offer { node: number; via: number; cost: number; step?: Step }
 
-/** Dijkstra across the endpoints and every connector entry: walks join points of one floor,
- *  rides join entries of one connector, and an entry reached on foot only boards (a walk
- *  through it is never shorter than the direct one). A walk is priced only when its
+/** Dijkstra across the endpoints and every connector entry: walks join points of one floor
+ *  and rides join entries of one connector, so walks and rides alternate. An entry reached on
+ *  foot only boards, since a walk through it is never shorter than the direct one, and an
+ *  entry reached by a ride only walks on, since every entry rides straight to every floor of
+ *  its connector at no more than a chain of rides costs. A walk is priced only when its
  *  straight-line bound reaches the front of the queue, so far entries never run a grid
  *  search. Null when no route exists. */
 export function connectorRoute(
@@ -57,13 +59,13 @@ export function connectorRoute(
       }
       return join(steps.reverse());
     }
-    const walked = item.step !== undefined && "walk" in item.step;
+    const walked = item.step !== undefined && "walk" in item.step, rode = item.step !== undefined && !walked;
     for (let i = 0; i < nodes.length; i++) {
       const next = nodes[i]!;
       if (settled[i]) continue;
       if (next.floor === b.floor) {
         if (!walked) offer({ node: i, via: item.node, cost: item.cost + distance(b.position, next.position) });
-      } else if (b.connector && b.connector === next.connector) {
+      } else if (!rode && b.connector && b.connector === next.connector) {
         const span = Math.abs(b.floor - next.floor);
         offer({ node: i, via: item.node, step: { ride: { id: b.connector.id, kind: b.connector.kind, fromFloor: b.floor, toFloor: next.floor, from: b.position, to: next.position } },
           cost: item.cost + (b.connector.kind === "stair" ? span * STAIR_PER_FLOOR : ELEVATOR_BOARDING + span * ELEVATOR_PER_FLOOR) });
@@ -73,20 +75,14 @@ export function connectorRoute(
   return null;
 }
 
-/** Walks alternate with rides, the route starting and ending on foot; consecutive rides on
- *  one connector merge, so `legs` holds exactly one more entry than `connectors`. Points
- *  are fresh arrays, never the cached walks or the nav's own entries. */
+/** Walks alternate with rides, the route starting and ending on foot, so `legs` holds
+ *  exactly one more entry than `connectors`. Points are fresh arrays, never the cached walks
+ *  or the nav's own entries. */
 function join(steps: readonly Step[]): NavRoute {
   const legs: NavLeg[] = [], connectors: NavTransfer[] = [];
-  let last: Step | undefined;
   for (const step of steps) {
     if ("walk" in step) legs.push({ floor: step.walk.floor, points: step.walk.points.map(copy) });
-    else if (last && "ride" in last) {
-      const ride = connectors.at(-1)!;
-      ride.toFloor = step.ride.toFloor;
-      ride.to = copy(step.ride.to);
-    } else connectors.push({ ...step.ride, from: copy(step.ride.from), to: copy(step.ride.to) });
-    last = step;
+    else connectors.push({ ...step.ride, from: copy(step.ride.from), to: copy(step.ride.to) });
   }
   return { legs, connectors };
 }

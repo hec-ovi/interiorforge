@@ -1,4 +1,4 @@
-# Interior 0.36.0
+# Interior 0.36.1
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
@@ -168,11 +168,14 @@ A fitted roof door can face either enclosure axis; its landing and navigation
 entry use that face's actual width or depth.
 Prop IDs resolve through the existing [catalog](src/assets/catalog.json), whose
 `modelUri` is relative to that catalog. Generation names only models the consumer holds:
-`models`, default `presentModels()`, the files beside the catalog. Furniture whose fitting
+`models`, default `presentModels()`, the files beside the catalog of the checkout that
+runs. A consumer that publishes props from another folder, or runs another checkout, passes
+`presentModels(<props folder>/models)` for the folder it publishes. Furniture whose fitting
 models are absent wears the next present one or leaves the layout with its anchors, and
 `missingModels` lists the absent models it wanted; the CLI prints them as a warning.
-Local-only models come from ignored licensed sources, so a checkout without them furnishes
-from the redistributable ones.
+Anchors, roles, routines and role IDs follow the furniture that stays, so one seed seats and
+staffs a building differently where the models differ. Local-only models come from ignored
+licensed sources, so a checkout without them furnishes from the redistributable ones.
 
 `building.modules` and `building.props` identify city resource catalogs, resolved
 against the consumer's resource base. Layout file paths resolve beside building.json.
@@ -210,7 +213,7 @@ obstructions require consumer agreement in [issues](docs/ISSUES.md).
 `dist/nav.js`, built from [src/nav.ts](src/nav.ts), routes over a building's published
 `npc.nav` in a browser; it imports nothing outside this box. `findPath({nav, from, to})`
 takes endpoints `{floor, x, z}`: nav floor indices, the roof access level included, and
-XZ in the nav's frame. It never throws. It returns `{legs, connectors}` or
+XZ in the nav's frame. It never throws, whatever the input. It returns `{legs, connectors}` or
 `{error: {code, message}}`, per [nav-route.schema.json](schemas/nav-route.schema.json).
 
 A leg `{floor, points}` walks one floor from its first point to its last. A connector
@@ -224,11 +227,12 @@ An endpoint off the walkable grid moves to the nearest walkable cell centre with
 (`NAV_SNAP_RADIUS`). Walks are grid A* with line-of-sight smoothing, and floors change
 only through connectors. A route minimises walked metres plus 12 per stair storey, or 12
 plus 2 per storey for a lift. Grids decode once per nav object, which also caches the walks
-between its connector entries: pass the same object on every call for that building.
+between its connector entries, and a malformed nav is named once: pass the same object on
+every call for that building and do not mutate it.
 
 | Error code | Meaning |
 | --- | --- |
-| `E_NAV_INPUT` | The request does not carry a nav and two `{floor, x, z}` endpoints |
+| `E_NAV_INPUT` | The nav does not match `npc.schema.json`, its bitmask is shorter than its grid, or an endpoint is not `{floor, x, z}` |
 | `E_NAV_FLOOR` | An endpoint's floor has no navigation grid |
 | `E_NAV_OFF_GRID` | An endpoint lies over 1 m from walkable floor |
 | `E_NAV_UNREACHABLE` | No walk and connector sequence joins the endpoints |

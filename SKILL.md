@@ -3,7 +3,7 @@ name: urbe-interior
 description: Generate shared Interior modules and reusable placement layouts from an assembled Exterior blueprint.
 ---
 
-# Interior 0.36.0
+# Interior 0.36.1
 
 Use this box to publish the room module kit once, then placement JSON per building.
 Run commands from Interior. The consumer supplies an assembled Exterior blueprint.
@@ -28,7 +28,9 @@ await writePlacements(result, 'out/building');
 ```
 
 The result is `{building, layouts, missingModels}`; `missingModels` lists local furniture
-models this checkout lacks, whose furniture wore another model or left the layout. Layout keys are `ground`, `middle`, `crown` and
+models this checkout lacks, whose furniture wore another model or left the layout with its
+anchors and roles. When the props you publish live elsewhere, pass
+`{models: await presentModels('<props folder>/models')}` as generate's second argument. Layout keys are `ground`, `middle`, `crown` and
 `floor-<index>` for distinct intermediate floors; read the manifest's declared entries.
 Each placement gives `module` or `prop`, `id`, `room`, `position`, `rotationY`,
 `scale` and optional source `opening` or core `connector`. Use metres and radians

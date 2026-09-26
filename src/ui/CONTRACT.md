@@ -12,8 +12,9 @@ the city's shared resources (`URBE_SHARED_DIR`, default the sibling engine's
 `out/shared`) at `/shared`.
 
 `Viewer3D.setPlacements(result)` consumes the [placement result](../placements/types.ts)
-and resolves with the catalog props it drew as placeholders.
-It loads shared modules and catalog models, retains their authored transforms and
+and resolves with `{boxed, undrawn}`: the placed props drawn as boxes because their model
+is absent, and those not drawn at all (an unknown ID, or no catalog size).
+It loads shared modules and catalog models once per session, retains their authored transforms and
 creates Three.js instances using placement scale, rotation, position and floor elevation.
 Each instance multiplies its module's map coordinates by the placement's `uvRepeat`, so a
 fitted piece wears its map at the size the material publishes.
@@ -21,8 +22,9 @@ Modules wear their published maps from the materials route, lit diffusers at pre
 emissive strength, and fall back to key colours without it. Local catalog models use the
 asset route, whose root lists the model files present; generation in the preview places
 only those and the bundled ones. A prop whose model cannot load stands as its fitted box,
-grey and half clear. A warning lists the models generation passed over and the props drawn
-as boxes. Shift-clicking two plan points, on one floor or two, draws the route's walks on
+grey and half clear. A warning lists the models generation passed over, the props drawn
+as boxes and those not drawn. A new result frees the previous scene's instances and
+geometry copies; models and materials stay shared. Shift-clicking two plan points, on one floor or two, draws the route's walks on
 each floor. Floor slicing, room inspection, light sources and eye cameras remain available.
 `expandBuilding` supplies presentation records and route identities.
 

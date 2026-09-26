@@ -32,7 +32,8 @@ in its kind's lux band.
 Furniture with a built-in module scales per axis to its record; other furniture
 references existing catalog IDs at one uniform scale, and furnishings fitting neither
 produce no prop or furniture anchor. Only models in `models` (default: the files present
-beside the catalog) are placed; `missingModels` lists the absent ones furniture wanted.
+beside the catalog) are placed, so furniture with no present model leaves with its anchors;
+`missingModels` lists the absent ones furniture wanted.
 
 Transforms apply positive XYZ scale, radians about positive Y, position, then floor
 elevation. A stretched placement publishes `uvRepeat`, the factor its module's tile-unit

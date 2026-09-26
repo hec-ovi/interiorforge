@@ -105,11 +105,14 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
     }
   }
 
-  /** Lists the furniture models this preview lacks: those generation passed over and those
-   *  drawn as placeholder boxes. */
-  function warnMissing(passedOver: readonly string[], placeholders: readonly string[]): void {
-    const missing = [...new Set([...passedOver, ...placeholders])].sort();
-    if (missing.length) toast.warning(`${missing.join(", ")}. Their furniture wears another model, leaves the layout or stands as a box.`, "Missing Furniture Models");
+  /** Lists the furniture models this preview lacks, by what became of their furniture. */
+  function warnMissing(passedOver: readonly string[], { boxed, undrawn }: { boxed: string[]; undrawn: string[] }): void {
+    const lines = [
+      passedOver.length ? `Furnished with other models or left out: ${passedOver.join(", ")}.` : "",
+      boxed.length ? `Drawn as boxes: ${boxed.join(", ")}.` : "",
+      undrawn.length ? `Not drawn: ${undrawn.join(", ")}.` : "",
+    ].filter(Boolean);
+    if (lines.length) toast.warning(lines.join(" "), "Missing Furniture Models");
   }
 
   function applySlice(): void {

@@ -22,13 +22,21 @@ const REPEAT_UV = ["MAP", "NORMALMAP", "ROUGHNESSMAP", "METALNESSMAP", "AOMAP", 
     return `#ifdef USE_${map}\n\t${varying} *= aUvRepeat;\n#endif`;
   }).join("\n");
 
+/** Each source material's repeating copy, made once and shared by every scene drawing it. */
+const repeated = new WeakMap<Material, Material>();
+
 function repeating(material: Material | Material[]): Material {
-  const one = (Array.isArray(material) ? material[0]! : material).clone();
-  one.onBeforeCompile = (shader) => {
-    shader.vertexShader = `attribute vec2 aUvRepeat;\n${shader.vertexShader}`
-      .replace("#include <uv_vertex>", `#include <uv_vertex>\n${REPEAT_UV}`);
-  };
-  one.customProgramCacheKey = () => "uvRepeat";
+  const source = Array.isArray(material) ? material[0]! : material;
+  let one = repeated.get(source);
+  if (!one) {
+    one = source.clone();
+    one.onBeforeCompile = (shader) => {
+      shader.vertexShader = `attribute vec2 aUvRepeat;\n${shader.vertexShader}`
+        .replace("#include <uv_vertex>", `#include <uv_vertex>\n${REPEAT_UV}`);
+    };
+    one.customProgramCacheKey = () => "uvRepeat";
+    repeated.set(source, one);
+  }
   return one;
 }
 
@@ -52,33 +60,51 @@ async function moduleScenes(): Promise<Map<string, Group>> {
     return scenes;
 }
 
+const PLACEHOLDER = new MeshStandardMaterial({ color: 0x8a8f98, roughness: 0.9, transparent: true, opacity: 0.5 });
+
 /** A catalog model the preview cannot read stands as its fitted box: centred, grounded,
  *  half clear. */
-function placeholder(asset: AssetEntry): Group {
-    const [width, depth, height] = asset.dimensionsMeters!;
-    const box = new Mesh(new BoxGeometry(width, height, depth).translate(0, height / 2, 0),
-        new MeshStandardMaterial({ color: 0x8a8f98, roughness: 0.9, transparent: true, opacity: 0.5 }));
-    return new Group().add(box);
+function placeholder([width, depth, height]: [number, number, number]): Group {
+    return new Group().add(new Mesh(new BoxGeometry(width, height, depth).translate(0, height / 2, 0), PLACEHOLDER));
 }
 
-/** The building's instances, and the catalog props drawn as placeholders because their
- *  model is absent. */
-export async function placementScene(result: PlacementResult): Promise<{ group: Group; placeholders: string[] }> {
-    const modules = await (shared ??= moduleScenes()), sources = new Map(modules), catalog = loadAssetCatalog(), loader = new GLTFLoader();
-    const ids = [...new Set(Object.values(result.layouts).flatMap(l => l.placements.flatMap(p => p.prop ? [p.prop] : [])))];
-    const placeholders: string[] = [];
-    for (const id of ids) {
-        const asset = catalog.assets.find(a => a.id === id);
-        try {
-            if (!asset) throw new Error(`unknown catalog prop ${id}`);
-            const bytes = await writeGlb(await readBundledAssetModel(asset));
-            sources.set(id, (await loader.parseAsync(new Uint8Array(bytes).buffer, '')).scene);
-        }
-        catch {
-            if (asset?.dimensionsMeters) sources.set(id, placeholder(asset));
-            placeholders.push(id);
-        }
+/** How a placed prop draws: its model, its fitted box when the model cannot be read, or
+ *  nothing when the catalog gives it no size either. */
+type PropSource = { scene: Group; boxed: boolean } | null;
+/** Every prop the preview has drawn, loaded once per session. */
+const props = new Map<string, Promise<PropSource>>();
+
+async function loadProp(asset: AssetEntry | undefined): Promise<PropSource> {
+    if (!asset) return null;
+    try {
+        const bytes = await writeGlb(await readBundledAssetModel(asset));
+        return { scene: (await new GLTFLoader().parseAsync(new Uint8Array(bytes).buffer, '')).scene, boxed: false };
     }
+    catch {
+        return asset.dimensionsMeters ? { scene: placeholder(asset.dimensionsMeters), boxed: true } : null;
+    }
+}
+
+/** The building's instances, the placed props drawn as boxes because their model is absent,
+ *  and those not drawn at all. Sources and their materials stay shared between scenes, so a
+ *  scene owns only its instances: `releaseScene` frees them. */
+export async function placementScene(result: PlacementResult): Promise<{ group: Group; boxed: string[]; undrawn: string[] }> {
+    const modules = await (shared ??= moduleScenes()), sources = new Map(modules), catalog = loadAssetCatalog();
+    const ids = [...new Set(Object.values(result.layouts).flatMap(l => l.placements.flatMap(p => p.prop ? [p.prop] : [])))].sort();
+    const loaded = await Promise.all(ids.map(id => {
+        let prop = props.get(id);
+        if (!prop) props.set(id, prop = loadProp(catalog.assets.find(a => a.id === id)));
+        return prop;
+    }));
+    const boxed: string[] = [], undrawn: string[] = [];
+    ids.forEach((id, i) => {
+        const source = loaded[i];
+        if (!source) undrawn.push(id);
+        else {
+            sources.set(id, source.scene);
+            if (source.boxed) boxed.push(id);
+        }
+    });
     const matrices = new Map<string, { matrix: Matrix4; repeat: [number, number] }[]>(), axis = new Vector3(0, 1, 0);
     for (const floor of result.building.floors)
         for (const p of [...result.layouts[floor.layout]!.placements, ...(floor.treatments ?? [])]) {
@@ -107,5 +133,14 @@ export async function placementScene(result: PlacementResult): Promise<{ group: 
             group.add(instance);
         });
     }
-    return { group, placeholders: placeholders.sort() };
+    return { group, boxed, undrawn };
+}
+
+/** Frees the GPU buffers one placementScene group owns: its instances and their geometry copies. */
+export function releaseScene(group: Group): void {
+    group.traverse(node => {
+        if (!(node instanceof InstancedMesh)) return;
+        node.geometry.dispose();
+        node.dispose();
+    });
 }

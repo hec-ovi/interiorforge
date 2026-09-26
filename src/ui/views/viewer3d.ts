@@ -1,5 +1,5 @@
 import type { PlacementResult } from '../../placements/types.js';
-import { placementScene } from './placement-scene.js';
+import { placementScene, releaseScene } from './placement-scene.js';
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { LightFixture } from "../../core/types.js";
@@ -14,8 +14,9 @@ export interface FloorSlice {
 
 export interface Viewer3D {
   el: HTMLElement;
-  /** Resolves with the catalog props drawn as placeholder boxes because their model is absent. */
-  setPlacements(result: PlacementResult): Promise<string[]>;
+  /** Resolves with the placed props drawn as boxes because their model is absent, and those
+   *  not drawn at all. */
+  setPlacements(result: PlacementResult): Promise<{ boxed: string[]; undrawn: string[] }>;
   setFloorSlice(slice: FloorSlice | null): void;
   /** Displays the floor's published fixtures within the preview's shadow budget. */
   setLights(lights: readonly LightFixture[] | null): void;
@@ -113,8 +114,11 @@ export function createViewer3d(): Viewer3D {
     async setPlacements(result) {
       busyOverlay.classList.add("active");
       try {
-        if (building) scene.remove(building);
-        const { group, placeholders } = await placementScene(result);
+        const { group, boxed, undrawn } = await placementScene(result);
+        if (building) {
+          scene.remove(building);
+          releaseScene(building);
+        }
         building = group;
         scene.add(building);
         // real parcels live at city coordinates: fit the camera to the building
@@ -128,7 +132,7 @@ export function createViewer3d(): Viewer3D {
         camera.updateProjectionMatrix();
         applyClipping();
         resize();
-        return placeholders;
+        return { boxed, undrawn };
       } finally {
         busyOverlay.classList.remove("active");
       }
