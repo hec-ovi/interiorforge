@@ -1,4 +1,4 @@
-import { findFurnitureAssets } from '../assets/families.js';
+import { chooseFurnitureAsset, type ModelPresence } from '../assets/families.js';
 import { fitAssetBounds } from '../assets/catalog.js';
 import type { FloorInterior, FurnitureKind } from '../core/types.js';
 import type { UvFloorData } from '../layout/plan-floor.js';
@@ -39,8 +39,8 @@ const BUILT_IN: Record<Family, Partial<Record<FurnitureKind, Fit>>> = {
 };
 
 /** Built-in modules and catalog props both own furniture anchors; furniture that fits
- *  neither leaves the published layout. */
-export function props(builder: PlacementBuilder, floor: FloorInterior, uv: UvFloorData, family: Family): void {
+ *  neither, or whose fitting models are all absent here, leaves the published layout. */
+export function props(builder: PlacementBuilder, floor: FloorInterior, uv: UvFloorData, family: Family, models: ModelPresence): void {
     const retained = new Set<string>();
     const table = BUILT_IN[family];
     for (const item of floor.furniture) {
@@ -52,8 +52,7 @@ export function props(builder: PlacementBuilder, floor: FloorInterior, uv: UvFlo
             retained.add(item.id);
             continue;
         }
-        const asset = findFurnitureAssets(item).filter(a => a.modelUri && a.dimensionsMeters)
-            .sort((a, b) => Number(b.availability === 'redistributable') - Number(a.availability === 'redistributable') || a.id.localeCompare(b.id))[0];
+        const asset = chooseFurnitureAsset(item, models);
         if (!asset)
             continue;
         const dims = fitAssetBounds(asset, item.size)!;

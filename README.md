@@ -1,4 +1,4 @@
-# Interior 0.35.1
+# Interior 0.36.0
 
 A TypeScript generator for furnished buildings made from shared room modules.
 One building stores ground, middle and crown layouts. Every middle floor references
@@ -10,6 +10,7 @@ the same table, including rooms, furniture, lights and NPC navigation.
 npm ci
 npm run modules -- --out out/modules
 npm run generate -- --seed demo --floors 6 --out out/building
+npm run build
 npm test
 npm run typecheck
 npm run preview
@@ -39,5 +40,6 @@ Contract tests cover the CLI and public calls, JSON schemas, indexed compressed
 modules, deterministic bytes, middle reuse, opening rectangles, pocket doors, navigation,
 stair and backing clearance, service program reductions, framed wall faces, published
 repeats over tile-unit modules, room illuminance bands, published emitters, furnished
-programs with their staff, both building budgets, and the compiled feasibility entry. Tests use at most two workers. `out/proof/budget.json` records
+programs with their staff, both building budgets, floor-aware routes, furnishing without
+local models, and both compiled browser entries. Tests use at most two workers. `out/proof/budget.json` records
 measured bytes, seconds and placement counts.

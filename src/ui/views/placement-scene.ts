@@ -1,4 +1,4 @@
-import { Group, InstancedBufferAttribute, Mesh, InstancedMesh, Matrix4, Material, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
+import { BoxGeometry, Group, InstancedBufferAttribute, Mesh, InstancedMesh, Matrix4, Material, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { moduleRecipes } from '../../modules/recipes.js';
 import { MODULE_THEME, slotAlignment, tileScale } from '../../modules/index.js';
@@ -7,6 +7,7 @@ import { readBundledAssetModel } from '../../assets/bundled.js';
 import { createDocument, writeGlb } from '../../glb/io.js';
 import { applyMaterials, MaterialLibrary, type ThemeIndex } from '../../materials/index.js';
 import type { PlacementResult } from '../../placements/types.js';
+import type { AssetEntry } from '../../assets/types.js';
 
 /** The materials database, served by the preview at this route. */
 const MATERIALS_URL = '/materials/themes';
@@ -51,16 +52,32 @@ async function moduleScenes(): Promise<Map<string, Group>> {
     return scenes;
 }
 
-export async function placementScene(result: PlacementResult): Promise<Group> {
+/** A catalog model the preview cannot read stands as its fitted box: centred, grounded,
+ *  half clear. */
+function placeholder(asset: AssetEntry): Group {
+    const [width, depth, height] = asset.dimensionsMeters!;
+    const box = new Mesh(new BoxGeometry(width, height, depth).translate(0, height / 2, 0),
+        new MeshStandardMaterial({ color: 0x8a8f98, roughness: 0.9, transparent: true, opacity: 0.5 }));
+    return new Group().add(box);
+}
+
+/** The building's instances, and the catalog props drawn as placeholders because their
+ *  model is absent. */
+export async function placementScene(result: PlacementResult): Promise<{ group: Group; placeholders: string[] }> {
     const modules = await (shared ??= moduleScenes()), sources = new Map(modules), catalog = loadAssetCatalog(), loader = new GLTFLoader();
     const ids = [...new Set(Object.values(result.layouts).flatMap(l => l.placements.flatMap(p => p.prop ? [p.prop] : [])))];
+    const placeholders: string[] = [];
     for (const id of ids) {
-        const asset = catalog.assets.find(a => a.id === id)!;
+        const asset = catalog.assets.find(a => a.id === id);
         try {
+            if (!asset) throw new Error(`unknown catalog prop ${id}`);
             const bytes = await writeGlb(await readBundledAssetModel(asset));
             sources.set(id, (await loader.parseAsync(new Uint8Array(bytes).buffer, '')).scene);
         }
-        catch { /* The catalog declares local assets; the city resource pack supplies them. */ }
+        catch {
+            if (asset?.dimensionsMeters) sources.set(id, placeholder(asset));
+            placeholders.push(id);
+        }
     }
     const matrices = new Map<string, { matrix: Matrix4; repeat: [number, number] }[]>(), axis = new Vector3(0, 1, 0);
     for (const floor of result.building.floors)
@@ -90,5 +107,5 @@ export async function placementScene(result: PlacementResult): Promise<Group> {
             group.add(instance);
         });
     }
-    return group;
+    return { group, placeholders: placeholders.sort() };
 }

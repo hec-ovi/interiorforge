@@ -1,7 +1,8 @@
 import { beforeAll, afterAll, expect, it } from 'vitest';
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { Ajv2020 } from 'ajv/dist/2020.js';
@@ -30,7 +31,7 @@ const bytes = async (path: string): Promise<number> => {
     return size;
 };
 beforeAll(async () => {
-    dir = await mkdtemp('out/test-placement-');
+    dir = await mkdtemp(join(tmpdir(), 'interior-placement-'));
     request = await assembly();
     result = await generate(request);
     const start = performance.now();
@@ -67,8 +68,10 @@ it('publishes schema valid tables, catalog references, NPC anchors and complete 
     const upper = expanded.npc.anchors.find(a => a.floor === 4 && a.kind === 'stair_entry')!;
     expect(entrance).toBeDefined();
     expect(upper).toBeDefined();
-    expect(findPath(expanded.npc, entrance, upper)?.some(leg => leg.kind === 'ride')).toBe(true);
-    expect(findPath(expanded.npc, entrance, { floor: 999, position: [0, 0] })).toBeNull();
+    const at = (anchor: { floor: number; position: [number, number] }) => ({ floor: anchor.floor, x: anchor.position[0], z: anchor.position[1] });
+    const route = findPath({ nav: expanded.npc.nav, from: at(entrance), to: at(upper) });
+    expect('legs' in route && route.connectors.at(-1)?.toFloor).toBe(4);
+    expect(findPath({ nav: expanded.npc.nav, from: at(entrance), to: { floor: 999, x: 0, z: 0 } })).toMatchObject({ error: { code: 'E_NAV_FLOOR' } });
 });
 it('publishes indexed quantized meshopt module GLBs with accurate geometry and byte counts', async () => {
     const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
@@ -565,6 +568,7 @@ it('keeps both furnished buildings including the shared module kit below 2 MB an
         }
         proof.push({ family, bytes: size, seconds: Number(seconds.toFixed(3)), counts });
     }
+    await mkdir('out/proof', { recursive: true });
     await writeFile('out/proof/budget.json', JSON.stringify(proof, null, 2) + '\n');
     console.log(JSON.stringify(proof));
 }, 30000);

@@ -31,26 +31,26 @@ const ASSETS_BY_KIND: Partial<Record<FurnitureKind, readonly string[]>> = {
   fridge: ["sketchfab-fridgemodern", "sketchfab-unbranded-conventional-fridge"],
 };
 
-export function assetFamilyForFurniture(kind: FurnitureKind): AssetFamily | null {
-  return FAMILY_BY_KIND[kind] ?? null;
+/** The catalog models a runtime holds, and those furniture wanted but found absent. */
+export interface ModelPresence {
+  present: ReadonlySet<string>;
+  missing: Set<string>;
 }
 
-export interface FurnitureAssetQuery {
-  styles?: readonly string[];
-  variationDeg?: number;
-  modelsDir?: string;
-}
-
-export function findFurnitureAssets(item: Furniture, query: FurnitureAssetQuery = {}): AssetEntry[] {
-  const family = assetFamilyForFurniture(item.kind);
-  if (!family || item.elevation) return [];
-  const candidates = findAssetCandidates({
-    family,
-    styles: query.styles,
-    maxBounds: item.size,
-    rotationYDeg: query.variationDeg,
-    modelsDir: query.modelsDir,
-  });
+/** The catalog model a floor-standing furniture record wears: the first fitting entry whose
+ *  model is present, redistributable before local-only, then by id. Every absent model
+ *  ranked ahead of it joins `missing`. Null when none is present. */
+export function chooseFurnitureAsset(item: Furniture, models: ModelPresence): AssetEntry | null {
+  const family = FAMILY_BY_KIND[item.kind];
+  if (!family || item.elevation) return null;
   const allowed = ASSETS_BY_KIND[item.kind];
-  return allowed ? candidates.filter((asset) => allowed.includes(asset.id)) : candidates;
+  const ranked = findAssetCandidates(family, item.size)
+    .filter(asset => asset.modelUri && asset.dimensionsMeters && (!allowed || allowed.includes(asset.id)))
+    .sort((a, b) => Number(b.availability === "redistributable") - Number(a.availability === "redistributable")
+      || a.id.localeCompare(b.id));
+  for (const asset of ranked) {
+    if (models.present.has(asset.id)) return asset;
+    models.missing.add(asset.id);
+  }
+  return null;
 }

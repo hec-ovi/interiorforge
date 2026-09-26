@@ -7,10 +7,16 @@ import type { BlueprintFloor, InteriorRequest, NpcSupport, Opening } from '../co
 import { corePlacement } from '../layout/core-plan.js';
 import { placeLayout } from './layout.js';
 import { windowTreatments } from './treatments.js';
-import type { LayoutId, LayoutMap, PlacementResult, FloorPlacement } from './types.js';
+import type { GeneratedInterior, LayoutId, LayoutMap, FloorPlacement } from './types.js';
 import version from '../../package.json' with { type: 'json' };
 import { architectureAssignments, interiorRecipe } from '../architecture/recipes.js';
-export async function generate(input: unknown): Promise<PlacementResult> {
+import { presentModels } from '../assets/availability.js';
+export interface GenerateOptions {
+    /** catalog ids whose model file the consumer holds; default presentModels() */
+    models?: ReadonlySet<string>;
+}
+export async function generate(input: unknown, options: GenerateOptions = {}): Promise<GeneratedInterior> {
+    const present = options.models ?? await presentModels();
     const published = validateRequest(input);
     // Basements stay closed, and the lowest above-ground floor is the ground layout even
     // when the published indices start above zero.
@@ -50,14 +56,15 @@ export async function generate(input: unknown): Promise<PlacementResult> {
             || coreFeasibility(request.blueprint).fits)
             throw error;
         return generate({ ...request, blueprint: { ...request.blueprint, floors: [floors[0]!], roof: undefined },
-            ...(request.assignments ? { assignments: request.assignments.filter(a => a.floor === 0) } : {}) });
+            ...(request.assignments ? { assignments: request.assignments.filter(a => a.floor === 0) } : {}) }, { models: present });
     }
     const roof = planRoofAccess(request, plan.core);
     const crown = samples.length - 1;
     // A layout lines the shell for every floor that reuses it, so one lining clears the
     // windows of all of them.
     const sharing = (i: number): BlueprintFloor[] => floors.filter(floor => layoutByFloor.get(floor.index) === names[i]);
-    const tables = samples.map((bp, i) => placeLayout(plan, bp, request,
+    const models = { present, missing: new Set<string>() };
+    const tables = samples.map((bp, i) => placeLayout(plan, bp, request, models,
         i < crown ? bp.height : roof ? roof.access.elevation - bp.elevation : 0, i === crown ? roof : undefined, sharing(i)));
     const npc = buildNpcSupport(plan, request);
     const layouts: LayoutMap<FloorPlacement> = {};
@@ -109,7 +116,7 @@ export async function generate(input: unknown): Promise<PlacementResult> {
             ...(interiorRecipe(request) ? { architecture: interiorRecipe(request)!.id } : {}),
             materialTheme: request.materialTheme, tier: request.building.tier, layouts: Object.fromEntries(names.map(name => [name, `layouts/${name}.json`])), floors: refs, connectors, corePlacement: corePlacement(plan.core),
             ...(plan.core.reservationCrossing ? { reservationCrossing: plan.core.reservationCrossing } : {})
-        }, layouts
+        }, layouts, missingModels: [...models.missing].sort()
     };
 }
 /** Geometry and program only. Windows and exterior dressing (material, panes, glazing,

@@ -24,10 +24,13 @@ Placement layouts keep only their source floor's records. The building manifest 
 complete stair and lift connectors. `expandBuilding` in Placements creates distinct
 identities and elevations for all instances. Roof access retains its extra navigation level.
 
-`findPath(npc, from, to)` consumes expanded JSON and endpoints
-`{floor, position: [x,z]}`. It returns walk legs `{kind, floor, points}` and connector
-legs `{kind: "ride", connector, fromFloor, toFloor}`, or null for a route miss.
-Floor paths use grid A* and connectors permit transfers. Dynamic obstacles belong to Engine.
+`findPath({nav, from, to})` ([find-path.ts](find-path.ts)) routes over the expanded
+`nav` between endpoints `{floor, x, z}`, returning `{legs, connectors}` or a coded error as
+the [root contract](../../CONTRACT.md#navigation) describes. [Connector routing](connector-route.ts)
+runs Dijkstra over the endpoints and every connector entry, pricing a walk only when its
+straight-line bound reaches the front of the queue. [Grid search](grid-path.ts) walks one
+floor: A* toward the nearest of its goals, so one search per endpoint serves every entry on
+its floor, then line-of-sight smoothing. Dynamic obstacles belong to Engine.
 
 Unreachable spine or conflicting anchors throw `E_UNREACHABLE_SPACE`.
 Depends on [Core](../core/CONTRACT.md) and [Layout](../layout/CONTRACT.md).

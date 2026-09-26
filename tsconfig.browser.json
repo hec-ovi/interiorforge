@@ -6,5 +6,5 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src/feasibility.ts"]
+  "include": ["src/feasibility.ts", "src/nav.ts"]
 }

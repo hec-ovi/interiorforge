@@ -1,7 +1,6 @@
 import { npcPlacements } from "../components/npc-placements.js";
 import { polygonBounds } from "../../core/geom.js";
-import type { Point } from "../../core/geom.js";
-import { findPath } from "../../npc/index.js";
+import { findPath, type NavPoint } from "../../nav.js";
 import type { AppState } from "../app-state.js";
 import { el, svgEl } from "../components/dom.js";
 import { toast } from "../components/toast.js";
@@ -21,12 +20,12 @@ const ANCHOR_FILL: Record<string, string> = {
   machine_spot: "#a3e0b7", elevator_wait: "#f0f0f0", stair_entry: "#f0f0f0", cleaning_spot: "#d0d06a",
 };
 
-/** SVG plan of the selected floor. Click a room to select it; shift-click two clear points to
- *  run findPath on this floor and draw the route. */
+/** SVG plan of the selected floor. Click a room to select it; shift-click two points, on
+ *  one floor or two, to run findPath and draw the route's walks on each floor. */
 export function createPlanView(state: AppState): HTMLElement {
   const container = document.createElement("div");
   container.className = "plan-view";
-  let pathStart: Point | null = null;
+  let pathStart: NavPoint | null = null;
 
   function render(): void {
     container.replaceChildren();
@@ -140,9 +139,8 @@ export function createPlanView(state: AppState): HTMLElement {
     svg.append(npcPlacements((result.npc.placements ?? []).filter(slot => slot.floor === floor.floor)));
 
     // Walk Paths
-    const walkLegs = state.path?.filter((l) => l.kind === "walk") ?? [];
-    for (const leg of walkLegs) {
-      if (leg.kind !== "walk" || leg.floor !== floor.floor) continue;
+    for (const leg of state.path?.legs ?? []) {
+      if (leg.floor !== floor.floor) continue;
       svg.append(svgEl("polyline", {
         points: leg.points.map(([x, z]) => `${x},${z}`).join(" "),
         fill: "none", stroke: "#6ae86a", "stroke-width": 0.18, class: "path",
@@ -150,9 +148,9 @@ export function createPlanView(state: AppState): HTMLElement {
     }
 
     // Temporary marker if start point is picked
-    if (pathStart) {
+    if (pathStart?.floor === floor.floor) {
       svg.append(svgEl("circle", {
-        cx: pathStart[0], cy: pathStart[1], r: 0.28,
+        cx: pathStart.x, cy: pathStart.z, r: 0.28,
         fill: "none", stroke: "#00e5a3", "stroke-width": 0.08, class: "path-origin",
       }));
     }
@@ -164,36 +162,32 @@ export function createPlanView(state: AppState): HTMLElement {
       const vb = svg.viewBox.baseVal;
       const x = vb.x + ((ev.clientX - rect.left) / rect.width) * vb.width;
       const z = vb.y + ((ev.clientY - rect.top) / rect.height) * vb.height;
-      handlePick([x, z]);
+      handlePick(x, z);
     });
 
     container.append(svg);
   }
 
-  function handlePick(point: Point): void {
+  function handlePick(x: number, z: number): void {
     const floor = state.floorData();
     if (!floor || !state.result) return;
     if (!pathStart) {
-      pathStart = point;
+      pathStart = { floor: floor.floor, x, z };
       state.setPath(null);
-      toast.info("Start waypoint selected. Shift-click destination point to calculate route.", "Pathfinding");
+      toast.info("Start waypoint selected. Shift-click the destination, on this floor or another.", "Pathfinding");
       render();
       return;
     }
-    const legs = findPath(
-      state.result.npc,
-      { floor: floor.floor, position: pathStart },
-      { floor: floor.floor, position: point },
-    );
+    const route = findPath({ nav: state.result.npc.nav, from: pathStart, to: { floor: floor.floor, x, z } });
     pathStart = null;
-    state.setPath(legs);
-    if (legs) {
-      const walk = legs.find((l) => l.kind === "walk");
-      const pts = walk && walk.kind === "walk" ? walk.points.length : 0;
-      toast.success(`Calculated route with ${pts} waypoints on floor ${floor.floor}`, "Path Found");
-    } else {
-      toast.warning("No unobstructed walk path found between the selected coordinates.", "Unreachable");
+    if ("error" in route) {
+      state.setPath(null);
+      toast.warning(route.error.message, route.error.code);
+      return;
     }
+    state.setPath(route);
+    const points = route.legs.reduce((sum, leg) => sum + leg.points.length, 0);
+    toast.success(`Calculated route with ${points} waypoints and ${route.connectors.length} floor changes`, "Path Found");
   }
 
   for (const event of ["result", "floor", "selection", "path", "mode"] as const) {

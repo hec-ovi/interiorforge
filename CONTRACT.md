@@ -1,4 +1,4 @@
-# Interior 0.35.1
+# Interior 0.36.0
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
@@ -19,17 +19,18 @@ Tier and industrial-use rules remain authoritative over luxury finishes.
 
 | Export from `src/index.ts` | Input | Output |
 | --- | --- | --- |
-| `generate`, alias `generateInterior` | [Request](schemas/request.schema.json) with [assembled blueprint](schemas/blueprint.schema.json) | Promise of `{building, layouts}` |
+| `generate`, alias `generateInterior` | [Request](schemas/request.schema.json) with [assembled blueprint](schemas/blueprint.schema.json); optional `{models}` | Promise of `{building, layouts, missingModels}` |
+| `presentModels` | Optional models folder | Promise of the catalog IDs whose model file is present |
 | `buildModules` | Optional preloaded theme index | Promise of `{catalog, files}`, a manifest and map of GLB bytes |
 | `writePlacements` | Generation result, output directory | Writes building and layout JSON |
 | `expandBuilding` | Generation result | `{floors, npc}` with unique floor identities and absolute elevations |
-| `findPath` | Expanded NPC data, two `{floor, position: [x,z]}` endpoints | Walk and connector legs, or null |
+| `findPath` | `{nav, from, to}`, endpoints `{floor, x, z}` | `{legs, connectors}` or `{error}`, see [Navigation](#navigation) |
 | `makePlacementFixture` | Optional [fixture settings](src/blueprint/fixture.ts) | Reproducible rectangular request |
 | `coreFeasibility` | Consumed blueprint, building type | [Core fit](src/layout/schema/core-feasibility.schema.json), the placement `generate` furnishes |
 
 `makeFixture` also provides a blueprint and shell document for feasibility tools.
-`npm run build:feasibility` compiles the browser entry `src/feasibility.ts` to
-`dist/feasibility.js`.
+`npm run build` compiles the browser entries `src/feasibility.ts` and `src/nav.ts` to
+`dist/feasibility.js` and `dist/nav.js`; `npm run build:feasibility` runs the same build.
 
 Generation accepts a rectangular construction plate, at least one floor at or above
 index zero, and one storey per assignment. Basements stay closed and the lowest
@@ -166,7 +167,12 @@ Threshold pieces fill only uncovered floor area. Lift thresholds meet the car fl
 A fitted roof door can face either enclosure axis; its landing and navigation
 entry use that face's actual width or depth.
 Prop IDs resolve through the existing [catalog](src/assets/catalog.json), whose
-`modelUri` is relative to that catalog.
+`modelUri` is relative to that catalog. Generation names only models the consumer holds:
+`models`, default `presentModels()`, the files beside the catalog. Furniture whose fitting
+models are absent wears the next present one or leaves the layout with its anchors, and
+`missingModels` lists the absent models it wanted; the CLI prints them as a warning.
+Local-only models come from ignored licensed sources, so a checkout without them furnishes
+from the redistributable ones.
 
 `building.modules` and `building.props` identify city resource catalogs, resolved
 against the consumer's resource base. Layout file paths resolve beside building.json.
@@ -198,6 +204,34 @@ waiters, cook and bartender, a coffee shop its barista, a hotel its receptionist
 a shop its vendor, an office its receptionist and guard, each on counter, seat and work
 anchors. A fitted roof retains its navigation access; a housing that cannot take the stair leaves the roof out of the navigation instead of closing the building. Runtime actor dimensions and dynamic
 obstructions require consumer agreement in [issues](docs/ISSUES.md).
+
+## Navigation
+
+`dist/nav.js`, built from [src/nav.ts](src/nav.ts), routes over a building's published
+`npc.nav` in a browser; it imports nothing outside this box. `findPath({nav, from, to})`
+takes endpoints `{floor, x, z}`: nav floor indices, the roof access level included, and
+XZ in the nav's frame. It never throws. It returns `{legs, connectors}` or
+`{error: {code, message}}`, per [nav-route.schema.json](schemas/nav-route.schema.json).
+
+A leg `{floor, points}` walks one floor from its first point to its last. A connector
+`{id, kind, fromFloor, toFloor, from, to}` walks a stair or rides a lift between two entries
+of one published connector; consecutive storeys on one connector merge. `legs[i]` ends at
+`connectors[i].from` and `connectors[i].to` starts `legs[i + 1]`, so there is one more leg
+than connectors. Add the floor's elevation for Y; the flight between stair entries is the
+Engine's to animate.
+
+An endpoint off the walkable grid moves to the nearest walkable cell centre within 1 m
+(`NAV_SNAP_RADIUS`). Walks are grid A* with line-of-sight smoothing, and floors change
+only through connectors. A route minimises walked metres plus 12 per stair storey, or 12
+plus 2 per storey for a lift. Grids decode once per nav object, which also caches the walks
+between its connector entries: pass the same object on every call for that building.
+
+| Error code | Meaning |
+| --- | --- |
+| `E_NAV_INPUT` | The request does not carry a nav and two `{floor, x, z}` endpoints |
+| `E_NAV_FLOOR` | An endpoint's floor has no navigation grid |
+| `E_NAV_OFF_GRID` | An endpoint lies over 1 m from walkable floor |
+| `E_NAV_UNREACHABLE` | No walk and connector sequence joins the endpoints |
 
 ## Validation and limits
 

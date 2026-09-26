@@ -56,3 +56,8 @@ export interface PlacementResult {
     building: BuildingManifest;
     layouts: LayoutMap<FloorPlacement>;
 }
+/** What generate returns: the placements, and the catalog models furniture wanted but the
+ *  consumer lacks, sorted. That furniture wears the next present model or leaves the layout. */
+export interface GeneratedInterior extends PlacementResult {
+    missingModels: string[];
+}

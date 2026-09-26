@@ -1,39 +1,26 @@
 import data from "./catalog.json" with { type: "json" };
-import type { AssetCatalog, AssetEntry, AssetFit, AssetQuery } from "./types.js";
+import type { AssetCatalog, AssetEntry, AssetFamily, AssetFit } from "./types.js";
 
 const catalog = data as AssetCatalog;
+/** A model scaled below this reads as a toy of the furniture it stands for. */
+const MIN_SCALE = 0.7;
 
 export function loadAssetCatalog(): AssetCatalog {
   return catalog;
 }
 
-export function findAssetCandidates(query: AssetQuery): AssetEntry[] {
-  return catalog.assets.filter((asset) => {
-    if (asset.family !== query.family) return false;
-    if (query.styles?.length && !query.styles.some((style) => asset.styles.includes(style))) return false;
-    if (query.maxBounds && !fitAssetBounds(
-      asset, query.maxBounds, query.rotationYDeg ?? 0, query.minimumScale ?? 0.7,
-    )) return false;
-    return !(query.availableOnly ?? true) || asset.availability !== "source-only";
-  });
+/** Entries of one family with a prepared or preparable model that fit the bounds. */
+export function findAssetCandidates(family: AssetFamily, maxBounds: readonly [number, number, number]): AssetEntry[] {
+  return catalog.assets.filter(asset => asset.family === family && asset.availability !== "source-only"
+    && fitAssetBounds(asset, maxBounds) !== null);
 }
 
-export function fitAssetBounds(
-  asset: AssetEntry,
-  maxBounds: readonly [number, number, number],
-  rotationYDeg = 0,
-  minimumScale = 0.7,
-): AssetFit | null {
-  if (!asset.dimensionsMeters) return null;
-  const angle = rotationYDeg * Math.PI / 180;
-  const c = Math.abs(Math.cos(angle));
-  const s = Math.abs(Math.sin(angle));
-  const size: [number, number, number] = [
-    c * asset.dimensionsMeters[0] + s * asset.dimensionsMeters[1],
-    s * asset.dimensionsMeters[0] + c * asset.dimensionsMeters[1],
-    asset.dimensionsMeters[2],
-  ];
+/** The uniform scale that stands a model inside `[width, depth, height]` bounds, and its
+ *  scaled dimensions; null without normalized dimensions or below a useful scale. */
+export function fitAssetBounds(asset: AssetEntry, maxBounds: readonly [number, number, number]): AssetFit | null {
+  const size = asset.dimensionsMeters;
+  if (!size) return null;
   const scale = Math.min(...size.map((value, index) => maxBounds[index]! / value));
-  if (!Number.isFinite(scale) || scale < minimumScale) return null;
-  return { scale, dimensions: size.map((value) => value * scale) as AssetFit["dimensions"] };
+  if (!Number.isFinite(scale) || scale < MIN_SCALE) return null;
+  return { scale, dimensions: size.map(value => value * scale) as AssetFit["dimensions"] };
 }

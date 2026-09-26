@@ -11,20 +11,24 @@ optional building request JSON. Vite serves the Materials database at `/material
 the city's shared resources (`URBE_SHARED_DIR`, default the sibling engine's
 `out/shared`) at `/shared`.
 
-`Viewer3D.setPlacements(result)` consumes the [placement result](../placements/types.ts).
+`Viewer3D.setPlacements(result)` consumes the [placement result](../placements/types.ts)
+and resolves with the catalog props it drew as placeholders.
 It loads shared modules and catalog models, retains their authored transforms and
 creates Three.js instances using placement scale, rotation, position and floor elevation.
 Each instance multiplies its module's map coordinates by the placement's `uvRepeat`, so a
 fitted piece wears its map at the size the material publishes.
 Modules wear their published maps from the materials route, lit diffusers at preview
-emissive strength, and fall back to key colours without it. Local catalog models use the asset route.
-Floor slicing, room inspection, light sources, eye cameras and navigation remain available.
+emissive strength, and fall back to key colours without it. Local catalog models use the
+asset route, whose root lists the model files present; generation in the preview places
+only those and the bundled ones. A prop whose model cannot load stands as its fitted box,
+grey and half clear. A warning lists the models generation passed over and the props drawn
+as boxes. Shift-clicking two plan points, on one floor or two, draws the route's walks on
+each floor. Floor slicing, room inspection, light sources and eye cameras remain available.
 `expandBuilding` supplies presentation records and route identities.
 
 Controls emit generation settings, selected files and camera actions. State events
 are result, mode, floor, selection, path and busy. Views display state; Layout and
 Placements own generation rules. Errors appear as generation, loading or preview notices.
-Missing local prop geometry stays absent until the resource catalog is installed.
 
 Depends on the [root API](../../CONTRACT.md), [Modules](../modules/CONTRACT.md),
 [Assets](../assets/CONTRACT.md), [NPC](../npc/CONTRACT.md), Three.js and Vite.

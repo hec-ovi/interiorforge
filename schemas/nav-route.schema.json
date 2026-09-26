@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://urbe.dev/interior/nav-route.schema.json",
+  "title": "NavRoute",
+  "description": "findPath from dist/nav.js: one floor-aware route over a building's published npc.nav. XZ is the nav's own frame; floors are nav floor indices.",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "required": ["nav", "from", "to"],
+      "properties": {
+        "nav": { "$ref": "npc.schema.json#/properties/nav" },
+        "from": { "$ref": "#/$defs/point" },
+        "to": { "$ref": "#/$defs/point" }
+      }
+    },
+    "point": {
+      "type": "object",
+      "required": ["floor", "x", "z"],
+      "properties": {
+        "floor": { "type": "integer" },
+        "x": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    },
+    "route": {
+      "type": "object",
+      "description": "legs[i] ends at connectors[i].from and connectors[i].to starts legs[i + 1], so legs holds one more entry than connectors. An endpoint off the walkable grid starts or ends its leg at the nearest walkable cell centre within 1 m.",
+      "required": ["legs", "connectors"],
+      "additionalProperties": false,
+      "properties": {
+        "legs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["floor", "points"],
+            "additionalProperties": false,
+            "properties": {
+              "floor": { "type": "integer" },
+              "points": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/point2" } }
+            }
+          }
+        },
+        "connectors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "a stair walk or lift ride between two entries of one published connector",
+            "required": ["id", "kind", "fromFloor", "toFloor", "from", "to"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "enum": ["stair", "elevator"] },
+              "fromFloor": { "type": "integer" },
+              "toFloor": { "type": "integer" },
+              "from": { "$ref": "#/$defs/point2" },
+              "to": { "$ref": "#/$defs/point2" }
+            }
+          }
+        }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "required": ["error"],
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "object",
+          "required": ["code", "message"],
+          "additionalProperties": false,
+          "properties": {
+            "code": { "enum": ["E_NAV_INPUT", "E_NAV_FLOOR", "E_NAV_OFF_GRID", "E_NAV_UNREACHABLE"] },
+            "message": { "type": "string" }
+          }
+        }
+      }
+    },
+    "point2": {
+      "type": "array",
+      "prefixItems": [{ "type": "number" }, { "type": "number" }],
+      "minItems": 2,
+      "maxItems": 2
+    }
+  },
+  "oneOf": [{ "$ref": "#/$defs/route" }, { "$ref": "#/$defs/failure" }]
+}

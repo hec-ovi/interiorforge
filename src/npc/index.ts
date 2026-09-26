@@ -9,8 +9,6 @@ import { anchorConflicts } from "./keep-out.js";
 import { buildNav } from "./nav.js";
 import { buildRoles } from "./roles.js";
 
-export { findPath, type PathLeg, type PathQuery } from "./find-path.js";
-
 export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): NpcSupport {
   const anchors = [];
   for (const floor of plan.floors) {

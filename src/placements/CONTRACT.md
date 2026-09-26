@@ -2,9 +2,9 @@
 
 Converts distinct planned floors into shared module and catalog prop transforms.
 
-`generate(request)` accepts [request](../../schemas/request.schema.json) and returns
+`generate(request, {models}?)` accepts [request](../../schemas/request.schema.json) and returns
 [building](../../schemas/building.schema.json) plus its declared
-[layouts](../../schemas/floor-placement.schema.json). [Types](types.ts) define the
+[layouts](../../schemas/floor-placement.schema.json) and `missingModels`. [Types](types.ts) define the
 same transport. `writePlacements(result, out)` writes the manifest and its compact layout JSON files.
 
 Generation plans each distinct construction plate and program once; equal intermediate
@@ -31,7 +31,8 @@ and [balanceIllumination](../layout/lighting.ts) sets what each delivers so the 
 in its kind's lux band.
 Furniture with a built-in module scales per axis to its record; other furniture
 references existing catalog IDs at one uniform scale, and furnishings fitting neither
-produce no prop or furniture anchor.
+produce no prop or furniture anchor. Only models in `models` (default: the files present
+beside the catalog) are placed; `missingModels` lists the absent ones furniture wanted.
 
 Transforms apply positive XYZ scale, radians about positive Y, position, then floor
 elevation. A stretched placement publishes `uvRepeat`, the factor its module's tile-unit

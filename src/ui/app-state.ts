@@ -2,7 +2,7 @@ import type { PlacementResult } from '../placements/types.js';
 import { expandBuilding } from '../placements/expand.js';
 type InteriorResult = PlacementResult & { floors: FloorInterior[]; npc: NpcSupport };
 import type { BuildingType, FloorInterior, NpcSupport, Tier } from "../core/types.js";
-import type { PathLeg } from "../npc/index.js";
+import type { NavRoute } from "../nav.js";
 
 export interface AppParams {
   seed: number;
@@ -22,7 +22,7 @@ export interface AppState {
   mode: AppMode;
   floorIndex: number;
   selectedRoom: string | null;
-  path: PathLeg[] | null;
+  path: NavRoute | null;
   busy: boolean;
 
   on(event: AppEvent, cb: () => void): void;
@@ -31,7 +31,7 @@ export interface AppState {
   setMode(mode: AppMode): void;
   setFloor(index: number): void;
   selectRoom(roomId: string | null): void;
-  setPath(path: PathLeg[] | null): void;
+  setPath(path: NavRoute | null): void;
   setBusy(busy: boolean): void;
   floorData(): FloorInterior | undefined;
 }

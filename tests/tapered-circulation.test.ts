@@ -25,8 +25,8 @@ it('closes a tapered-floor door into a thin leftover and preserves the useful re
     expect(useful).toBeDefined();
     expect(crown.floor.rooms.find(room => room.id === useful.to)?.kind).toBe('lounge');
     const expanded = expandBuilding(result);
-    const route = findPath(expanded.npc, { floor: 3, position: [32, 26.4] }, { floor: 3, position: [32, 27.8] });
-    expect(route).not.toBeNull();
+    const route = findPath({ nav: expanded.npc.nav, from: { floor: 3, x: 32, z: 26.4 }, to: { floor: 3, x: 32, z: 27.8 } });
+    expect(route).toHaveProperty('legs');
 
     const geometries = new Map(moduleRecipes().map(recipe => {
         const positions: number[] = [], indices: number[] = [];

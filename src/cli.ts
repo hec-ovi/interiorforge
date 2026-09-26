@@ -18,7 +18,9 @@ try {
     });
     const start = performance.now(), result = await generate(request);
     await writePlacements(result, values.out!);
-    console.log(`seed ${request.seed}; wrote three layouts for ${result.building.floors.length} floors in ${((performance.now() - start) / 1000).toFixed(3)} s`);
+    if (result.missingModels.length)
+        console.warn(`warning: furniture models missing here, their furniture wore another model or left the layout: ${result.missingModels.join(', ')}`);
+    console.log(`seed ${request.seed}; wrote ${Object.keys(result.layouts).length} layouts for ${result.building.floors.length} floors in ${((performance.now() - start) / 1000).toFixed(3)} s`);
 }
 catch (error) {
     console.error(error instanceof Error ? error.message : error);

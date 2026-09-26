@@ -1,76 +1,106 @@
 import type { Point } from "../core/geom.js";
 import type { NavConnector } from "../core/types.js";
-import type { PathLeg, PathQuery } from "./find-path.js";
+import type { NavLeg, NavRoute, NavTransfer } from "./find-path.js";
+import { MinHeap } from "./min-heap.js";
 
-type Portal = PathQuery & { connector?: NavConnector };
-type Walk = (floor: number, from: Point, to: Point) => Point[] | null;
+interface Portal { floor: number; position: Point; connector?: NavConnector }
+/** A walk between two points of one floor; `portals` marks a pair of published connector
+ *  entries, whose walk depends on the building alone. */
+export type FloorWalk = (floor: number, from: Point, to: Point, portals: boolean) => Point[] | null;
+type Step = { walk: NavLeg } | { ride: NavTransfer };
 
 /** Walking-distance equivalents keep stair travel additive and charge for boarding a lift. */
 const STAIR_PER_FLOOR = 12;
 const ELEVATOR_PER_FLOOR = 2;
 const ELEVATOR_BOARDING = 12;
 
-/** Dijkstra across reachable portal pairs, including private mezzanine transfers. */
+/** A way into a node: a ride or priced walk, or a walk known only by its straight-line
+ *  lower bound until it reaches the front of the queue. */
+interface Offer { node: number; via: number; cost: number; step?: Step }
+
+/** Dijkstra across the endpoints and every connector entry: walks join points of one floor,
+ *  rides join entries of one connector, and an entry reached on foot only boards (a walk
+ *  through it is never shorter than the direct one). A walk is priced only when its
+ *  straight-line bound reaches the front of the queue, so far entries never run a grid
+ *  search. Null when no route exists. */
 export function connectorRoute(
-  connectors: readonly NavConnector[], from: PathQuery, to: PathQuery, walk: Walk,
-): PathLeg[] | null {
+  connectors: readonly NavConnector[], from: Portal, to: Portal, walk: FloorWalk,
+): NavRoute | null {
   const nodes: Portal[] = [from, to, ...connectors.flatMap(connector => connector.floors.flatMap(floor => {
     const position = connector.entryByFloor[String(floor)];
     return position ? [{ floor, position, connector }] : [];
   }))];
-  const costs = nodes.map(() => Infinity), done = new Set<number>();
-  costs[0] = 0;
-  const previous = new Map<number, { node: number; leg: PathLeg }>();
-  while (done.size < nodes.length) {
-    let current = -1, best = Infinity;
-    for (let i = 0; i < nodes.length; i++) {
-      if (!done.has(i) && costs[i]! < best) { current = i; best = costs[i]!; }
+  const settled = new Uint8Array(nodes.length), reached = new Float64Array(nodes.length);
+  const previous = new Map<number, { node: number; step: Step }>();
+  const offers: Offer[] = [], queue = new MinHeap();
+  const offer = (item: Offer): void => queue.push(offers.push(item) - 1, item.cost);
+  offer({ node: 0, via: -1, cost: 0 });
+  while (queue.size > 0) {
+    const item = offers[queue.pop()]!;
+    if (settled[item.node]) continue;
+    const b = nodes[item.node]!;
+    if (item.via >= 0 && !item.step) {
+      const a = nodes[item.via]!;
+      const points = walk(b.floor, a.position, b.position, Boolean(a.connector && b.connector));
+      if (points) offer({ ...item, cost: reached[item.via]! + length(points), step: { walk: { floor: b.floor, points } } });
+      continue;
     }
-    if (current < 0) return null;
-    if (current === 1) {
-      const path: PathLeg[] = [];
-      let at = 1;
-      while (at !== 0) {
-        const step = previous.get(at)!;
-        path.push(step.leg);
-        at = step.node;
+    settled[item.node] = 1;
+    reached[item.node] = item.cost;
+    if (item.step) previous.set(item.node, { node: item.via, step: item.step });
+    if (item.node === 1) {
+      const steps: Step[] = [];
+      for (let at = 1; at !== 0;) {
+        const back = previous.get(at)!;
+        steps.push(back.step);
+        at = back.node;
       }
-      return joinRides(path.reverse());
+      return join(steps.reverse());
     }
-    done.add(current);
-    const a = nodes[current]!;
+    const walked = item.step !== undefined && "walk" in item.step;
     for (let i = 0; i < nodes.length; i++) {
-      if (done.has(i)) continue;
-      const b = nodes[i]!;
-      let leg: PathLeg, cost: number;
-      if (a.floor === b.floor) {
-        const points = walk(a.floor, a.position, b.position);
-        if (!points) continue;
-        leg = { kind: "walk", floor: a.floor, points };
-        cost = points.slice(1).reduce((sum, p, k) =>
-          sum + Math.hypot(p[0] - points[k]![0], p[1] - points[k]![1]), 0);
-      } else if (a.connector && a.connector === b.connector) {
-        leg = { kind: "ride", connector: a.connector.id, fromFloor: a.floor, toFloor: b.floor };
-        const span = Math.abs(a.floor - b.floor);
-        cost = a.connector.kind === "stair" ? span * STAIR_PER_FLOOR
-          : ELEVATOR_BOARDING + span * ELEVATOR_PER_FLOOR;
-      } else continue;
-      if (best + cost < costs[i]!) {
-        costs[i] = best + cost;
-        previous.set(i, { node: current, leg });
+      const next = nodes[i]!;
+      if (settled[i]) continue;
+      if (next.floor === b.floor) {
+        if (!walked) offer({ node: i, via: item.node, cost: item.cost + distance(b.position, next.position) });
+      } else if (b.connector && b.connector === next.connector) {
+        const span = Math.abs(b.floor - next.floor);
+        offer({ node: i, via: item.node, step: { ride: { id: b.connector.id, kind: b.connector.kind, fromFloor: b.floor, toFloor: next.floor, from: b.position, to: next.position } },
+          cost: item.cost + (b.connector.kind === "stair" ? span * STAIR_PER_FLOOR : ELEVATOR_BOARDING + span * ELEVATOR_PER_FLOOR) });
       }
     }
   }
   return null;
 }
 
-function joinRides(path: PathLeg[]): PathLeg[] {
-  const joined: PathLeg[] = [];
-  for (const leg of path) {
-    const previous = joined.at(-1);
-    if (previous?.kind === "ride" && leg.kind === "ride" && previous.connector === leg.connector
-      && previous.toFloor === leg.fromFloor) previous.toFloor = leg.toFloor;
-    else joined.push(leg);
+/** Walks alternate with rides, the route starting and ending on foot; consecutive rides on
+ *  one connector merge, so `legs` holds exactly one more entry than `connectors`. Points
+ *  are fresh arrays, never the cached walks or the nav's own entries. */
+function join(steps: readonly Step[]): NavRoute {
+  const legs: NavLeg[] = [], connectors: NavTransfer[] = [];
+  let last: Step | undefined;
+  for (const step of steps) {
+    if ("walk" in step) legs.push({ floor: step.walk.floor, points: step.walk.points.map(copy) });
+    else if (last && "ride" in last) {
+      const ride = connectors.at(-1)!;
+      ride.toFloor = step.ride.toFloor;
+      ride.to = copy(step.ride.to);
+    } else connectors.push({ ...step.ride, from: copy(step.ride.from), to: copy(step.ride.to) });
+    last = step;
   }
-  return joined;
+  return { legs, connectors };
+}
+
+function copy([x, z]: Point): Point {
+  return [x, z];
+}
+
+function length(points: readonly Point[]): number {
+  let sum = 0;
+  for (let i = 1; i < points.length; i++) sum += distance(points[i - 1]!, points[i]!);
+  return sum;
+}
+
+function distance(a: Point, b: Point): number {
+  return Math.hypot(b[0] - a[0], b[1] - a[1]);
 }

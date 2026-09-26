@@ -1,9 +1,10 @@
-export { generate, generate as generateInterior } from './placements/generate.js';
+export { generate, generate as generateInterior, type GenerateOptions } from './placements/generate.js';
+export { presentModels } from './assets/availability.js';
 export { INTERIOR_RECIPES, interiorRecipe } from './architecture/recipes.js';
 export { writePlacements } from './placements/write.js';
 export { buildModules } from './modules/index.js';
 export { makeFixture, type FixtureOptions } from './blueprint/fixture.js';
-export { findPath, type PathLeg, type PathQuery } from './npc/index.js';
+export * from './nav.js';
 export { coreFeasibility, type CoreFeasibility } from './layout/index.js';
 export { InteriorError } from './core/errors.js';
 export type * from './placements/types.js';

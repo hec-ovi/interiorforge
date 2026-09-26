@@ -14,7 +14,8 @@ export interface FloorSlice {
 
 export interface Viewer3D {
   el: HTMLElement;
-  setPlacements(result: PlacementResult): Promise<void>;
+  /** Resolves with the catalog props drawn as placeholder boxes because their model is absent. */
+  setPlacements(result: PlacementResult): Promise<string[]>;
   setFloorSlice(slice: FloorSlice | null): void;
   /** Displays the floor's published fixtures within the preview's shadow budget. */
   setLights(lights: readonly LightFixture[] | null): void;
@@ -113,7 +114,8 @@ export function createViewer3d(): Viewer3D {
       busyOverlay.classList.add("active");
       try {
         if (building) scene.remove(building);
-        building = await placementScene(result);
+        const { group, placeholders } = await placementScene(result);
+        building = group;
         scene.add(building);
         // real parcels live at city coordinates: fit the camera to the building
         const bounds = new THREE.Box3().setFromObject(building);
@@ -126,6 +128,7 @@ export function createViewer3d(): Viewer3D {
         camera.updateProjectionMatrix();
         applyClipping();
         resize();
+        return placeholders;
       } finally {
         busyOverlay.classList.remove("active");
       }

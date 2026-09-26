@@ -17,12 +17,13 @@ import { walls } from './walls.js';
 import { openings } from './openings.js';
 import { stairs, stairLandingRect } from './stairs.js';
 import { props } from './props.js';
+import type { ModelPresence } from '../assets/families.js';
 import { architectureFinish, interiorRecipe } from '../architecture/recipes.js';
 import { WALL } from '../layout/constants.js';
 import { subtractRect, thresholds } from './thresholds.js';
 import { elevatorDoorHole } from '../geometry/core-geo.js';
 
-export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: InteriorRequest, climb: number, roof?: RoofAccessPlan | null, shared: readonly BlueprintFloor[] = [bp]): PlacementBuilder {
+export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: InteriorRequest, models: ModelPresence, climb: number, roof?: RoofAccessPlan | null, shared: readonly BlueprintFloor[] = [bp]): PlacementBuilder {
     const floor = plan.floors.find(f => f.floor === bp.index)!, uv = plan.uvFloors.get(bp.index)!, core = plan.core;
     const builder = new PlacementBuilder();
     const ceilingY = floor.ceilingElevation - floor.elevation;
@@ -84,7 +85,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
             { u: passage.at - passage.width / 2, v: core.vFace, lu: passage.width, lv: carFront - core.vFace }, 0, core.frame);
     }
     thresholds(builder, core.frame, room => finishOf(room).floor);
-    props(builder, floor, uv, family);
+    props(builder, floor, uv, family, models);
     for (const light of planned) {
         const finish = finishOf(light.room), position: [number, number, number] = [light.position[0], light.position[1] - floor.elevation, light.position[2]];
         const rotation = -light.angleDeg * Math.PI / 180;

@@ -11,14 +11,29 @@ const BOX_DIR = fileURLToPath(new URL("../", import.meta.url));
 const INTERIOR_DIR = path.resolve(BOX_DIR, "..", "..");
 const SOURCES_DIR = path.join(INTERIOR_DIR, "assets-sources");
 const MODELS_DIR = path.join(BOX_DIR, "models");
+const CATALOG_PATH = path.join(BOX_DIR, "catalog.json");
 const VERIFIED_AT = "2026-09-06";
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 
 await fs.mkdir(MODELS_DIR, { recursive: true });
-const assets: AssetEntry[] = [];
-for (const plan of SOURCE_PLAN) assets.push(await importSource(plan));
+// Licensed sources are local files; one this machine lacks keeps its published entry.
+const published = new Map((JSON.parse(await fs.readFile(CATALOG_PATH, "utf8")) as AssetCatalog).assets.map(asset => [asset.id, asset]));
+const assets: AssetEntry[] = [], missing: string[] = [];
+for (const plan of SOURCE_PLAN) {
+  if (await exists(path.join(SOURCES_DIR, plan.sourceFile))) assets.push(await importSource(plan));
+  else {
+    missing.push(plan.sourceFile);
+    const kept = published.get(plan.id);
+    if (kept) assets.push(kept);
+  }
+}
 const catalog: AssetCatalog = { version: 1, verifiedAt: VERIFIED_AT, assets };
-await fs.writeFile(path.join(BOX_DIR, "catalog.json"), `${JSON.stringify(catalog, null, 2)}\n`);
+await fs.writeFile(CATALOG_PATH, `${JSON.stringify(catalog, null, 2)}\n`);
+if (missing.length) console.warn(`warning: sources missing, their published entries stay as they were: ${missing.join(", ")}`);
+
+async function exists(file: string): Promise<boolean> {
+  return fs.access(file).then(() => true, () => false);
+}
 
 async function importSource(plan: SourcePlan): Promise<AssetEntry> {
   const sourcePath = path.join(SOURCES_DIR, plan.sourceFile);

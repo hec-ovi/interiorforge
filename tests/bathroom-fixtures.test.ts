@@ -46,7 +46,7 @@ it.each(['luxury', 'capsule', 'damaged', 'industrial'] as Family[])('publishes s
   const uv: UvFloorData = { outline: [], rooms: [room], sealed: [], carpets: [],
     furniture: furniture.map(f => ({ ...f, at: f.position, rotationDeg: 0 as const })) };
   const builder = new PlacementBuilder();
-  props(builder, floor, uv, family);
+  props(builder, floor, uv, family, { present: new Set(), missing: new Set() });
   expect(builder.placements.map(p => p.module)).toEqual(['fit-toilet', family === 'luxury' ? 'fit-basin' : family === 'damaged' ? 'fit-basin-worn' : 'fit-basin-steel']);
   expect(floor.furniture).toEqual(furniture);
   for (const [i, placement] of builder.placements.entries()) {

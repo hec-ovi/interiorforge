@@ -36,7 +36,7 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
       if (review?.assignments) request.assignments = review.assignments;
       const result = await generateInterior(request);
       state.setResult(result);
-      await viewer.setPlacements(result);
+      warnMissing(result.missingModels, await viewer.setPlacements(result));
       applySlice();
       if (review) showSample(review, state, viewer, viewIndex);
       ready();
@@ -92,7 +92,7 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
       } as unknown as InteriorRequest;
       const result = await generateInterior(request);
       state.setResult(result);
-      await viewer.setPlacements(result);
+      warnMissing(result.missingModels, await viewer.setPlacements(result));
       applySlice();
       toast.success(
         `Imported ${request.building.id} with ${result.building.floors.length} floors`,
@@ -103,6 +103,13 @@ export function mountApp(root: HTMLElement, viewer: Viewer3D, sampleName?: strin
     } finally {
       state.setBusy(false);
     }
+  }
+
+  /** Lists the furniture models this preview lacks: those generation passed over and those
+   *  drawn as placeholder boxes. */
+  function warnMissing(passedOver: readonly string[], placeholders: readonly string[]): void {
+    const missing = [...new Set([...passedOver, ...placeholders])].sort();
+    if (missing.length) toast.warning(`${missing.join(", ")}. Their furniture wears another model, leaves the layout or stands as a box.`, "Missing Furniture Models");
   }
 
   function applySlice(): void {

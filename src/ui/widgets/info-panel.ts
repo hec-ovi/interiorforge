@@ -50,11 +50,11 @@ export function createInfoPanel(state: AppState): HTMLElement {
 
     container.append(el("div", { class: "section-title" }, ["NAVIGATION PATH"]));
     if (state.path) {
-      const walk = state.path.find((l) => l.kind === "walk");
-      const points = walk && walk.kind === "walk" ? walk.points.length : 0;
-      container.append(el("p", { class: "path-status" }, [`path found: ${points} waypoints`]));
+      const floors = state.path.legs.map((leg) => leg.floor).join(" > ");
+      const rides = state.path.connectors.map((c) => c.id).join(", ");
+      container.append(el("p", { class: "path-status" }, [`path found: floors ${floors}${rides ? ` via ${rides}` : ""}`]));
     } else {
-      container.append(el("p", { class: "hint" }, ["shift-click two plan points to test a walk path"]));
+      container.append(el("p", { class: "hint" }, ["shift-click two plan points, on one floor or two, to test a route"]));
     }
   }
 

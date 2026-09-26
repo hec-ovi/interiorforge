@@ -1,4 +1,4 @@
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync } from "node:fs";
 import { basename, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
@@ -48,7 +48,8 @@ function sharedRoute(): Plugin {
   };
 }
 
-/** Exposes ignored, license-restricted imports to the local preview only. */
+/** Exposes ignored, license-restricted imports to the local preview only; the route's root
+ *  lists the model files present, which is what generation may place. */
 function interiorAssetsRoute(): Plugin {
   const root = fileURLToPath(new URL("../assets/models", import.meta.url));
   return {
@@ -56,7 +57,12 @@ function interiorAssetsRoute(): Plugin {
     configureServer(server) {
       server.middlewares.use("/interior-assets", (req, res, next) => {
         const requested = decodeURIComponent((req.url ?? "/").split("?")[0]!).replace(/^[/\\]+/, "");
-        if (!requested || requested !== basename(requested)) return next();
+        if (!requested) {
+          res.setHeader("content-type", MIME[".json"]!);
+          res.end(JSON.stringify(readdirSync(root).filter(name => extname(name) === ".glb").sort()));
+          return;
+        }
+        if (requested !== basename(requested)) return next();
         const file = join(root, requested);
         if (!existsSync(file)) return next();
         res.setHeader("content-type", MIME[extname(file)] ?? "application/octet-stream");

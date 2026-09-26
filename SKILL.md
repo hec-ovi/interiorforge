@@ -3,7 +3,7 @@ name: urbe-interior
 description: Generate shared Interior modules and reusable placement layouts from an assembled Exterior blueprint.
 ---
 
-# Interior 0.35.1
+# Interior 0.36.0
 
 Use this box to publish the room module kit once, then placement JSON per building.
 Run commands from Interior. The consumer supplies an assembled Exterior blueprint.
@@ -27,7 +27,8 @@ const result = await generate(request);
 await writePlacements(result, 'out/building');
 ```
 
-The result is `{building, layouts}`. Layout keys are `ground`, `middle`, `crown` and
+The result is `{building, layouts, missingModels}`; `missingModels` lists local furniture
+models this checkout lacks, whose furniture wore another model or left the layout. Layout keys are `ground`, `middle`, `crown` and
 `floor-<index>` for distinct intermediate floors; read the manifest's declared entries.
 Each placement gives `module` or `prop`, `id`, `room`, `position`, `rotationY`,
 `scale` and optional source `opening` or core `connector`. Use metres and radians
@@ -39,6 +40,8 @@ to the consumer. `npm run preview` with `?sample=hotel`, `restaurant` or `reside
 shows a published kit plan furnished in its family.
 
 Use `expandBuilding(result)` for absolute floor data and NPC records, then
-`findPath(npc, from, to)` for routes. Each endpoint has `floor` and `position: [x,z]`.
+`findPath({nav: npc.nav, from, to})` for routes, from `src/index.ts` or the browser build
+`dist/nav.js` (`npm run build`). Each endpoint is `{floor, x, z}`; the result is
+`{legs, connectors}` or `{error: {code, message}}`.
 See [CONTRACT.md](CONTRACT.md) for slab ownership, lift poses and the five generation
 error codes.
