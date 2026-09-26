@@ -1,4 +1,4 @@
-# Interior 0.37.0
+# Interior 0.37.1
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
@@ -160,7 +160,8 @@ industrial bed or wardrobe no present model fills stands as its family's own
 (`fit-bed-capsule`, `fit-wardrobe-capsule`, `fit-bed-worn`, `fit-wardrobe-worn`). Programs: a lobby stands its desk on the axis of the wall facing the
 entrance with seating bays and planter cases; a restaurant runs a counter with its back
 bar and stools, dining tables between planted screens; a residence fits a kitchen run with
-a breakfast bar, a suite and a bathroom with a glazed shower and a planter. A hall
+a breakfast bar, a suite and a bathroom with a glazed shower and a planter; a toilets room
+stands its toilets in a row of 0.7 m stalls along one wall, so both are in use at once. A hall
 furnishes by its floor area, not by a fixed handful: a shop floor takes its checkout,
 shelving along the walls, display aisles across the plate and, past 80 m2, a seated bay on
 its carpet, so a 2000 m2 room reads as a shop and not as an empty plate.
@@ -224,7 +225,8 @@ Every venue publishes the roles that run it and its guests: a restaurant its hos
 waiters, cook and bartender, a coffee shop its barista, a hotel its receptionist and porter,
 a shop its vendor, an office its receptionist and guard, each on counter, seat and work
 anchors. One body takes each place: a post's spot claims it before a seat, so the chair
-pulled up to a desk or set behind a counter publishes no guest seat. A fitted roof retains its navigation access; a housing that cannot take the stair leaves the roof out of the navigation instead of closing the building. Runtime actor dimensions and dynamic
+pulled up to a desk or set behind a counter publishes no guest seat; only pieces of one
+room contend, so a partition never costs a desk its post. A fitted roof retains its navigation access; a housing that cannot take the stair leaves the roof out of the navigation instead of closing the building. Runtime actor dimensions and dynamic
 obstructions require consumer agreement in [issues](docs/ISSUES.md).
 
 ## Navigation

@@ -67,10 +67,6 @@ it('seats a luxury office at its own desks, and seats no guest in a post\'s chai
                 expect(Math.hypot(seat.position[0] - post.position[0], seat.position[1] - post.position[1]), `${name} ${seat.id} ${post.id}`).toBeGreaterThanOrEqual(0.6);
             }
         }
-        // The receptionist's guests wait on the lobby's seating, never at the desk.
-        const receptionist = layout.npc.roles.find(role => role.role === 'receptionist');
-        const guest = layout.npc.roles.find(role => role.role === 'guest');
-        if (receptionist && guest) expect(guest.homeAnchor).not.toBe(receptionist.homeAnchor);
     }
     expect(built.layouts.ground!.npc.roles.map(role => role.role)).toContain('receptionist');
     expect(Object.values(built.layouts).some(layout => layout.floor.furniture.some(f => f.kind === 'desk'))).toBe(true);

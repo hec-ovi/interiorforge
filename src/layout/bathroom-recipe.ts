@@ -92,7 +92,7 @@ function operationFootprint(fp: UvRect, edge: EdgeName, width: number, front: nu
   }
 }
 
-function overlaps(a: UvRect, b: UvRect, gap = 0): boolean {
+export function overlaps(a: UvRect, b: UvRect, gap = 0): boolean {
   return a.u < b.u + b.lu + gap - 1e-8 && a.u + a.lu + gap > b.u + 1e-8
     && a.v < b.v + b.lv + gap - 1e-8 && a.v + a.lv + gap > b.v + 1e-8;
 }

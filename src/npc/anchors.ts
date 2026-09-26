@@ -60,10 +60,15 @@ export function floorAnchors(
 
   // furniture-driven spots: preferred side first (front of a desk, behind a counter, the
   // open side of a bed), the opposite side as fallback when that spot is unreachable. One body
-  // takes each place, at the spot a post works from or on the piece it sits or lies on, however
-  // far the approach snaps; posts claim theirs before seats, so the chair pulled up to a desk or
-  // set behind a counter is that post's own seat and never publishes a guest's.
-  const bodies: Point[] = [];
+  // takes each place: a post holds the spot it works from and the reachable spot that approach
+  // snaps to, a seat or bed the piece its body rests on. Only pieces of one room contend, since a
+  // wall parts the rest. A place already held is served from there: the post keeps no second
+  // spot on the customer's side of a counter or behind a toilet's wall. Posts claim theirs before
+  // seats, so the chair pulled up to a desk or set behind a counter is that post's own seat and
+  // never publishes a guest's.
+  const held = new Map<string, Point[]>();
+  const free = (room: string, body: Point[]) => !(held.get(room) ?? []).some((other) =>
+    body.some((p) => Math.hypot(other[0] - p[0], other[1] - p[1]) < BODY_CLEAR - 1e-6));
   const seatsLast = [...floor.furniture].sort((a, b) =>
     Number(FURNITURE_ANCHORS[a.kind]?.kind === "seat") - Number(FURNITURE_ANCHORS[b.kind]?.kind === "seat"));
   for (const f of seatsLast) {
@@ -81,9 +86,9 @@ export function floorAnchors(
     for (const [p, facingDeg] of candidates) {
       const snapped = resolve(f.room, p);
       if (!snapped) continue;
-      const body = spec.side === "on" ? f.position : p;
-      if (!bodies.some((other) => Math.hypot(other[0] - body[0], other[1] - body[1]) < BODY_CLEAR - 1e-6)) {
-        bodies.push(body);
+      const body = spec.side === "on" ? [f.position] : [p, snapped];
+      if (free(f.room, body)) {
+        held.set(f.room, [...(held.get(f.room) ?? []), ...body]);
         push(spec.kind, f.room, snapped, facingDeg, f.id);
       }
       break;

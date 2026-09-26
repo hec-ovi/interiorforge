@@ -4,13 +4,14 @@ import { InteriorError } from "../core/errors.js";
 import type { Rng } from "../core/rng.js";
 import type { FloorKind, FurnitureKind } from "../core/types.js";
 import { doorZonesByRoom } from "./clearance.js";
+import { BODY_CLEAR } from "./constants.js";
 import type { PlanFurniture, PlanRoom } from "./plan-types.js";
 import { doorUvPoint } from "./plan-floor.js";
 import type { IdGen } from "./rooms.js";
 import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
 import { roomAnchor, roomArea, roomContains, roomCoversRect, roomEdges } from "./room-shape.js";
-import { BATHROOM_WALL_CLEARANCE, fitBathroomRecipe } from "./bathroom-recipe.js";
+import { BATHROOM_WALL_CLEARANCE, fitBathroomRecipe, overlaps } from "./bathroom-recipe.js";
 import { fitLuxuryGroup } from "./luxury/fit.js";
 import type { LuxuryGroup } from "./luxury/schema.js";
 
@@ -55,6 +56,9 @@ const STOOL_PITCH = 0.7;
 
 const SEATS: ReadonlySet<FurnitureKind> = new Set(["chair", "stool", "office_chair"]);
 
+/** Width of one stall in a row of toilets: their users stand beyond the body clearance. */
+const STALL = BODY_CLEAR + 0.1;
+
 class RoomPlacer {
   private readonly blocked: UvRect[] = [];
   /** footprint per placed piece, so a seat may pull up to its own table */
@@ -90,8 +94,8 @@ class RoomPlacer {
     for (let off = 0; off <= span; off += 0.25) {
       for (const a of centred ? [start + off / 2, start - off / 2] : [(start + off) % span]) {
         if (a < 0 || a > span) continue;
-        const fp = edgeFootprint(r, edge, a + 0.1, su, sv, inset);
-        if (this.fits(fp, kind)) return this.commit(kind, fp, edgeRotation(edge));
+        const placed = this.onEdge(kind, edgeFootprint(r, edge, a + 0.1, su, sv, inset), edge);
+        if (placed) return placed;
       }
     }
     return null;
@@ -198,8 +202,8 @@ class RoomPlacer {
       const available = hi - lo - width - 0.1;
       const start = this.rng.range(0, available);
       for (let offset = 0; offset <= available; offset += 0.25) {
-        const fp = edgeFootprint(virtual, edge, (start + offset) % available + 0.1, width, depth, inset);
-        if (this.fits(fp, kind)) return this.commit(kind, fp, edgeRotation(edge));
+        const placed = this.onEdge(kind, edgeFootprint(virtual, edge, (start + offset) % available + 0.1, width, depth, inset), edge);
+        if (placed) return placed;
       }
     }
     return null;
@@ -271,6 +275,17 @@ class RoomPlacer {
     }
   }
 
+  /** A piece backed onto `edge` where it fits. The toilets of a toilets room are in use at
+   *  once, so each holds its stall along the wall and no other piece or stall enters it. */
+  private onEdge(kind: FurnitureKind, fp: UvRect, edge: Edge): PlanFurniture | null {
+    if (!this.fits(fp, kind)) return null;
+    const stall = this.room.kind === "toilets" && kind === "toilet" ? stallOf(fp, edge) : null;
+    if (stall && this.blocked.some((other) => overlaps(stall, other))) return null;
+    const placed = this.commit(kind, fp, edgeRotation(edge));
+    if (stall) this.blocked.push(stall);
+    return placed;
+  }
+
   private fits(fp: UvRect, kind: FurnitureKind, except?: UvRect): boolean {
     const r = this.rect;
     if (fp.u < r.u + 0.05 || fp.v < r.v + 0.05 || fp.u + fp.lu > r.u + r.lu - 0.05 || fp.v + fp.lv > r.v + r.lv - 0.05) {
@@ -328,6 +343,13 @@ function footprintOf(item: PlanFurniture): UvRect {
   const lu = swap ? item.size[1] : item.size[0];
   const lv = swap ? item.size[0] : item.size[1];
   return { u: item.at[0] - lu / 2, v: item.at[1] - lv / 2, lu, lv };
+}
+
+/** A toilet's footprint widened to its stall along the wall it backs onto. */
+function stallOf(fp: UvRect, edge: Edge): UvRect {
+  return edge.startsWith("v")
+    ? { ...fp, u: fp.u - (STALL - fp.lu) / 2, lu: STALL }
+    : { ...fp, v: fp.v - (STALL - fp.lv) / 2, lv: STALL };
 }
 
 /** Footprint of a seat pulled up to one side of a piece; `rot` names the side, `at` runs
@@ -470,11 +492,13 @@ export function furnish(
         p.anyEdge("sink");
         if (area >= 3.6) p.anyEdge("shower");
         break;
-      case "toilets":
-        p.anyEdge("toilet");
-        p.anyEdge("toilet");
+      case "toilets": {
+        // stalls in a row along one wall, so their users never face each other
+        const stall = p.anyEdge("toilet");
+        if (stall) p.anyEdge("toilet", [edgeBehind(stall)]);
         p.anyEdge("sink");
         break;
+      }
       case "office_open":
         for (const d of p.grid("desk", 1.3, Math.max(2, Math.floor(area / 11)))) p.seatAt(d, "office_chair");
         p.anyEdge("plant");
