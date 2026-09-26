@@ -2,7 +2,7 @@ import type { Point } from "../core/geom.js";
 import { roomFootprintAnchor, roomFootprintContains } from "../core/room-footprint.js";
 import type { WalkGrid } from "../core/grid.js";
 import type { Anchor, AnchorKind, FloorInterior } from "../core/types.js";
-import { SPINE_KINDS } from "../layout/constants.js";
+import { BODY_CLEAR, SPINE_KINDS } from "../layout/constants.js";
 import { DoorKeepOut, ENTRANCE_STANDOFF } from "./keep-out.js";
 import type { CorePlan } from "../layout/index.js";
 import { elevatorWaitUv } from "../layout/index.js";
@@ -43,20 +43,30 @@ export function floorAnchors(
   const tag = floor.floor < 0 ? `m${-floor.floor}` : `${floor.floor}`;
   const placement = new AnchorPlacement(grid, visited, new DoorKeepOut(floor));
   const rooms = new Map(floor.rooms.map((room) => [room.id, room]));
-  const add = (kind: AnchorKind, room: string, position: Point, facingDeg: number, furniture?: string) => {
+  const resolve = (room: string, position: Point): Point | null => {
     const owner = rooms.get(room);
-    if (!owner) return;
-    const snapped = placement.resolve(owner, position);
-    if (!snapped) return;
+    return owner ? placement.resolve(owner, position) : null;
+  };
+  const push = (kind: AnchorKind, room: string, position: Point, facingDeg: number, furniture?: string) => {
     anchors.push({
       id: `f${tag}-a${n++}`, floor: floor.floor, room, kind,
-      position: snapped, facingDeg, ...(furniture ? { furniture } : {}),
+      position, facingDeg, ...(furniture ? { furniture } : {}),
     });
+  };
+  const add = (kind: AnchorKind, room: string, position: Point, facingDeg: number) => {
+    const snapped = resolve(room, position);
+    if (snapped) push(kind, room, snapped, facingDeg);
   };
 
   // furniture-driven spots: preferred side first (front of a desk, behind a counter, the
-  // open side of a bed), the opposite side as fallback when that spot is unreachable
-  for (const f of floor.furniture) {
+  // open side of a bed), the opposite side as fallback when that spot is unreachable. One body
+  // takes each place, at the spot a post works from or on the piece it sits or lies on, however
+  // far the approach snaps; posts claim theirs before seats, so the chair pulled up to a desk or
+  // set behind a counter is that post's own seat and never publishes a guest's.
+  const bodies: Point[] = [];
+  const seatsLast = [...floor.furniture].sort((a, b) =>
+    Number(FURNITURE_ANCHORS[a.kind]?.kind === "seat") - Number(FURNITURE_ANCHORS[b.kind]?.kind === "seat"));
+  for (const f of seatsLast) {
     const spec = FURNITURE_ANCHORS[f.kind];
     if (!spec) continue;
     const facing = facingOf(f.rotationDeg);
@@ -69,9 +79,14 @@ export function floorAnchors(
         ? [[f.position, f.rotationDeg], [front, (f.rotationDeg + 180) % 360]]
         : [[front, (f.rotationDeg + 180) % 360], [back, f.rotationDeg]];
     for (const [p, facingDeg] of candidates) {
-      const before = anchors.length;
-      add(spec.kind, f.room, p, facingDeg, f.id);
-      if (anchors.length > before) break;
+      const snapped = resolve(f.room, p);
+      if (!snapped) continue;
+      const body = spec.side === "on" ? f.position : p;
+      if (!bodies.some((other) => Math.hypot(other[0] - body[0], other[1] - body[1]) < BODY_CLEAR - 1e-6)) {
+        bodies.push(body);
+        push(spec.kind, f.room, snapped, facingDeg, f.id);
+      }
+      break;
     }
   }
 
@@ -84,7 +99,7 @@ export function floorAnchors(
       const inward = inwardOf(door.position, center);
       const standoff = ENTRANCE_STANDOFF + 0.2;
       add("entrance", room.id, [door.position[0] + inward[0] * standoff, door.position[1] + inward[1] * standoff],
-        angleOf(inward), undefined);
+        angleOf(inward));
     }
     // idle spots in social rooms, patrol points in public ones
     if (["living", "lounge", "reception", "office_open", "dining_area", "sales_floor", "gym_floor", "studio_main", "terrace_open"].includes(room.kind)) {

@@ -25,8 +25,13 @@ publishes, XZ centred, front toward +z. Stairs use 0.28 m treads and 0.17 m nomi
 risers; placement scales their width and rise while preserving tread depth. Origin is the
 vector from bounds minimum to authored zero. Size is XYZ bounds extent.
 
+Beds and wardrobes come in the walnut, capsule steel and worn steel looks of the
+furnishing families (`fit-bed`, `fit-bed-capsule`, `fit-bed-worn` and the same for
+`fit-wardrobe`), on one frame with their lenses where the furniture light records stand;
+the worn looks carry none. `fit-desk` and `fit-office-chair` furnish luxury offices.
+
 Seated support planes are 0.56 m for `fit-chair`, 0.45 m for `fit-sofa` and
-`fit-bench`, and 0.65 m for `fit-stool`, above the authored zero. Consumers scale
+`fit-bench`, 0.5 m for `fit-office-chair` and 0.65 m for `fit-stool`, above the authored zero. Consumers scale
 that height by the placement's Y scale and add its base and floor elevation.
 The sofa cushion centre is 0.105 m forward of the module's XZ centre before
 the placement's Z scale; the other seats are centred at their authored zero.

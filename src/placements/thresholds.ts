@@ -6,8 +6,7 @@ import { surface } from './surfaces.js';
 
 /** Fill only uncovered doorway floor strips; existing room floors keep their own surfaces. */
 export function thresholds(builder: PlacementBuilder, frame: Frame, floorOf: (room: string) => string): void {
-    const support = builder.placements.filter(p => p.module?.startsWith('floor-slab-') && Math.abs(p.position[1]) < 1e-6)
-        .map(p => footprint(p, p.scale[0] * .5, p.scale[2] * .5, frame));
+    const support = walkingSlabs(builder, frame);
     for (const door of builder.placements.filter(p => p.module === 'door-header')) {
         let gaps = [footprint(door, door.scale[0] * .5 - .16, .2, frame)];
         for (const floor of support) gaps = gaps.flatMap(gap => subtractRect(gap, floor));
@@ -16,6 +15,12 @@ export function thresholds(builder: PlacementBuilder, frame: Frame, floorOf: (ro
             support.push(gap);
         }
     }
+}
+
+/** The frame rectangles the floor's walking-level slabs cover. */
+export function walkingSlabs(builder: PlacementBuilder, frame: Frame): UvRect[] {
+    return builder.placements.filter(p => p.module?.startsWith('floor-slab-') && Math.abs(p.position[1]) < 1e-6)
+        .map(p => footprint(p, p.scale[0] * .5, p.scale[2] * .5, frame));
 }
 
 function footprint(p: Placement, width: number, depth: number, frame: Frame): UvRect {

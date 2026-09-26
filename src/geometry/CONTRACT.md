@@ -9,9 +9,12 @@ and successful clearance, or an InteriorError.
 
 `walls.ts` extracts shared wall intervals, facade endpoint reservations and doorway
 heads; a room edge on the buildable plate's own boundary is open perimeter, not a
-partition. `stairs.ts` computes landings, flight steps, clear width and stacked headroom.
+partition. `wallCuts` turns a line's holes into disjoint stretches, each opening the union
+of the holes over it; `mergeHoles` joins holes whose casings would touch;
+`outsideDoorHead` reads the shell passage an exterior connection lands on. `stairs.ts` computes landings, flight steps, clear width and stacked headroom.
 `core-geo.ts` supplies shaft rectangles and lift doorway cuts. `door-clear.ts` checks
-actual triangles against doorway volumes. `stair-clearance.ts` probes actual tread
+actual triangles against doorway volumes, each up to 2.1 m or an exterior connection's
+lower shell passage. `stair-clearance.ts` probes actual tread
 and landing headroom. `shell-fit.ts` measures every transformed vertex against shell
 walls and the opening rectangles that permit returns.
 

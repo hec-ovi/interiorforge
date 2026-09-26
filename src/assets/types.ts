@@ -21,7 +21,10 @@ export interface AssetEntry {
     redistributable: boolean;
   };
   sourceDimensions: { size: [number, number, number]; unit: "source-unit" | "meter" };
+  /** Model size [x, z, y] as authored, before `frontYawDeg`. */
   dimensionsMeters?: [number, number, number];
+  /** Yaw that turns a model authored facing another way to face +Z; absent means +Z. */
+  frontYawDeg?: 90 | 180 | 270;
   modelUri?: string;
   availability: "source-only" | "local-only" | "redistributable";
   metrics: {

@@ -4,6 +4,10 @@ import type { AssetCatalog, AssetEntry, AssetFamily, AssetFit } from "./types.js
 const catalog = data as AssetCatalog;
 /** A model scaled below this reads as a toy of the furniture it stands for. */
 const MIN_SCALE = 0.7;
+/** A model filling less of its record's width or depth stands for another piece: a cabinet
+ *  for a wardrobe, a side table for a meeting table, a mattress lying across a bed. A smaller
+ *  piece of the same kind, a shallower sofa or a shorter counter, still fills more. */
+const MIN_FILL = 0.6;
 
 export function loadAssetCatalog(): AssetCatalog {
   return catalog;
@@ -15,12 +19,17 @@ export function findAssetCandidates(family: AssetFamily, maxBounds: readonly [nu
     && fitAssetBounds(asset, maxBounds) !== null);
 }
 
-/** The uniform scale that stands a model inside `[width, depth, height]` bounds, and its
- *  scaled dimensions; null without normalized dimensions or below a useful scale. */
+/** The uniform scale that stands a model, turned to face +Z by its `frontYawDeg`, inside
+ *  `[width, depth, height]` bounds, and its scaled dimensions in that frame; null without
+ *  normalized dimensions, below a useful scale, or filling under three fifths of the width
+ *  or the depth. */
 export function fitAssetBounds(asset: AssetEntry, maxBounds: readonly [number, number, number]): AssetFit | null {
-  const size = asset.dimensionsMeters;
-  if (!size) return null;
+  const authored = asset.dimensionsMeters;
+  if (!authored) return null;
+  const size = asset.frontYawDeg === 90 || asset.frontYawDeg === 270 ? [authored[1], authored[0], authored[2]] : authored;
   const scale = Math.min(...size.map((value, index) => maxBounds[index]! / value));
   if (!Number.isFinite(scale) || scale < MIN_SCALE) return null;
-  return { scale, dimensions: size.map(value => value * scale) as AssetFit["dimensions"] };
+  const dimensions = size.map(value => value * scale) as AssetFit["dimensions"];
+  if (dimensions[0] < MIN_FILL * maxBounds[0] || dimensions[1] < MIN_FILL * maxBounds[1]) return null;
+  return { scale, dimensions };
 }

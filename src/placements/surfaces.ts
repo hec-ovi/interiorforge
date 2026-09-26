@@ -1,6 +1,6 @@
 import { InteriorError } from '../core/errors.js';
 import { roomFootprintContains } from '../core/room-footprint.js';
-import type { Point } from '../core/geom.js';
+import { boundaryDistance, type Point } from '../core/geom.js';
 import type { Frame, UvRect } from '../layout/uv.js';
 import { uvToWorld } from '../layout/uv.js';
 import type { PlacementBuilder } from './builder.js';
@@ -33,6 +33,36 @@ export function rectangles(polygon: Point[], holes: Point[][] = []): UvRect[] {
                     previous.lv += z[j + 1]! - z[j]!;
                 else
                     result.push({ u: start, v: z[j]!, lu: x[i]! - start, lv: z[j + 1]! - z[j]! });
+                start = undefined;
+            }
+        }
+    }
+    return result;
+}
+
+/** The parts of `bounds` inside `plate` that no rectangle of `covered` reaches, merged into
+ *  the fewest row-wise rectangles. Slivers below a millimetre are rounding, not floor. */
+export function uncoveredRects(bounds: UvRect, covered: readonly UvRect[], plate: readonly Point[]): UvRect[] {
+    const inBounds = (value: number, lo: number, hi: number) => value > lo + 1e-7 && value < hi - 1e-7;
+    const us = [...new Set([bounds.u, bounds.u + bounds.lu, ...covered.flatMap(r => [r.u, r.u + r.lu]).filter(u => inBounds(u, bounds.u, bounds.u + bounds.lu))])].sort((a, b) => a - b);
+    const vs = [...new Set([bounds.v, bounds.v + bounds.lv, ...covered.flatMap(r => [r.v, r.v + r.lv]).filter(v => inBounds(v, bounds.v, bounds.v + bounds.lv))])].sort((a, b) => a - b);
+    const inside = (p: Point) => boundaryDistance(p, plate) >= -1e-6;
+    const result: UvRect[] = [];
+    for (let j = 0; j + 1 < vs.length; j++) {
+        const v0 = vs[j]!, v1 = vs[j + 1]!;
+        if (v1 - v0 < 1e-3) continue;
+        let start: number | undefined;
+        for (let i = 0; i < us.length; i++) {
+            const u0 = us[i]!, u1 = us[i + 1];
+            const open = u1 !== undefined && u1 - u0 >= 1e-3
+                && !covered.some(r => (u0 + u1) / 2 > r.u - 1e-6 && (u0 + u1) / 2 < r.u + r.lu + 1e-6 && (v0 + v1) / 2 > r.v - 1e-6 && (v0 + v1) / 2 < r.v + r.lv + 1e-6)
+                && ([[u0, v0], [u1, v0], [u1, v1], [u0, v1]] as Point[]).every(inside);
+            if (open && start === undefined) start = u0;
+            if (!open && start !== undefined) {
+                const from = start;
+                const above = result.find(r => Math.abs(r.u - from) < 1e-7 && Math.abs(r.lu - (u0 - from)) < 1e-7 && Math.abs(r.v + r.lv - v0) < 1e-7);
+                if (above) above.lv += v1 - v0;
+                else result.push({ u: from, v: v0, lu: u0 - from, lv: v1 - v0 });
                 start = undefined;
             }
         }

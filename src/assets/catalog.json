@@ -172,6 +172,7 @@
         0.518,
         0.9
       ],
+      "frontYawDeg": 270,
       "modelUri": "models/sketchfab-dirty-toilet.glb",
       "availability": "local-only",
       "metrics": {
@@ -820,6 +821,7 @@
         1.3277,
         0.25
       ],
+      "frontYawDeg": 90,
       "modelUri": "models/sketchfab-mattress.glb",
       "availability": "local-only",
       "metrics": {
@@ -965,6 +967,7 @@
         0.7626,
         0.8
       ],
+      "frontYawDeg": 180,
       "modelUri": "models/sketchfab-modern-toilet.glb",
       "availability": "local-only",
       "metrics": {
@@ -1064,6 +1067,7 @@
         0.6794,
         1.1
       ],
+      "frontYawDeg": 180,
       "modelUri": "models/sketchfab-old-leather-office-chair.glb",
       "availability": "local-only",
       "metrics": {
@@ -1236,6 +1240,7 @@
         1.2539,
         0.8
       ],
+      "frontYawDeg": 270,
       "modelUri": "models/sketchfab-retro-lowpoly-bed.glb",
       "availability": "local-only",
       "metrics": {
@@ -1661,6 +1666,7 @@
         0.6295,
         0.9
       ],
+      "frontYawDeg": 180,
       "modelUri": "models/sketchfab-tandem-seating-hospital.glb",
       "availability": "local-only",
       "metrics": {

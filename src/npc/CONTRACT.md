@@ -11,7 +11,10 @@ identify stair and lift approaches. Roles follow the floor program: a lobby staf
 receptionist, guard and, in a hotel, its porter; a restaurant its host, waiters, cook and
 bartender; a coffee shop its barista; a shop its vendor; an office its workers, executive
 and guard; homes and hotel rooms their residents and guests; every venue seats guests.
-Routine steps reference generated role and anchor IDs.
+Routine steps reference generated role and anchor IDs. One body takes each place,
+standing at a post's spot or on the piece it sits or lies on: posts claim theirs before
+seats, so no two such anchors put bodies within the 0.6 m body clearance and a post's own
+chair publishes no guest seat.
 Standing opportunities preserve existing approaches when their body volumes are occupied.
 
 `facingDeg` is a positive-Y yaw in degrees: zero faces +Z, 90 faces +X;

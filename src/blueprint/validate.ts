@@ -3,7 +3,7 @@ import requestSchema from "../../schemas/request.schema.json" with { type: "json
 import blueprintSchema from "../../schemas/blueprint.schema.json" with { type: "json" };
 import { InteriorError } from "../core/errors.js";
 import { edgeLength, isCcw, polygonArea } from "../core/geom.js";
-import { createRng, type Rng } from "../core/rng.js";
+import { createRng } from "../core/rng.js";
 import type { BuildingType, FloorAssignment, FloorKind, InteriorRequest } from "../core/types.js";
 import { validateWindowGlazing } from "./validate-glazing.js";
 import { validatePocketDoors } from "./validate-pocket.js";
@@ -118,20 +118,48 @@ function validateAssignments({ blueprint, assignments }: InteriorRequest): void 
   }
 }
 
-/** Assignments win when provided; otherwise each floor derives from its blueprint kind slug,
- *  falling back to the building type for unknown slugs. Deterministic. */
+/** Assignments win when provided; otherwise each floor derives from its blueprint kind slug.
+ *  A slug that names no program of its own takes the parcel's: a shared plan's dressing class
+ *  (`commerce`, `residential`), the parcel type Exterior repeats on every typed floor, and the
+ *  entrance hall (`lobby`, `entry`) at street level. Deterministic. */
 export function resolveAssignments(request: InteriorRequest): FloorAssignment[] {
   if (request.assignments) return request.assignments;
-  const rng = createRng(request.seed, "assignments");
-  return request.blueprint.floors.map((floor) => ({
-    floor: floor.index,
-    kind: kindFromSlug(floor.kind, request.building.type, floor.index, rng),
-  }));
+  const type = request.building.type;
+  const ground = Math.min(...request.blueprint.floors.map((floor) => floor.index).filter((index) => index >= 0));
+  // A home building is studios or apartments throughout, drawn once so its floors share a layout.
+  let home: FloorKind | undefined;
+  const program = (level: 0 | 1): FloorKind => {
+    const kind = PARCEL_PROGRAM[type][level];
+    if (kind !== "apartment") return kind;
+    home ??= createRng(request.seed, "assignments").next() < 0.35 ? "residence_studio" : "apartment";
+    return home;
+  };
+  return request.blueprint.floors.map((floor) => {
+    const slug = floor.kind, level = floor.index === ground ? 0 : 1;
+    if (floor.index < 0) return { floor: floor.index, kind: SLUG_KIND[slug] ?? "parking" };
+    const generic = GENERIC_SLUGS.has(slug) || slug === type || (level === 0 && ENTRY_SLUGS.has(slug));
+    // exterior's generic venue slug: a shop floor is the venue its parcel names
+    const kind = generic ? program(level) : slug === "shop" ? VENUE_BY_TYPE[type] ?? "retail" : SLUG_KIND[slug] ?? program(level);
+    return { floor: floor.index, kind };
+  });
 }
 
-/** Exterior emits the atlas parcel type verbatim on every typed floor, plus lobby, entry,
- *  basement, bar, executive and the generic `shop`. Each slug picks its program, so a mixed
- *  building gets a real restaurant, shop or mall floor whatever its overall type is. */
+/** Each parcel type's own program: at street level, and on every floor above it. A venue
+ *  opens at street level with offices above; a mall and a factory fill every floor. */
+export const PARCEL_PROGRAM: Record<BuildingType, readonly [FloorKind, FloorKind]> = {
+  residential: ["lobby", "apartment"], hotel: ["lobby", "hotel_rooms"],
+  offices: ["lobby", "office"], corpo: ["lobby", "corpo_office"],
+  hospital: ["lobby", "office"], clinic: ["lobby", "office"], police: ["lobby", "office"], military: ["lobby", "office"],
+  factory: ["mechanical", "mechanical"], mall: ["mall_floor", "mall_floor"],
+  commerce: ["retail", "office"], restaurant: ["restaurant", "office"], coffee_shop: ["coffee_shop", "office"],
+};
+
+/** A shared plan's dressing classes: they say what the shell looks like, not what it holds. */
+const GENERIC_SLUGS: ReadonlySet<string> = new Set(["commerce", "residential"]);
+const ENTRY_SLUGS: ReadonlySet<string> = new Set(["lobby", "entry"]);
+
+/** Slugs that name a program of their own, whatever the parcel is: a restaurant, bar or gym
+ *  floor in a hotel, an executive floor, a basement car park, a roof terrace. */
 const SLUG_KIND: Record<string, FloorKind> = {
   lobby: "lobby", entry: "lobby",
   offices: "office", office: "office", corpo: "corpo_office", corpo_office: "corpo_office",
@@ -140,7 +168,7 @@ const SLUG_KIND: Record<string, FloorKind> = {
   factory: "mechanical", mechanical: "mechanical",
   restaurant: "restaurant", bar: "restaurant",
   coffee: "coffee_shop", coffee_shop: "coffee_shop", cafe: "coffee_shop",
-  commerce: "retail", mall: "mall_floor",
+  mall: "mall_floor",
   gym: "gym", hotel: "hotel_rooms", hotel_rooms: "hotel_rooms", residence_studio: "residence_studio",
   apartment: "apartment", basement: "parking", parking: "parking",
   terrace: "terrace", roof: "terrace",
@@ -150,26 +178,3 @@ const SLUG_KIND: Record<string, FloorKind> = {
 const VENUE_BY_TYPE: Partial<Record<BuildingType, FloorKind>> = {
   restaurant: "restaurant", coffee_shop: "coffee_shop", mall: "mall_floor", commerce: "retail",
 };
-
-function kindFromSlug(slug: string, type: BuildingType, floor: number, rng: Rng): FloorKind {
-  // A plan's generic upper-floor slug stands for whatever the parcel is: homes in a
-  // residential tower, offices in a corporate one; a corporate lobby stays a lobby.
-  if (slug === "residential" && type === "residential") return rng.next() < 0.35 ? "residence_studio" : "apartment";
-  // exterior's generic venue slugs: a shop floor is the venue its parcel names
-  if (slug === "shop" || (slug === "commerce" && VENUE_BY_TYPE[type])) return VENUE_BY_TYPE[type] ?? "retail";
-  const known = slug === "residential" ? undefined : SLUG_KIND[slug];
-  if (known) return known;
-  if (floor < 0) return "parking";
-  if (floor === 0) return "lobby";
-  switch (type) {
-    case "residential": return "apartment";
-    case "hotel": return "hotel_rooms";
-    case "corpo": return "corpo_office";
-    case "factory": return "mechanical";
-    case "commerce": return "retail";
-    case "mall": return "mall_floor";
-    case "coffee_shop": return "coffee_shop";
-    case "restaurant": return "restaurant";
-    default: return "office"; // offices and institutional parcels
-  }
-}

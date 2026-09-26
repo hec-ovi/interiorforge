@@ -3,7 +3,6 @@ import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, R
 import { generate } from '../src/index.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
 import { validateRequest, resolveAssignments } from '../src/blueprint/validate.js';
-import { architectureAssignments } from '../src/architecture/recipes.js';
 import { planBuilding } from '../src/layout/index.js';
 import { baseLanding, computeStairSteps, entryAtLowEnd } from '../src/geometry/stairs.js';
 import { uvToWorld } from '../src/layout/uv.js';
@@ -38,7 +37,7 @@ it('covers the full doorway passage and every tread/landing join across assemble
                 building: { type: 'corpo', tier, floors }, options: { architecture: 'balcony-grid', glb: 'merged' } }, { textures: { mode: 'keys' } });
             const request = validateRequest({ seed: 'stair-coverage', building: { id: 'coverage', type: 'corpo', tier }, blueprint, materialTheme: 'cyberpunk' });
             const result = await generate(request);
-            const { core } = planBuilding(request, architectureAssignments(request, resolveAssignments(request)), new Set([0, 1, floors - 1]));
+            const { core } = planBuilding(request, resolveAssignments(request), new Set([0, 1, floors - 1]));
             const missing: string[] = [];
             let probes = 0;
             const floorMeshes = result.building.floors.flatMap(ref => result.layouts[ref.layout]!.placements

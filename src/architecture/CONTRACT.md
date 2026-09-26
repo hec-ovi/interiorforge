@@ -3,9 +3,8 @@
 `recipes.ts` registers the Interior proportions, wall and frame palette, floor finish
 and ceiling treatment for every named Exterior architecture. `interiorRecipe(request)`
 selects by `blueprint.assembly.architecture`; an unlabelled shell retains the generic
-finish. Explicit assignments always win. Otherwise the actual parcel's programme
-selects office, apartment or hotel rooms above its lobby. Tier and industrial-use
-finishes remain authoritative.
+finish. Programs come from [Blueprint](../blueprint/CONTRACT.md) for paired and plain
+shells alike. Tier and industrial-use finishes remain authoritative.
 
 Corporate-sectors and mirror-shutters use the real charcoal
 `cyberpunk/corporate-panel/mid#native` field; mirror-frame uses

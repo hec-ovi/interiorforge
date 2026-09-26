@@ -1,4 +1,4 @@
-import type { BlueprintFloor, FloorAssignment, FloorKind, InteriorRequest, RoomKind } from '../core/types.js';
+import type { BlueprintFloor, InteriorRequest, RoomKind } from '../core/types.js';
 import type { Family, RoomFinish } from '../placements/finish.js';
 
 /** Each exterior architecture owns its interior proportions and finish recipe.
@@ -38,23 +38,6 @@ export function shellOwnsFacade(request: InteriorRequest, floor: BlueprintFloor)
         'balcony-grid', 'corporate-sectors', 'faceted-bays', 'white-grid',
         'mirror-shutters', 'mirror-frame', 'garden-taper',
     ].includes(interiorRecipe(request)?.id ?? '');
-}
-
-/** A shared commercial shell can host an office, hotel or home. Its actual use wins
- * over those generic shell labels; explicit user floor assignments always win. */
-export function architectureAssignments(request: InteriorRequest, derived: FloorAssignment[]): FloorAssignment[] {
-    if (request.assignments || !interiorRecipe(request)) return derived;
-    const program: Partial<Record<InteriorRequest['building']['type'], FloorKind>> = {
-        residential: 'apartment', hotel: 'hotel_rooms', offices: 'office', corpo: 'corpo_office',
-    };
-    const kind = program[request.building.type];
-    if (!kind) return derived;
-    const ground = request.blueprint.floors.find(floor => floor.index >= 0)?.index;
-    return derived.map(assignment => {
-        const source = request.blueprint.floors.find(floor => floor.index === assignment.floor)!;
-        if (!['commerce', 'residential', 'offices', 'corpo', 'hotel'].includes(source.kind)) return assignment;
-        return { ...assignment, kind: assignment.floor === ground ? 'lobby' : kind };
-    });
 }
 
 export function architectureFinish(request: InteriorRequest, family: Family, room: RoomKind, base: RoomFinish): RoomFinish {

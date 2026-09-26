@@ -9,7 +9,7 @@ import { placeLayout } from './layout.js';
 import { windowTreatments } from './treatments.js';
 import type { GeneratedInterior, LayoutId, LayoutMap, FloorPlacement } from './types.js';
 import version from '../../package.json' with { type: 'json' };
-import { architectureAssignments, interiorRecipe } from '../architecture/recipes.js';
+import { interiorRecipe } from '../architecture/recipes.js';
 import { presentModels } from '../assets/availability.js';
 export interface GenerateOptions {
     /** catalog ids whose model file the consumer holds; default presentModels() */
@@ -28,7 +28,7 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
             ...(published.assignments ? { assignments: published.assignments.filter(a => a.floor >= 0) } : {}) };
     const floors = request.blueprint.floors;
     // Two floors are ground and crown; the middle layout exists only where a floor repeats it.
-    const assignments = architectureAssignments(request, resolveAssignments(request)), alone = floors.length === 1;
+    const assignments = resolveAssignments(request), alone = floors.length === 1;
     if (assignments.some(a => (a.spans ?? 1) !== 1))
         throw new InteriorError('E_ASSIGNMENT_INVALID', 'placement layouts require single storey assignments');
     // Reuse only genuinely identical construction plates. Tapered wings, connection

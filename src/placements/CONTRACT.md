@@ -23,15 +23,21 @@ field over the whole run as the backing, four one-cell corners, a rail at the he
 foot, a stile at each end, a lit joint top and bottom published as a `cove` record) where
 the run is at least 1.5 m long and high, a plain fitted field otherwise, a glass field
 where an office room looks onto public space, and a door frame in every interior hole. A
-boundary run is cut by the openings of every floor that reuses the layout; the shell's own
-openings keep their frame and return. [Surfaces](surfaces.ts) lay one slab per room
+line's holes are cut as one union ([wallCuts](../geometry/walls.ts)): overlapping holes
+take one head and one sill, never a field across another opening, and casings that would
+touch frame one opening. A boundary run is cut by the openings of every floor that reuses
+the layout and the shell passages its doors land on; the shell's own openings keep their
+frame and return. An exterior connection's head is its shell passage's. [Surfaces](surfaces.ts) lay one slab per room
 rectangle, carpets under fitted groups, and ceilings with a fitted band, an inset field
-and the family's services. Each room-plan light stands as its module: spot, strip or cove,
+and the family's services; a leftover inside the rectangle the rooms and core stand in takes
+its neighbour's slab and a plain ceiling field. Each room-plan light stands as its module: spot, strip or cove,
 and [balanceIllumination](../layout/lighting.ts) sets what each delivers so the room lands
 in its kind's lux band.
 Furniture with a built-in module scales per axis to its record; other furniture
-references existing catalog IDs at one uniform scale, and furnishings fitting neither
-produce no prop or furniture anchor. Only models in `models` (default: the files present
+references existing catalog IDs at one uniform scale, turned by the model's `frontYawDeg`,
+then the family's own bed or wardrobe where no present model fills the record, and
+furnishings fitting none produce no prop or furniture anchor. Only a lit module keeps its
+furniture light records, before the room's luminaires are balanced. Only models in `models` (default: the files present
 beside the catalog) are placed, so furniture with no present model leaves with its anchors;
 `missingModels` lists the absent ones furniture wanted.
 

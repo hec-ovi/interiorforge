@@ -8,7 +8,7 @@ import { roomEdges } from '../layout/room-shape.js';
 import { BAND_PROUD, SHELL_WALL } from "../layout/shell.js";
 import type { Frame } from "../layout/uv.js";
 import { uvToWorld } from "../layout/uv.js";
-import { doorHeadHeight } from "./walls.js";
+import { doorHeadHeight, outsideDoorHead } from "./walls.js";
 import { edgeFrame, edgePoint } from "./shell-fit.js";
 
 /** A doorway is only a doorway when the geometry is actually open: a wall run that missed
@@ -35,9 +35,10 @@ export interface Doorway {
   half: [number, number, number];
 }
 
-/** The doorways of one floor: every door between two rooms, at the size the player passes. */
+/** The doorways of one floor: every door between two rooms, at the size the player passes.
+ *  An exterior connection passes no higher than the shell opening it lands on in `floor`. */
 export function floorDoorways(
-  rooms: readonly PlanRoom[], frame: Frame, elevation: number, ceilingY: number,
+  rooms: readonly PlanRoom[], frame: Frame, elevation: number, ceilingY: number, floor?: BlueprintFloor,
 ): Doorway[] {
   const out: Doorway[] = [];
   for (const room of rooms) {
@@ -62,7 +63,8 @@ export function floorDoorways(
       }
       const [x, z] = uvToWorld(point, frame);
       const rad = ((alongU ? 0 : 90) + frame.angleDeg) * Math.PI / 180;
-      const clear = Math.min(doorHeadHeight(door.leaves, ceilingY - elevation), DOOR.clearHeight) - 2 * MARGIN;
+      const shell = door.to === "outside" && floor ? outsideDoorHead(floor, uvToWorld(doorUvPoint(door, room), frame), ceilingY - elevation) : null;
+      const clear = Math.min(doorHeadHeight(door.leaves, ceilingY - elevation), DOOR.clearHeight, shell ?? Infinity) - 2 * MARGIN;
       out.push({
         id: `${room.id}/${door.id}`,
         center: [x, elevation + MARGIN + clear / 2, z],

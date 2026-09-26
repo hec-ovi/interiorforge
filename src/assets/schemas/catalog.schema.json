@@ -45,6 +45,10 @@
         "sourceDimensions": { "$ref": "#/$defs/dimensions" },
         "dimensionsMeters": { "$ref": "#/$defs/vec3" },
         "modelUri": { "type": "string", "pattern": "^models/[a-z0-9-]+\\.glb$" },
+        "frontYawDeg": {
+          "enum": [90, 180, 270],
+          "description": "Yaw about +Y, applied before placement, that turns a model authored facing another way to face +Z; absent means it already faces +Z"
+        },
         "availability": { "enum": ["source-only", "local-only", "redistributable"] },
         "metrics": {
           "type": "object",

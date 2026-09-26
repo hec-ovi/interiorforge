@@ -3,6 +3,8 @@ import { MeshBuilder, type Vec3 } from '../glb/mesh-builder.js';
 import { moduleRecipes } from '../modules/recipes.js';
 import type { Placement } from './types.js';
 const recipes = new Map(moduleRecipes().map(recipe => [recipe.id, recipe]));
+/** True when the module carries a lit lens, which its light record stands on. */
+export const litModule = (id: string): boolean => recipes.get(id)?.mesh.materials().some(slot => slot.includes('/light-fixture/')) ?? false;
 export class PlacementBuilder {
     readonly placements: Placement[] = [];
     readonly mesh = new MeshBuilder();

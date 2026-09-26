@@ -29,7 +29,7 @@ The usable plate is the floor's published `roomEnvelope`, or its outline inset b
 partitions and navigation walls stop at that plate; the band out to the outline stays
 open and walkable, and an exterior door reaches its room across it. A leftover thinner
 than the 0.6 m body clearance is void floor: the rectangle beside it takes that space,
-access never counts it as room space, and a room left with no standing space, with no wall
+Placements floor it, access never counts it as room space, and a room left with no standing space, with no wall
 a repair door can open, or with a partition the facade gives no pier to, is dropped from
 the floor. The pier check reads only walls the floor builds: an edge on the plate boundary
 is open perimeter and needs no seat. Circulation itself never degrades:

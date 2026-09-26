@@ -6,17 +6,20 @@ export interface SourcePlan {
   family: AssetFamily;
   styles: string[];
   targetHeight?: number;
+  /** Yaw that turns the model to face +Z, for one authored facing another way. */
+  frontYawDeg?: 90 | 180 | 270;
   provider: "Sketchfab" | "Poly Haven";
   title?: string;
   author?: string;
 }
 
-const sketchfab = (sourceFile: string, family: AssetFamily, styles: string[], targetHeight?: number): SourcePlan => ({
+const sketchfab = (sourceFile: string, family: AssetFamily, styles: string[], targetHeight?: number, frontYawDeg?: 90 | 180 | 270): SourcePlan => ({
   id: `sketchfab-${sourceFile.replace(/\.glb$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
   sourceFile: `sketchfab/${sourceFile}`,
   family,
   styles,
   targetHeight,
+  ...(frontYawDeg ? { frontYawDeg } : {}),
   provider: "Sketchfab",
 });
 
@@ -24,7 +27,7 @@ export const SOURCE_PLAN: SourcePlan[] = [
   sketchfab("animal_crossing_new_horizons_trash_bags.glb", "prop", ["damaged", "game", "poor", "residential", "trash"], 0.55),
   sketchfab("bed_1.glb", "bed", ["contemporary", "residential"]),
   sketchfab("container_low.glb", "storage", ["industrial"]),
-  sketchfab("dirty_toilet.glb", "toilet", ["damaged", "industrial", "poor"], 0.9),
+  sketchfab("dirty_toilet.glb", "toilet", ["damaged", "industrial", "poor"], 0.9, 270),
   sketchfab("elegant_black_office_desk.glb", "desk", ["contemporary", "high_rich", "luxury", "office", "rich"], 0.76),
   sketchfab("file_shelf.glb", "shelf", ["mid", "office", "retro"], 1.9),
   sketchfab("flexispot_office_chair.glb", "chair", ["contemporary", "office"]),
@@ -38,16 +41,16 @@ export const SOURCE_PLAN: SourcePlan[] = [
   sketchfab("jack_daniels.glb", "prop", ["restaurant", "retro"]),
   sketchfab("laptop.glb", "prop", ["contemporary", "office"], 0.22),
   sketchfab("maple_tree.glb", "planter", ["contemporary", "natural"], 1.5),
-  sketchfab("mattress.glb", "bed", ["poor", "residential"], 0.25),
+  sketchfab("mattress.glb", "bed", ["poor", "residential"], 0.25, 90),
   sketchfab("modern_entertainment_center_free.glb", "storage", ["contemporary", "residential"], 1.8),
   sketchfab("modern_gray_sofa__3d_model.glb", "sofa", ["contemporary", "mid", "residential"], 0.85),
-  sketchfab("modern_toilet.glb", "toilet", ["contemporary", "residential"], 0.8),
+  sketchfab("modern_toilet.glb", "toilet", ["contemporary", "residential"], 0.8, 180),
   sketchfab("office_chair.glb", "chair", ["mid", "office"], 1.05),
-  sketchfab("old_leather_office_chair.glb", "chair", ["damaged", "luxury", "office", "retro", "rich"], 1.1),
+  sketchfab("old_leather_office_chair.glb", "chair", ["damaged", "luxury", "office", "retro", "rich"], 1.1, 180),
   sketchfab("realistic_bed_3d_model.glb", "bed", ["contemporary", "residential", "rich"]),
   sketchfab("reception_table_scifi.glb", "desk", ["sci-fi"]),
   sketchfab("red_oil_barrel_-_cc0.glb", "prop", ["industrial"]),
-  sketchfab("retro_lowpoly_bed.glb", "bed", ["damaged", "poor", "residential", "retro"], 0.8),
+  sketchfab("retro_lowpoly_bed.glb", "bed", ["damaged", "poor", "residential", "retro"], 0.8, 270),
   sketchfab("sci-_fi_bed.glb", "bed", ["capsule", "sci-fi"], 0.8),
   sketchfab("sci-fi_furniture_pack_aaa_shelving_unit_c.glb", "shelf", ["capsule", "industrial", "sci-fi"], 2),
   sketchfab("sci_fi_3_chair.glb", "bench", ["capsule", "sci-fi"], 0.95),
@@ -56,7 +59,7 @@ export const SOURCE_PLAN: SourcePlan[] = [
   sketchfab("sinkbathroom2.glb", "sink", ["contemporary", "rich"]),
   sketchfab("soda_dispenser.glb", "appliance", ["restaurant"], 0.55),
   sketchfab("table.glb", "table", ["office", "residential"], 0.75),
-  sketchfab("tandem_seating_-_hospital.glb", "bench", ["hospital", "office"], 0.9),
+  sketchfab("tandem_seating_-_hospital.glb", "bench", ["hospital", "office"], 0.9, 180),
   sketchfab("tree_3d_model_fir_spruce_pine.glb", "planter", ["natural"]),
   sketchfab("unbranded_conventional_fridge.glb", "appliance", ["poor", "residential"], 1.8),
   sketchfab("whiskey_glass.glb", "prop", ["restaurant"], 0.12),

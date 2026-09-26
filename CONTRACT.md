@@ -1,4 +1,4 @@
-# Interior 0.36.1
+# Interior 0.37.0
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
@@ -10,10 +10,8 @@ Every named Exterior architecture has a registered Interior recipe in
 its preferred frontage widths, wall/frame palette, floor finish and ceiling treatment;
 the common planner still enforces the exact shell openings, circulation and core.
 The building output publishes optional `architecture`, identifying the chosen recipe.
-Unlabelled legacy shells keep their existing generic interiors. Explicit floor
-assignments always win; otherwise shared commercial/residential shells take the
-actual parcel's office, home or hotel program, with a lobby at ground level.
-Tier and industrial-use rules remain authoritative over luxury finishes.
+Unlabelled legacy shells keep their existing generic interiors. Tier and industrial-use
+rules remain authoritative over luxury finishes.
 
 ## Calls
 
@@ -42,11 +40,25 @@ height, doors and program agree. A differing intermediate floor publishes `floor
 later floors with that same construction and program can reuse it. This preserves tapered
 landmark plates and connection floors without projecting lower rooms outside their shell.
 Windows vary per floor by design, and so do opening
-IDs and exterior dressing (material, panes, glazing, scenery, section ids). Default
-programs derive from blueprint kinds, with the first middle floor defining its program;
-a generic `residential` plan slug takes the parcel's own program in a corporate, office
-or hotel building, and a `commerce` slug takes the venue a restaurant, coffee shop or
-mall parcel names. Input objects remain unchanged. Optional `shellGlb` is metadata;
+IDs and exterior dressing (material, panes, glazing, scenery, section ids). Explicit
+assignments always win. Otherwise each floor derives from its blueprint kind, and a kind
+that names no program of its own takes the parcel's: a shared plan's `commerce` or
+`residential`, the parcel type repeated on every typed floor, and `lobby` or `entry` at
+street level. A parcel stands its own program at street level and above it, paired or plain
+shell alike:
+
+| Parcel type | Street level | Above |
+| --- | --- | --- |
+| residential | lobby | apartment or residence_studio, one for the whole building |
+| hotel | lobby | hotel_rooms |
+| offices, hospital, clinic, police, military | lobby | office |
+| corpo | lobby | corpo_office |
+| commerce, restaurant, coffee_shop | retail, restaurant, coffee_shop | office |
+| mall | mall_floor | mall_floor |
+| factory | mechanical | mechanical |
+
+A kind naming its own program keeps it (a hotel's `restaurant` or `bar`, `executive`,
+`gym`, a `shop` floor as the parcel's venue). Input objects remain unchanged. Optional `shellGlb` is metadata;
 generation consumes the assembled blueprint. No shell, texture or furniture geometry is loaded.
 
 ## Files and frames
@@ -102,13 +114,15 @@ the inset construction rectangle. That rectangle bounds room partitions; the ban
 out to the real facade remains open. Core enclosures retain their walls. The rule
 uses each generated blueprint and applies at every supported footprint and floor count.
 
-A room's face on the shell is cut by every opening carried by any floor that reuses this
-layout, projected inward onto each facing lining even when a recessed or curved facade
+A room's face on the shell is cut once by the union of every opening carried by any floor
+that reuses this layout, the passage its own doors land on included, projected inward onto each facing lining even when a recessed or curved facade
 stands metres beyond the room envelope, so one lined run serves floors whose windows sit elsewhere; an angled facade edge
 keeps the shell's own face.
 
 Floors are one fitted slab per room rectangle over a dark screed (stone, obsidian, marble
-or timber by room). Ceilings carry a fitted outer band, an inset field, recessed spot
+or timber by room). A leftover inside the rectangle the rooms and core stand in, void to
+rooms, takes the slab and a plain ceiling field of the room along its longest side, so a
+consumer cutting its storey plate by that rectangle finds no hole. Ceilings carry a fitted outer band, an inset field, recessed spot
 modules and a cove module on every cove record; damaged and industrial families hang
 exposed services instead of a band. Carpets lie under the seating and suite groups a rich
 interior fits, in homes, lounges, receptions and the seated bay of a large shop floor.
@@ -135,11 +149,15 @@ stays dim by design.
 
 Every light record has a module standing at it, and every lit module has a record: spots,
 strips and coves from the room plan, the frames' joints from the walls, and furniture
-lenses published with their `furniture` id. Furniture kinds with a built-in module
-(desks, counters, kitchen runs, beds with planted headboards, wardrobes, showers, toilets, basins,
+lenses published with their `furniture` id; a piece standing as a catalog prop or an unlit
+module publishes none. Furniture kinds with a built-in module (desks, office chairs,
+counters, kitchen runs, beds with planted headboards, wardrobes, showers, toilets, basins,
 lit planters, planted screens, aquarium walls, screens, art, shelves, stools, chairs,
 sofas, tables, capsule pods, crates) are scaled per axis to their record; the rest resolve
-catalog props. Programs: a lobby stands its desk on the axis of the wall facing the
+catalog props, each turned by its catalog `frontYawDeg` to face its piece's front and
+filling at least three fifths of the record's width and depth. A capsule, damaged or
+industrial bed or wardrobe no present model fills stands as its family's own
+(`fit-bed-capsule`, `fit-wardrobe-capsule`, `fit-bed-worn`, `fit-wardrobe-worn`). Programs: a lobby stands its desk on the axis of the wall facing the
 entrance with seating bays and planter cases; a restaurant runs a counter with its back
 bar and stools, dining tables between planted screens; a residence fits a kitchen run with
 a breakfast bar, a suite and a bathroom with a glazed shower and a planter. A hall
@@ -205,7 +223,8 @@ Its navigation retains anchors, roles, routines, standing opportunities and floo
 Every venue publishes the roles that run it and its guests: a restaurant its host,
 waiters, cook and bartender, a coffee shop its barista, a hotel its receptionist and porter,
 a shop its vendor, an office its receptionist and guard, each on counter, seat and work
-anchors. A fitted roof retains its navigation access; a housing that cannot take the stair leaves the roof out of the navigation instead of closing the building. Runtime actor dimensions and dynamic
+anchors. One body takes each place: a post's spot claims it before a seat, so the chair
+pulled up to a desk or set behind a counter publishes no guest seat. A fitted roof retains its navigation access; a housing that cannot take the stair leaves the roof out of the navigation instead of closing the building. Runtime actor dimensions and dynamic
 obstructions require consumer agreement in [issues](docs/ISSUES.md).
 
 ## Navigation
@@ -240,7 +259,8 @@ every call for that building and do not mutate it.
 ## Validation and limits
 
 Windows overlap only when both their horizontal and sill to head intervals overlap.
-Doorway geometry remains clear. Stair flights retain at least 1.2 m clear width and
+Doorway geometry remains clear up to 2.1 m, or to the head of the shell opening an exterior
+connection lands on when that is lower. No two wall fields of a face overlap. Stair flights retain at least 1.2 m clear width and
 2.1 m headroom. The shell check measures transformed module vertices and prop bounds.
 Identical input and resource catalogs produce identical JSON and module bytes.
 

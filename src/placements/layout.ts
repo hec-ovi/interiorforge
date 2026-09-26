@@ -5,14 +5,14 @@ import { baseLanding, entryAtLowEnd } from '../geometry/stairs.js';
 import type { BuildingPlan } from '../layout/index.js';
 import { roomArea, roomPolygon } from '../layout/room-shape.js';
 import { balanceIllumination } from '../layout/lighting.js';
-import { uvToWorld } from '../layout/uv.js';
+import { uvToWorld, type UvRect } from '../layout/uv.js';
 import { constructionPlate, shellWallDepth } from '../layout/shell.js';
 import { assertInsideShell } from '../geometry/shell-fit.js';
 import { stairClearance } from '../geometry/stair-clearance.js';
 import { InteriorError } from '../core/errors.js';
 import { PlacementBuilder } from './builder.js';
 import { familyOf, roomFinish, type RoomFinish } from './finish.js';
-import { ceiling, rectangles, slabs, surface } from './surfaces.js';
+import { ceiling, rectangles, slabs, surface, uncoveredRects } from './surfaces.js';
 import { walls } from './walls.js';
 import { openings } from './openings.js';
 import { stairs, stairLandingRect } from './stairs.js';
@@ -20,7 +20,7 @@ import { props } from './props.js';
 import type { ModelPresence } from '../assets/families.js';
 import { architectureFinish, interiorRecipe } from '../architecture/recipes.js';
 import { WALL } from '../layout/constants.js';
-import { subtractRect, thresholds } from './thresholds.js';
+import { subtractRect, thresholds, walkingSlabs } from './thresholds.js';
 import { elevatorDoorHole } from '../geometry/core-geo.js';
 
 export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: InteriorRequest, models: ModelPresence, climb: number, roof?: RoofAccessPlan | null, shared: readonly BlueprintFloor[] = [bp]): PlacementBuilder {
@@ -34,9 +34,10 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     const finishOf = (room: string, kind: RoomKind = kinds.get(room) ?? common.kind): RoomFinish => architectureFinish(request, family, kind, roomFinish(family, kind, floor.kind as FloorKind));
     const tag = `f${bp.index < 0 ? `m${-bp.index}` : bp.index}`;
 
-    for (const room of uv.rooms) {
+    const floorRects = uv.rooms.map(room => ({ room, rects: rectangles(roomPolygon(room, plate), room.holes) }));
+    for (const { room, rects } of floorRects) {
         const finish = finishOf(room.id, room.kind);
-        for (const rect of rectangles(roomPolygon(room, plate), room.holes)) {
+        for (const rect of rects) {
             slabs(builder, finish.floor, room.id, rect, 0, core.frame);
             ceiling(builder, finish, room.id, rect, ceilingY, core.frame);
         }
@@ -54,6 +55,8 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         for (const light of planned) { light.colorTemperatureK = 4000; delete light.color; }
     }
     floor.lights.push(...walls(builder, floor, uv, core, bp, request, finishOf, tag, shared));
+    // Furniture keeps the lens records of the lit modules it stands as, and no others.
+    props(builder, floor, uv, family, models);
     // Every record the room publishes is in now, so each luminaire takes the share that
     // lands the room in its kind's illuminance band.
     balanceIllumination(uv.rooms.map(room => ({ id: room.id, kind: room.kind, area: roomArea(room, plate) })), floor.lights, request.building.tier);
@@ -85,7 +88,19 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
             { u: passage.at - passage.width / 2, v: core.vFace, lu: passage.width, lv: carFront - core.vFace }, 0, core.frame);
     }
     thresholds(builder, core.frame, room => finishOf(room).floor);
-    props(builder, floor, uv, family, models);
+    // A leftover thinner than a body, beside the core or between rooms, lies inside the
+    // rectangle the rooms and core stand in, where consumers cut their storey plate: it takes
+    // the slab and plain ceiling field of the room along its longest side.
+    const shafts = [core.stairA, ...(core.stairB ? [core.stairB] : []), core.riser, ...core.elevators.map(e => e.rect)];
+    const standing = [...floorRects.flatMap(({ rects }) => rects), ...uv.sealed, ...shafts];
+    const envelope = boundsOf(standing);
+    for (const rect of envelope ? uncoveredRects(envelope, [...walkingSlabs(builder, core.frame), ...shafts], plate) : []) {
+        const owner = floorRects.map(({ room, rects }) => ({ room, side: Math.max(0, ...rects.map(other => sharedSide(rect, other))) }))
+            .sort((a, b) => b.side - a.side)[0];
+        const room = owner && owner.side > 0 ? owner.room : common, finish = finishOf(room.id, room.kind);
+        slabs(builder, finish.floor, room.id, rect, 0, core.frame);
+        surface(builder, finish.ceiling, room.id, rect, ceilingY, core.frame);
+    }
     for (const light of planned) {
         const finish = finishOf(light.room), position: [number, number, number] = [light.position[0], light.position[1] - floor.elevation, light.position[2]];
         const rotation = -light.angleDeg * Math.PI / 180;
@@ -98,7 +113,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         if (probe.clear < 2.1 - 1e-4)
             throw new InteriorError('E_UNREACHABLE_SPACE', `${id} has ${probe.clear.toFixed(3)} m headroom at ${probe.step.y}`, bp.index);
     }
-    assertDoorwaysClear(builder.mesh, [...floorDoorways(uv.rooms, core.frame, 0, ceilingY), ...openFrontClearances({ ...bp, elevation: 0 }, shellWallDepth(request.blueprint.facade))], bp.index);
+    assertDoorwaysClear(builder.mesh, [...floorDoorways(uv.rooms, core.frame, 0, ceilingY, bp), ...openFrontClearances({ ...bp, elevation: 0 }, shellWallDepth(request.blueprint.facade))], bp.index);
     assertInsideShell(builder.mesh, [{ ...bp, elevation: 0 }], shellWallDepth(request.blueprint.facade));
     const connectorIds = new Set([...floor.core.stairs, ...floor.core.elevators].map(item => item.id));
     for (const placement of builder.placements) {
@@ -108,4 +123,18 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
             placement.room = common.id;
     }
     return builder;
+}
+
+function boundsOf(rects: readonly UvRect[]): UvRect | null {
+    if (!rects.length) return null;
+    const u = Math.min(...rects.map(r => r.u)), v = Math.min(...rects.map(r => r.v));
+    return { u, v, lu: Math.max(...rects.map(r => r.u + r.lu)) - u, lv: Math.max(...rects.map(r => r.v + r.lv)) - v };
+}
+
+/** How long a side two rectangles share, zero when they only meet at a corner or not at all. */
+function sharedSide(a: UvRect, b: UvRect): number {
+    const along = (a0: number, a1: number, b0: number, b1: number) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+    const touchU = Math.abs(a.u + a.lu - b.u) < 1e-6 || Math.abs(b.u + b.lu - a.u) < 1e-6;
+    const touchV = Math.abs(a.v + a.lv - b.v) < 1e-6 || Math.abs(b.v + b.lv - a.v) < 1e-6;
+    return Math.max(touchU ? along(a.v, a.v + a.lv, b.v, b.v + b.lv) : 0, touchV ? along(a.u, a.u + a.lu, b.u, b.u + b.lu) : 0);
 }

@@ -28,7 +28,8 @@ it.each(families)('furnishes every real %s floor with its matching shell, finish
     expect(expanded.npc.nav.floors.map(item => item.floor)).toEqual([...Array(floors + 1).keys()]);
     for (const ref of result.building.floors) {
         const layout = result.layouts[ref.layout]!;
-        expect(layout.floor.kind).toBe(ref.index === 0 ? 'lobby' : program);
+        // A home building is studios or apartments throughout.
+        expect(ref.index === 0 ? ['lobby'] : program === 'apartment' ? ['apartment', 'residence_studio'] : [program]).toContain(layout.floor.kind);
         expect(layout.floor.rooms.length).toBeGreaterThan(1);
         expect(layout.placements.some(item => item.module === `floor-slab-${recipe.floor}`)).toBe(true);
         expect(ref.treatments ?? []).toEqual([]);

@@ -1,6 +1,6 @@
 import { polygonBounds } from '../core/geom.js';
 import type { Point } from '../core/geom.js';
-import type { BlueprintFloor, FloorInterior, InteriorRequest, LightFixture, Opening, RoomKind } from '../core/types.js';
+import type { BlueprintFloor, FloorInterior, InteriorRequest, LightFixture, RoomKind } from '../core/types.js';
 import type { CorePlan } from '../layout/core-plan.js';
 import type { UvFloorData } from '../layout/plan-floor.js';
 import { doorUvPoint } from '../layout/plan-floor.js';
@@ -10,7 +10,7 @@ import { constructionPlate, facadeDepth } from '../layout/shell.js';
 import type { Frame } from '../layout/uv.js';
 import { uvToWorld, worldToUv } from '../layout/uv.js';
 import { edgeFrame, edgePoint } from '../geometry/shell-fit.js';
-import { canonicalHoles, doorHeadHeight, roomSegments, reserveFacadeEnds, type WallHole } from '../geometry/walls.js';
+import { doorHeadHeight, mergeHoles, openingSpan, outsideDoorHead, roomSegments, reserveFacadeEnds, wallCuts, type WallHole } from '../geometry/walls.js';
 import { stairEntryHole } from '../geometry/stairs.js';
 import { elevatorDoorHole } from '../geometry/core-geo.js';
 import type { PlacementBuilder } from './builder.js';
@@ -89,16 +89,8 @@ export function walls(
         for (const door of room.doors) {
             if (door.openFront) continue;
             const [u, v] = doorUvPoint(door, room);
-            let head = doorHeadHeight(door.leaves, height);
+            const head = (door.to === 'outside' ? outsideDoorHead(bp, uvToWorld([u, v], frame), height) : null) ?? doorHeadHeight(door.leaves, height);
             const axis = door.edge.startsWith('v') ? 'H' : 'V', c = axis === 'H' ? v : u;
-            if (door.to === 'outside') {
-                const world = uvToWorld([u, v], frame);
-                const sources = bp.openings.filter(o => o.kind !== 'window').map(opening => {
-                    const p = edgePoint(edgeFrame(bp.outline, opening.edge), opening.offset + opening.width / 2, 0);
-                    return { opening, distance: Math.hypot(p[0] - world[0], p[1] - world[1]) };
-                }).sort((a,b) => a.distance-b.distance);
-                if (sources[0]) head = Math.min(height, openingSpan(sources[0].opening).height);
-            }
             // Exterior connections also cut snapped room ends that lie farther from the
             // construction boundary than a lining. Their published passage remains real.
             const owner = [...lines.values()].find(l => l.axis === axis && Math.abs(l.c-c)<1e-6 && l.runs.some(run => run.room === room.id));
@@ -115,7 +107,10 @@ export function walls(
     const kinds = new Map(owners.map(room => [room.id, room.kind]));
     const lights: LightFixture[] = [];
     for (const l of lines.values()) {
-        const holes = canonicalHoles(l.holes);
+        // A partition frames each opening once in its casing; the lining cuts the union of
+        // everything its line carries, so no stretch takes two heads or a sill across a door.
+        const casing = l.boundary ? 0 : CASING_MEMBER;
+        const cuts = wallCuts(l.boundary ? l.holes : mergeHoles(l.holes, casing), casing);
         for (const run of l.runs) {
             if (!run.draw) continue;
             const baseFinish = finishOf(run.room, run.kind);
@@ -132,14 +127,16 @@ export function walls(
             const mirror = !!finish.frame && !!across && GLAZED_ROOMS.has(across.kind) && GLAZED_ONTO.has(run.kind);
             // Glass is one plate seen from both rooms: the office side owns it, the public side keeps its frame.
             let cursor = run.a;
-            for (const hole of holes) {
-                const casing = l.boundary ? 0 : CASING_MEMBER;
-                const lo = Math.max(run.a, hole.at - hole.width / 2 - casing), hi = Math.min(run.b, hole.at + hole.width / 2 + casing);
-                const head = hole.y1 + casing;
+            for (const cut of cuts) {
+                const lo = Math.max(run.a, cut.a), hi = Math.min(run.b, cut.b);
                 if (hi <= lo + 1e-6) continue;
                 if (lo > cursor + 1e-6) face.build(cursor, lo, glazed, mirror);
-                if (hole.y0 > 0.05) face.plain(lo, hi, 0, hole.y0);
-                if (runHeight - head > 0.05) face.plain(lo, hi, head, runHeight);
+                let wall = 0;
+                for (const [y0, y1] of cut.open) {
+                    if (y0 - wall > 0.05) face.plain(lo, hi, wall, y0);
+                    wall = Math.max(wall, y1);
+                }
+                if (runHeight - wall > 0.05) face.plain(lo, hi, wall, runHeight);
                 cursor = Math.max(cursor, hi);
             }
             if (run.b > cursor + 1e-6) face.build(cursor, run.b, glazed, mirror);
@@ -147,7 +144,7 @@ export function walls(
     }
     for (const l of lines.values()) {
         if (l.boundary) continue;
-        for (const h of canonicalHoles(l.holes)) {
+        for (const h of mergeHoles(l.holes, CASING_MEMBER)) {
             const inside = (r: Run) => h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01;
             const owner = l.runs.find(r => r.draw && inside(r)) ?? l.runs.find(inside);
             if (!owner) continue;
@@ -192,13 +189,6 @@ function projectShellCuts(floors: readonly BlueprintFloor[], frame: Frame, heigh
                 y0: span.sill, y1: Math.min(height, span.sill + span.height) });
         }
     }
-}
-
-/** Glazing and usable door passages remain clear through the inset room lining. */
-function openingSpan(opening: Opening): { from: number; to: number; sill: number; height: number } {
-    const field = opening.kind === 'window' ? opening.glazing ?? opening : opening.door?.clearance ?? opening;
-    const sill = opening.kind === 'window' ? field.sill ?? 0 : 0;
-    return { from: field.offset, to: field.offset + field.width, sill, height: field.height };
 }
 
 /** One room's face of one partition run: its pieces stand on the line and face the room. */

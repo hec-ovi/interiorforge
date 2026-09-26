@@ -14,7 +14,7 @@ import type { PlacementResult, InteriorRequest, BuildingType, Tier, FloorKind, F
 import { loadTheme } from '../src/materials/load.js';
 import { roomFootprintArea } from '../src/core/room-footprint.js';
 import { luxBand } from '../src/layout/lighting.js';
-import { assembly } from './fixtures.js';
+import { assembly, PROGRAM } from './fixtures.js';
 const exec = promisify(execFile);
 let dir: string, request: InteriorRequest, result: PlacementResult;
 let modules: any;
@@ -192,14 +192,16 @@ const shellBlueprints = (dir: string | undefined): [string, string][] => !dir ||
         if (!existsSync(blueprint) || !existsSync(join(dir, parcel, `${parcel}.request.json`))) return [];
         return JSON.parse(readFileSync(blueprint, 'utf8')).floors.length <= shellFloors ? [[blueprint, parcel] as [string, string]] : [];
     });
-it.skipIf(!kitFiles(kitIndex).length && !shellBlueprints(cityDir).length)('opens or degrades every published kit plan and generated shell', { timeout: 3600000 }, async () => {
+it.skipIf(!kitFiles(kitIndex).length && !shellBlueprints(cityDir).length)('opens or degrades every published kit plan and generated shell, furnished for its parcel', { timeout: 3600000 }, async () => {
     const plans = new Map<string, { id: string; type: BuildingType; tier: Tier }>();
+    // Any parcel type can stand on a shared plan: the plans take the types in turn.
+    const types = Object.keys(PROGRAM) as BuildingType[];
     for (const file of kitFiles(kitIndex)) {
         const kit = JSON.parse(await readFile(file, 'utf8'));
         for (const plan of kit.plans.slice(0, kitSample)) {
             // An index can outlive the artifacts it names; a plan that is gone is not a refusal.
             const path = resolve(dirname(realpathSync(file)), '../..', plan.blueprint);
-            if (existsSync(path)) plans.set(path, { id: plan.id, type: 'residential', tier: 'mid' });
+            if (existsSync(path)) plans.set(path, { id: plan.id, type: types[plans.size % types.length]!, tier: 'mid' });
         }
     }
     for (const [path, id] of shellBlueprints(cityDir)) {
@@ -214,7 +216,16 @@ it.skipIf(!kitFiles(kitIndex).length && !shellBlueprints(cityDir).length)('opens
                 refused.push(`${building.id}: ${error.code ?? ''} ${error.message ?? ''}`);
                 return null;
             });
-        if (built) expect(built.building.floors.length).toBeGreaterThan(0);
+        if (!built) continue;
+        expect(built.building.floors.length).toBeGreaterThan(0);
+        // A floor whose plan slug names no program of its own holds the parcel's.
+        const slugs = new Map<number, string>(blueprint.floors.map((f: { index: number; kind: string }) => [f.index, f.kind]));
+        const ground = Math.min(...built.building.floors.map(ref => ref.index));
+        for (const ref of built.building.floors) {
+            const slug = slugs.get(ref.index)!, level = ref.index === ground ? 'ground' : 'upper';
+            if (!['commerce', 'residential', building.type].includes(slug) && !(level === 'ground' && ['lobby', 'entry'].includes(slug))) continue;
+            expect(PROGRAM[building.type][level], `${building.id} ${building.type} floor ${ref.index} ${slug}`).toContain(built.layouts[ref.layout]!.floor.kind);
+        }
     }
     // Two refusals are the contract's own and are listed in docs/ISSUES.md: a generated
     // shell whose connection floor carries a bridge aperture has no reusable middle layout,

@@ -2,7 +2,7 @@ import { chooseFurnitureAsset, type ModelPresence } from '../assets/families.js'
 import { fitAssetBounds } from '../assets/catalog.js';
 import type { FloorInterior, FurnitureKind } from '../core/types.js';
 import type { UvFloorData } from '../layout/plan-floor.js';
-import type { PlacementBuilder } from './builder.js';
+import { clean, litModule, type PlacementBuilder } from './builder.js';
 import type { Family } from './finish.js';
 
 type Size = [number, number, number];
@@ -24,6 +24,7 @@ const LUXURY: Partial<Record<FurnitureKind, Fit>> = {
     room_divider: { module: 'fit-planted-screen', size: [2.5, 0.5, 2] }, ornament_wall: { module: 'fit-aquarium-wall', size: [3, 0.5, 2] },
     display_screen: { module: 'wall-screen', size: [1.2, 0.08, 0.7] }, wall_art: { module: 'wall-art', size: [0.7, 0.06, 1.05] },
     shelf: { module: 'fit-shelf', size: [1.8, 0.5, 2] }, wall_shelf: { module: 'wall-shelf', size: [1.2, 0.28, 0.4] },
+    desk: { module: 'fit-desk', size: [1.6, 0.8, 0.75] }, office_chair: { module: 'fit-office-chair', size: [0.65, 0.65, 1.15] },
 };
 const CAPSULE: Partial<Record<FurnitureKind, Fit>> = {
     toilet: LUXURY.toilet!, sink: { module: 'fit-basin-steel', size: [0.5, 0.45, 0.85] },
@@ -37,28 +38,39 @@ const DAMAGED: Partial<Record<FurnitureKind, Fit>> = {
 const BUILT_IN: Record<Family, Partial<Record<FurnitureKind, Fit>>> = {
     luxury: LUXURY, capsule: CAPSULE, damaged: DAMAGED, industrial: { ...DAMAGED, sink: CAPSULE.sink!, shelf: LUXURY.shelf!, bench: LUXURY.bench! },
 };
+/** A family's own bed and wardrobe, for a record no present catalog model fills. */
+const fitted = (look: string): Partial<Record<FurnitureKind, Fit>> => ({
+    bed_double: { module: `fit-bed-${look}`, size: LUXURY.bed_double!.size }, bed_single: { module: `fit-bed-${look}`, size: LUXURY.bed_single!.size },
+    wardrobe: { module: `fit-wardrobe-${look}`, size: LUXURY.wardrobe!.size },
+});
+const FALLBACK: Record<Family, Partial<Record<FurnitureKind, Fit>>> = {
+    luxury: {}, capsule: fitted('capsule'), damaged: fitted('worn'), industrial: fitted('worn'),
+};
 
 /** Built-in modules and catalog props both own furniture anchors; furniture that fits
- *  neither, or whose fitting models are all absent here, leaves the published layout. */
+ *  neither, or whose fitting models are all absent here, leaves the published layout. Only a
+ *  piece standing as a lit module keeps the light records of its lenses. */
 export function props(builder: PlacementBuilder, floor: FloorInterior, uv: UvFloorData, family: Family, models: ModelPresence): void {
-    const retained = new Set<string>();
+    const retained = new Set<string>(), lit = new Set<string>();
     const table = BUILT_IN[family];
     for (const item of floor.furniture) {
-        const fit = table[item.kind];
         const position: [number, number, number] = [item.position[0], item.elevation ?? 0, item.position[1]];
+        const asset = table[item.kind] ? null : chooseFurnitureAsset(item, models);
+        const fit = asset ? undefined : table[item.kind] ?? FALLBACK[family][item.kind];
         if (fit) {
             builder.module(fit.module, item.room, position,
                 [item.size[0] / fit.size[0], item.size[2] / fit.size[2], item.size[1] / fit.size[1]], item.rotationDeg * Math.PI / 180, { id: item.id });
             retained.add(item.id);
+            if (litModule(fit.module)) lit.add(item.id);
             continue;
         }
-        const asset = chooseFurnitureAsset(item, models);
         if (!asset)
             continue;
         const dims = fitAssetBounds(asset, item.size)!;
+        // The model turns to face +z first, then with the piece.
         builder.placements.push({
             id: item.id, prop: asset.id, room: item.room, position,
-            rotationY: item.rotationDeg * Math.PI / 180, scale: [dims.scale, dims.scale, dims.scale]
+            rotationY: clean((item.rotationDeg + (asset.frontYawDeg ?? 0)) % 360 * Math.PI / 180), scale: [dims.scale, dims.scale, dims.scale]
         });
         const [width, depth, height] = dims.dimensions;
         const angle = item.rotationDeg * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
@@ -68,5 +80,5 @@ export function props(builder: PlacementBuilder, floor: FloorInterior, uv: UvFlo
     }
     floor.furniture = floor.furniture.filter(item => retained.has(item.id));
     uv.furniture = uv.furniture.filter(item => retained.has(item.id));
-    floor.lights = floor.lights.filter(light => !light.furniture || retained.has(light.furniture));
+    floor.lights = floor.lights.filter(light => !light.furniture || lit.has(light.furniture));
 }

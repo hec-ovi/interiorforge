@@ -3,7 +3,6 @@ import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, R
 import { generate } from '../src/index.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
 import { validateRequest, resolveAssignments } from '../src/blueprint/validate.js';
-import { architectureAssignments } from '../src/architecture/recipes.js';
 import { planBuilding } from '../src/layout/index.js';
 import { stairAccess } from '../src/layout/core-plan.js';
 import { uvToWorld } from '../src/layout/uv.js';
@@ -42,7 +41,7 @@ it('closes landing undersides, connected stair bodies and rear stairwell walls b
             building: { type: 'corpo', tier: 'high_rich', floors: 7 }, options: { architecture: 'balcony-grid', glb: 'merged' } }, { textures: { mode: 'keys' } });
         const request = validateRequest({ seed: blueprint.seed, building: { id: 'closed-stairs', type: 'corpo', tier: 'high_rich' }, blueprint, materialTheme: 'cyberpunk' });
         const result = await generate(request);
-        const { core } = planBuilding(request, architectureAssignments(request, resolveAssignments(request)), new Set([0, 1, 6]));
+        const { core } = planBuilding(request, resolveAssignments(request), new Set([0, 1, 6]));
         expect(core.stairB).toBeDefined();
         let probes = 0;
         for (const layout of Object.values(result.layouts)) for (const which of ['a', 'b'] as const) {

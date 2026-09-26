@@ -73,6 +73,7 @@ async function importSource(plan: SourcePlan): Promise<AssetEntry> {
     styles: plan.styles,
     sourceDimensions: { size: dimensions, unit: plan.provider === "Poly Haven" ? "meter" : "source-unit" },
     dimensionsMeters: normalizedDimensions,
+    ...(plan.frontYawDeg ? { frontYawDeg: plan.frontYawDeg } : {}),
     modelUri: `models/${modelName}`,
     availability: plan.provider === "Poly Haven" ? "redistributable" : "local-only",
     metrics: { sourceBytes, modelBytes: modelStat.size, ...metricsOf(doc) },

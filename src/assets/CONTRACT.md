@@ -8,10 +8,14 @@ folder. Local models are prepared from ignored source files.
 
 `chooseFurnitureAsset(item, models)` in [families.ts](families.ts) returns the model a
 floor-standing furniture record wears: the first entry fitting its
-[furniture envelope](../../schemas/floor.schema.json) at a scale of at least 0.7 whose ID
-is in `models.present`, redistributable before local-only, then by ID. Absent models
+[furniture envelope](../../schemas/floor.schema.json) at a scale of at least 0.7, filling
+three fifths of its width and depth, whose ID is in `models.present`, redistributable
+before local-only, then by ID. An entry authored facing another way than +Z names the
+quarter turn that faces it there, `frontYawDeg`; fitting and placement read the model
+through it. Absent models
 ranked ahead of it join `models.missing`; with none present it returns null.
-`fitAssetBounds` returns that uniform scale and the scaled dimensions, or null.
+`fitAssetBounds` returns that uniform scale and the scaled dimensions in the record's
+frame, or null.
 Placement generation selects catalog IDs without reading or copying model geometry.
 
 `presentModels(modelsDir?)` in [availability.ts](availability.ts) lists the IDs whose model

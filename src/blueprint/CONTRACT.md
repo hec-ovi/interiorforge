@@ -3,7 +3,10 @@
 Validates consumed blueprints and supplies standalone samples.
 
 `validateRequest(unknown)` returns [InteriorRequest](../../schemas/request.schema.json).
-`resolveAssignments(request)` returns [floor assignments](../../schemas/request.schema.json).
+`resolveAssignments(request)` returns [floor assignments](../../schemas/request.schema.json):
+the request's own, else one per floor from its kind, where a kind naming no program
+(`commerce`, `residential`, the parcel type, `lobby` or `entry` at street level) takes the
+parcel's program for that level, as the [root contract](../../CONTRACT.md) tabulates.
 `makePlacementFixture(options)` returns a rectangular request with three repeatable
 bands. `makeFixture(options)` returns a request and sample shell for feasibility tools.
 [Fixture options](fixture.ts) define dimensions, seed, type, tier and supplied blueprint.

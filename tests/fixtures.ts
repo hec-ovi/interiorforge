@@ -1,4 +1,4 @@
-import type { InteriorRequest } from '../src/index.js';
+import type { BuildingType, FloorKind, InteriorRequest } from '../src/index.js';
 /** Exterior remains a runtime contract dependency, outside this box's TypeScript build. */
 export async function assembly(family: 'mirror-frame' | 'corporate-sectors' = 'mirror-frame',
     dimensions?: { width: number; depth: number; floors: number }): Promise<InteriorRequest> {
@@ -14,3 +14,21 @@ export async function assembly(family: 'mirror-frame' | 'corporate-sectors' = 'm
             }) => ({ floor: f.index, kind: f.index === 0 ? 'lobby' : 'corpo_office' })) } : {})
     };
 }
+
+/** What each parcel type holds at street level and above it, written out independently of
+ *  the table the generator reads. */
+export const PROGRAM: Record<BuildingType, { ground: FloorKind[]; upper: FloorKind[] }> = {
+    residential: { ground: ['lobby'], upper: ['apartment', 'residence_studio'] },
+    hotel: { ground: ['lobby'], upper: ['hotel_rooms'] },
+    offices: { ground: ['lobby'], upper: ['office'] },
+    corpo: { ground: ['lobby'], upper: ['corpo_office'] },
+    hospital: { ground: ['lobby'], upper: ['office'] },
+    clinic: { ground: ['lobby'], upper: ['office'] },
+    police: { ground: ['lobby'], upper: ['office'] },
+    military: { ground: ['lobby'], upper: ['office'] },
+    factory: { ground: ['mechanical'], upper: ['mechanical'] },
+    mall: { ground: ['mall_floor'], upper: ['mall_floor'] },
+    commerce: { ground: ['retail'], upper: ['office'] },
+    restaurant: { ground: ['restaurant'], upper: ['office'] },
+    coffee_shop: { ground: ['coffee_shop'], upper: ['office'] },
+};

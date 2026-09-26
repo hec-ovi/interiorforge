@@ -37,6 +37,21 @@ function tuft(k: Kit, [x, y, z]: Vector3, height: number, reach: number, seed: n
   }
 }
 
+/** The bed looks, each on a 1.6 by 2.1 m frame with its mattress top at 0.51 m: walnut with a
+ *  planted headboard (`head` null), capsule steel with a panel headboard, worn steel tube. */
+const BEDS = [
+  { id: "fit-bed", worn: false, frame: FINISH.timber, plinth: FINISH.black, throw: FINISH.linen, head: null, lens: FINISH.lensWarm },
+  { id: "fit-bed-capsule", worn: false, frame: FINISH.steel, plinth: FINISH.zinc, throw: FINISH.fabric, head: FINISH.capsuleWall, lens: FINISH.lensCool },
+  { id: "fit-bed-worn", worn: true, frame: FINISH.damagedSteel, throw: FINISH.patch },
+] as const;
+
+/** The wardrobe looks, each 1.6 m wide, 0.65 m deep and 2 m tall. */
+const WARDROBES = [
+  { id: "fit-wardrobe", worn: false, carcass: FINISH.timber, door: FINISH.timber, plinth: FINISH.black, trim: FINISH.bronze, lens: FINISH.lensWarm },
+  { id: "fit-wardrobe-capsule", worn: false, carcass: FINISH.steel, door: FINISH.capsuleWall, plinth: FINISH.zinc, trim: FINISH.chrome, lens: FINISH.lensCool },
+  { id: "fit-wardrobe-worn", worn: true, carcass: FINISH.damagedSteel, plinth: FINISH.damagedSteel, trim: FINISH.chrome },
+] as const;
+
 /** Built-in furniture; authored per piece. Every piece stands on y = 0, centred in XZ, back
  *  to -z and front to +z, at the canonical size the placement table scales from. */
 export const furnitureRecipes: RecipeSet = (add) => {
@@ -126,36 +141,91 @@ export const furnitureRecipes: RecipeSet = (add) => {
     k.cbox(FINISH.chrome, [0.6, 0.93, 0], [0.5, 0.02, 0.4]);
   });
 
-  add("fit-bed", (k) => {
-    // the platform carries the footprint and overhangs a smaller dark plinth, so the base lens
-    // sits in the shadow gap under its front edge
-    k.cbox(FINISH.black, [0, 0, -0.04], [1.44, 0.06, 2.02]);
-    k.cbox(FINISH.timber, [0, 0.06, 0], [1.6, 0.2, 2.1]);
+  // One bed and one wardrobe per family look, on the same frame and at the same lens positions
+  // the furniture light records use: walnut with a planted headboard, capsule steel with a
+  // panel headboard, worn steel with a tube frame and no lens (a poor interior lights no
+  // furniture).
+  for (const look of BEDS) add(look.id, (k) => {
+    if (look.worn) {
+      for (const x of [-0.76, 0.76]) for (const z of [-0.99, 0.99]) k.rod(look.frame, [x, 0, z], [x, 0.18, z], 0.05);
+      k.cbox(look.frame, [0, 0.18, 0], [1.6, 0.08, 2.1]);
+      for (const x of [-0.775, 0.775]) k.rod(look.frame, [x, 0, -1.025], [x, 1.1, -1.025], 0.05);
+      for (const y of [0.7, 1.075]) k.rod(look.frame, [-0.775, y, -1.025], [0.775, y, -1.025], 0.05);
+    } else {
+      // the platform carries the footprint and overhangs a smaller dark plinth, so the base
+      // lens sits in the shadow gap under its front edge
+      k.cbox(look.plinth, [0, 0, -0.04], [1.44, 0.06, 2.02]);
+      k.cbox(look.frame, [0, 0.06, 0], [1.6, 0.2, 2.1]);
+    }
     k.cbox(FINISH.linen, [0, 0.26, 0], [1.5, 0.25, 2.0]);
-    k.cbox(FINISH.linen, [0, 0.51, 0.55], [1.5, 0.06, 0.7]);
+    k.cbox(look.throw, [0, 0.51, 0.55], [1.5, 0.06, 0.7]);
     for (const x of [-0.33, 0.33]) k.cbox(FINISH.linen, [x, 0.51, -0.54], [0.6, 0.09, 0.36]);
-    // the headboard is a planted tank floating over the bed head, lit from under its lid
-    k.cbox(FINISH.obsidian, [0, 0.55, -0.89], [1.6, 0.1, 0.32]);
-    k.cbox(FINISH.soil, [0, 0.65, -0.89], [1.56, 0.05, 0.3]);
-    k.cbox(FINISH.glass, [0, 0.65, -0.739], [1.6, 0.74, 0.012]);
-    for (const x of [-0.4, 0, 0.4]) tuft(k, [x, 0.7, -0.89], 0.65, 0.26, x + 3);
-    k.cbox(FINISH.timber, [0, 1.39, -0.9025], [1.6, 0.06, 0.295]);
-    lens(k, [0, 1.42, -0.74], 1.4);
-    lens(k, [0, 0.05, 0.95], 1.2);
+    if (look.worn) return;
+    if (look.head === null) {
+      // the headboard is a planted tank floating over the bed head, lit from under its lid
+      k.cbox(FINISH.obsidian, [0, 0.55, -0.89], [1.6, 0.1, 0.32]);
+      k.cbox(FINISH.soil, [0, 0.65, -0.89], [1.56, 0.05, 0.3]);
+      k.cbox(FINISH.glass, [0, 0.65, -0.739], [1.6, 0.74, 0.012]);
+      for (const x of [-0.4, 0, 0.4]) tuft(k, [x, 0.7, -0.89], 0.65, 0.26, x + 3);
+    } else {
+      k.cbox(look.head, [0, 0.55, -0.89], [1.6, 0.84, 0.32]);
+      k.cbox(FINISH.hatch, [0, 0.72, -0.7275], [1.2, 0.5, 0.005]);
+    }
+    k.cbox(look.frame, [0, 1.39, -0.9025], [1.6, 0.06, 0.295]);
+    lens(k, [0, 1.42, -0.74], 1.4, "x", look.lens);
+    lens(k, [0, 0.05, 0.95], 1.2, "x", look.lens);
   });
 
-  add("fit-wardrobe", (k) => {
-    k.cbox(FINISH.timber, [0, 0, -0.3075], [1.6, 2.0, 0.035]);
-    for (const x of [-0.7825, 0.7825]) k.cbox(FINISH.timber, [x, 0, 0], [0.035, 2.0, 0.65]);
-    k.cbox(FINISH.timber, [0.2725, 0.08, 0.005], [0.035, 1.89, 0.59]);
-    k.cbox(FINISH.timber, [0, 1.97, 0], [1.6, 0.03, 0.65]);
-    k.cbox(FINISH.black, [0, 0, 0], [1.53, 0.08, 0.6]);
-    slats(k, FINISH.timber, 2, [-0.2665, 0.08, 0.2875], [1.067, 1.89, 0.035], 0.5245);
-    for (const x of [-0.3, -0.23]) k.rod(FINISH.bronze, [x, 0.9, 0.315], [x, 1.5, 0.315], 0.02);
-    for (const y of [0.5, 0.95, 1.4]) k.cbox(FINISH.timber, [0.5275, y, 0.005], [0.475, 0.03, 0.59]);
-    k.rod(FINISH.bronze, [0.29, 1.85, 0], [0.765, 1.85, 0], 0.025);
-    lens(k, [0.53, 1.94, 0], 0.45, "z");
-    lens(k, [0, 1.96, 0.275], 1.4);
+  for (const look of WARDROBES) add(look.id, (k) => {
+    k.cbox(look.carcass, [0, 0, -0.3075], [1.6, 2.0, 0.035]);
+    for (const x of [-0.7825, 0.7825]) k.cbox(look.carcass, [x, 0, 0], [0.035, 2.0, 0.65]);
+    k.cbox(look.carcass, [0, 1.97, 0], [1.6, 0.03, 0.65]);
+    k.cbox(look.plinth, [0, 0, 0], [1.53, 0.08, 0.6]);
+    if (look.worn) {
+      // a steel locker: two full-height leaves, a patched one and two pull bars
+      slats(k, look.carcass, 2, [0, 0.08, 0.2875], [1.53, 1.89, 0.035], 0.76);
+      k.cbox(FINISH.patch, [0.38, 0.9, 0.3075], [0.4, 0.5, 0.005]);
+      for (const x of [-0.06, 0.06]) k.rod(look.trim, [x, 0.9, 0.315], [x, 1.4, 0.315], 0.02);
+      return;
+    }
+    k.cbox(look.carcass, [0.2725, 0.08, 0.005], [0.035, 1.89, 0.59]);
+    slats(k, look.door, 2, [-0.2665, 0.08, 0.2875], [1.067, 1.89, 0.035], 0.5245);
+    for (const x of [-0.3, -0.23]) k.rod(look.trim, [x, 0.9, 0.315], [x, 1.5, 0.315], 0.02);
+    for (const y of [0.5, 0.95, 1.4]) k.cbox(look.carcass, [0.5275, y, 0.005], [0.475, 0.03, 0.59]);
+    k.rod(look.trim, [0.29, 1.85, 0], [0.765, 1.85, 0], 0.025);
+    lens(k, [0.53, 1.94, 0], 0.45, "z", look.lens);
+    lens(k, [0, 1.96, 0.275], 1.4, "x", look.lens);
+  });
+
+  // A walnut desk on bronze sled legs, a modesty panel at its back and a drawer pedestal on
+  // the right; the sitter works from its front.
+  add("fit-desk", (k) => {
+    for (const x of [-0.75, 0.75]) {
+      for (const z of [-0.34, 0.34]) k.rod(FINISH.bronze, [x, 0.02, z], [x, 0.71, z], 0.04);
+      k.rod(FINISH.bronze, [x, 0.02, -0.34], [x, 0.02, 0.34], 0.04);
+    }
+    k.cbox(FINISH.obsidian, [0, 0.3, -0.35], [1.44, 0.41, 0.03]);
+    k.cbox(FINISH.dark, [0.47, 0.12, -0.04], [0.42, 0.59, 0.6]);
+    for (const y of [0.3, 0.52]) k.rod(FINISH.bronze, [0.38, y, 0.265], [0.56, y, 0.265], 0.02);
+    k.cbox(FINISH.timber, [0, 0.71, 0], [1.6, 0.04, 0.8]);
+  });
+
+  // An executive chair: a five-spoke bronze base, fabric seat and tall back behind it,
+  // padded arms; it faces its desk from +z.
+  add("fit-office-chair", (k) => {
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      k.rod(FINISH.bronze, [0, 0.07, 0], [Math.sin(a) * 0.28, 0.03, Math.cos(a) * 0.28], 0.04);
+      k.cylinder(FINISH.black, [Math.sin(a) * 0.28, 0, Math.cos(a) * 0.28], 0.025, 0.03, 6);
+    }
+    k.rod(FINISH.bronze, [0, 0.07, 0], [0, 0.4, 0], 0.05);
+    k.cbox(FINISH.fabric, [0, 0.4, 0.02], [0.5, 0.1, 0.5]);
+    k.rod(FINISH.bronze, [0, 0.42, -0.2], [0, 0.6, -0.27], 0.04);
+    k.cbox(FINISH.fabric, [0, 0.55, -0.26], [0.46, 0.58, 0.07]);
+    for (const x of [-0.275, 0.275]) {
+      k.rod(FINISH.bronze, [x, 0.45, -0.1], [x, 0.66, -0.1], 0.03);
+      k.cbox(FINISH.black, [x, 0.66, -0.03], [0.05, 0.035, 0.3]);
+    }
   });
 
   add("fit-shower", (k) => {
