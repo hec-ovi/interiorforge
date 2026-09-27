@@ -34,8 +34,8 @@ kind names no program checked against its parcel's, and `npm run sweep` runs it 
 plan of every index and every shell of the city `URBE_CITY_DIR` names. `tests/kit-plans`
 holds consumed copies of the undertow plans and shell that once walled a 2 m balcony door
 shut, left floor open beside a lift, or cost an office desk its post to the toilets behind
-its partition, and of the Sluice and white-grid plans whose street door once opened onto a
-stair or a toilets wall. One checks both compiled browser entries
+its partition, of the Sluice and white-grid plans whose street door once opened onto a
+stair or a toilets wall, and of the undertow plan whose balcony doors once left no core. One checks both compiled browser entries
 against their sources; others route synthetic and generated navigation and furnish with
 local models absent.
 Budget proof uses Exterior `planAssembly` through its

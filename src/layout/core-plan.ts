@@ -73,7 +73,7 @@ interface CoreEnvelope {
   candidates: number[];
   bulkheadUv: Point | null;
   openingKeepouts: OpeningKeepout[];
-  /** the floor in front of every exterior doorway, which even a loose core clears */
+  /** the floor in front of the street door, which even a loose core clears */
   approaches: OpeningKeepout[];
   adjacency: CoreFacadeClearance;
   adjacencyFailure?: CoreAdjacencyFailure;
@@ -205,7 +205,7 @@ function overlapsOpening(rect: UvRect, keepout: UvRect): boolean {
 }
 
 /** What a core clears: every opening volume and adjacency span, only the floor in front of
- *  the ways in (the loose core), or nothing (the gate's probe for its nearest miss). */
+ *  the street door (the loose core), or nothing (the gate's probe for its nearest miss). */
 type Clearance = "all" | "entrances" | "none";
 
 function clearOf(keepouts: OpeningKeepout[], rect: UvRect): boolean {
@@ -471,7 +471,7 @@ function unfitDetail(env: CoreEnvelope, blocker: CoreBlocker, placement: Placeme
     case "walkup_floors":
       return `walkup core (band ${band}, ${mins}) allows at most ${WALKUP.maxFloors} floors, blueprint has ${env.aboveFloors}`;
     case "opening_reservations":
-      if (!selectPlacement(env, "entrances")) return `every fitting core stands in the ${DOOR.approach} m in front of an exterior doorway (${mins})`;
+      if (!selectPlacement(env, "entrances")) return `every fitting core stands in the ${DOOR.approach} m in front of a street door (${mins})`;
       return env.adjacencyFailure
         ? adjacencyDetail(env.adjacencyFailure)
         : `the fitting core bands overlap exterior opening clear volumes on one or more floors (${mins})`;
@@ -691,7 +691,7 @@ function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan, respe
       const approach = approaches.find((keepout) => overlapsOpening(rect, keepout.rect));
       if (approach) {
         throw new InteriorError(
-          "E_FLOOR_TOO_SMALL", `${id} stands in front of exterior doorway ${approach.opening}`, floor.index,
+          "E_FLOOR_TOO_SMALL", `${id} stands in front of street door ${approach.opening}`, floor.index,
         );
       }
       const conflict = respectReservations ? keepouts.find((keepout) => overlapsOpening(rect, keepout.rect)) : undefined;

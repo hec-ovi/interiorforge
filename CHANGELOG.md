@@ -1,5 +1,7 @@
 # Changelog
 
+0.37.3: the floor kept in front of a way in belongs to the street door and open front only. A balcony door keeps its own clear volume, as before 0.37.2: the core rises past every floor, and the approach of an upper floor's balcony doors left no core for `plain-2x4x6f` and `plain-4x2x7f`, whose stair the roof bulkhead pins, so they furnished only their ground floor and Exterior refused their plate.
+
 0.37.2: no core solid stands in the floor in front of an exterior doorway: its clear passage carried 2.5 m, a corridor's width, past the opening's clear volume, on every floor. The egress stair of the plain plan behind four of Sluice's venues no longer stands flush behind its street door, and a loose core that crosses other reservations still keeps this one. A paired family's service rooms stand clear of it too, so the small white-grid podium no longer opens onto its toilets. `schemas/core-feasibility.json` publishes the depth as `entranceApproach`.
 
 0.37.1: only furniture of one room contends for a body's place, so a desk keeps its post beside the toilets behind its partition; a post holds both the spot it works from and the reachable spot it snaps to, and a guest's seat stays a body clear of both. A toilets room stands its toilets in a row of 0.7 m stalls along one wall, then its basin, so both are in use at once. The NPC contract names the anchor's `facingDeg`, not a catalog prop's `rotationY`, as a seated body's heading.

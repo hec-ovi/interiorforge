@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { generate } from '../src/index.js';
+import { coreFeasibility, generate } from '../src/index.js';
 import type { BuildingType, Tier } from '../src/index.js';
 
 /** Kit plans whose street door once opened onto a wall: the plain plan behind four of
@@ -8,7 +8,7 @@ import type { BuildingType, Tier } from '../src/index.js';
  *  the small white-grid podium stood its toilets and storage 2 m in front of it. */
 const plan = (id: string) => JSON.parse(readFileSync(new URL(`./kit-plans/${id}.blueprint.json`, import.meta.url), 'utf8'));
 
-/** The layout contract's floor in front of every exterior doorway, a corridor's width. */
+/** The layout contract's floor in front of a street door, a corridor's width. */
 const APPROACH = 2.5;
 
 interface Box { x0: number; x1: number; z0: number; z1: number }
@@ -28,12 +28,10 @@ function bounds(points: readonly (readonly number[])[]): Box {
     return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
 }
 
-it.each([
-    ['plain-commercial-mid-3x4x2f', 'offices', 'mid'], ['plain-commercial-mid-3x4x2f', 'hotel', 'mid'],
-    ['plain-commercial-mid-3x4x2f', 'coffee_shop', 'mid'], ['white-grid-commercial-rich-4x3x10f', 'offices', 'rich'],
-] as [string, BuildingType, Tier][])('opens the %s %s street door onto floor, clear of the core and the service rooms', async (id, type, tier) => {
-    const blueprint = plan(id);
-    const built = await generate({ seed: `sluice-500:${type}`, building: { id, type, tier }, blueprint, materialTheme: 'cyberpunk' });
+type Built = Awaited<ReturnType<typeof generate>>;
+
+/** No stair, lift or other room than the one it lands in stands in front of the street door. */
+function expectClearWayIn(built: Built, blueprint: ReturnType<typeof plan>): void {
     const floor = built.layouts.ground!.floor;
     const door = floor.openingReservations.find(r => r.opening === 'entrance')!;
     const width = blueprint.floors.find((f: { index: number }) => f.index === 0)
@@ -49,4 +47,23 @@ it.each([
     for (const room of floor.rooms.filter(other => other !== landing)) {
         expect(overlaps(bounds(room.polygon), approach), `${room.kind} ${room.id} stands in the way in`).toBe(false);
     }
+}
+
+it.each([
+    ['plain-commercial-mid-3x4x2f', 'offices', 'mid'], ['plain-commercial-mid-3x4x2f', 'hotel', 'mid'],
+    ['plain-commercial-mid-3x4x2f', 'coffee_shop', 'mid'], ['white-grid-commercial-rich-4x3x10f', 'offices', 'rich'],
+] as [string, BuildingType, Tier][])('opens the %s %s street door onto floor, clear of the core and the service rooms', async (id, type, tier) => {
+    const blueprint = plan(id);
+    expectClearWayIn(await generate({ seed: `sluice-500:${type}`, building: { id, type, tier }, blueprint, materialTheme: 'cyberpunk' }), blueprint);
 });
+
+/** A balcony door keeps only its own clear volume: the core rises past every floor, and the
+ *  approach of twelve balcony doors a floor left this bulkhead-pinned stair no place in 0.37.2. */
+it('keeps a core, and every floor, behind the balcony doors of plain-2x4x6f', async () => {
+    const blueprint = plan('plain-2x4x6f');
+    expect(coreFeasibility(blueprint).fits).toBe(true);
+    const built = await generate({ seed: 'undertow:residential', building: { id: 'plain-2x4x6f', type: 'residential', tier: 'mid' },
+        blueprint, materialTheme: 'cyberpunk' });
+    expect(built.building.floors.map(floor => floor.index)).toEqual([0, 1, 2, 3, 4, 5]);
+    expectClearWayIn(built, blueprint);
+}, 120_000);

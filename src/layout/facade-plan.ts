@@ -98,7 +98,7 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
       }
     }
   } else {
-    // Service rooms stand clear of the floor in front of every way in, as the core does.
+    // Service rooms stand clear of the floor in front of the street door, as the core does.
     const approaches = approachKeepouts(floor, core.frame, facadeDepth(request.blueprint.facade)).map(keepout => keepout.rect);
     const services = fitServiceProgram(SERVICES[kind] ?? [], [...occupied, ...approaches], plate,
       { ...frame, corridor: corridorRect }, ids);

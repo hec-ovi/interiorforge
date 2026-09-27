@@ -30,13 +30,14 @@ export function openingKeepouts(
   return floor.openings.map((opening) => keepout(floor, opening, openingVolume(opening, facadeDepth), frame));
 }
 
-/** The floor in front of every exterior doorway: its clear passage carried DOOR.approach past
- *  the opening's clear volume. No core solid stands there, so a way in never opens onto a
- *  stair or lift wall; a pocket door's cassette stays wall beside it. */
+/** The floor in front of every street door and open front: its clear passage carried
+ *  DOOR.approach past the opening's clear volume. No core solid stands there, so the way in
+ *  never opens onto a stair or lift wall; a pocket door's cassette stays wall beside it. A
+ *  balcony door keeps only its own clear volume, since the core rises past every floor's. */
 export function approachKeepouts(
   floor: BlueprintFloor, frame: Frame, facadeDepth: number,
 ): OpeningKeepout[] {
-  return floor.openings.filter(isExteriorConnection).map((opening) => keepout(floor, opening, {
+  return floor.openings.filter(isStreetAccess).map((opening) => keepout(floor, opening, {
     offset: opening.offset - PARTITION_HALF,
     width: opening.width + 2 * PARTITION_HALF,
     depth: openingVolume(opening, facadeDepth).depth + DOOR.approach,
