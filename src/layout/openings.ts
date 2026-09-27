@@ -1,7 +1,7 @@
 import type { Point } from "../core/geom.js";
 import { distanceToSegment } from "../core/geom.js";
 import type { BlueprintFloor, Facade as BlueprintFacade, FloorInterior, Opening } from "../core/types.js";
-import { WALL } from "./constants.js";
+import { DOOR, WALL } from "./constants.js";
 import { TILE } from "./tile-fit.js";
 import { facadeDepth, shellWallDepth } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
@@ -27,34 +27,51 @@ export interface OpeningKeepout {
 export function openingKeepouts(
   floor: BlueprintFloor, frame: Frame, facadeDepth: number,
 ): OpeningKeepout[] {
-  return floor.openings.map((opening) => {
-    const volume = openingVolume(opening, facadeDepth);
-    const a = floor.outline[opening.edge]!;
-    const b = floor.outline[(opening.edge + 1) % floor.outline.length]!;
-    const edgeLength = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-    const along: Point = [(b[0] - a[0]) / edgeLength, (b[1] - a[1]) / edgeLength];
-    const inward: Point = [-along[1], along[0]];
-    const centerAlong = volume.offset + volume.width / 2;
-    const center: Point = [a[0] + along[0] * centerAlong, a[1] + along[1] * centerAlong];
-    const halfWidth = volume.width / 2;
-    const corners: Point[] = [];
-    for (const side of [-1, 1]) {
-      for (const d of [0, volume.depth]) {
-        corners.push(worldToUv([
-          center[0] + along[0] * halfWidth * side + inward[0] * d,
-          center[1] + along[1] * halfWidth * side + inward[1] * d,
-        ], frame));
-      }
+  return floor.openings.map((opening) => keepout(floor, opening, openingVolume(opening, facadeDepth), frame));
+}
+
+/** The floor in front of every exterior doorway: its clear passage carried DOOR.approach past
+ *  the opening's clear volume. No core solid stands there, so a way in never opens onto a
+ *  stair or lift wall; a pocket door's cassette stays wall beside it. */
+export function approachKeepouts(
+  floor: BlueprintFloor, frame: Frame, facadeDepth: number,
+): OpeningKeepout[] {
+  return floor.openings.filter(isExteriorConnection).map((opening) => keepout(floor, opening, {
+    offset: opening.offset - PARTITION_HALF,
+    width: opening.width + 2 * PARTITION_HALF,
+    depth: openingVolume(opening, facadeDepth).depth + DOOR.approach,
+  }, frame));
+}
+
+/** One span of an outline edge carried `depth` inward, as its bounds in the layout frame. */
+function keepout(
+  floor: BlueprintFloor, opening: Opening, span: { offset: number; width: number; depth: number }, frame: Frame,
+): OpeningKeepout {
+  const a = floor.outline[opening.edge]!;
+  const b = floor.outline[(opening.edge + 1) % floor.outline.length]!;
+  const edgeLength = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  const along: Point = [(b[0] - a[0]) / edgeLength, (b[1] - a[1]) / edgeLength];
+  const inward: Point = [-along[1], along[0]];
+  const centerAlong = span.offset + span.width / 2;
+  const center: Point = [a[0] + along[0] * centerAlong, a[1] + along[1] * centerAlong];
+  const halfWidth = span.width / 2;
+  const corners: Point[] = [];
+  for (const side of [-1, 1]) {
+    for (const d of [0, span.depth]) {
+      corners.push(worldToUv([
+        center[0] + along[0] * halfWidth * side + inward[0] * d,
+        center[1] + along[1] * halfWidth * side + inward[1] * d,
+      ], frame));
     }
-    const us = corners.map((point) => point[0]);
-    const vs = corners.map((point) => point[1]);
-    const u = Math.min(...us);
-    const v = Math.min(...vs);
-    return {
-      opening: opening.id,
-      rect: { u, v, lu: Math.max(...us) - u, lv: Math.max(...vs) - v },
-    };
-  });
+  }
+  const us = corners.map((point) => point[0]);
+  const vs = corners.map((point) => point[1]);
+  const u = Math.min(...us);
+  const v = Math.min(...vs);
+  return {
+    opening: opening.id,
+    rect: { u, v, lu: Math.max(...us) - u, lv: Math.max(...vs) - v },
+  };
 }
 
 /** Openings that connect a room to exterior walkable space. */

@@ -3,9 +3,9 @@ import type { Point } from "../core/geom.js";
 import { polygonArea, polygonBounds } from "../core/geom.js";
 import type { CoreAdjacencyFailure, FloorAssignment, InteriorRequest } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
-import { CORRIDOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, TWO_STAIRS, WALKUP } from "./constants.js";
+import { CORRIDOR, DOOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
-import { isStreetAccess, openingKeepouts, type OpeningKeepout } from "./openings.js";
+import { approachKeepouts, isStreetAccess, openingKeepouts, type OpeningKeepout } from "./openings.js";
 import { constructionPlate, facadeDepth } from "./shell.js";
 import { SHAFT_WIDTH, shaftDepthFor } from "./stair-plan.js";
 import { CoreFacadeClearance } from "./core-adjacency.js";
@@ -73,6 +73,8 @@ interface CoreEnvelope {
   candidates: number[];
   bulkheadUv: Point | null;
   openingKeepouts: OpeningKeepout[];
+  /** the floor in front of every exterior doorway, which even a loose core clears */
+  approaches: OpeningKeepout[];
   adjacency: CoreFacadeClearance;
   adjacencyFailure?: CoreAdjacencyFailure;
 }
@@ -139,6 +141,7 @@ function envelopeOf(
     plateDepth, plateDepthFloor,
     idealVFace, candidates, bulkheadUv,
     openingKeepouts: floors.flatMap((floor) => openingKeepouts(floor, frame, depth)),
+    approaches: floors.flatMap((floor) => approachKeepouts(floor, frame, depth)),
     adjacency: new CoreFacadeClearance(blueprint, frame, depth),
   };
 }
@@ -201,13 +204,20 @@ function overlapsOpening(rect: UvRect, keepout: UvRect): boolean {
     && rect.v < keepout.v + keepout.lv - eps && keepout.v < rect.v + rect.lv - eps;
 }
 
-function clearOfOpenings(rect: UvRect, env: CoreEnvelope): boolean {
-  return env.openingKeepouts.every((keepout) => !overlapsOpening(rect, keepout.rect));
+/** What a core clears: every opening volume and adjacency span, only the floor in front of
+ *  the ways in (the loose core), or nothing (the gate's probe for its nearest miss). */
+type Clearance = "all" | "entrances" | "none";
+
+function clearOf(keepouts: OpeningKeepout[], rect: UvRect): boolean {
+  return keepouts.every((keepout) => !overlapsOpening(rect, keepout.rect));
 }
 
 /** Resolves the actual block and secondary stair position for one capacity. Door and window
  *  volumes are held across every floor because the shared core rises through every floor. */
-function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number, respectReservations = true): CoreLayout | null {
+function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number, clearance: Clearance = "all"): CoreLayout | null {
+  const respectReservations = clearance === "all";
+  const clear = (rect: UvRect): boolean => (clearance === "none" || clearOf(env.approaches, rect))
+    && (!respectReservations || clearOf(env.openingKeepouts, rect));
   const span = blockSpan(env, p, elevatorCount);
   const u0 = env.bulkheadUv
     ? env.bulkheadUv[0] - (p.mode === "compact" ? snapUp(SHAFT_WIDTH) : env.stairDepth) / 2
@@ -216,9 +226,9 @@ function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number, resp
   const solids = coreSolids(parts);
   const fitsPlates = (rect: UvRect): boolean => env.uvFloors.every((plate) => coversRect(plate, rect));
   if (![...solids, ["stub", parts.stub] as [string, UvRect]].every(([, rect]) => fitsPlates(rect))) return null;
-  if (respectReservations && !solids.every(([, rect]) => clearOfOpenings(rect, env))) return null;
+  if (!solids.every(([, rect]) => clear(rect))) return null;
   const fitted = (stairB?: UvRect): CoreLayout | null => {
-    if (stairB && (!fitsPlates(stairB) || respectReservations && !clearOfOpenings(stairB, env))) return null;
+    if (stairB && (!fitsPlates(stairB) || !clear(stairB))) return null;
     const actualSolids: [string, UvRect][] = stairB ? [...solids, ["stair-b", stairB]] : solids;
     const conflict = respectReservations ? env.adjacency.conflict(actualSolids) : undefined;
     if (conflict) {
@@ -244,10 +254,10 @@ function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number, resp
 }
 
 /** Keeps the greatest elevator capacity whose complete core avoids all facade reservations. */
-function openingSafePlacement(env: CoreEnvelope, p: Placement, respectReservations = true): Placement | null {
-  if (p.mode === "walkup") return coreLayout(env, p, 0, respectReservations) ? p : null;
+function openingSafePlacement(env: CoreEnvelope, p: Placement, clearance: Clearance = "all"): Placement | null {
+  if (p.mode === "walkup") return coreLayout(env, p, 0, clearance) ? p : null;
   for (let count = p.maxElevators; count >= 1; count--) {
-    if (coreLayout(env, p, count, respectReservations)) return { ...p, maxElevators: count };
+    if (coreLayout(env, p, count, clearance)) return { ...p, maxElevators: count };
   }
   return null;
 }
@@ -260,12 +270,12 @@ function placeAt(mode: CoreMode, vFace: number, bandU0: number, bandU1: number, 
 }
 
 /** The compact placement at one corridor position, when its band and column depth hold. */
-function compactAt(env: CoreEnvelope, vFace: number, respectOpenings = true): Placement | null {
+function compactAt(env: CoreEnvelope, vFace: number, clearance: Clearance = "all"): Placement | null {
   const fixed = compactFixedLen(env);
   const [u0, u1] = bandAt(env, vFace);
   if (u1 - u0 < fixed + ELEVATOR.shaft) return null;
   const candidate = placeAt("compact", vFace, u0, u1, fixed);
-  return openingSafePlacement(env, candidate, respectOpenings);
+  return openingSafePlacement(env, candidate, clearance);
 }
 
 function candidatesFor(env: CoreEnvelope, mode: CoreMode): number[] {
@@ -275,9 +285,9 @@ function candidatesFor(env: CoreEnvelope, mode: CoreMode): number[] {
 }
 
 /** The single mode-and-position selector shared by planCore and coreFeasibility. */
-function selectPlacement(env: CoreEnvelope, respectOpenings = true): Placement | null {
+function selectPlacement(env: CoreEnvelope, clearance: Clearance = "all"): Placement | null {
   const safe = (candidate: Placement): Placement | null =>
-    openingSafePlacement(env, candidate, respectOpenings);
+    openingSafePlacement(env, candidate, clearance);
   const rowFixed = rowFixedLen(env);
   for (const vFace of candidatesFor(env, "standard")) {
     const [u0, u1] = bandAt(env, vFace);
@@ -286,7 +296,7 @@ function selectPlacement(env: CoreEnvelope, respectOpenings = true): Placement |
     if (candidate) return candidate;
   }
   for (const vFace of candidatesFor(env, "compact")) {
-    const compact = compactAt(env, vFace, respectOpenings);
+    const compact = compactAt(env, vFace, clearance);
     if (compact) return compact;
   }
   const walkups: Placement[] = [];
@@ -436,7 +446,7 @@ export interface CoreFeasibility {
 function blockerOf(env: CoreEnvelope, placement: Placement | null): CoreBlocker | undefined {
   if (placement && withinCap(env, placement)) return undefined;
   if (!env.crossDepthOk) return "cross_depth";
-  if (!placement && selectPlacement(env, false)) return "opening_reservations";
+  if (!placement && selectPlacement(env, "none")) return "opening_reservations";
   const band = bestBandLen(env);
   if (band >= compactFixedLen(env) + ELEVATOR.shaft) return "compact_depth";
   if (band >= rowFixedLen(env)) return "walkup_floors";
@@ -445,7 +455,7 @@ function blockerOf(env: CoreEnvelope, placement: Placement | null): CoreBlocker 
 
 /** Whether some corridor position holds the compact core with its column depth (step 8). */
 function compactDepthOk(env: CoreEnvelope): boolean {
-  return env.crossDepthOk && candidatesFor(env, "compact").some((vFace) => compactAt(env, vFace, false) !== null);
+  return env.crossDepthOk && candidatesFor(env, "compact").some((vFace) => compactAt(env, vFace, "none") !== null);
 }
 
 /** The gate's message for an unfit blueprint, quoting the recipe's own numbers. */
@@ -461,6 +471,7 @@ function unfitDetail(env: CoreEnvelope, blocker: CoreBlocker, placement: Placeme
     case "walkup_floors":
       return `walkup core (band ${band}, ${mins}) allows at most ${WALKUP.maxFloors} floors, blueprint has ${env.aboveFloors}`;
     case "opening_reservations":
+      if (!selectPlacement(env, "entrances")) return `every fitting core stands in the ${DOOR.approach} m in front of an exterior doorway (${mins})`;
       return env.adjacencyFailure
         ? adjacencyDetail(env.adjacencyFailure)
         : `the fitting core bands overlap exterior opening clear volumes on one or more floors (${mins})`;
@@ -484,7 +495,7 @@ function round2(v: number): number {
 export function coreFeasibility(blueprint: InteriorRequest["blueprint"], buildingType = "residential"): CoreFeasibility {
   const { env, placement } = selectEnvelope(blueprint);
   const blocker = blockerOf(env, placement);
-  const chosen = placement ?? selectPlacement(env, false);
+  const chosen = placement ?? selectPlacement(env, "entrances");
   const layout = chosen && (!blocker || blocker === "opening_reservations")
     ? fitCore(env, chosen, buildingType)?.layout ?? null : null;
   return {
@@ -516,16 +527,16 @@ function fitCore(env: CoreEnvelope, chosen: Placement, buildingType: string):
 { layout: CoreLayout; cars: number; loose: boolean } | null {
   const wanted = chosen.mode === "walkup" ? 0
     : Math.min(elevatorsFor(buildingType, env.area, env.aboveFloors, env.topElevation), Math.max(1, chosen.maxElevators));
-  const attempt = (respect: boolean): { layout: CoreLayout; cars: number } | null => {
+  const attempt = (clearance: Clearance): { layout: CoreLayout; cars: number } | null => {
     for (let cars = wanted; cars >= (chosen.mode === "walkup" ? 0 : 1); cars--) {
-      const layout = coreLayout(env, chosen, cars, respect);
+      const layout = coreLayout(env, chosen, cars, clearance);
       if (layout) return { layout, cars };
       if (cars === 0) break;
     }
     return null;
   };
-  const strict = attempt(true);
-  const fitted = strict ?? attempt(false);
+  const strict = attempt("all");
+  const fitted = strict ?? attempt("entrances");
   return fitted ? { ...fitted, loose: !strict } : null;
 }
 
@@ -535,7 +546,7 @@ export function planCore(request: InteriorRequest, assignments: FloorAssignment[
   const { frame, stairDepth } = env;
 
   const blocker = blockerOf(env, placement);
-  const chosen = placement ?? selectPlacement(env, false);
+  const chosen = placement ?? selectPlacement(env, "entrances");
   if (!chosen || (blocker && blocker !== "opening_reservations")) {
     throw new InteriorError("E_FLOOR_TOO_SMALL", unfitDetail(env, blocker ?? "band", placement));
   }
@@ -667,6 +678,7 @@ function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan, respe
   if (failure) throw new InteriorError("E_FLOOR_TOO_SMALL", adjacencyDetail(failure), failure.floor);
   for (const [i, floor] of request.blueprint.floors.entries()) {
     const keepouts = openingKeepouts(floor, plan.frame, depth);
+    const approaches = approachKeepouts(floor, plan.frame, depth);
     for (const [id, rect] of named) {
       if (!coversRect(plates[i]!, rect)) {
         throw new InteriorError(
@@ -675,8 +687,14 @@ function ensureCoreFitsAllFloors(request: InteriorRequest, plan: CorePlan, respe
           floor.index,
         );
       }
-      const conflict = id === "service stub" || !respectReservations ? undefined
-        : keepouts.find((keepout) => overlapsOpening(rect, keepout.rect));
+      if (id === "service stub") continue;
+      const approach = approaches.find((keepout) => overlapsOpening(rect, keepout.rect));
+      if (approach) {
+        throw new InteriorError(
+          "E_FLOOR_TOO_SMALL", `${id} stands in front of exterior doorway ${approach.opening}`, floor.index,
+        );
+      }
+      const conflict = respectReservations ? keepouts.find((keepout) => overlapsOpening(rect, keepout.rect)) : undefined;
       if (conflict) {
         throw new InteriorError(
           "E_FLOOR_TOO_SMALL",

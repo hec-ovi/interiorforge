@@ -20,7 +20,11 @@ primary stair position. Explicit allowed axes constrain the frame search.
 Room footprints preserve clockwise holes and connected public space around core
 solids. Facade seats constrain partition endpoints. Ground entrances consume exact
 opening approaches and moving door depth; each lands on the room whose floor stands behind
-it across the open band, through the part of its span that meets that floor. Internal doors fit shared wall intervals, and a repair door tries every shared wall a room owns. The corridor keeps floor in front of every stair and lift door.
+it across the open band, through the part of its span that meets that floor. No core
+solid stands in front of an exterior doorway on any floor: its clear passage, carried
+`DOOR.approach` (2.5 m) past the opening's clear volume, stays floor. A loose core that
+crosses other reservations keeps this one, and a plate whose every core stands there is
+`E_FLOOR_TOO_SMALL`. A paired family's service rooms fit around it the same way. Internal doors fit shared wall intervals, and a repair door tries every shared wall a room owns. The corridor keeps floor in front of every stair and lift door.
 Rooms use the 0.5 m construction grid with measured facade closures. Source rotation
 is retained; exported navigation stays aligned to world XZ.
 

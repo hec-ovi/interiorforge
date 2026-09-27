@@ -6,6 +6,8 @@ import { BODY_CLEAR, DOOR, ROOM } from "./constants.js";
 import { elevatorWaitUv, stairEntryUv, type CorePlan } from "./core-plan.js";
 import { FacadeSeats, facadeSlots } from "./facade-seats.js";
 import { FacadeAccess } from "./facade-access.js";
+import { approachKeepouts } from "./openings.js";
+import { facadeDepth } from "./shell.js";
 import { coreRectsOf } from "./pier-align.js";
 import type { FloorFrame, PlanRoom } from "./plan-types.js";
 import { RoomRegion } from "./room-region.js";
@@ -96,7 +98,10 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
       }
     }
   } else {
-    const services = fitServiceProgram(SERVICES[kind] ?? [], occupied, plate, { ...frame, corridor: corridorRect }, ids);
+    // Service rooms stand clear of the floor in front of every way in, as the core does.
+    const approaches = approachKeepouts(floor, core.frame, facadeDepth(request.blueprint.facade)).map(keepout => keepout.rect);
+    const services = fitServiceProgram(SERVICES[kind] ?? [], [...occupied, ...approaches], plate,
+      { ...frame, corridor: corridorRect }, ids);
     rooms.push(...services.rooms);
     occupied.push(...services.rooms.map(room => room.rect));
     changes.push(...services.changes);
