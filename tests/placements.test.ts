@@ -192,7 +192,7 @@ const shellBlueprints = (dir: string | undefined): [string, string][] => !dir ||
         if (!existsSync(blueprint) || !existsSync(join(dir, parcel, `${parcel}.request.json`))) return [];
         return JSON.parse(readFileSync(blueprint, 'utf8')).floors.length <= shellFloors ? [[blueprint, parcel] as [string, string]] : [];
     });
-it.skipIf(!kitFiles(kitIndex).length && !shellBlueprints(cityDir).length)('opens or degrades every published kit plan and generated shell, furnished for its parcel', { timeout: 3600000 }, async () => {
+it.skipIf(!kitFiles(kitIndex).length && !shellBlueprints(cityDir).length)('opens every floor of every published kit plan and generated shell, furnished for its parcel', { timeout: 3600000 }, async () => {
     const plans = new Map<string, { id: string; type: BuildingType; tier: Tier }>();
     // Any parcel type can stand on a shared plan: the plans take the types in turn.
     const types = Object.keys(PROGRAM) as BuildingType[];
@@ -217,7 +217,10 @@ it.skipIf(!kitFiles(kitIndex).length && !shellBlueprints(cityDir).length)('opens
                 return null;
             });
         if (!built) continue;
-        expect(built.building.floors.length).toBeGreaterThan(0);
+        // Exterior publishes a shell only once a core fits it, so no published building
+        // degrades to its ground floor: one that does lost its core to a rule changed since.
+        expect(built.building.floors.length, `${building.id} floors opened`)
+            .toBe(blueprint.floors.filter((f: { index: number }) => f.index >= 0).length);
         // A floor whose plan slug names no program of its own holds the parcel's.
         const slugs = new Map<number, string>(blueprint.floors.map((f: { index: number; kind: string }) => [f.index, f.kind]));
         const ground = Math.min(...built.building.floors.map(ref => ref.index));

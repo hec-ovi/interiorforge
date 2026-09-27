@@ -29,8 +29,9 @@ with `npm run build`.
 
 Public contract and geometry regressions run with `npm test`; the kit-plan
 test takes six plans of the newest published index and the short generated shells of the
-newest assembled city, each plan furnished for a parcel type in turn and every floor whose
-kind names no program checked against its parcel's, and `npm run sweep` runs it over every
+newest assembled city, each plan furnished for a parcel type in turn on all its floors, as
+Exterior published it once a core fit, and every floor whose kind names no program checked
+against its parcel's, and `npm run sweep` runs it over every
 plan of every index and every shell of the city `URBE_CITY_DIR` names. `tests/kit-plans`
 holds consumed copies of the undertow plans and shell that once walled a 2 m balcony door
 shut, left floor open beside a lift, or cost an office desk its post to the toilets behind
