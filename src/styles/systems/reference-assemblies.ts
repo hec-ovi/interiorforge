@@ -227,7 +227,7 @@ export const E1_PLANTER: PlanterSpec = { end: 'fit-e1-planter-end', body: 'fit-e
 
 export const E1_BAMBOO: GlassPlanterSpec = {
   base: 'fit-e1-bamboo-base', soil: 'fit-e1-bamboo-soil', bay: 'fit-e1-bamboo-bay', pane: 'fit-e1-bamboo-pane', post: 'fit-e1-bamboo-post',
-  glass: 'ceiling', rowPitch: .6, frame: { lens: 'ceiling-cove-e1-bamboo-frame', lumensPerMetre: 70, kelvin: 4000 },
+  glass: 'ceiling', rowPitch: .3, frame: { lens: 'ceiling-cove-e1-bamboo-frame', lumensPerMetre: 70, kelvin: 4000 },
 };
 export const B3_BAMBOO: GlassPlanterSpec = {
   base: 'fit-b3-bamboo-base', soil: 'fit-e1-bamboo-soil', bay: 'fit-e1-bamboo-bay', pane: 'fit-e1-bamboo-pane', post: 'fit-b3-bamboo-post',
@@ -288,24 +288,26 @@ const kindA: RecipeSet = add => {
   add('fit-e1-planter-body', k => { yzPrism(k, LOOK.e1Cream, TROUGH, -.25, .25, false); box(k, LOOK.black, -.25, .25, .5, .516, .36, .362); });
   add('fit-e1-planter-end', k => yzPrism(k, LOOK.e1Cream, TROUGH, -.02, .02));
   add('fit-e1-planter-soil', k => box(k, LOOK.soil, -.25, .25, .73, .75, .04, .27));
-  // Five tufts per metre leaning out of the bed towards the room, never back into the window.
+  // Seven broad-leaved tufts per metre leaning out of the bed towards the room, never back
+  // into the window.
   add('fit-e1-planter-bay', k => {
-    for (let i = 0; i < 5; i++) {
-      const x = -.4 + i * .2, z = .12 + (i % 2) * .06, h = .5 + (i % 3) * .08;
-      k.rod(LOOK.stem, [x, .75, z], [x, .75 + h * .45, z], .018);
-      for (let j = 0; j < 7; j++) {
-        const heading = -.15 + ((j * 2.399 + i) % 3.44), length = h * (.42 + .1 * ((j + i) % 3));
-        k.leaf(LOOK.leaf, [x, .75 + h * (.18 + .05 * j), z], heading, Math.min(length, .26), h * .11, .3 + .05 * (j % 4));
+    for (let i = 0; i < 7; i++) {
+      const x = -.43 + i * .143, z = .12 + (i % 2) * .07, h = .55 + (i % 3) * .1;
+      k.rod(LOOK.stem, [x, .75, z], [x, .75 + h * .4, z], .016);
+      for (let j = 0; j < 9; j++) {
+        const heading = -.15 + ((j * 2.399 + i * .7) % 3.44), length = h * (.4 + .08 * ((j + i) % 3));
+        k.leaf(LOOK.leaf, [x, .75 + h * (.15 + .04 * j), z], heading, Math.min(length, .26), h * .16, .3 + .05 * (j % 4));
       }
     }
   });
   add('fit-e1-bamboo-base', k => { box(k, LOOK.e1Housing, -.25, .25, 0, .3, -.25, .25); box(k, LOOK.black, -.25, .25, 0, .04, -.252, .252); });
   add('fit-e1-bamboo-soil', k => box(k, LOOK.soil, -.25, .25, .3, .31, -.25, .25));
+  // A dense metre of bamboo: fourteen culms in two staggered lines, leaf clusters up top.
   add('fit-e1-bamboo-bay', k => {
-    for (let i = 0; i < 8; i++) {
-      const x = -.42 + i * .12, z = ((i * 37) % 7 - 3) * .03, h = 2 + (i % 3) * .15;
-      k.cylinder(LOOK.stem, [x, 0, z], .017, h, 6);
-      for (let j = 0; j < 4; j++) k.leaf(LOOK.leaf, [x, h * (.55 + j * .12), z], i * 1.7 + j * 2.1, .15, .045, .15);
+    for (let i = 0; i < 14; i++) {
+      const x = -.45 + i * .069, z = (i % 2 ? .04 : -.04) + ((i * 37) % 5 - 2) * .01, h = 2 + (i % 4) * .12;
+      k.cylinder(LOOK.stem, [x, 0, z], .015, h, 6);
+      for (let j = 0; j < 8; j++) k.leaf(LOOK.leaf, [x, h * (.45 + j * .07), z], i * 1.7 + j * 2.1, .1, .035, .12);
     }
   });
   add('fit-e1-bamboo-pane', k => box(k, LOOK.glass, -.25, .25, 0, .5, -.005, .005));

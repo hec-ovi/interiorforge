@@ -66,12 +66,13 @@ export function placeGlassPlanter(builder: PlacementBuilder, floor: FloorInterio
   frame.place(builder, spec.base, room, 0, 0, 0, [w / cell[0], 1, d / cell[2]]);
   const soil = moduleSize(spec.soil);
   frame.place(builder, spec.soil, room, 0, 0, 0, [(w - .04) / soil[0], 1, (d - .04) / soil[2]]);
-  const rows = Math.max(1, Math.round((d - .1) / spec.rowPitch));
+  // Rows keep a bay's half depth (culms and leaves) inside the glass.
+  const margin = Math.min(d / 2, moduleSize(spec.bay)[2] / 2 + .03), rows = Math.max(1, Math.floor((d - 2 * margin) / spec.rowPitch + 1e-9) + 1);
   const top = spec.glass === 'ceiling' ? ceilingY - floorY - .005 : spec.glass;
   const bay = moduleSize(spec.bay), room3 = top - baseH - .05;
   const stretch = Math.min(1.3, Math.max(.4, room3 / bay[1]));
   for (let r = 0; r < rows; r++) {
-    const z = -d / 2 + (r + .5) * d / rows;
+    const z = rows === 1 ? 0 : -d / 2 + margin + r * (d - 2 * margin) / (rows - 1);
     for (const x of plantedBays(w - .1)) frame.place(builder, spec.bay, room, x, baseH, z, [1, stretch, 1]);
   }
   // Glass on the base top, a pane per side, posts at the corners.
