@@ -34,7 +34,7 @@
     { "id": "living", "kind": "living", "role": "living", "level": "lower", "remainder": true },
     { "id": "kitchen", "kind": "kitchen", "role": "kitchen", "level": "lower", "u": ["u0", "u1"], "v": ["v1", "v2"], "minClear": [2.6, 2.6] },
     { "id": "bath", "kind": "bathroom", "role": "bath", "level": "lower", "u": ["u0", "u1"], "v": ["v2", "v3"], "minClear": [2.6, 2.2] },
-    { "id": "guest", "kind": "bedroom", "role": "guest-bedroom", "level": "lower", "u": ["u0", "u1"], "v": ["v3", "v4"], "minClear": [3.2, 3.4] },
+    { "id": "guest", "kind": "bedroom", "role": "guest-bedroom", "level": "lower", "u": ["u0", "u1"], "v": ["v3", "v4"], "minClear": [4.0,  4.0] },
     { "id": "gallery", "kind": "corridor", "role": "gallery", "level": "upper", "remainder": true },
     { "id": "primary", "kind": "bedroom", "role": "primary-bedroom", "level": "upper", "u": ["u0", "u2"], "v": ["v3", "v4"], "minClear": [3.4, 3.4] },
     { "id": "bath-upper", "kind": "bathroom", "role": "bath", "level": "upper", "u": ["u0", "u1"], "v": ["v1", "v2"], "minClear": [2.6, 2.6] },

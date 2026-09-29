@@ -57,6 +57,13 @@ describe('template fitting', () => {
     }
   });
 
+  it('still fits every dwelling template at its declared minimum envelope', () => {
+    for (const t of dwellings) {
+      const fit = fitTemplate(t, target({ u: 0, v: 0, lu: t.envelope.min[0], lv: t.envelope.min[1] }), 'unit', idGen(1), () => true);
+      expect(fit, t.id).not.toBeNull();
+    }
+  });
+
   it('keeps rigid rooms exact in a larger target and grows the living', () => {
     const fit = fitTemplate(e1, target({ u: 0, v: 0, lu: 19, lv: 12 }), 'unit', idGen(1), () => true)!;
     expect(fit).not.toBeNull();

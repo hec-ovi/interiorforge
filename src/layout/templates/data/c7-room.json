@@ -4,7 +4,7 @@
   "scope": "dwelling",
   "style": "c7",
   "use": { "floorKinds": ["apartment", "residence_studio", "hotel_rooms"], "kinds": ["C"] },
-  "envelope": { "width": 8.5, "depth": 8.0, "min": [5.9, 6.0], "max": [25.5,  24.0] },
+  "envelope": { "width": 8.5, "depth": 8.0, "min": [7.6,  7.0], "max": [25.5,  24.0] },
   "entry": { "room": "living", "door": "entry" },
   "daylight": ["v1"],
   "mirror": "allow",
@@ -29,7 +29,7 @@
   "rooms": [
     { "id": "living", "kind": "living", "role": "living", "remainder": true },
     { "id": "bath", "kind": "bathroom", "role": "bath", "u": ["u0", "u1"], "v": ["v1", "v2"], "minClear": [2.2, 2.2] },
-    { "id": "bed", "kind": "bedroom", "role": "bedroom", "u": ["u2", "u3"], "v": ["v2", "v3"], "minClear": [2.6, 2.6] }
+    { "id": "bed", "kind": "bedroom", "role": "bedroom", "u": ["u2", "u3"], "v": ["v2", "v3"], "minClear": [2.8,  3.2] }
   ],
   "doors": [
     { "id": "entry", "between": ["living", "@public"], "width": 1.2, "leaves": 1, "kind": "pocket", "along": 0.55, "owner": "living" },

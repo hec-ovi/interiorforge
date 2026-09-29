@@ -4,7 +4,7 @@
   "scope": "dwelling",
   "style": "b3",
   "use": { "floorKinds": ["apartment", "residence_studio"], "kinds": ["B"] },
-  "envelope": { "width": 14.0, "depth": 11.0, "min": [8.9, 7.4], "max": [42.0,  33.0] },
+  "envelope": { "width": 14.0, "depth": 11.0, "min": [8.9,  9.5], "max": [42.0,  33.0] },
   "entry": { "room": "living", "door": "entry" },
   "daylight": ["v1"],
   "mirror": "allow",
@@ -31,7 +31,7 @@
     { "id": "bath", "kind": "bathroom", "role": "bath", "u": ["u2", "u3"], "v": ["v1", "v2"], "minClear": [2.6, 2.6], "ceiling": 2.8 },
     { "id": "study", "kind": "office_private", "role": "study", "u": ["u1", "u2"], "v": ["v1", "v2"],
       "optional": { "drop": 1 }, "minClear": [1.6, 2.2], "ceiling": 2.8 },
-    { "id": "bed", "kind": "bedroom", "role": "bedroom", "u": ["u1", "u3"], "v": ["v2", "v3"], "minClear": [3.4, 3.6], "ceiling": 3.0 }
+    { "id": "bed", "kind": "bedroom", "role": "bedroom", "u": ["u1", "u3"], "v": ["v2", "v3"], "minClear": [4.2,  4.2], "ceiling": 3.0 }
   ],
   "doors": [
     { "id": "entry", "between": ["living", "@public"], "width": 1.6, "leaves": 2, "kind": "pocket", "along": 0.45, "owner": "living" },
