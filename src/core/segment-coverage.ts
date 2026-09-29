@@ -102,7 +102,17 @@ export function segmentCoveredByFootprints(a: Point, b: Point, footprints: reado
   for (let i = 1; i < ordered.length; i++) {
     const start = at(a, b, ordered[i - 1]!), end = at(a, b, ordered[i]!);
     const midpoint = at(a, b, (ordered[i - 1]! + ordered[i]!) / 2);
-    if (samePoint(midpoint, start) || samePoint(midpoint, end)) return false;
+    if (samePoint(midpoint, start) || samePoint(midpoint, end)) {
+      // Opposite sides of one authored boundary can differ by a few ULPs after
+      // clipping (55.2 versus 55.199999999999996). Their analytic band events
+      // then enclose an interval with no distinct representable midpoint.
+      // This is not an uncovered room gap when both ends are owned and the
+      // analytic span is within the existing ownership tolerance. Retain the
+      // span check: at large coordinates one ULP may exceed that tolerance.
+      const span = (ordered[i]! - ordered[i - 1]!) * Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (span > ROOM_FOOTPRINT_EPS || !covered(start) || !covered(end)) return false;
+      continue;
+    }
     // Ownership is constant on this analytic open interval; event points are separate.
     if (!covered(start) || !covered(midpoint) || !covered(end)) return false;
   }
