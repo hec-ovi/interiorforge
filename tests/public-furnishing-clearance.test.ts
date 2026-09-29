@@ -4,6 +4,7 @@ import { makePlacementFixture } from '../src/index.js';
 import { pointInPolygon } from '../src/core/geom.js';
 import { segmentDistance } from '../src/core/segment-sweep.js';
 import { planBuilding, type BuildingPlan } from '../src/layout/index.js';
+import { templateSwitch } from '../src/layout/templates/registry.js';
 import { commonTransit } from '../src/layout/architecture-access.js';
 import { uvRectCorners, worldToUv } from '../src/layout/uv.js';
 import { CORPO_VANITY_FIT } from '../src/styles/luxury/corpo-bathroom.js';
@@ -49,7 +50,14 @@ it.each(['mirror-frame', 'balcony-grid'])('leaves generous public furniture rout
     options: { architecture, glb: 'merged' } }, { textures: { mode: 'keys' } });
   const request = validateRequest({ seed: 'luxury-reference-review',
     building: { id: 'p0', type: 'residential', tier: 'high_rich' }, blueprint, materialTheme: 'cyberpunk' });
-  const plan = planBuilding(request, resolveAssignments(request), new Set([0, 1]));
+  // Kind A and B homes now take the reference apartments with their own beds; these full beds and vanities are the generic program they fall back to.
+  templateSwitch.enabled = false;
+  let plan: BuildingPlan;
+  try {
+    plan = planBuilding(request, resolveAssignments(request), new Set([0, 1]));
+  } finally {
+    templateSwitch.enabled = true;
+  }
   expectPublicFurnitureClearance(plan);
   const ground = plan.floors.find(floor => floor.floor === 0)!;
   const sofas = ground.furniture.filter(piece => piece.kind === 'sofa');
