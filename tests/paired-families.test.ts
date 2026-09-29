@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { expandBuilding, generate, INTERIOR_RECIPES } from '../src/index.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
+import { FLOORS } from '../src/styles/reference/registry.js';
 import { expectBuildingLevels, occupiedStoreys } from './building-levels.js';
 
 const families = [
@@ -37,7 +38,11 @@ it.each(families)('furnishes every real %s floor with its matching shell, finish
         // Offices and corpo parcels wear the corporate family's own floors; homes and hotels
         // the architecture's.
         const slab = type === 'corpo' || type === 'offices' ? 'floor-slab-corporate-carpet' : `floor-slab-${recipe.floor}`;
-        expect(layout.placements.some(item => item.module === slab), `${ref.layout} ${slab}`).toBe(true);
+        // A faceted-bays home is reference kind B: its styled rooms lay their style's floor system instead of the architecture's slab.
+        const systems = type === 'corpo' || type === 'offices' ? []
+            : [...new Set(layout.floor.rooms.map(room => `floor-slab-${room.style}`))].filter(id => FLOORS.has(id));
+        for (const system of systems) expect(layout.placements.some(item => item.module?.startsWith(system)), `${ref.layout} ${system}`).toBe(true);
+        if (!systems.length) expect(layout.placements.some(item => item.module === slab), `${ref.layout} ${slab}`).toBe(true);
         expect((ref.treatments ?? []).filter(p => !p.module?.startsWith('stair-soffit-') && !p.module?.startsWith('stair-wall-skin-'))).toEqual([]);
         expect(layout.placements.some(item => item.module === 'window-return')).toBe(false);
         expect(layout.placements.filter(item => item.module).every(item => modules.has(item.module!))).toBe(true);
