@@ -45,6 +45,7 @@ const c1: StyleSpec = {
     fit: capsuleFit('h10'),
     lights: { plannedCoves: false, kelvin: 3600 },
     entrance: 'capsule',
+    housings: ['housing-c1-beam'],
     dress: ctx => dressCapsuleHome(ctx, 'h10'),
 };
 
@@ -58,7 +59,7 @@ const c7: StyleSpec = {
     fit: capsuleFit('japantown'),
     lights: { plannedCoves: false, kelvin: 4200 },
     entrance: 'capsule',
-    housings: ['housing-c7-ac'],
+    housings: ['housing-c7-duct', 'housing-c7-ac'],
     dress: ctx => dressCapsuleHome(ctx, 'japantown'),
 };
 
