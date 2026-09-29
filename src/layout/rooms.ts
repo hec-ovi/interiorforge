@@ -2,7 +2,7 @@ import type { Point } from "../core/geom.js";
 import { boundaryDistance, clipPolygonToRect, footOnSegment, polygonArea } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
 import type { FloorKind, RoomKind, Tier } from "../core/types.js";
-import { CORRIDOR, DOOR, ELEVATOR, ROOM, WALL } from "./constants.js";
+import { CORRIDOR, DOOR, ROOM, WALL } from "./constants.js";
 import { BAND_PROUD } from "./shell.js";
 import type { CorePlan } from "./core-plan.js";
 import type { FloorFrame, PlanDoor, PlanRoom } from "./plan-types.js";
@@ -519,16 +519,18 @@ export function fillCoreBacking(
     while (d + 0.5 <= block.lv && clipRatio({ u, v: block.v, lu, lv: d + 0.5 }, uvOutline) > 0.999) d += 0.5;
     return d;
   };
-  const backDepth = Math.min(coveredDepth(backStart, core.stub.u - backStart), coveredDepth(core.stub.u, core.stub.lu)) - ELEVATOR.shaft;
-  const stubRect: UvRect = { u: core.stub.u, v: block.v, lu: core.stub.lu, lv: ELEVATOR.shaft + Math.max(0, backDepth) };
+  // Rooms behind the core start behind its row: the lifts' depth, or the riser's in a walk-up.
+  const row = core.stub.lv;
+  const backDepth = Math.min(coveredDepth(backStart, core.stub.u - backStart), coveredDepth(core.stub.u, core.stub.lu)) - row;
+  const stubRect: UvRect = { u: core.stub.u, v: block.v, lu: core.stub.lu, lv: row + Math.max(0, backDepth) };
   const backing: UvRect = {
-    u: backStart, v: block.v + ELEVATOR.shaft, lu: core.stub.u - backStart, lv: backDepth,
+    u: backStart, v: block.v + row, lu: core.stub.u - backStart, lv: backDepth,
   };
   if (backDepth < 1.6) {
     return {
       rooms: [],
       sealed: [
-        { u: backStart, v: block.v + ELEVATOR.shaft, lu: core.stub.u + core.stub.lu - backStart, lv: Math.max(0.5, backDepth) },
+        { u: backStart, v: block.v + row, lu: core.stub.u + core.stub.lu - backStart, lv: Math.max(0.5, backDepth) },
         ...columnRears,
       ],
     };

@@ -164,7 +164,9 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
       rooms.push(...ground.rooms);
       occupied.push(...ground.occupied);
     } else {
-      const services = fitServiceProgram(SERVICES[kind] ?? [], [...occupied, ...approaches], plate,
+      // A service room never stands on the core's service stub, whose solid would seal the
+      // floor beyond it off the corridor.
+      const services = fitServiceProgram(SERVICES[kind] ?? [], [...occupied, ...approaches, core.stub], plate,
         { ...frame, corridor: corridorRect }, ids,
         isCorporate(request.building.type, request.building.tier) ? CORPORATE_SERVICE_SIZES : undefined);
       rooms.push(...services.rooms);

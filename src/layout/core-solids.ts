@@ -26,7 +26,8 @@ export function coreComponents(
   }
   const riser: UvRect = { u, v: vFace, lu: RISER_SHAFT.w, lv: RISER_SHAFT.d };
   u += RISER_SHAFT.w;
-  const stub: UvRect = { u, v: vFace, lu: CORRIDOR.serviceStub, lv: ELEVATOR.shaft };
+  // The stub closes the row it ends: as deep as the lifts, or as the riser of a walk-up.
+  const stub: UvRect = { u, v: vFace, lu: CORRIDOR.serviceStub, lv: elevatorCount ? ELEVATOR.shaft : RISER_SHAFT.d };
   u += CORRIDOR.serviceStub;
   let stairB: UvRect | undefined;
   if (twoStairs && mode === "compact") {
