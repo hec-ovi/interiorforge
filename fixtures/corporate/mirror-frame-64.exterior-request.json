@@ -1,0 +1,45 @@
+{
+  "seed": "corporate-reference-mirror-frame-64",
+  "buildingId": "mirror-frame-64",
+  "parcel": {
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        64,
+        0
+      ],
+      [
+        64,
+        40
+      ],
+      [
+        0,
+        40
+      ]
+    ],
+    "accessPoint": [
+      32.0,
+      -2
+    ],
+    "maxHeight": 60
+  },
+  "building": {
+    "type": "offices",
+    "tier": "mid",
+    "floors": 8
+  },
+  "theme": "cyberpunk",
+  "options": {
+    "architecture": "mirror-frame",
+    "exteriorStyle": "premium-office",
+    "balconies": "off",
+    "facadeServices": "off",
+    "signage": null,
+    "adScreens": "off",
+    "fireEscape": "off",
+    "roofArtifacts": "off"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "building": {
+    "id": "corporate-sectors-56",
+    "type": "corpo",
+    "tier": "high_rich"
+  },
+  "seed": "corporate-reference-corporate-sectors-56",
+  "materialTheme": "cyberpunk",
+  "assignments": [
+    {
+      "floor": 0,
+      "kind": "lobby"
+    },
+    {
+      "floor": 1,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 2,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 3,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 4,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 5,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 6,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 7,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 8,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 9,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 10,
+      "kind": "corpo_office"
+    },
+    {
+      "floor": 11,
+      "kind": "mechanical"
+    }
+  ]
+}

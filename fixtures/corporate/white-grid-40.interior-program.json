@@ -1,0 +1,43 @@
+{
+  "building": {
+    "id": "white-grid-40",
+    "type": "offices",
+    "tier": "rich"
+  },
+  "seed": "corporate-reference-white-grid-40",
+  "materialTheme": "cyberpunk",
+  "assignments": [
+    {
+      "floor": 0,
+      "kind": "lobby"
+    },
+    {
+      "floor": 1,
+      "kind": "office"
+    },
+    {
+      "floor": 2,
+      "kind": "office"
+    },
+    {
+      "floor": 3,
+      "kind": "office"
+    },
+    {
+      "floor": 4,
+      "kind": "office"
+    },
+    {
+      "floor": 5,
+      "kind": "office"
+    },
+    {
+      "floor": 6,
+      "kind": "office"
+    },
+    {
+      "floor": 7,
+      "kind": "mechanical"
+    }
+  ]
+}

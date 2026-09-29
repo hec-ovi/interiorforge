@@ -1,0 +1,45 @@
+{
+  "seed": "corporate-reference-corporate-sectors-56",
+  "buildingId": "corporate-sectors-56",
+  "parcel": {
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        56,
+        0
+      ],
+      [
+        56,
+        40
+      ],
+      [
+        0,
+        40
+      ]
+    ],
+    "accessPoint": [
+      28.0,
+      -2
+    ],
+    "maxHeight": 60
+  },
+  "building": {
+    "type": "corpo",
+    "tier": "high_rich",
+    "floors": 12
+  },
+  "theme": "cyberpunk",
+  "options": {
+    "architecture": "corporate-sectors",
+    "exteriorStyle": "premium-obsidian",
+    "balconies": "off",
+    "facadeServices": "off",
+    "signage": null,
+    "adScreens": "off",
+    "fireEscape": "off",
+    "roofArtifacts": "off"
+  }
+}

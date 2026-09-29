@@ -1,0 +1,45 @@
+{
+  "seed": "corporate-reference-white-grid-40",
+  "buildingId": "white-grid-40",
+  "parcel": {
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        40,
+        0
+      ],
+      [
+        40,
+        40
+      ],
+      [
+        0,
+        40
+      ]
+    ],
+    "accessPoint": [
+      20.0,
+      -2
+    ],
+    "maxHeight": 60
+  },
+  "building": {
+    "type": "offices",
+    "tier": "rich",
+    "floors": 8
+  },
+  "theme": "cyberpunk",
+  "options": {
+    "architecture": "white-grid",
+    "exteriorStyle": "premium-office",
+    "balconies": "off",
+    "facadeServices": "off",
+    "signage": null,
+    "adScreens": "off",
+    "fireEscape": "off",
+    "roofArtifacts": "off"
+  }
+}
