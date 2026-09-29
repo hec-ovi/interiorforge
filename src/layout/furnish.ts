@@ -585,8 +585,11 @@ class RoomPlacer {
         const base = footprintOf(piece);
         fp = { ...base, u: base.u + back[0] * step * 0.05, v: base.v + back[1] * step * 0.05 };
       }
-      if (this.fits(fp, piece.kind)) {
-        piece = { ...piece, at: [fp.u + fp.lu / 2, fp.v + fp.lv / 2] };
+      // a hung piece keeps the rule of every wall piece: a solid wall behind it, never the
+      // facade run or a glass partition, whatever wall its template drew it on
+      const at: Point = [fp.u + fp.lu / 2, fp.v + fp.lv / 2];
+      if (this.fits(fp, piece.kind) && (MOUNT[piece.kind] === undefined || this.solidBacking({ ...piece, at }))) {
+        piece = { ...piece, at };
         const size: [number, number, number] = piece.fit?.startsWith('asm-') && (piece.kind === 'kitchen_block' || piece.kind === 'wardrobe')
           && Number.isFinite(ceilingHeight) ? [piece.size[0], piece.size[1], Math.max(piece.size[2], ceilingHeight - (piece.elevation ?? 0))] : piece.size;
         this.blocked.push(fp);
