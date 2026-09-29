@@ -3,27 +3,174 @@
   "version": 1,
   "scope": "public",
   "style": "c4",
-  "use": { "floorKinds": ["lobby", "apartment", "residence_studio"], "kinds": ["C"], "slot": "service" },
-  "envelope": { "width": 6.0, "depth": 4.5, "min": [2.4, 2.5], "max": [12.0, 9.0] },
-  "entry": { "room": "restroom", "door": "entry" },
+  "use": {
+    "floorKinds": [
+      "lobby",
+      "apartment",
+      "residence_studio"
+    ],
+    "kinds": [
+      "C"
+    ],
+    "slot": "service"
+  },
+  "envelope": {
+    "width": 6.0,
+    "depth": 4.5,
+    "min": [
+      2.4,
+      2.5
+    ],
+    "max": [
+      12.0,
+      9.0
+    ]
+  },
+  "entry": {
+    "room": "restroom",
+    "door": "entry"
+  },
   "daylight": [],
   "mirror": "allow",
   "lines": [
-    { "id": "u0", "axis": "u", "ref": 0 },
-    { "id": "u1", "axis": "u", "ref": 6.0 },
-    { "id": "v0", "axis": "v", "ref": 0 },
-    { "id": "v1", "axis": "v", "ref": 4.5 }
+    {
+      "id": "u0",
+      "axis": "u",
+      "ref": 0
+    },
+    {
+      "id": "u1",
+      "axis": "u",
+      "ref": 6.0
+    },
+    {
+      "id": "v0",
+      "axis": "v",
+      "ref": 0
+    },
+    {
+      "id": "v1",
+      "axis": "v",
+      "ref": 4.5
+    }
   ],
   "spans": [
-    { "from": "u0", "to": "u1", "min": 2.4, "max": null, "weight": 6.0 },
-    { "from": "v0", "to": "v1", "min": 2.5, "max": null, "weight": 4.5 }
+    {
+      "from": "u0",
+      "to": "u1",
+      "min": 2.4,
+      "max": null,
+      "weight": 6.0
+    },
+    {
+      "from": "v0",
+      "to": "v1",
+      "min": 2.5,
+      "max": null,
+      "weight": 4.5
+    }
   ],
   "rooms": [
-    { "id": "restroom", "kind": "toilets", "role": "restroom", "remainder": true }
+    {
+      "id": "restroom",
+      "kind": "toilets",
+      "role": "restroom",
+      "remainder": true
+    }
   ],
   "doors": [
-    { "id": "entry", "between": ["restroom", "@public"], "width": 1.0, "leaves": 1, "kind": "swing", "along": 0.2, "owner": "restroom" }
+    {
+      "id": "entry",
+      "between": [
+        "restroom",
+        "@public"
+      ],
+      "width": 1.0,
+      "leaves": 1,
+      "kind": "swing",
+      "along": 0.2,
+      "owner": "restroom"
+    }
   ],
-  "fixtures": [],
-  "source": { "key": "c4-bathroom", "revision": "hand-1" }
+  "fixtures": [
+    {
+      "id": "trough",
+      "room": "restroom",
+      "kind": "counter",
+      "fit": "fit-c4-trough",
+      "required": false,
+      "wall": "u1",
+      "along": {
+        "line": "v0",
+        "offset": 1.4
+      },
+      "size": [
+        2.4,
+        0.55,
+        2.0
+      ],
+      "rotationDeg": 270
+    },
+    {
+      "id": "urinal-0",
+      "room": "restroom",
+      "kind": "urinal",
+      "fit": "fit-c4-urinal",
+      "required": false,
+      "wall": "v1",
+      "along": {
+        "line": "u0",
+        "offset": 0.5
+      },
+      "size": [
+        0.4,
+        0.35,
+        0.6
+      ],
+      "rotationDeg": 180,
+      "elevation": 0.3
+    },
+    {
+      "id": "urinal-1",
+      "room": "restroom",
+      "kind": "urinal",
+      "fit": "fit-c4-urinal",
+      "required": false,
+      "wall": "v1",
+      "along": {
+        "line": "u0",
+        "offset": 1.2
+      },
+      "size": [
+        0.4,
+        0.35,
+        0.6
+      ],
+      "rotationDeg": 180,
+      "elevation": 0.3
+    },
+    {
+      "id": "urinal-2",
+      "room": "restroom",
+      "kind": "urinal",
+      "fit": "fit-c4-urinal",
+      "required": false,
+      "wall": "v1",
+      "along": {
+        "line": "u0",
+        "offset": 1.9
+      },
+      "size": [
+        0.4,
+        0.35,
+        0.6
+      ],
+      "rotationDeg": 180,
+      "elevation": 0.3
+    }
+  ],
+  "source": {
+    "key": "c4-bathroom",
+    "revision": "hand-2"
+  }
 }

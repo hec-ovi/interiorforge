@@ -124,5 +124,51 @@ const fixtures: RecipeSet = add => {
     });
 };
 
-export const recipesC: RecipeSet = add => { housings(add); publicPieces(add); fixtures(add); };
+// ---- ground atrium, restroom and studio extras ------------------------------------------
+
+const extras: RecipeSet = add => {
+    // Pay-here kiosk of the atrium: a gunmetal cabinet 0.9 x 0.6 x 2.1, a lit screen under a
+    // hood, a card slot and a dispenser tray.
+    add('fit-c3-kiosk', k => {
+        box(k, C.gunmetal, -.45, .45, 0, 2.1, -.3, .25);
+        box(k, C.black, -.4, .4, 1.9, 2.05, .25, .32);
+        box(k, C.screen, -.34, .34, 1.25, 1.85, .25, .258);
+        box(k, C.charcoal, -.34, .34, .95, 1.2, .25, .3);
+        box(k, 'cyberpunk/light-fixture/rich#loft-red', -.08, .08, 1.05, 1.1, .3, .305);
+        box(k, C.black, -.2, .2, .5, .62, .25, .31);
+        box(k, C.steel, -.45, .45, 0, .1, .25, .27);
+    });
+    // Low corridor lamp at the foot of the wall: a warm lens under a small hood.
+    add('trim-c3-low-lamp', k => {
+        box(k, C.gunmetal, -.07, .07, 0, .16, 0, .05);
+        box(k, C.lamp, -.05, .05, .02, .05, .05, .07);
+    });
+    // Restroom wash trough 2.4 m: a cream trough on brackets, four taps, a mirror band above.
+    add('fit-c4-trough', k => {
+        box(k, C.ivory, -1.2, 1.2, .72, .9, -.275, .275);
+        box(k, C.black, -1.14, 1.14, .8, .9, -.2, .2);
+        for (const x of [-.9, -.3, .3, .9]) {
+            box(k, C.zinc, x - .015, x + .015, .9, 1.08, -.26, -.23);
+            box(k, C.zinc, x - .015, x + .015, 1.05, 1.08, -.26, -.14);
+        }
+        for (const x of [-1.1, 0, 1.1]) box(k, C.steel, x - .02, x + .02, .2, .72, -.275, -.2);
+        box(k, C.black, -1.2, 1.2, 1.28, 2.0, -.275, -.265);
+        box(k, C.mirror, -1.16, 1.16, 1.32, 1.96, -.265, -.258);
+    });
+    // Studio neon: a red outline sign on a dark back plate, 1.0 x 0.7.
+    add('trim-c6-neon', k => {
+        box(k, C.black, -.5, .5, 0, .7, 0, .02);
+        const red = 'cyberpunk/light-fixture/rich#loft-red';
+        box(k, red, -.42, .42, .06, .09, .02, .04); box(k, red, -.42, .42, .61, .64, .02, .04);
+        box(k, red, -.42, -.39, .06, .64, .02, .04); box(k, red, .39, .42, .06, .64, .02, .04);
+        box(k, red, -.2, .2, .3, .33, .02, .04); box(k, red, -.02, .01, .2, .5, .02, .04);
+    });
+    // Studio ceiling disc: a 1.2 m round lens in a dark ring, hung 0.1 m under the ceiling.
+    add('trim-c6-disc', k => {
+        k.cylinder(C.black, [0, -.12, 0], .66, .12, 20);
+        k.cylinder('cyberpunk/light-fixture/rich#strip', [0, -.125, 0], .55, .01, 20);
+    });
+};
+
+export const recipesC: RecipeSet = add => { housings(add); publicPieces(add); fixtures(add); extras(add); };
 registerModuleSizes(recipesC);

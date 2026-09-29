@@ -3,7 +3,7 @@ import type { RoomFinish } from '../../placements/finish.js';
 import { capsuleFurnitureFor } from '../capsule/furniture.js';
 import type { CapsuleProfile } from '../capsule/profile.js';
 import type { StyleSpec } from '../systems/types.js';
-import { dressCapsuleHome, dressPublic } from './dress.js';
+import { dressCapsuleHome, dressPublic, dressStudio } from './dress.js';
 
 /** The seven styles of kind C, the poor building of capsule homes:
  *  - c1 the H10 capsule home: ivory capsule plates, dark cassettes, dark hex floor, a
@@ -112,6 +112,7 @@ const c6: StyleSpec = {
     },
     lights: { plannedCoves: false, kelvin: 2700, color: [1, .42, .78] },
     entrance: 'damaged',
+    dress: dressStudio,
 };
 
 export const STYLES_C: StyleSpec[] = [c1, c7, c2, c3, c4, c5, c6];

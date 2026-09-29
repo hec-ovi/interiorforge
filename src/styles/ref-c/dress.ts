@@ -51,8 +51,42 @@ export function dressPublic(ctx: DressContext, sid: 'c2' | 'c3'): LightFixture[]
     }
     for (const room of rooms.values()) {
         if (!LAMP_ROOMS.has(room.kind)) continue;
-        lights.push(...wallLamps(ctx, room, doors));
+        lights.push(...wallLamps(ctx, room, doors, sid === 'c3' ? 'trim-c3-low-lamp' : 'trim-c2-wall-lamp'));
         if (sid === 'c2') debris(ctx, room, doors);
+    }
+    return lights;
+}
+
+/** The small studio: a round ceiling disc over the room's middle and red neon signs on its
+ *  two longest walls clear of doorways, each lens with its (coloured) record. */
+export function dressStudio(ctx: DressContext): LightFixture[] {
+    const lights: LightFixture[] = [];
+    const doors = ctx.floor.rooms.flatMap(room => room.doors.map(door => ({ at: door.position, width: door.width })));
+    for (const room of ctx.rooms.filter(r => r.kind === 'studio_main' || r.kind === 'living' || r.kind === 'bedroom')) {
+        const xs = room.polygon.map(p => p[0]), zs = room.polygon.map(p => p[1]);
+        const centre: [number, number] = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2];
+        const y = ctx.ceilingY - (room.ceilingDrop ?? 0);
+        if (inside(room, centre) && y > 2.6) {
+            const frame = new LocalFrame([centre[0], 0, centre[1]], 0);
+            const disc = frame.place(ctx.builder, 'trim-c6-disc', room.id, 0, y, 0);
+            lights.push(lensRecord(frame, room.id, disc.id, 0, y - .13, 0, 1.1, ctx.floor.elevation,
+                { kind: 'strip', lumensPerMetre: 700, color: [1, .3, .75], facing: 'down', range: 5, beamDeg: 150, diffuse: .6 }));
+        }
+        const edges = room.polygon.map((a, i) => [a, room.polygon[(i + 1) % room.polygon.length]!] as const)
+            .map(([a, b]) => ({ a, b, length: Math.hypot(b[0] - a[0], b[1] - a[1]) })).sort((p, q) => q.length - p.length);
+        let signs = 0;
+        for (const { a, b, length } of edges) {
+            if (signs >= 2 || length < 2) continue;
+            const frame = wallFrame(room, a, b);
+            if (!frame) continue;
+            const at = frame.at(0, 0, FACE);
+            if (doors.some(door => Math.hypot(door.at[0] - at[0], door.at[1] - at[2]) < door.width / 2 + .9)) continue;
+            if (!clearOfShell(ctx, frame, -.5, .5, FACE, FACE + .05)) continue;
+            const sign = frame.place(ctx.builder, 'trim-c6-neon', room.id, 0, 1.55, FACE);
+            lights.push(lensRecord(frame, room.id, sign.id, 0, 1.9, FACE + .03, .9, ctx.floor.elevation,
+                { kind: 'strip', lumensPerMetre: 160, color: [1, .08, .1], facing: 'down', range: 2.5, beamDeg: 170, diffuse: .9 }));
+            signs++;
+        }
     }
     return lights;
 }
@@ -79,24 +113,24 @@ function trunk(ctx: DressContext, room: string, centre: [number, number, number]
 
 /** Caged tube lamps on the long walls of a public room, every 6 m, never within 1.3 m of a
  *  doorway, each with its record (a soft warm wash). */
-function wallLamps(ctx: DressContext, room: Room, doors: { at: [number, number]; width: number }[]): LightFixture[] {
+function wallLamps(ctx: DressContext, room: Room, doors: { at: [number, number]; width: number }[], module: string): LightFixture[] {
+    const low = module === 'trim-c3-low-lamp';
     const lights: LightFixture[] = [], poly = room.polygon;
     for (let i = 0; i < poly.length; i++) {
         const a = poly[i]!, b = poly[(i + 1) % poly.length]!, length = Math.hypot(b[0] - a[0], b[1] - a[1]);
         if (length < 3) continue;
         const frame = wallFrame(room, a, b);
         if (!frame) continue;
-        const n = Math.max(1, Math.floor(length / 6));
+        const n = Math.max(1, Math.floor(length / (low ? 3 : 6)));
         for (let j = 0; j < n; j++) {
             const x = -length / 2 + length * (j + .5) / n;
             const at = frame.at(x, 0, FACE);
             if (doors.some(door => Math.hypot(door.at[0] - at[0], door.at[1] - at[2]) < door.width / 2 + 1.3)) continue;
             if (!clearOfShell(ctx, frame, x - .1, x + .1, FACE, FACE + .1)) continue;
-            const placed = frame.place(ctx.builder, 'trim-c2-wall-lamp', room.id, x, 1.35, FACE);
-            lights.push({
-                ...lensRecord(frame, room.id, placed.id, x, 1.71, FACE + .05, .6, ctx.floor.elevation,
-                    { kind: 'strip', lumensPerMetre: 420, kelvin: 3000, facing: 'down', range: 4, beamDeg: 160, diffuse: .8 }),
-            });
+            const placed = frame.place(ctx.builder, module, room.id, x, low ? .25 : 1.35, FACE);
+            lights.push(lensRecord(frame, room.id, placed.id, x, low ? .3 : 1.71, FACE + .05, low ? .1 : .6, ctx.floor.elevation,
+                low ? { kind: 'strip', lumensPerMetre: 1200, kelvin: 2400, facing: 'up', range: 2, beamDeg: 120, diffuse: .7 }
+                    : { kind: 'strip', lumensPerMetre: 420, kelvin: 3000, facing: 'down', range: 4, beamDeg: 160, diffuse: .8 }));
         }
     }
     return lights;
