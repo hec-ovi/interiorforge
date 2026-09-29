@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getBounds, NodeIO, type Document } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
-import { dedup, prune, weld } from "@gltf-transform/functions";
+import { dedup, prune, textureCompress, weld } from "@gltf-transform/functions";
 import { SOURCE_PLAN, type SourcePlan } from "../import-plan.js";
 import type { AssetCatalog, AssetEntry } from "../types.js";
 
@@ -60,7 +60,7 @@ async function importSource(plan: SourcePlan): Promise<AssetEntry> {
 
   const scale = plan.targetHeight === undefined ? 1 : plan.targetHeight / dimensions[2];
   normalize(doc, plan.id, sourceBounds, scale);
-  await doc.transform(dedup(), weld(), prune());
+  await doc.transform(dedup(), weld(), prune(), ...(plan.maxTexture ? [textureCompress({ resize: [plan.maxTexture, plan.maxTexture] })] : []));
   const modelName = `${plan.id}.glb`;
   const output = path.join(MODELS_DIR, modelName);
   await io.write(output, doc);

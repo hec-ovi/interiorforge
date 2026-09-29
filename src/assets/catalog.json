@@ -668,6 +668,7 @@
       "id": "sketchfab-jack-daniels",
       "family": "prop",
       "styles": [
+        "bar",
         "restaurant",
         "retro"
       ],
@@ -679,9 +680,16 @@
         ],
         "unit": "source-unit"
       },
-      "availability": "source-only",
+      "dimensionsMeters": [
+        0.0939,
+        0.0939,
+        0.3
+      ],
+      "modelUri": "models/sketchfab-jack-daniels.glb",
+      "availability": "local-only",
       "metrics": {
         "sourceBytes": 807300,
+        "modelBytes": 643728,
         "triangles": 18300,
         "vertices": 9160,
         "materials": 4,
@@ -1787,6 +1795,7 @@
       "id": "sketchfab-whiskey-glass",
       "family": "prop",
       "styles": [
+        "bar",
         "restaurant"
       ],
       "sourceDimensions": {
@@ -2013,6 +2022,783 @@
         "vertices": 44794,
         "materials": 2,
         "textures": 6
+      }
+    },
+    {
+      "title": "Ceramic Vase 01",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "ceramic_vase_01",
+        "uri": "https://polyhaven.com/a/ceramic_vase_01",
+        "author": {
+          "name": "James Ray Cock",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-ceramic-vase-01",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "vase",
+        "luxury",
+        "rich",
+        "high_rich",
+        "mid"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.2036,
+          0.2036,
+          0.4003
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.2036,
+        0.2036,
+        0.4003
+      ],
+      "modelUri": "models/polyhaven-ceramic-vase-01.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 418457,
+        "modelBytes": 307316,
+        "triangles": 10296,
+        "vertices": 6590,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Ceramic Vase 02",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "ceramic_vase_02",
+        "uri": "https://polyhaven.com/a/ceramic_vase_02",
+        "author": {
+          "name": "James Ray Cock",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-ceramic-vase-02",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "vase",
+        "luxury",
+        "rich",
+        "high_rich",
+        "mid"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.2184,
+          0.2184,
+          0.3092
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.2184,
+        0.2184,
+        0.3092
+      ],
+      "modelUri": "models/polyhaven-ceramic-vase-02.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 750161,
+        "modelBytes": 382876,
+        "triangles": 11128,
+        "vertices": 7094,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Ceramic Vase 03",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "ceramic_vase_03",
+        "uri": "https://polyhaven.com/a/ceramic_vase_03",
+        "author": {
+          "name": "James Ray Cock",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-ceramic-vase-03",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "vase",
+        "luxury",
+        "rich",
+        "high_rich",
+        "mid"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.1122,
+          0.1122,
+          0.4144
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.1122,
+        0.1122,
+        0.4144
+      ],
+      "modelUri": "models/polyhaven-ceramic-vase-03.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 765159,
+        "modelBytes": 391912,
+        "triangles": 11136,
+        "vertices": 7263,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Ceramic Vase 04",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "ceramic_vase_04",
+        "uri": "https://polyhaven.com/a/ceramic_vase_04",
+        "author": {
+          "name": "James Ray Cock",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-ceramic-vase-04",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "vase",
+        "luxury",
+        "rich",
+        "high_rich",
+        "mid"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.1811,
+          0.1811,
+          0.3419
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.1811,
+        0.1811,
+        0.3419
+      ],
+      "modelUri": "models/polyhaven-ceramic-vase-04.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 596053,
+        "modelBytes": 313104,
+        "triangles": 9000,
+        "vertices": 5804,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Brass Vase 04",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "brass_vase_04",
+        "uri": "https://polyhaven.com/a/brass_vase_04",
+        "author": {
+          "name": "Rico Cilliers",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-brass-vase-04",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "vase",
+        "luxury",
+        "rich",
+        "high_rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.082,
+          0.061,
+          0.1703
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.082,
+        0.061,
+        0.1703
+      ],
+      "modelUri": "models/polyhaven-brass-vase-04.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 394381,
+        "modelBytes": 147388,
+        "triangles": 2760,
+        "vertices": 1614,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Metal Jug",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "metal_jug",
+        "uri": "https://polyhaven.com/a/metal_jug",
+        "author": {
+          "name": "Anzor Lezhava",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-metal-jug",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "kitchen",
+        "vase",
+        "mid",
+        "rich",
+        "poor"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.1968,
+          0.1955,
+          0.2875
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.1968,
+        0.1955,
+        0.2875
+      ],
+      "modelUri": "models/polyhaven-metal-jug.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 1794221,
+        "modelBytes": 225908,
+        "triangles": 6040,
+        "vertices": 3383,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Potted Plant 04",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "potted_plant_04",
+        "uri": "https://polyhaven.com/a/potted_plant_04",
+        "author": {
+          "name": "James Ray Cock",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-potted-plant-04",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "plant",
+        "kitchen",
+        "desk",
+        "luxury",
+        "rich",
+        "high_rich",
+        "mid"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.1679,
+          0.1848,
+          0.2675
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.1679,
+        0.1848,
+        0.2675
+      ],
+      "modelUri": "models/polyhaven-potted-plant-04.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 2122625,
+        "modelBytes": 385608,
+        "triangles": 8929,
+        "vertices": 5882,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Standing Picture Frame 02",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "standing_picture_frame_02",
+        "uri": "https://polyhaven.com/a/standing_picture_frame_02",
+        "author": {
+          "name": "James Ray Cock",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-standing-picture-frame-02",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "frame",
+        "luxury",
+        "rich",
+        "high_rich",
+        "mid"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.1023,
+          0.2169,
+          0.2664
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.1023,
+        0.2169,
+        0.2664
+      ],
+      "modelUri": "models/polyhaven-standing-picture-frame-02.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 569572,
+        "modelBytes": 197160,
+        "triangles": 2986,
+        "vertices": 2367,
+        "materials": 3,
+        "textures": 4
+      }
+    },
+    {
+      "title": "Wine Bottles 01",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "wine_bottles_01",
+        "uri": "https://polyhaven.com/a/wine_bottles_01",
+        "author": {
+          "name": "Rico Cilliers, Jurita Burger",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-wine-bottles-01",
+      "family": "prop",
+      "styles": [
+        "bar",
+        "bottles",
+        "luxury",
+        "rich",
+        "high_rich",
+        "mid"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.6763,
+          0.0806,
+          0.3314
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.6763,
+        0.0806,
+        0.3314
+      ],
+      "modelUri": "models/polyhaven-wine-bottles-01.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 3909317,
+        "modelBytes": 899540,
+        "triangles": 28848,
+        "vertices": 16091,
+        "materials": 9,
+        "textures": 12
+      }
+    },
+    {
+      "title": "Marble Bust 01",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "marble_bust_01",
+        "uri": "https://polyhaven.com/a/marble_bust_01",
+        "author": {
+          "name": "Rico Cilliers",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-marble-bust-01",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "sculpture",
+        "luxury",
+        "rich",
+        "high_rich",
+        "office"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.2717,
+          0.2997,
+          0.5149
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.2717,
+        0.2997,
+        0.5149
+      ],
+      "modelUri": "models/polyhaven-marble-bust-01.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 898283,
+        "modelBytes": 540372,
+        "triangles": 17456,
+        "vertices": 9746,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Horse Head",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "horse_head",
+        "uri": "https://polyhaven.com/a/horse_head",
+        "author": {
+          "name": "Tina",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-horse-head",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "sculpture",
+        "luxury",
+        "rich",
+        "high_rich",
+        "office"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.2149,
+          0.3341,
+          0.4187
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.2149,
+        0.3341,
+        0.4187
+      ],
+      "modelUri": "models/polyhaven-horse-head.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 1765312,
+        "modelBytes": 388960,
+        "triangles": 12068,
+        "vertices": 6902,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Katana Stand 01",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "katana_stand_01",
+        "uri": "https://polyhaven.com/a/katana_stand_01",
+        "author": {
+          "name": "Rico Cilliers",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-katana-stand-01",
+      "family": "prop",
+      "styles": [
+        "decor",
+        "japantown",
+        "luxury",
+        "rich",
+        "high_rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.2958,
+          0.0535,
+          0.1819
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.2958,
+        0.0535,
+        0.1819
+      ],
+      "modelUri": "models/polyhaven-katana-stand-01.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 556992,
+        "modelBytes": 208668,
+        "triangles": 3780,
+        "vertices": 2546,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Wooden Cutting Board",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "wooden_cutting_board",
+        "uri": "https://polyhaven.com/a/wooden_cutting_board",
+        "author": {
+          "name": "Kuutti Siitonen",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-wooden-cutting-board",
+      "family": "prop",
+      "styles": [
+        "kitchen",
+        "mid",
+        "rich",
+        "high_rich",
+        "poor"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.4499,
+          0.2467,
+          0.0413
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.4499,
+        0.2467,
+        0.0413
+      ],
+      "modelUri": "models/polyhaven-wooden-cutting-board.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 1965772,
+        "modelBytes": 184624,
+        "triangles": 3520,
+        "vertices": 2299,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Wooden Bowl 02",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "wooden_bowl_02",
+        "uri": "https://polyhaven.com/a/wooden_bowl_02",
+        "author": {
+          "name": "Kuutti Siitonen",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-wooden-bowl-02",
+      "family": "prop",
+      "styles": [
+        "kitchen",
+        "decor",
+        "mid",
+        "rich",
+        "high_rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.1307,
+          0.1245,
+          0.0731
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.1307,
+        0.1245,
+        0.0731
+      ],
+      "modelUri": "models/polyhaven-wooden-bowl-02.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 2511366,
+        "modelBytes": 283272,
+        "triangles": 4666,
+        "vertices": 2755,
+        "materials": 1,
+        "textures": 3
+      }
+    },
+    {
+      "title": "Desk Lamp Arm 01",
+      "source": {
+        "provider": "Poly Haven",
+        "uid": "desk_lamp_arm_01",
+        "uri": "https://polyhaven.com/a/desk_lamp_arm_01",
+        "author": {
+          "name": "Yann Kervran, Kuutti Siitonen",
+          "uri": "https://polyhaven.com"
+        }
+      },
+      "license": {
+        "slug": "cc0-1.0",
+        "name": "CC0 1.0 Universal",
+        "uri": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "verifiedAt": "2026-09-06",
+        "redistributable": true
+      },
+      "id": "polyhaven-desk-lamp-arm-01",
+      "family": "prop",
+      "styles": [
+        "desk",
+        "office",
+        "mid",
+        "poor",
+        "rich"
+      ],
+      "sourceDimensions": {
+        "size": [
+          0.2017,
+          0.6139,
+          0.8926
+        ],
+        "unit": "meter"
+      },
+      "dimensionsMeters": [
+        0.2017,
+        0.6139,
+        0.8926
+      ],
+      "modelUri": "models/polyhaven-desk-lamp-arm-01.glb",
+      "availability": "redistributable",
+      "metrics": {
+        "sourceBytes": 2875984,
+        "modelBytes": 887860,
+        "triangles": 24102,
+        "vertices": 18506,
+        "materials": 2,
+        "textures": 3
       }
     }
   ]

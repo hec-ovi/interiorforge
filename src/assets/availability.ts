@@ -5,10 +5,25 @@ export const LOCAL_MODEL_ROUTE = "/interior-assets/";
 
 /** Models a browser bundle carries itself, by catalog id. */
 export const BUNDLED_MODELS: Readonly<Record<string, string>> = {
+  "polyhaven-brass-vase-04": new URL("./models/polyhaven-brass-vase-04.glb", import.meta.url).href,
+  "polyhaven-ceramic-vase-01": new URL("./models/polyhaven-ceramic-vase-01.glb", import.meta.url).href,
+  "polyhaven-ceramic-vase-02": new URL("./models/polyhaven-ceramic-vase-02.glb", import.meta.url).href,
+  "polyhaven-ceramic-vase-03": new URL("./models/polyhaven-ceramic-vase-03.glb", import.meta.url).href,
+  "polyhaven-ceramic-vase-04": new URL("./models/polyhaven-ceramic-vase-04.glb", import.meta.url).href,
+  "polyhaven-desk-lamp-arm-01": new URL("./models/polyhaven-desk-lamp-arm-01.glb", import.meta.url).href,
+  "polyhaven-horse-head": new URL("./models/polyhaven-horse-head.glb", import.meta.url).href,
+  "polyhaven-katana-stand-01": new URL("./models/polyhaven-katana-stand-01.glb", import.meta.url).href,
+  "polyhaven-marble-bust-01": new URL("./models/polyhaven-marble-bust-01.glb", import.meta.url).href,
+  "polyhaven-metal-jug": new URL("./models/polyhaven-metal-jug.glb", import.meta.url).href,
   "polyhaven-metal-office-desk": new URL("./models/polyhaven-metal-office-desk.glb", import.meta.url).href,
   "polyhaven-potted-plant-02": new URL("./models/polyhaven-potted-plant-02.glb", import.meta.url).href,
+  "polyhaven-potted-plant-04": new URL("./models/polyhaven-potted-plant-04.glb", import.meta.url).href,
   "polyhaven-school-chair-01": new URL("./models/polyhaven-school-chair-01.glb", import.meta.url).href,
   "polyhaven-sofa-01": new URL("./models/polyhaven-sofa-01.glb", import.meta.url).href,
+  "polyhaven-standing-picture-frame-02": new URL("./models/polyhaven-standing-picture-frame-02.glb", import.meta.url).href,
+  "polyhaven-wine-bottles-01": new URL("./models/polyhaven-wine-bottles-01.glb", import.meta.url).href,
+  "polyhaven-wooden-bowl-02": new URL("./models/polyhaven-wooden-bowl-02.glb", import.meta.url).href,
+  "polyhaven-wooden-cutting-board": new URL("./models/polyhaven-wooden-cutting-board.glb", import.meta.url).href,
 };
 
 /** Catalog ids whose model file this runtime can read. Under Node: the files present in
