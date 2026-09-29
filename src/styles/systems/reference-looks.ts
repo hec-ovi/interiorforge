@@ -21,9 +21,10 @@ export const LOOK = {
   e1Housing: 'cyberpunk/ivory-panel/mid#cool-grey',
   e1Splash: 'cyberpunk/interior-luxury-wall/rich#field',
   e1Steel: 'cyberpunk/interior-alloy/rich#brushed',
-  e1Grille: 'cyberpunk/ac-unit/rich#grille',
+  /** the dark diamond mesh of the E1 housings: baked lattice bars over a black void */
+  e1Mesh: 'cyberpunk/metal/mid#paint',
   e1IslandTop: 'cyberpunk/corpo-plaza-veneer/rich#smoked',
-  e1Caustic: 'cyberpunk/interior-hologram/rich#lattice',
+  e1Caustic: 'cyberpunk/interior-led-cyan/mid#plain',
   e1Screen: 'cyberpunk/ad-screen/rich#noir-amber',
   e1Panel: 'cyberpunk/corporate-screen/mid#native',
   e1Shelf: 'cyberpunk/wood/high_rich#1',

@@ -29,6 +29,32 @@ type Add = Parameters<RecipeSet>[0];
 const box = (k: Kit, slot: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) =>
   k.box(slot, [x0, y0, z0], [x1 - x0, y1 - y0, z1 - z0]);
 const CYAN: [number, number, number] = [.08, .78, 1];
+
+/** A diamond mesh over a dark void inside an outline (xy), on the plane z: two families of
+ *  diagonal bars at a fixed pitch, clipped to the outline, baked into the module. */
+function diamondMesh(k: Kit, outline: Point[], z: number, void_: string, bar: string, pitch = .035): void {
+  xyPrism(k, void_, outline, z - .0015, z, false);
+  const xs = outline.map(p => p[0]), ys = outline.map(p => p[1]);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  for (const dir of [1, -1]) for (let c = x0 - (y1 - y0); c <= x1 + (y1 - y0); c += pitch) {
+    // The line x = c + dir * (y - y0); keep its parts inside the outline.
+    const at = (y: number): Point => [c + dir * (y - y0), y];
+    const hits: number[] = [];
+    for (let i = 0; i < outline.length; i++) {
+      const a = outline[i]!, b = outline[(i + 1) % outline.length]!;
+      // Solve a + s (b - a) on the line: x - dir * y = c - dir * y0.
+      const fa = a[0] - dir * a[1] - (c - dir * y0), fb = b[0] - dir * b[1] - (c - dir * y0);
+      if (fa * fb > 0 || Math.abs(fa - fb) < 1e-12) continue;
+      hits.push(a[1] + (b[1] - a[1]) * fa / (fa - fb));
+    }
+    hits.sort((p, q) => p - q);
+    for (let i = 0; i + 1 < hits.length; i += 2) {
+      if (hits[i + 1]! - hits[i]! < .004) continue;
+      const [p, q] = [at(hits[i]!), at(hits[i + 1]!)];
+      k.rod(bar, [p[0], p[1], z + .002], [q[0], q[1], z + .002], .005);
+    }
+  }
+}
 const RED: [number, number, number] = [1, .035, .022];
 
 // ---- kitchen walls -------------------------------------------------------------------
@@ -108,9 +134,7 @@ function kitchenRecipes(sid: string, look: KitchenLook, spec: KitchenWallSpec): 
       add(id('upper-a-vent'), k => { tierA(k); box(k, look.line, .12, .22, .3, .315, .52, .523); });
       add(id('upper-a-grille'), k => {
         tierA(k);
-        const dogleg: Point[] = [[-.24, .17], [.08, .17], [.13, .24], [.24, .24], [.24, .35], [-.24, .35]];
-        xyPrism(k, look.line, dogleg.map(([x, y]) => [x * 1.04, y - .006 + (y > .3 ? .012 : 0)] as Point), .52, .5215, false);
-        xyPrism(k, look.grille, dogleg, .5215, .523, false);
+        diamondMesh(k, [[-.24, .17], [.08, .17], [.13, .24], [.24, .24], [.24, .35], [-.24, .35]], .5215, look.line, look.grille);
       });
       add(id('upper-a-screen'), k => {
         tierA(k);
@@ -172,11 +196,13 @@ function kitchenSpec(sid: string, look: 'e1' | 'bar', pattern: KitchenWallSpec['
 }
 
 export const E1_KITCHEN = kitchenSpec('e1', 'e1', ['display', 'sink', 'door', 'drawers', 'hob', 'door', 'drawers'], CYAN, true);
+/** The E1 window leg of the L: sink under the window, the display bay, no column. */
+export const E1_KITCHEN_WINDOW = kitchenSpec('e1', 'e1', ['drawers', 'sink', 'display', 'door'], CYAN, false);
 export const B3_BAR = kitchenSpec('b3', 'bar', ['drawers', 'door', 'sink', 'door', 'display', 'drawers'], undefined, true);
 
 const E1_LOOK: KitchenLook = {
   carcass: LOOK.e1Housing, front: LOOK.e1Housing, toe: LOOK.black, top: LOOK.e1Steel, splash: LOOK.e1Splash, upper: LOOK.e1Housing,
-  line: LOOK.black, grille: LOOK.e1Grille, screen: LOOK.e1Screen, panel: LOOK.e1Panel, lens: LOOK.lensCool, uppers: 'e1',
+  line: LOOK.black, grille: LOOK.e1Mesh, screen: LOOK.e1Screen, panel: LOOK.e1Panel, lens: LOOK.lensCool, uppers: 'e1',
 };
 const B3_LOOK: KitchenLook = {
   carcass: LOOK.b3Walnut, front: LOOK.b3Walnut, toe: LOOK.gold, top: LOOK.b3Stone, splash: LOOK.b3Walnut, upper: LOOK.b3Walnut,
@@ -309,7 +335,7 @@ const kindA: RecipeSet = add => {
   // Cream AC housing over doors and portals.
   add('housing-e1-ac-body', k => yzPrism(k, LOOK.e1Cream, HOUSING, -.25, .25, false));
   add('housing-e1-ac-cap', k => yzPrism(k, LOOK.e1Cream, HOUSING, -.015, .015));
-  add('housing-e1-ac-grille', k => { box(k, LOOK.black, -.21, .21, .14, .29, .45, .451); box(k, LOOK.e1Grille, -.2, .2, .15, .28, .451, .453); });
+  add('housing-e1-ac-grille', k => diamondMesh(k, [[-.2, .15], [.2, .15], [.2, .28], [-.2, .28]], .4515, LOOK.black, LOOK.e1Mesh));
 };
 
 const kindB: RecipeSet = add => {
@@ -377,6 +403,7 @@ registerModuleSizes(kindA, kindB, kindC, kindR);
 export const BUILT_INS_A: { assemblies: Record<string, AssemblySpec>; housings: HousingSpec[]; recipes: RecipeSet[] } = {
   assemblies: {
     'asm-e1-kitchen': { type: 'kitchen', spec: E1_KITCHEN },
+    'asm-e1-kitchen-window': { type: 'kitchen', spec: E1_KITCHEN_WINDOW },
     'asm-e1-island': { type: 'custom', place: (b, f, i, c) => placeIsland(b, f, i, E1_ISLAND, c) },
     'asm-e1-planter': { type: 'planter', spec: E1_PLANTER },
     'asm-e1-bamboo': { type: 'custom', place: (b, f, i, c) => placeGlassPlanter(b, f, i, E1_BAMBOO, c) },

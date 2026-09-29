@@ -1,6 +1,6 @@
 import type { FloorInterior, Furniture, LightFixture } from '../../core/types.js';
 import type { PlacementBuilder } from '../../placements/builder.js';
-import { itemFrame, lensRecord, moduleSize, type LocalFrame } from './built-ins.js';
+import { freeIntervals, itemFrame, lensRecord, moduleSize, type LocalFrame } from './built-ins.js';
 import type { KitchenBayRole, KitchenWallSpec } from './types.js';
 
 /** The embedded high-tech kitchen wall: the furniture record is a reservation, the geometry
@@ -73,26 +73,31 @@ export function kitchenLayout(spec: KitchenWallSpec, w: number, anchorX?: number
   };
 }
 
-/** A window behind the run: the local x of the nearest facade window whose centre lies
- *  within a metre behind the item's back, inside its width. */
-export function windowAnchor(floor: FloorInterior, item: Furniture, frame: LocalFrame): number | undefined {
-  const back = -item.size[1] / 2;
-  let best: number | undefined, distance = Infinity;
+/** Facade windows behind the run: local x span of each window whose centre lies within a
+ *  metre behind the item's back, inside its width. */
+export function windowsBehind(floor: FloorInterior, item: Furniture, frame: LocalFrame): { x: number; width: number }[] {
+  const back = -item.size[1] / 2, out: { x: number; width: number }[] = [];
   for (const o of floor.openingReservations ?? []) {
     if (o.kind !== 'window') continue;
     const dx = o.position[0] - frame.origin[0], dz = o.position[1] - frame.origin[2];
     const x = dx * frame.cos - dz * frame.sin, z = dx * frame.sin + dz * frame.cos;
     if (Math.abs(x) > item.size[0] / 2 || z > back + .15 || z < back - 1) continue;
-    if (Math.abs(x) < distance) { distance = Math.abs(x); best = x; }
+    out.push({ x, width: o.width });
   }
-  return best;
+  return out.sort((a, b) => Math.abs(a.x) - Math.abs(b.x) || a.x - b.x);
+}
+
+/** The window the sink turns under: the one nearest the run centre. */
+export function windowAnchor(floor: FloorInterior, item: Furniture, frame: LocalFrame): number | undefined {
+  return windowsBehind(floor, item, frame)[0]?.x;
 }
 
 export function placeKitchenWall(builder: PlacementBuilder, floor: FloorInterior, item: Furniture, spec: KitchenWallSpec,
   ceilingY: number): LightFixture[] {
   const frame = itemFrame(item), room = item.room, w = item.size[0], back = -item.size[1] / 2;
   const floorY = item.elevation ?? 0, ceiling = ceilingY - floorY;
-  const layout = kitchenLayout(spec, w, windowAnchor(floor, item, frame));
+  const windows = windowsBehind(floor, item, frame);
+  const layout = kitchenLayout(spec, w, windows[0]?.x);
   const put = (module: string, x: number, y: number, sx = 1, sy = 1, z = 0) =>
     frame.place(builder, module, room, x, y, back + z, [sx, sy, 1]);
   const cell = (module: string) => moduleSize(module)[0];
@@ -130,15 +135,19 @@ export function placeKitchenWall(builder: PlacementBuilder, floor: FloorInterior
   }
   const uppersTop = bottom + stack(tiers);
 
-  // Backsplash: the style's panel widths from the run start, the last one cut to fit.
+  // Backsplash: the style's panel widths from the run start, the last one cut to fit; a
+  // window behind the run stays open (its glass is the splash there).
   const splashTop = tiers ? bottom : Math.min(ceiling, top + spec.backsplash.height);
   if (splashTop - top > .05) {
+    const gap = .004, h = splashTop - top, open = windows.map(o => [o.x - o.width / 2, o.x + o.width / 2] as [number, number]);
     let x = r0, i = 0;
-    const gap = .004, h = splashTop - top;
     while (r1 - x > .02) {
       const width = Math.min(spec.backsplash.panels[i % spec.backsplash.panels.length]!, r1 - x);
-      put(spec.backsplash.module, x + width / 2, top, (width - gap) / cell(spec.backsplash.module), h / moduleSize(spec.backsplash.module)[1]);
-      if (spec.backsplash.pull && width > .3) put(spec.backsplash.pull, x + width - .08, top + Math.min(.5, h / 2), 1, 1, moduleSize(spec.backsplash.module)[2]);
+      for (const [a, b] of freeIntervals(x, x + width, open, .05)) {
+        put(spec.backsplash.module, (a + b) / 2, top, (b - a - gap) / cell(spec.backsplash.module), h / moduleSize(spec.backsplash.module)[1]);
+        if (spec.backsplash.pull && b - a > .3 && Math.abs(b - (x + width)) < 1e-9)
+          put(spec.backsplash.pull, b - .08, top + Math.min(.5, h / 2), 1, 1, moduleSize(spec.backsplash.module)[2]);
+      }
       x += width; i++;
     }
   }

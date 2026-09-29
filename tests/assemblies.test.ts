@@ -107,6 +107,12 @@ describe('kitchen wall assembly', () => {
     expect(Math.abs(sink.position[0] - anchorX)).toBeLessThanOrEqual(E1_KITCHEN.bay / 2 + 1e-9);
     const cut = builder.placements.find(p => p.module === 'fit-e1-kitchen-top-sink')!;
     expect(cut.position[0]).toBeCloseTo(sink.position[0], 9);
+    // The window stays open: no splash panel stands in front of it.
+    const window = floor.openingReservations[0]!;
+    for (const p of builder.placements.filter(p => p.module === E1_KITCHEN.backsplash.module)) {
+      const half = p.scale[0] * .25;
+      expect(p.position[0] + half <= anchorX - window.width / 2 + 1e-6 || p.position[0] - half >= anchorX + window.width / 2 - 1e-6).toBe(true);
+    }
     expect(kitchenBayRoles(['drawers', 'door', 'sink', 'hob'], 2)).toEqual(['sink', 'hob']);
     expect(kitchenBayRoles(['sink', 'door', 'hob'], 3, 2)).toEqual(['door', 'hob', 'sink']);
   });
@@ -136,6 +142,9 @@ describe('kitchen wall assembly', () => {
       if (/kitchen-top$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(100);
       if (/kitchen-top-(sink|hob)$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(400);
     }
+    const leg = place('asm-e1-kitchen-window', [2.4, .65, 3], 3).builder;
+    expect(leg.placements.some(p => /column/.test(p.module!))).toBe(false);
+    expect(leg.placements.filter(p => /kitchen-(door|drawers|sink|hob|display)$/.test(p.module!))).toHaveLength(3);
     const bar = place('asm-b3-bar', [3.6, .65, 3], 3).builder;
     expect(tris(bar.placements)).toBeLessThanOrEqual(8000);
     expect(bar.placements.some(p => p.module === B3_BAR.column!.modules.screen)).toBe(true);
