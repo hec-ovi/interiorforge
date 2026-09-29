@@ -4,7 +4,7 @@ import type { RecipeSet } from '../../modules/recipes.js';
 import type { CeilingSystem, LitJoint } from './types.js';
 import { lensSlot } from './panel-recipes.js';
 import { facing } from './surface-shapes.js';
-import { gridIds } from './surface-grid.js';
+import { gridModules } from './surface-grid.js';
 
 /** Ceiling-system modules, drawn from a profile. Ceiling pieces rise from the datum y = 0
  *  (their underside is the finished ceiling): cell panels are `thickness` deep with joints
@@ -58,14 +58,13 @@ function cells(k: Kit, slot: string, [pu, pv]: [number, number], [nu, nv]: [numb
 /** The backing, grid, perimeter, step, coffer, field and lens modules of one ceiling system.
  *  Never the marker `spec.id` (`ceilingMarker` draws that). */
 export function ceilingRecipes(spec: CeilingSystem, profile: CeilingProfile): RecipeSet {
-    const t = profile.thickness ?? .03, bevel = profile.bevel ?? 0, g = spec.grid, ids = gridIds(g.block);
+    const t = profile.thickness ?? .03, bevel = profile.bevel ?? 0, g = spec.grid;
     const [cu, cv] = g.blockCells;
     return add => {
         add(spec.backing, k => k.cbox(profile.backing, [0, t + .004, 0], [CELL, .006, CELL], undefined, ['bottom']));
-        add(ids.block, k => cells(k, profile.panel, g.pitch, [cu, cv], g.joint, t, bevel));
-        add(ids.row, k => cells(k, profile.panel, g.pitch, [cu, 1], g.joint, t, 0));
-        add(ids.col, k => cells(k, profile.panel, g.pitch, [1, cv], g.joint, t, 0));
-        add(ids.cell, k => cells(k, profile.panel, g.pitch, [1, 1], g.joint, t, 0));
+        // Only the whole block keeps its bevels: the others stretch.
+        for (const piece of gridModules(g.block, g.blockCells))
+            add(piece.id, k => cells(k, profile.panel, g.pitch, piece.cells, g.joint, t, piece.id === g.block ? bevel : 0));
         const lenses = new Map<string, LitJoint>();
         const p = spec.perimeter;
         if (p) {

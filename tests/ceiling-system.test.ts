@@ -24,14 +24,15 @@ describe('ceiling systems', () => {
         for (const angle of [0, 37]) for (const name of ['A', 'R', 'C'] as const) {
             const { system } = presets.get(name)!, frame = makeFrame(angle), builder = recordingBuilder(), r = room();
             for (const rect of L.rects) placeCeilingSystem(builder, system, r, rect, 3, frame, []);
-            const origin = ceilingOrigin(system, r), [pu, pv] = system.grid.pitch, j = system.grid.joint, ids = gridIds(system.grid.block);
+            const origin = ceilingOrigin(system, r), [pu, pv] = system.grid.pitch, j = system.grid.joint, ids = gridIds(system.grid.block, system.grid.blockCells);
             const onGrid = (x: number, o: number, p: number) => Math.abs((x - o) / p - Math.round((x - o) / p)) < 1e-6;
             const pieces = builder.placements.filter(p => p.module === ids.block || GRID.test(p.module!));
             expect(pieces.length).toBeGreaterThan(4);
             for (const p of pieces) {
                 const e = uvExtent(p, catalog.get(p.module!)!, frame);
                 expect(p.scale[1]).toBe(1);
-                if (p.module === ids.block) expect(p.scale).toEqual([1, 1, 1]);
+                // A block that is also its own row or column stretches as one; otherwise it never does.
+                if (p.module === ids.block && ids.row !== ids.block && ids.col !== ids.block) expect(p.scale).toEqual([1, 1, 1]);
                 // Every piece edge is either half a joint off a grid line or the side of the area it fills.
                 const sides = [0, 2, 6, .22, 1.78, 5.78, .05, 1.95, 5.95];
                 const ok = (x: number, o: number, p: number, sign: number) => onGrid(x + sign * j / 2, o, p) || sides.some(s => Math.abs(x - s) < 1e-6);
@@ -112,7 +113,7 @@ describe('ceiling systems', () => {
         const c = cofferRect(system, r)!;
         expect(c).toEqual({ u: 2, v: 1.5, lu: 2, lv: 2 });
         const rise = Math.min(system.coffers!.rise, 3.2 - .15 - 3);
-        const raised = builder.placements.filter(p => Math.abs(p.position[1] - (3 + rise)) < 1e-9 && (GRID.test(p.module!) || p.module === gridIds(system.grid.block).block));
+        const raised = builder.placements.filter(p => Math.abs(p.position[1] - (3 + rise)) < 1e-9 && (GRID.test(p.module!) || p.module === gridIds(system.grid.block, system.grid.blockCells).block));
         expect(raised.length).toBeGreaterThan(0);
         for (const p of raised) {
             const e = uvExtent(p, catalog.get(p.module!)!, frame);
@@ -121,6 +122,17 @@ describe('ceiling systems', () => {
         expect(builder.placements.filter(p => p.module === system.coffers!.edge)).toHaveLength(4);
         expect(lights.filter(l => l.id.startsWith('module:'))).toHaveLength(4);
         for (const p of builder.placements) for (const y of [uvExtent(p, catalog.get(p.module!)!, frame).y1]) expect(y).toBeLessThanOrEqual(3.2 - .15 + .05);
+    });
+});
+
+describe('single-cell grids', () => {
+    it('lay a one-cell block stretched wherever it is clipped, needing no other grid module', () => {
+        const spec = { id: 'ceiling-field-x', backing: 'ceiling-field-x', snapSpots: false,
+            grid: { pitch: [.5, .5] as [number, number], block: 'ceiling-field-x', blockCells: [1, 1] as [number, number], joint: 0, phase: 'grid' as const } };
+        const builder = recordingBuilder();
+        for (const rect of L.rects) placeCeilingSystem(builder, spec, room({ gridOrigin: [.1, .3] }), rect, 3, makeFrame(10), []);
+        expect(new Set(builder.placements.map(p => p.module))).toEqual(new Set(['ceiling-field-x']));
+        expect(builder.placements.some(p => p.scale[0] !== 1 || p.scale[2] !== 1)).toBe(true);
     });
 });
 

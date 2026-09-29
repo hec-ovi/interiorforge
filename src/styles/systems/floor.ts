@@ -62,7 +62,7 @@ export function placeFloorSystem(builder: PlacementBuilder, spec: FloorSystem, r
             cuts.push(r);
         }
     }
-    const ids = gridIds(spec.tile.block), origin = floorOrigin(spec, room);
+    const ids = gridIds(spec.tile.block, spec.tile.blockTiles), origin = floorOrigin(spec, room);
     const grid = { pitch: spec.tile.size, cells: spec.tile.blockTiles, joint: spec.tile.joint };
     for (const region of subtractAll(rect, cuts)) for (const piece of gridPieces(region, origin, grid))
         lay(builder, ids[piece.kind], room.id, piece.rect, y, frame, piece.scale);

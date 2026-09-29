@@ -130,8 +130,25 @@ export interface CellGrid {
  *  never on the region's own sides); `scale` is the stretch of the authored piece in u, v. */
 export interface GridPiece { kind: 'block' | 'row' | 'col' | 'cell'; rect: UvRect; scale: [number, number]; block: [number, number] }
 
-/** Ids of a grid's pieces by convention: the block module, then `-row`, `-col`, `-cell`. */
-export const gridIds = (block: string) => ({ block, row: `${block}-row`, col: `${block}-col`, cell: `${block}-cell` });
+/** Ids of a grid's pieces by convention: the block module, then `-row`, `-col`, `-cell`.
+ *  A piece shaped like one already named reuses it (a one-row block is its own row, a
+ *  one-cell block its own cell), so a single-cell grid needs only its block module. */
+export function gridIds(block: string, [cu, cv]: readonly [number, number]): Record<GridPiece['kind'], string> {
+    const shapes: [GridPiece['kind'], number, number, string][] = [
+        ['block', cu, cv, block], ['row', cu, 1, `${block}-row`], ['col', 1, cv, `${block}-col`], ['cell', 1, 1, `${block}-cell`]];
+    const ids = {} as Record<GridPiece['kind'], string>;
+    for (const [kind, a, b] of shapes) ids[kind] = shapes.find(([, x, y]) => x === a && y === b)![3];
+    return ids;
+}
+
+/** Every distinct piece of a grid: kind, cells across u and v, and module id. */
+export function gridModules(block: string, cells: readonly [number, number]): { id: string; cells: [number, number] }[] {
+    const ids = gridIds(block, cells), [cu, cv] = cells;
+    const shape: Record<GridPiece['kind'], [number, number]> = { block: [cu, cv], row: [cu, 1], col: [1, cv], cell: [1, 1] };
+    const seen = new Set<string>();
+    return (Object.keys(ids) as GridPiece['kind'][]).filter(kind => !seen.has(ids[kind]) && !!seen.add(ids[kind]))
+        .map(kind => ({ id: ids[kind], cells: shape[kind] }));
+}
 
 /** Covers `region` with the grid phased at `origin`: every block wholly inside is one block
  *  piece at scale 1; a block cut across v only becomes its cell rows (full width, v

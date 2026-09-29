@@ -5,7 +5,7 @@ import type { RecipeSet } from '../../modules/recipes.js';
 import type { FloorSystem, PitSpec } from './types.js';
 import { lensSlot } from './panel-recipes.js';
 import { ccw, facing } from './surface-shapes.js';
-import { gridIds } from './surface-grid.js';
+import { gridModules } from './surface-grid.js';
 import { pitIds } from './floor.js';
 
 /** Floor-system modules, drawn from a profile. Floor pieces stand with their top at y = 0:
@@ -40,13 +40,10 @@ function tiles(k: Kit, slot: string, [pu, pv]: [number, number], [nu, nv]: [numb
 /** Support, tile block/row/column/cell, border, inlay and pit modules of one floor system.
  *  Never the marker `spec.id` (`floorMarker` draws that). */
 export function floorRecipes(spec: FloorSystem, profile: FloorProfile): RecipeSet {
-    const g = spec.tile, ids = gridIds(g.block), [cu, cv] = g.blockTiles;
+    const g = spec.tile;
     return add => {
         add(spec.support, k => k.cbox(profile.support ?? F.concrete, [0, -.15, 0], [CELL, .148, CELL]));
-        add(ids.block, k => tiles(k, profile.tile, g.size, [cu, cv], g.joint));
-        add(ids.row, k => tiles(k, profile.tile, g.size, [cu, 1], g.joint));
-        add(ids.col, k => tiles(k, profile.tile, g.size, [1, cv], g.joint));
-        add(ids.cell, k => tiles(k, profile.tile, g.size, [1, 1], g.joint));
+        for (const piece of gridModules(g.block, g.blockTiles)) add(piece.id, k => tiles(k, profile.tile, g.size, piece.cells, g.joint));
         if (spec.border) {
             add(spec.border.module, k => k.cbox(profile.border ?? profile.tile, [0, -SKIN, 0], [CELL, SKIN, CELL], undefined, SIDES));
             if (spec.border.inlay) add(spec.border.inlay.module, k => k.cbox(profile.inlay ?? F.bronze, [0, -SKIN, 0], [CELL, SKIN, CELL], undefined, SIDES));

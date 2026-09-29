@@ -99,7 +99,7 @@ export function placeCeilingSystem(builder: PlacementBuilder, spec: CeilingSyste
         if (perimeter.lens) for (const edge of wallBands(rect, walls, offset + perimeter.width, 0).bands)
             lights.push(...lens(builder, perimeter.lens, room, rect, edge, y, frame));
     }
-    const ids = gridIds(spec.grid.block), origin = ceilingOrigin(spec, room);
+    const ids = gridIds(spec.grid.block, spec.grid.blockCells), origin = ceilingOrigin(spec, room);
     const grid = { pitch: spec.grid.pitch, cells: spec.grid.blockCells, joint: spec.grid.joint };
     const levels: { region: UvRect; y: number }[] = subtractAll(rect, hollow ? [...cuts, hollow] : cuts).map(region => ({ region, y }));
     if (hollow) {
