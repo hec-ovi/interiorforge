@@ -183,10 +183,10 @@ function filler(k: Kit, spec: PortalSpec, sign: number): void {
 
 /** The slot piece: every band straight except the face, which is cut by a rounded recess
  *  with a dark floor. */
-function slotPiece(k: Kit, spec: PortalSpec, bands: PortalBand[], sign: number): void {
+function slotPiece(k: Kit, spec: PortalSpec, bands: PortalBand[], sign: number, edges = { inner: true, outer: true }): void {
   const slot = spec.slot!, face = faceBand(bands), margin = slotMargin(spec), height = slot.height + 2 * margin;
   // Every band but the face sweeps straight; the face is drawn as a recessed skin.
-  sweep(k, bands, straightRail('y', sign, height), { inner: true, outer: true }, face);
+  sweep(k, bands, straightRail('y', sign, height), edges, face);
   const x0 = face.a, x1 = face.b, cx = (x0 + x1) / 2, r = Math.min(slot.width, x1 - x0 - .02) / 2;
   const lo = margin, hi = margin + slot.height, core = face.da - SLOT_RECESS;
   const t = (p: Point[]) => p.map(([x, y]) => [sign * x, y] as Point);
@@ -214,18 +214,22 @@ export function portalRecipes(spec: PortalSpec): RecipeSet {
   const bands = portalProfile(spec), ids = portalModules(spec);
   DRAWN.set(ids.header, spec);
   DRAWN.set(`id:${spec.id}`, spec);
+  // A spec with layers always stands inside its first layer, whose lining closes the band's
+  // outer edge (it is at least as deep as the wall datum the band ends on): that edge is not
+  // drawn, so no two faces of one surround lie back to back.
+  const edges = { inner: true, outer: !spec.layers?.length };
   return add => {
     for (const [name, sign] of [['left', -1], ['right', 1]] as const) {
-      add(ids.jamb(name), k => sweep(k, bands, straightRail('y', sign, CELL)));
-      if (spec.slot) add(ids.slot(name), k => slotPiece(k, spec, bands, sign));
+      add(ids.jamb(name), k => sweep(k, bands, straightRail('y', sign, CELL), edges));
+      if (spec.slot) add(ids.slot(name), k => slotPiece(k, spec, bands, sign, edges));
       add(ids.corner(name), k => {
-        sweep(k, bands, cornerRail(sign, spec.radius), { inner: true, outer: !bakedFiller(spec) });
+        sweep(k, bands, cornerRail(sign, spec.radius), { inner: true, outer: edges.outer && !bakedFiller(spec) });
         if (bakedFiller(spec)) filler(k, spec, sign);
       });
       // Only a spec that can stand outermost (it has no layers of its own) closes the square cut.
       if (spec.radius > 0 && !bakedFiller(spec) && !spec.layers?.length) add(ids.fill(name), k => filler(k, spec, sign));
     }
-    add(ids.header, k => sweep(k, bands, straightRail('x', 1, CELL)));
+    add(ids.header, k => sweep(k, bands, straightRail('x', 1, CELL), edges));
     if (spec.reveal?.lit) {
       const g = Math.min(.03, spec.depth[0] * .35);
       add(ids.reveal, k => k.cbox(lensSlot(spec), [0, -.004, 0], [CELL, .004, 2 * g]));
@@ -257,6 +261,8 @@ export function validatePortal(spec: PortalSpec, lookup: PortalLookup): void {
       throw new Error(`portal ${spec.id}: layer ${layer.id} radius ${layer.radius} does not continue ${previous.id} (outer radius ${round(edge)})`);
     if (layer.radius === 0 && previous.radius > 0)
       throw new Error(`portal ${spec.id}: square layer ${layer.id} cannot follow the rounded ${previous.id} (its corner would need a filler)`);
+    if (layer.depth[0] < PORTAL_WALL_DEPTH - 1e-9)
+      throw new Error(`portal ${spec.id}: layer ${layer.id} lining is shallower than the wall datum it closes`);
     edge = layer.radius > 0 ? layer.radius + layer.band : edge + layer.band;
   }
   for (const layer of chain) {
