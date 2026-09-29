@@ -112,8 +112,10 @@ export interface TemplateTarget {
   publicRoom: PlanRoom;
   /** rect edges lying on the plate boundary */
   facadeEdges: EdgeName[];
-  /** whether a partition may meet the facade at this uv point (a legal pier/seat) */
-  seatLegal(point: Point): boolean;
+  /** whether a partition may meet the facade at this uv point (a legal pier/seat); `toward`
+   *  is the uv edge the partition runs out through, so its seat is also judged where its
+   *  line reaches the outline beyond a set-back plate */
+  seatLegal(point: Point, toward?: EdgeName): boolean;
   gridOrigin: Point;
   /** floor ceiling above the finished floor and the highest glass head, for per-room ceilings */
   ceiling?: { height: number; glassHead: number };

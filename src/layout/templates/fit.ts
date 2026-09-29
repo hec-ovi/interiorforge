@@ -1,5 +1,5 @@
 import type { Point } from "../../core/geom.js";
-import { polygonArea } from "../../core/geom.js";
+import { pointInPolygon, polygonArea } from "../../core/geom.js";
 import { doorApproachFits, pocketInterval } from "../door-fit.js";
 import { livingConnected } from "../living-connectivity.js";
 import type { AuthoredPiece, EdgeName, PlanDoor, PlanRoom } from "../plan-types.js";
@@ -109,8 +109,13 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
     const phase = gridPhase(frame, axis, target.gridOrigin);
     const featureAt = snapFeatures ? features(target, frame, axis) : [];
     const candidates = model.lines.map((line, i): SnapCandidate[] => {
-      if (i === 0) return [{ at: 0, penalty: 0 }];
-      if (i === model.lines.length - 1) return [{ at: length, penalty: 0 }];
+      if (i === 0 || i === model.lines.length - 1) {
+        const at = i === 0 ? 0 : length, walls = facade.get(line.id);
+        if (!walls?.length) return [{ at, penalty: 0 }];
+        // a window's side is no wall: the room's own side is a new partition, and it seats
+        // on the nearest legal pier in from there, the room it leaves open joining the rest
+        return boundSeats(at, i === 0 ? 1 : -1, phase, walls, frame, target);
+      }
       const own = lineCandidates(line, positions[i]!, length, phase, facade.get(line.id), frame, target);
       if (!snapFeatures || facade.get(line.id)?.length || line.exact) return own;
       return [...own, ...featureAt.filter(x => Math.abs(x - positions[i]!) <= 3.2 && x > 1e-6 && x < length - 1e-6)
@@ -293,7 +298,10 @@ function facadeLines(t: SpaceTemplate, axis: "u" | "v", placed: TemplateRoom[], 
   const low = target.facadeEdges.includes(edgeToUv(frame, "u0"));
   const high = target.facadeEdges.includes(edgeToUv(frame, "u1"));
   const add = (id: string, wall: "far" | "low" | "high") => {
-    if (id === lines[0]?.id || id === lines.at(-1)?.id) return;
+    // a line on the target's own bounds is a wall already standing, unless the target is a
+    // window of a larger room that carries on past it: there it is a new partition too
+    const bound = id === lines[0]?.id ? 0 : id === lines.at(-1)?.id ? 1 : -1;
+    if (bound !== -1 && !carriesPast(axis, bound, wall, frame, target)) return;
     const list = out.get(id) ?? [];
     if (!list.includes(wall)) list.push(wall);
     out.set(id, list);
@@ -309,6 +317,35 @@ function facadeLines(t: SpaceTemplate, axis: "u" | "v", placed: TemplateRoom[], 
   return out;
 }
 
+/** Whether the target's shape carries on past one bound of its rect (local 0, or the far
+ *  end, of `axis`) beside the facade `wall`. */
+function carriesPast(axis: "u" | "v", bound: 0 | 1, wall: "far" | "low" | "high", frame: LocalFrame,
+  target: TemplateTarget): boolean {
+  const across = bound === 0 ? -0.05 : (axis === "u" ? frame.width : frame.depth) + 0.05;
+  const along = wall === "far" ? frame.depth - 0.3 : wall === "low" ? 0.3 : frame.width - 0.3;
+  const probe = toUv(frame, axis === "u" ? [across, along] : [along, across]);
+  return pointInPolygon(probe, target.polygon) && !(target.holes ?? []).some(hole => pointInPolygon(probe, hole));
+}
+
+/** Whether a partition on this line meets every facade wall of `walls` on a legal seat. */
+function seated(x: number, walls: readonly ("far" | "low" | "high")[], frame: LocalFrame, target: TemplateTarget): boolean {
+  return walls.every(wall => target.seatLegal(toUv(frame,
+    wall === "far" ? [x, frame.depth] : wall === "low" ? [0, x] : [frame.width, x]),
+    edgeToUv(frame, wall === "far" ? "v1" : wall === "low" ? "u0" : "u1")));
+}
+
+/** Legal seats for a line on a bound the target carries on past, from the bound inward. */
+function boundSeats(at: number, inward: 1 | -1, phase: number, walls: readonly ("far" | "low" | "high")[],
+  frame: LocalFrame, target: TemplateTarget): SnapCandidate[] {
+  const out: SnapCandidate[] = [];
+  for (let d = 0; d <= SEAT_REACH + 1e-9 && out.length < 10; d += SEAT_STEP) {
+    const x = Math.round((at + inward * d) * 1000) / 1000;
+    if (!seated(x, walls, frame, target)) continue;
+    out.push({ at: x, penalty: Math.abs(mod(x - phase + GRID / 2, GRID) - GRID / 2) < 1e-4 ? 0 : 0.002 });
+  }
+  return out;
+}
+
 function gridPhase(frame: LocalFrame, axis: "u" | "v", origin: Point): number {
   const { uvAxis, origin: zero, sign } = axisToUv(frame, axis);
   return mod(sign * (origin[uvAxis]! - zero), GRID);
@@ -318,8 +355,7 @@ function lineCandidates(line: TemplateLine, solved: number, length: number, phas
   walls: ("far" | "low" | "high")[] | undefined, frame: LocalFrame, target: TemplateTarget): SnapCandidate[] {
   const onGrid = (x: number) => Math.abs(mod(x - phase + GRID / 2, GRID) - GRID / 2) < 1e-4;
   if (walls?.length) {
-    const legal = (x: number) => walls.every(wall => target.seatLegal(toUv(frame,
-      wall === "far" ? [x, frame.depth] : wall === "low" ? [0, x] : [frame.width, x])));
+    const legal = (x: number) => seated(x, walls, frame, target);
     const out: SnapCandidate[] = [];
     for (let d = -SEAT_REACH; d <= SEAT_REACH + 1e-9; d += SEAT_STEP) {
       const x = Math.round((solved + d) * 1000) / 1000;

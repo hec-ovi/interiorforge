@@ -61,11 +61,22 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
   const facade = new Facade(ctx.floor, ctx.request.blueprint.facade);
   const reach = facadeDepth(ctx.request.blueprint.facade) + WALL / 2;
   const seatCache = new Map<string, boolean>();
-  const seatLegal = (point: Point): boolean => {
-    const key = `${point[0].toFixed(3)}:${point[1].toFixed(3)}`;
+  const seatLegal = (point: Point, toward?: EdgeName): boolean => {
+    const key = `${point[0].toFixed(3)}:${point[1].toFixed(3)}:${toward ?? ""}`;
     let legal = seatCache.get(key);
     if (legal === undefined) {
-      legal = facade.crossedBy(uvToWorld(point, ctx.core.frame), WALL / 2, reach) === null;
+      const at = uvToWorld(point, ctx.core.frame);
+      legal = facade.crossedBy(at, WALL / 2, reach) === null;
+      // A plate set back behind a shell-owned facade (a balcony grid, a gallery) lies out of
+      // the facade's reach, so every point on it reads free; the partition's line carries on
+      // to the outline, and it seats only where it arrives on a pier there, or where it runs
+      // on into a return wall of the shell, met end-on.
+      const dir = toward ? uvToWorld(OUTWARD[toward], ctx.core.frame) : null;
+      const out = dir ? outlineHit(ctx.floor.outline, at, dir) : null;
+      if (legal && dir && out && facade.crossedBy(out, WALL / 2) !== null) {
+        const on: Point = [out[0] + dir[0] * WALL, out[1] + dir[1] * WALL];
+        legal = facade.contact(on, 1e-3) !== null && facade.crossedBy(on, WALL / 2) === null;
+      }
       seatCache.set(key, legal);
     }
     return legal;
@@ -332,6 +343,24 @@ function windows(rect: UvRect, entry: EdgeName, width: number, depths: number[])
 
 function opposite(edge: EdgeName): EdgeName {
   return edge === "v0" ? "v1" : edge === "v1" ? "v0" : edge === "u0" ? "u1" : "u0";
+}
+
+/** Outward normal of each rect edge, uv. */
+const OUTWARD: Record<EdgeName, Point> = { u0: [-1, 0], u1: [1, 0], v0: [0, -1], v1: [0, 1] };
+
+/** Where a line leaving `from` along `dir` (world) first meets the outline, if it does. */
+function outlineHit(outline: readonly Point[], from: Point, dir: Point): Point | null {
+  let nearest = Infinity;
+  for (let i = 0; i < outline.length; i++) {
+    const a = outline[i]!, b = outline[(i + 1) % outline.length]!;
+    const ex = b[0] - a[0], ez = b[1] - a[1];
+    const cross = dir[0] * ez - dir[1] * ex;
+    if (Math.abs(cross) < 1e-12) continue;
+    const wx = a[0] - from[0], wz = a[1] - from[1];
+    const t = (wx * ez - wz * ex) / cross, s = (wx * dir[1] - wz * dir[0]) / cross;
+    if (t >= -1e-9 && s >= -1e-9 && s <= 1 + 1e-9) nearest = Math.min(nearest, t);
+  }
+  return Number.isFinite(nearest) ? [from[0] + dir[0] * nearest, from[1] + dir[1] * nearest] : null;
 }
 
 function widthDepth(target: Pick<TemplateTarget, "rect" | "entryEdge">): [number, number] {
