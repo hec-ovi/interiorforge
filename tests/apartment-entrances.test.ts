@@ -8,6 +8,7 @@ import { generate, makePlacementFixture } from '../src/index.js';
 import { readFileSync } from 'node:fs';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { carveApartmentPockets } from '../src/placements/apartment-pockets.js';
+import { STYLES } from '../src/styles/reference/registry.js';
 import type { Placement } from '../src/placements/types.js';
 import { BufferGeometry, Float32BufferAttribute, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three';
 
@@ -185,15 +186,17 @@ it.each(['mid','poor'] as const)('publishes numbered paired pocket entrances for
   const request=makePlacementFixture({width:40,depth:40,floors:4,type:'residential',tier,
     seed:tier==='mid'?'capsule-reference':'worn-proof'});
   const result=await generate(request,{models:new Set()});
-  const doors=result.building.floors.find(entry=>entry.apartmentEntrances?.length)!.apartmentEntrances!;
+  const entry=result.building.floors.find(entry=>entry.apartmentEntrances?.length)!, doors=entry.apartmentEntrances!;
   expect(doors.length).toBeGreaterThan(0);
-  const suffix=tier==='mid'?'capsule':'damaged';
+  const tierSuffix=tier==='mid'?'capsule':'damaged', rooms=result.layouts[entry.layout]!.floor.rooms;
   expect(doors[0]!.number).toBe('101');
   for(const door of doors){
+    // A poor home is reference kind C: a home whose style names an entrance kit (the capsule homes c1 and c7) stands that kit instead of the tier's.
+    const style=rooms.find(room=>room.id===door.privateRoom)?.style, suffix=(style&&STYLES.get(style)?.entrance)||tierSuffix;
     expect(door.motion.kind).toBe('pocket');
     expect(door.leaves).toHaveLength(2);
-    expect(door.leaves.every(part=>part.module.endsWith(suffix))).toBe(true);
-    expect(door.fixed.every(part=>part.module.endsWith(suffix))).toBe(true);
+    expect(door.leaves.every(part=>part.module.endsWith(suffix)),`${door.number} ${suffix}`).toBe(true);
+    expect(door.fixed.every(part=>part.module.endsWith(suffix)),`${door.number} ${suffix}`).toBe(true);
   }
 },60000);
 
