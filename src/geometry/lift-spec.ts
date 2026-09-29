@@ -15,3 +15,8 @@ export const LIFT_CAR = {
         ] as const },
     lens: { center: [0, 2.445, 0] as const, width: 1.50, depth: 1.65, lumens: 1600 },
 } as const;
+
+/** A landing's leaves: `leaf` wide each and meeting at the module's zero, so a shut pair is
+ *  wider than the doorway and each tucks behind its jamb; `plane` is their depth about the
+ *  wall line and `height` the doorway head they close. */
+export const LIFT_LANDING = { leaf: 0.56, height: 2.20, plane: [-0.03, 0.03] as const } as const;

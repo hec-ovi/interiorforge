@@ -6,6 +6,8 @@ import * as THREE from 'three/webgpu';
 import { moduleRecipes } from '../src/modules/recipes.js';
 import { PlacementBuilder } from '../src/placements/builder.js';
 import { lifts } from '../src/placements/lifts.js';
+import { LIFT_LANDING } from '../src/geometry/lift-spec.js';
+import { elevatorDoorHole } from '../src/geometry/core-geo.js';
 import type { CorePlan } from '../src/layout/core-plan.js';
 import { makeFrame, uvRectToFrameRect } from '../src/layout/uv.js';
 
@@ -67,6 +69,22 @@ it('keeps all leaf triangles on one side of the split and all fixed fittings out
         const maxX = minX + recipe.size[0] * placement.scale[0];
         const minY = placement.position[1] - recipe.origin[1] * placement.scale[1];
         expect(minY >= 2.20 - 1e-6 || maxX <= 5.25 - 0.55 + 1e-6 || minX >= 5.25 + 0.55 - 1e-6).toBe(true);
+    }
+});
+
+it('shuts a landing with two leaves that meet at zero and close behind both jambs', () => {
+    const door = recipes.get('lift-doors')!;
+    expect(door.size[0]).toBeCloseTo(2 * LIFT_LANDING.leaf, 9);
+    expect(door.origin[0]).toBeCloseTo(LIFT_LANDING.leaf, 9);
+    for (const size of [2.5, 3.5]) {
+        const builder = new PlacementBuilder(), plan = core(0, size);
+        lifts(builder, plan, 'floor-slab-stone', 'lobby', 3.4);
+        const leaves = builder.placements.find(p => p.module === 'lift-doors')!;
+        const passage = elevatorDoorHole(plan, 0, 0).hole;
+        // Each shut leaf runs past the jamb's inner face, so the pair closes with no slit.
+        expect(LIFT_LANDING.leaf * leaves.scale[0] - passage.width / 2).toBeGreaterThan(0.01);
+        // Slid by half the module's width, each leaf's inner edge clears the doorway.
+        expect(LIFT_LANDING.leaf * leaves.scale[0]).toBeGreaterThanOrEqual(passage.width / 2);
     }
 });
 

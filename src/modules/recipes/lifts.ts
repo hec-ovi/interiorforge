@@ -1,6 +1,24 @@
-import { LIFT_CAR } from "../../geometry/lift-spec.js";
+import { LIFT_CAR, LIFT_LANDING } from "../../geometry/lift-spec.js";
+import { bevelSlab, facing, stud } from "../../styles/systems/surface-shapes.js";
 import { FINISH } from "../finishes.js";
+import type { Kit } from "../kit.js";
 import type { RecipeSet } from "../recipes.js";
+
+/** One leaf of a centre-opening pair, on `side` of x = 0 and `width` wide, from `back` to
+ *  `front` with its finished face towards +z. Its vertical edges are bevelled, so a shut pair
+ *  shows a fine V where the leaves meet and never a gap, and nothing straddles x = 0, where
+ *  the consumer splits the module into its two sliders. A kick plate and a head rail stand
+ *  proud of the face. */
+function leaf(k: Kit, side: -1 | 1, width: number, [y0, y1]: readonly [number, number], [back, front]: readonly [number, number]): void {
+  const [x0, x1] = side < 0 ? [-width, 0] : [0, width];
+  bevelSlab(k, FINISH.liftCar, [x0, x1], [y0, y1], back, front, { radius: 0.005, segments: 2 }, { bottom: false, top: false });
+  facing(k, FINISH.liftCar, [[x0, y0, back], [x1, y0, back], [x1, y1, back], [x0, y1, back]], [0, 0, -1]);
+  for (const [y, up] of [[y0, -1], [y1, 1]] as const)
+    facing(k, FINISH.liftCar, [[x0, y, back], [x1, y, back], [x1, y, front], [x0, y, front]], [0, up, 0]);
+  const a = x0 + 0.014, b = x1 - 0.014;
+  stud(k, FINISH.zinc, [(a + b) / 2, y0 + 0.012 + 0.06], [b - a, 0.12], front, front + 0.003);
+  stud(k, FINISH.zinc, [(a + b) / 2, y1 - 0.075], [b - a, 0.035], front, front + 0.003);
+}
 
 /** Moving car and leaves retain their consumer IDs. Stationary landing fittings must
  * remain separate: the consumer splits every triangle of lift-doors into sliding leaves. */
@@ -64,13 +82,10 @@ export const liftRecipes: RecipeSet = (add) => {
     }
   });
   add("lift-doors", (k) => {
-    // Sheet-metal geometry supplies the split; a texture of a whole elevator
-    // must never be repeated on each leaf. Nothing here straddles local X=0.
-    for (const x of [-0.55, 0.005]) {
-      k.box(FINISH.liftCar, [x, 0, -0.03], [0.545, 2.20, 0.06]);
-      k.box(FINISH.zinc, [x + 0.014, 0.015, 0.03], [0.517, 0.045, 0.004]);
-      k.box(FINISH.zinc, [x + 0.014, 2.14, 0.03], [0.517, 0.045, 0.004]);
-    }
+    // Sheet-metal geometry supplies the split; a texture of a whole elevator must never be
+    // repeated on each leaf. The pair meets at x = 0 with no seam and is wider than the
+    // doorway, so each leaf closes behind its jamb.
+    for (const side of [-1, 1] as const) leaf(k, side, LIFT_LANDING.leaf, [0, LIFT_LANDING.height], LIFT_LANDING.plane);
   });
   // Each stationary member is a separate solid box. A combined U-frame would
   // become a solid cuboid in the unchanged consumer and block the doorway.
