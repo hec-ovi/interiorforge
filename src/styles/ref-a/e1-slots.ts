@@ -17,11 +17,15 @@ export const E1_SLOT = {
     cyan: 'cyberpunk/light-fixture/high_rich#e1-cyan',
     /** the island top and the dark trims: graphite gloss */
     graphite: 'cyberpunk/gutierrez-lacquer/rich#ink',
-    tile: 'cyberpunk/tile/high_rich#slab',
+    /** the terrarium's tiled back and the pit's rocks: the suite's dark teal stone */
+    tile: 'cyberpunk/e1-floor/high_rich#dark-stone',
     upholstery: 'cyberpunk/biotechnica-upholstery/rich#ivory',
     linen: 'cyberpunk/biotechnica-upholstery/rich#ivory',
     duvet: 'cyberpunk/ivory-panel/mid#native',
 } as const;
+
+/** The rock the shared pit recipe draws its boulders in. */
+const PIT_ROCK = 'cyberpunk/exterior-basalt-concrete/mid#native';
 
 /** Built-in placeholder slot → the suite's own finish. The cool lens turns cyan only where
  *  the reference lights cyan: the kitchen's under-cabinet line and the rock pit. */
@@ -39,5 +43,6 @@ export const e1SlotRule: SlotRule = (module, slot) => {
     if (!module.startsWith('fit-e1-') && !module.startsWith('housing-e1-') && !module.includes('-e1-lounge-pit') && !module.startsWith('ceiling-cove-e1-lounge'))
         return slot;
     if (slot === F.lensCool && (module.startsWith('fit-e1-kitchen') || module.includes('pit'))) return E1_SLOT.cyan;
+    if (module.includes('-e1-lounge-pit') && slot === PIT_ROCK) return E1_SLOT.tile;
     return BUILT_IN[slot] ?? slot;
 };
