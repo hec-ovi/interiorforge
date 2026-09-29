@@ -16,7 +16,8 @@ import { R1 } from './look.js';
  *    carcass, a vase on top;
  *  - the fixed corner bench under the wall library: navy upholstery on a black plinth, seat
  *    at 0.49 m, a stepped low back to 0.72 m, laid in 0.5 m cells along the wall;
- *  - the wall library over it: three walnut boards 0.3 m deep at 1.45, 1.85 and 2.25 m
+ *  - the potted plant by the bench: a dark pot 0.4 m across with a leafy plant to 1.3 m;
+ *  - the wall library over it: three dark timber boards 0.3 m deep at 1.45, 1.85 and 2.25 m
  *    along the whole run, binder bays baked at 0.9 m pitch, bare boards where none fits. */
 
 const box = (k: Kit, slot: string, [x0, x1]: [number, number], [y0, y1]: [number, number], [z0, z1]: [number, number]) =>
@@ -24,6 +25,7 @@ const box = (k: Kit, slot: string, [x0, x1]: [number, number], [y0, y1]: [number
 
 export const CHEST = { size: [1.35, .5, 1.25] as const, module: 'fit-r1-chest' };
 export const TOWER = { size: [.5, .45, 1.2] as const, module: 'fit-r1-tower' };
+export const PLANT = { size: [.5, .5, 1.3] as const, module: 'fit-r1-plant' };
 /** Depth of the bench (its record) and of the library boards over it. */
 export const BENCH_DEPTH = .7;
 export const SHELF_DEPTH = .3;
@@ -88,7 +90,7 @@ function benchCell(k: Kit): void {
 
 /** The three library boards over one 0.5 m cell, stretched along the whole run. */
 function boards(k: Kit): void {
-    for (const y of LIBRARY_BOARDS) box(k, R1.walnut, [-.25, .25], [y - LIBRARY_BOARDS[0], y - LIBRARY_BOARDS[0] + BOARD], [0, SHELF_DEPTH]);
+    for (const y of LIBRARY_BOARDS) box(k, R1.darkWood, [-.25, .25], [y - LIBRARY_BOARDS[0], y - LIBRARY_BOARDS[0] + BOARD], [0, SHELF_DEPTH]);
 }
 
 /** One 0.9 m library bay over the boards: binders, boxes and a gap, like the occupied
@@ -147,8 +149,36 @@ export const R1_ASSEMBLIES: Record<string, AssemblySpec> = {
     'asm-r1-library-return': { type: 'custom', place: benchLibrary(BENCH_DEPTH - SHELF_DEPTH + .1) },
 };
 
+/** The potted plant by the bench, on its 0.5 m record. */
+function plant(k: Kit): void {
+    k.cylinder(R1.ink, [0, 0, 0], .2, .42, 12);
+    k.cylinder(R1.soil, [0, .42, 0], .185, .01, 12);
+    k.plant(R1.leaf, R1.stem, [0, .43, 0], .85, 7, 11);
+}
+
+/** Pendant spot under the timber ceiling: a canopy, a stem and a satin cylinder with its warm
+ *  lens 0.34 m below the ceiling plane (the record stands on the plane). */
+function pendant(k: Kit): void {
+    k.cylinder(R1.black, [0, -.012, 0], .05, .012, 12);
+    k.rod(R1.black, [0, -.012, 0], [0, -.22, 0], .008);
+    k.cylinder(R1.alloy, [0, -.34, 0], .045, .12, 12);
+    k.cylinder(R1.lens, [0, -.342, 0], .036, .004, 12);
+}
+
+/** Rug body and its bronze band: 6 mm over the floor, one cell, stretched in plan. */
+function rugBody(k: Kit): void { box(k, R1.rug, [-.25, .25], [0, .006], [-.25, .25]); }
+function rugBorder(k: Kit): void { box(k, R1.bronze, [-.25, .25], [0, .007], [-.25, .25]); }
+
+/** The pale timber pier panel: one cell, 20 mm deep, stretched along the wall and up. */
+function pierPanel(k: Kit): void { box(k, R1.pier, [-.25, .25], [0, .5], [0, .02]); }
+
 export const r1FurnitureRecipes: RecipeSet = add => {
+    add('ceiling-spot-r1-pendant', pendant);
+    add('floor-finish-r1-rug', rugBody);
+    add('floor-finish-r1-rug-border', rugBorder);
+    add('wall-panel-r1-pier', pierPanel);
     add(CHEST.module, chest);
+    add(PLANT.module, plant);
     add(TOWER.module, tower);
     add('fit-r1-bench-cell', benchCell);
     add('fit-r1-shelf-boards', boards);

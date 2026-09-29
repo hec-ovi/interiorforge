@@ -6,12 +6,14 @@ export const R1 = {
     graphite: 'cyberpunk/wall-band/rich#graphite',
     /** smooth ink lacquer: casings, desk and drawer carcass faces */
     ink: 'cyberpunk/gutierrez-lacquer/rich#ink',
-    /** warm metal of the inlaid wall joints, trims and handles */
+    /** warm metal of trims and handles */
     bronze: 'cyberpunk/interior-bronze/rich#plain',
-    /** polished brass lining of the layered doorway */
+    /** polished brass of the inlaid wall joints and the layered doorway's lining */
     brass: 'cyberpunk/exterior-accent-gold/mid#coat',
     black: 'cyberpunk/paired-cladding-metal/mid#obsidian',
-    /** walnut boards of the floor, shelves and bench frame */
+    /** dark timber of the library boards */
+    darkWood: 'cyberpunk/wood/high_rich#2',
+    /** walnut boards of the floor */
     walnut: 'cyberpunk/corpo-plaza-veneer/rich#walnut',
     /** warm timber of the continuous ceiling */
     ceiling: 'cyberpunk/interior-luxury-timber/rich#field',
@@ -28,6 +30,9 @@ export const R1 = {
     stone: 'cyberpunk/corpo-plaza-stone/rich#polished',
     alloy: 'cyberpunk/interior-alloy/rich#satin-fine',
     glass: 'cyberpunk/interior-display-glass/rich#clear',
+    leaf: 'cyberpunk/interior-leaf/rich#plain',
+    stem: 'cyberpunk/garden-stem/mid#surface',
+    soil: 'cyberpunk/garden-soil/mid#surface',
     red: 'cyberpunk/light-fixture/rich#loft-red',
     lens: 'cyberpunk/light-fixture/rich#strip',
     paper: 'cyberpunk/interior-paper/poor#plain',
