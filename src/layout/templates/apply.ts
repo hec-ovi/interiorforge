@@ -171,6 +171,7 @@ const SLOT_TARGETS: { slot: PublicSlot; kinds: RoomKind[]; count: number }[] = [
   { slot: "hall", kinds: ["office_open"], count: 2 },
   { slot: "ground-front", kinds: ["reception"], count: 1 },
   { slot: "service", kinds: ["toilets", "mechanical_room"], count: 4 },
+  { slot: "corridor", kinds: ["corridor"], count: 2 },
 ];
 
 function remainderKind(template: SpaceTemplate): RoomKind | undefined {
