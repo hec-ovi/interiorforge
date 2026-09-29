@@ -91,7 +91,9 @@ export const E1_STYLE: StyleSpec = {
         return { ...plain, family: 'luxury', field, floor, ceiling: E1_CEILING.system.id, casing: 'e1',
             ...(PORTAL_ROOMS.has(kind) ? { portal: 'e1-inner' } : {}) };
     },
-    lights: { plannedCoves: false, kelvin: 3800 },
+    // A cove record of the suite's own lenses (the pit) takes the style's cove module where
+    // the placements lay one per cove record: the pit lens itself, so nothing new shows.
+    lights: { plannedCoves: false, kelvin: 3800, cove: 'ceiling-cove-e1-lounge-pit' },
     entrance: 'luxury',
     housings: ['housing-e1-ac', 'housing-e1-portal'],
 };

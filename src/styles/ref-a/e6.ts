@@ -15,7 +15,7 @@ import { SANDRA_MATERIALS as M } from '../sandra/materials.js';
 export const E6 = {
     wall: { pitch: 1, seam: .005, rows: 2.1 },
     ceiling: { field: [3, 1.5] as [number, number], member: .12, border: .16 },
-    mat: { size: [1.8, .9] as [number, number], border: .012 },
+    mat: { size: [1.8, .9] as [number, number], border: .004 },
 } as const;
 
 const PALE = 'cyberpunk/interior-luxury-ceiling/rich#field';

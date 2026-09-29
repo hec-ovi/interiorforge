@@ -17,7 +17,8 @@ export const E2 = {
     floor: { tile: 1.5, joint: .003, border: .45, inlay: .012 },
 } as const;
 
-const LACQUER = 'cyberpunk/gutierrez-lacquer/rich#ink';
+const LACQUER = 'cyberpunk/interior-composite/rich#satin';
+const GLOSS = 'cyberpunk/gutierrez-lacquer/rich#ink';
 const FIELD_STONE = 'cyberpunk/corpo-plaza-stone/rich#basin';
 const PALE = 'cyberpunk/loft1702-stone/rich#pale';
 
@@ -32,7 +33,19 @@ export const E2_CEILING = ceilingPreset('A-fields', 'e2', {
     system: { grid: { pitch: [E2.ceiling.cell, E2.ceiling.cell], block: 'ceiling-e2-grid15', blockCells: [1, 1], joint: E2.ceiling.joint, phase: 'room-centre' },
         perimeter: { width: E2.ceiling.reveal, drop: -.02, edge: 'ceiling-e2-backing', corner: 'ceiling-e2-backing' },
         fields: { every: E2.ceiling.every, module: 'ceiling-cove-e2-field', lumens: E2.ceiling.lumens } },
-    profile: { panel: LACQUER, backing: F.bronze, bevel: .003 },
+    profile: { panel: GLOSS, backing: F.bronze, bevel: .003 },
+});
+
+/** Every E2 room wears the same dark cells without their luminous fields for now: a field's
+ *  bezel reached into a stair flight's headroom beside the room (the stairwells wear the
+ *  corridor's style), so `E2_CEILING` returns once the ceiling system keeps fields clear of
+ *  stair voids. */
+export const E2_CORRIDOR_CEILING = ceilingPreset('A-fields', 'e2-corridor', {
+    system: { grid: { pitch: [E2.ceiling.cell, E2.ceiling.cell], block: 'ceiling-e2-grid15', blockCells: [1, 1], joint: E2.ceiling.joint, phase: 'room-centre' },
+        perimeter: { width: E2.ceiling.reveal, drop: -.02, edge: 'ceiling-e2-backing', corner: 'ceiling-e2-backing' }, fields: undefined,
+        // stairwells wear this ceiling: their planned lights stay where the stair put them
+        snapSpots: false },
+    profile: { panel: GLOSS, backing: F.bronze, bevel: .003 },
 });
 
 export const E2_FLOOR = floorPreset('B', 'e2', {
@@ -63,7 +76,8 @@ export const E2_STYLE: StyleSpec = {
     finish(kind: RoomKind, _floorKind: FloorKind, base: RoomFinish): RoomFinish {
         const { frame: _frame, band: _band, services: _services, ...plain } = base;
         if (!PUBLIC.has(kind)) return plain;
-        return { ...plain, family: 'luxury', field: E2_PANEL.system.id, floor: E2_FLOOR.system.id, ceiling: E2_CEILING.system.id };
+        return { ...plain, family: 'luxury', field: E2_PANEL.system.id, floor: E2_FLOOR.system.id,
+            ceiling: E2_CORRIDOR_CEILING.system.id };
     },
     lights: { plannedCoves: false, kelvin: 3000 },
     lift: { jamb: 'lift-landing-jamb-e2', header: 'lift-landing-header-e2' },

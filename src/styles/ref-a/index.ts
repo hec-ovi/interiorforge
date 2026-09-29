@@ -6,8 +6,8 @@ import type { KindExports, PortalSpec } from '../systems/types.js';
 import { E1_CEILING, E1_FLOOR, E1_LOUNGE_FLOOR, E1_PANEL, E1_STYLE } from './e1.js';
 import { E1_COMPOSITES, e1BuiltInRecipes } from './e1-built-ins.js';
 import { E1_SLOT, e1SlotRule } from './e1-slots.js';
-import { E2_CEILING, E2_FLOOR, E2_PANEL, E2_STYLE, e2LiftRecipes } from './e2.js';
-import { E5_CEILING, E5_STYLE } from './e5.js';
+import { E2_CORRIDOR_CEILING, E2_FLOOR, E2_PANEL, E2_STYLE, e2LiftRecipes } from './e2.js';
+import { E5_CEILING, E5_FLOOR, E5_STYLE } from './e5.js';
 import { E6_CEILING, E6_FLOOR, E6_PANEL, E6_STYLE } from './e6.js';
 import { remapSlots } from './remap.js';
 
@@ -25,8 +25,8 @@ function once(...sets: RecipeSet[]): RecipeSet {
 }
 
 const panels = [E1_PANEL, E2_PANEL, E6_PANEL];
-const ceilings = [E1_CEILING, E2_CEILING, E5_CEILING, E6_CEILING];
-const floors = [E1_FLOOR, E1_LOUNGE_FLOOR, E2_FLOOR, E6_FLOOR];
+const ceilings = [E1_CEILING, E2_CORRIDOR_CEILING, E5_CEILING, E6_CEILING];
+const floors = [E1_FLOOR, E1_LOUNGE_FLOOR, E2_FLOOR, E5_FLOOR, E6_FLOOR];
 
 /** The suite portal and its stepped outer surround in the suite's cream, the reveal lens cyan. */
 const portals: PortalSpec[] = portalsWithLayers('e1-inner').map(spec => ({

@@ -14,19 +14,19 @@
     ]
   },
   "envelope": {
-    "width": 12.5,
-    "depth": 15.0,
+    "width": 16.5,
+    "depth": 10.0,
     "min": [
-      9.4,
-      9.4
+      12.0,
+      7.0
     ],
     "max": [
-      30.0,
-      30.0
+      42.0,
+      24.0
     ]
   },
   "entry": {
-    "room": "kitchen",
+    "room": "living",
     "door": "entry"
   },
   "daylight": [
@@ -42,17 +42,22 @@
     {
       "id": "u1",
       "axis": "u",
-      "ref": 6.5
+      "ref": 5.5
     },
     {
       "id": "u2",
       "axis": "u",
-      "ref": 9.5
+      "ref": 11.5
     },
     {
       "id": "u3",
       "axis": "u",
-      "ref": 12.5
+      "ref": 13.5
+    },
+    {
+      "id": "u4",
+      "axis": "u",
+      "ref": 16.5
     },
     {
       "id": "v0",
@@ -62,61 +67,56 @@
     {
       "id": "v1",
       "axis": "v",
-      "ref": 3.5
+      "ref": 3.0
     },
     {
       "id": "v2",
       "axis": "v",
-      "ref": 6.0
-    },
-    {
-      "id": "v3",
-      "axis": "v",
-      "ref": 15.0
+      "ref": 10.0
     }
   ],
   "spans": [
     {
       "from": "u0",
       "to": "u1",
-      "min": 5.0,
-      "max": null,
-      "weight": 2.0
+      "min": 3.6,
+      "max": 8.0,
+      "weight": 1.0
     },
     {
       "from": "u1",
       "to": "u2",
-      "min": 1.8,
-      "max": 3.4,
-      "weight": 0.5
+      "min": 4.4,
+      "max": null,
+      "weight": 3.0
     },
     {
       "from": "u2",
       "to": "u3",
+      "min": 1.6,
+      "max": 2.6,
+      "weight": 0.5
+    },
+    {
+      "from": "u3",
+      "to": "u4",
       "min": 2.4,
       "max": 3.2,
-      "weight": 0.5
+      "weight": 0
     },
     {
       "from": "v0",
       "to": "v1",
       "min": 2.6,
-      "max": 4.0,
+      "max": 3.6,
       "weight": 0
     },
     {
       "from": "v1",
       "to": "v2",
-      "min": 1.5,
-      "max": 5.0,
-      "weight": 0.5
-    },
-    {
-      "from": "v2",
-      "to": "v3",
-      "min": 5.2,
+      "min": 4.0,
       "max": null,
-      "weight": 2.0
+      "weight": 1.0
     }
   ],
   "rooms": [
@@ -139,8 +139,8 @@
         "v2"
       ],
       "minClear": [
-        4.4,
-        4.4
+        3.4,
+        5.0
       ]
     },
     {
@@ -148,16 +148,16 @@
       "kind": "bedroom",
       "role": "bedroom",
       "u": [
-        "u1",
-        "u3"
+        "u2",
+        "u4"
       ],
       "v": [
         "v1",
-        "v3"
+        "v2"
       ],
       "minClear": [
-        4.2,
-        4.2
+        3.8,
+        3.8
       ]
     },
     {
@@ -165,8 +165,8 @@
       "kind": "storage",
       "role": "dressing",
       "u": [
-        "u1",
-        "u2"
+        "u2",
+        "u3"
       ],
       "v": [
         "v0",
@@ -177,7 +177,7 @@
         "into": "bed"
       },
       "minClear": [
-        1.6,
+        1.5,
         2.4
       ]
     },
@@ -186,8 +186,8 @@
       "kind": "bathroom",
       "role": "bath",
       "u": [
-        "u2",
-        "u3"
+        "u3",
+        "u4"
       ],
       "v": [
         "v0",
@@ -203,14 +203,14 @@
     {
       "id": "entry",
       "between": [
-        "kitchen",
+        "living",
         "@public"
       ],
       "width": 1.8,
       "leaves": 2,
       "kind": "pocket",
-      "along": 0.5,
-      "owner": "kitchen"
+      "along": 0.4,
+      "owner": "living"
     },
     {
       "id": "kitchen-portal",
@@ -235,7 +235,7 @@
       "leaves": 2,
       "kind": "portal",
       "portal": "e1-inner",
-      "along": 0.55,
+      "along": 0.5,
       "owner": "bed"
     },
     {
@@ -265,43 +265,43 @@
   ],
   "fixtures": [
     {
+      "id": "kitchen-window",
+      "room": "kitchen",
+      "kind": "kitchen_block",
+      "fit": "asm-e1-kitchen-window",
+      "required": true,
+      "wall": "v1",
+      "along": {
+        "line": "u0",
+        "offset": 0
+      },
+      "size": [
+        3.0,
+        0.65,
+        0.9
+      ],
+      "rotationDeg": 180,
+      "stretch": [
+        "u"
+      ]
+    },
+    {
       "id": "kitchen-back",
       "room": "kitchen",
       "kind": "kitchen_block",
       "fit": "asm-e1-kitchen",
-      "required": true,
+      "required": false,
       "wall": "u0",
       "along": {
         "line": "v2",
-        "offset": -4.0
+        "offset": -3.62
       },
       "size": [
-        3.8,
+        2.9,
         0.65,
         0.9
       ],
-      "rotationDeg": 90,
-      "stretch": [
-        "v"
-      ]
-    },
-    {
-      "id": "kitchen-return",
-      "room": "kitchen",
-      "kind": "kitchen_block",
-      "fit": "asm-e1-kitchen-window",
-      "required": false,
-      "wall": "v0",
-      "along": {
-        "line": "u0",
-        "offset": 0.7
-      },
-      "size": [
-        1.6,
-        0.65,
-        0.9
-      ],
-      "rotationDeg": 0
+      "rotationDeg": 90
     },
     {
       "id": "island",
@@ -314,15 +314,15 @@
         "centred": true
       },
       "at": [
-        1.85,
-        3.0
+        2.2,
+        4.4
       ],
       "size": [
         2.2,
         0.9,
         0.95
       ],
-      "rotationDeg": 90
+      "rotationDeg": 0
     },
     {
       "id": "lounge",
@@ -332,11 +332,11 @@
       "required": false,
       "wall": "v1",
       "along": {
-        "line": "u0",
-        "offset": 0.3
+        "line": "u1",
+        "offset": 0.2
       },
       "size": [
-        4.8,
+        4.0,
         1.55,
         0.8
       ],
@@ -348,17 +348,17 @@
       "kind": "plant",
       "fit": "asm-e1-bamboo",
       "required": false,
-      "wall": "u0",
+      "wall": "v0",
       "along": {
-        "line": "v2",
-        "offset": 0.4
+        "line": "u2",
+        "offset": -1.4
       },
       "size": [
         1.2,
         0.7,
         3.0
       ],
-      "rotationDeg": 90
+      "rotationDeg": 0
     },
     {
       "id": "bed",
@@ -368,8 +368,8 @@
       "required": true,
       "wall": "u1",
       "along": {
-        "line": "v3",
-        "offset": -6.0
+        "line": "v2",
+        "offset": -5.1
       },
       "size": [
         3.4,
@@ -386,7 +386,7 @@
       "required": false,
       "wall": "v1",
       "along": {
-        "line": "u1",
+        "line": "u2",
         "offset": 0.3
       },
       "size": [
@@ -404,11 +404,11 @@
       "required": false,
       "wall": "v0",
       "along": {
-        "line": "u1",
+        "line": "u2",
         "offset": 0.05
       },
       "size": [
-        2.6,
+        1.9,
         0.6,
         2.4
       ],
@@ -420,6 +420,6 @@
   ],
   "source": {
     "key": "e1-apartment",
-    "revision": "hand-2"
+    "revision": "hand-3"
   }
 }

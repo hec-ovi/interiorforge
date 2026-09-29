@@ -2,24 +2,32 @@ import type { FloorKind, RoomKind } from '../../core/types.js';
 import type { RoomFinish } from '../../placements/finish.js';
 import { FINISH as F } from '../../modules/finishes.js';
 import { ceilingPreset } from '../systems/ceiling-recipes.js';
+import { floorPreset } from '../systems/floor-recipes.js';
 import type { StyleSpec } from '../systems/types.js';
-import { E1_FLOOR } from './e1.js';
-import { E2_PANEL } from './e2.js';
 
-/** E5, the tower's ground lobby: the public floor's dark lacquer bays with bronze joints on
- *  its walls, the suite's dark polished stone on its floor, and its own ceiling: dark gloss
- *  1.5 m cells inside a dropped walnut ring 0.6 m wide whose fascia carries a warm up-light. */
+/** E5, the tower's ground lobby: broad mineral stone panels (the Meridian mineral field, up to
+ *  2 m wide over its skirting), dark polished stone in 2 m squares whose joints show bronze,
+ *  and a ceiling of dark gloss 1.5 m cells. */
 export const E5 = {
-    ceiling: { cell: 1.5, ring: .6, drop: .2 },
+    ceiling: { cell: 1.5 },
+    floor: { tile: 2, joint: .004 },
 } as const;
+
+export const E5_FLOOR = floorPreset('A', 'e5', {
+    system: { tile: { size: [E5.floor.tile, E5.floor.tile], joint: E5.floor.joint, block: 'floor-finish-e5-stone', blockTiles: [1, 1], phase: 'grid' } },
+    profile: { tile: 'cyberpunk/corpo-plaza-stone/rich#polished', support: F.bronze },
+});
 
 const GLOSS = 'cyberpunk/gutierrez-lacquer/rich#ink';
 const WALNUT = 'cyberpunk/corpo-plaza-veneer/rich#walnut';
 
 export const E5_CEILING = ceilingPreset('B', 'e5', {
     system: { grid: { pitch: [E5.ceiling.cell, E5.ceiling.cell], block: 'ceiling-e5-grid15', blockCells: [2, 2], joint: .006, phase: 'room-centre' },
-        steps: [{ inset: E5.ceiling.ring, drop: E5.ceiling.drop, fascia: 'ceiling-e5-step',
-            lens: { module: 'ceiling-cove-e5-step', y: .19, facing: 'up', lumensPerMetre: 30, kelvin: 2700, proud: .03 } }] },
+        // The dropped walnut ring waits for the ceiling system to keep its rings off a room's
+        // stair voids: along a lobby's open stair it hung into the flight's headroom.
+        steps: [],
+        // the ground floor's stairwells wear this ceiling: their planned lights stay put
+        snapSpots: false },
     profile: { panel: GLOSS, backing: F.black, bevel: .003, step: WALNUT },
 });
 
@@ -30,7 +38,7 @@ export const E5_STYLE: StyleSpec = {
     finish(kind: RoomKind, _floorKind: FloorKind, base: RoomFinish): RoomFinish {
         const { frame: _frame, band: _band, services: _services, ...plain } = base;
         if (!LOBBY.has(kind)) return plain;
-        return { ...plain, family: 'luxury', field: E2_PANEL.system.id, floor: E1_FLOOR.system.id, ceiling: E5_CEILING.system.id };
+        return { ...plain, family: 'luxury', field: 'wall-field-meridian-mineral', floor: E5_FLOOR.system.id, ceiling: E5_CEILING.system.id };
     },
     lights: { plannedCoves: false, kelvin: 2900 },
     lift: { jamb: 'lift-landing-jamb-e2', header: 'lift-landing-header-e2' },
