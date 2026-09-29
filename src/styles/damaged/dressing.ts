@@ -7,14 +7,18 @@ import type { Placement } from '../../placements/types.js';
 import { worldToUv } from '../../layout/uv.js';
 
 const PUBLIC = new Set(['corridor', 'elevator_lobby', 'reception', 'lounge', 'concourse', 'storage', 'mechanical_room']);
+/** Reference styles whose rooms take their whole look from their own finish, fits and dress
+ *  (the kind C capsule homes): this dresser leaves them alone. */
+const OWN_LOOK: ReadonlySet<string> = new Set(['c1', 'c7']);
 
 /** Dress only already-built full-height solid wall spans. The partition pass has cut
  * every door/window/core opening, so fixtures cannot cover an entry or float over glass.
  * Ceiling pipes use fitted ceiling rectangles; never cross voids or low headroom. */
 export function dressDamagedRooms(builder: PlacementBuilder, floor: FloorInterior,
   _uv?: UvFloorData, _core?: CorePlan, _bp?: BlueprintFloor): void {
-  const kinds = new Map(floor.rooms.map(room => [room.id, room.kind]));
-  const source = [...builder.placements];
+  const kinds = new Map(floor.rooms.filter(room => !OWN_LOOK.has(room.style ?? '')).map(room => [room.id, room.kind]));
+  const own = new Set(floor.rooms.filter(room => OWN_LOOK.has(room.style ?? '')).map(room => room.id));
+  const source = builder.placements.filter(p => !own.has(p.room));
   const crossesStair = (a: Vec3, b: Vec3, padding = .34): boolean => {
     if (!_core) return false;
     const p = worldToUv([a[0], a[2]], _core.frame), q = worldToUv([b[0], b[2]], _core.frame);
