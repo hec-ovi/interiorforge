@@ -33,7 +33,7 @@ export function doorHeadHeight(leaves: number, clearHeight: number): number {
     const head = leaves >= 3 ? 3.0 : 2.5;
     return Math.min(head, clearHeight - 2 * CASING.width);
 }
-export function reserveFacadeEnds(segment: RoomSegment, facade: FacadeReservations, facadeFloor: BlueprintFloor, frame: Frame, facadeDepth: number): RoomSegment | null {
+export function reserveFacadeEnds(segment: RoomSegment, facade: FacadeReservations, facadeFloor: BlueprintFloor, frame: Frame, facadeDepth: number, windows = true): RoomSegment | null {
     const point = (along: number): Point => segment.axis === "H" ? [along, segment.c] : [segment.c, along];
     const facadeEdge = (edge: number): [
         Point,
@@ -44,7 +44,9 @@ export function reserveFacadeEnds(segment: RoomSegment, facade: FacadeReservatio
     const trim = (at: number, direction: -1 | 1): number => {
         const world = uvToWorld(point(at), frame);
         const reservation = facade.reservationAt(world, PARTITION_HALF, facadeDepth + PARTITION_HALF);
-        if (!reservation)
+        // A partition carried to the shell's face closes against the shell, a window's reveal
+        // included; only a door's or portal's passage keeps it back.
+        if (!reservation || !windows && (!reservation.opening || reservation.opening.kind === 'window'))
             return 0;
         const openingDepth = reservation.opening?.door?.motion?.clearDepth
             ?? reservation.opening?.portal?.clearDepth

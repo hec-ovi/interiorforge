@@ -54,6 +54,23 @@ export interface UvFloorData {
   sealed: UvRect[];
   /** carpet zones under fitted seating and suites */
   carpets: { room: string; rect: UvRect }[];
+  /** the shell's inner face the rooms reach once the building is planned (reachShell) */
+  face?: Point[];
+  /** band in front of a loft void, open air like the void: no floor above, no ceiling below */
+  openAir?: OpenAir[];
+}
+
+/** The band a loft void reaches out to the shell across, on one of its two floors. */
+export interface OpenAir {
+  polygon: Point[];
+  level: "lower" | "upper";
+  /** the duplex slice and home the void belongs to */
+  slice: string;
+  unit: string;
+  /** the planned void it opens out of */
+  void: UvRect;
+  /** the seam from the lower ceiling to the upper walking datum */
+  gap: number;
 }
 
 /** How far a floor steps back from its complete reference program when a room cannot

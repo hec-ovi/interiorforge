@@ -19,6 +19,7 @@ import { seatPits } from './plenum.js';
 import { templateTurns } from '../layout/templates/registry.js';
 import { duplexAssignments } from '../layout/duplex/assignments.js';
 import { applyDuplexPairs } from '../layout/duplex/apply.js';
+import { reachShell } from '../layout/shell-reach.js';
 import { capsuleProfile } from '../styles/capsule/profile.js';
 import { defaultStyle, KIND_POLICY, referenceKind } from '../styles/reference/kinds.js';
 import type { FloorKind, StyleId } from '../core/types.js';
@@ -87,6 +88,8 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
         const at = names.indexOf(name);
         if (at >= 0 && ![...layoutByFloor.values()].includes(name)) { names.splice(at, 1); samples.splice(at, 1); }
     }
+    // Every room, void and shaft on the edge of the planned plate reaches the shell's face.
+    reachShell(plan, request);
     stampStyles(plan, request);
     // Pits hang their trays over the rooms of the floor below: those ceilings make room,
     // before any floor is placed.

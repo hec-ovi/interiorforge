@@ -1,4 +1,4 @@
-import { polygonBounds } from '../core/geom.js';
+import { boundaryDistance, polygonBounds } from '../core/geom.js';
 import type { Point } from '../core/geom.js';
 import type { BlueprintFloor, FloorInterior, InteriorRequest, LightFixture, RoomKind } from '../core/types.js';
 import type { CorePlan } from '../layout/core-plan.js';
@@ -57,7 +57,14 @@ export function walls(
     let lineCount = 0;
     const nextLineId = () => `${tag}-wl${lineCount++}`;
     const frame = core.frame, depth = facadeDepth(request.blueprint.facade), facade = new Facade(bp, request.blueprint.facade);
-    const buildable = constructionPlate(bp, frame, depth), plate = polygonBounds(buildable);
+    // Rooms reach the shell's face once the building is planned; the planned plate remains
+    // what the privacy returns close against where a room did not reach it.
+    const planned = constructionPlate(bp, frame, depth), buildable = uv.face ?? planned, plate = polygonBounds(buildable);
+    const outline = uv.outline, faceDepth = uv.face ? Math.min(...uv.face.map(point => boundaryDistance(point, outline))) : 0;
+    // A curved or chamfered facade keeps its own face: the steps the rooms reach it by are
+    // no wall of their own.
+    const stepped = (segment: { axis: 'H' | 'V'; c: number; a: number; b: number }) => !!uv.face && boundaryDistance(
+        segment.axis === 'H' ? [(segment.a + segment.b) / 2, segment.c] : [segment.c, (segment.a + segment.b) / 2], outline) > faceDepth + 1e-3;
     const height = floor.ceilingElevation - floor.elevation;
     const ceilingHoles = duplexVoids(floor, frame, 'lower');
     const grid = gridOrigin(uv.outline);
@@ -73,18 +80,28 @@ export function walls(
     };
     // The core's shafts and the sealed voids own their faces too: a stairwell's are drawn in the
     // corridor's finish, a lift shaft's and a void's are never seen.
-    type Owner = PlanRoom & { draw: boolean; structural?: boolean; air?: number; perimeter?: PlanRoom['rect'] };
+    type Owner = PlanRoom & { draw: boolean; structural?: boolean; air?: number; perimeter?: PlanRoom['rect']; open?: PlanRoom['rect'] };
     const pseudo = (id: string, rect: PlanRoom['rect'], draw: boolean, kind: RoomKind = 'mechanical_room'): Owner => ({ id, kind, rect, doors: [], draw, structural: true });
+    // The band a loft void reaches the shell across is the void's air too: on the upper floor
+    // it closes its sides from the lower ceiling up, never the side it opens to the void by.
+    const ringAir = (uv.openAir ?? []).filter(item => item.level === 'upper').map(item => {
+        const b = polygonBounds(item.polygon);
+        return { id: `${item.slice}-air-0`, kind: 'living' as const, unit: item.unit, polygon: item.polygon,
+            rect: { u: b.x, v: b.z, lu: b.w, lv: b.d }, doors: [], draw: true, air: item.gap, open: item.void };
+    });
     const owners: Owner[] = [
         ...uv.rooms.map(room => ({ ...room, draw: true })),
         ...duplexAirOwners(floor, frame).map(room => ({ ...room, draw: true })),
+        ...ringAir,
         pseudo('stair-a', core.stairA, true, 'corridor'), ...(core.stairB ? [pseudo('stair-b', core.stairB, true, 'corridor')] : []),
         pseudo('riser', core.riser, false), ...core.elevators.map(e => pseudo(e.id, e.rect, false)),
         ...uv.sealed.map((rect, i) => pseudo(`sealed:${i}`, rect, false)),
     ];
     for (const room of owners) {
-        const segments = roomSegments(room, buildable);
-        const ownedSegments = room.air !== undefined
+        const segments = roomSegments(room, buildable).filter(segment => !segment.boundary || !stepped(segment));
+        const ownedSegments = room.open
+            ? segments.filter(segment => !segment.boundary && !alongRect(segment, room.open!))
+            : room.air !== undefined
             ? segments.filter(segment => segment.boundary || duplexPerimeterSegment(segment, room.perimeter!))
             : segments.flatMap(segment => duplexWallSegments(floor, frame, segment, room.unit));
         for (const raw of ownedSegments) {
@@ -93,7 +110,7 @@ export function walls(
             // Core solids keep their enclosing walls even when they meet that boundary.
             if (raw.boundary && shellOwnsFacade(request, bp) && !room.structural) continue;
             // The shell's own face carries no partition reservation: its openings cut it instead.
-            const segment = raw.boundary || room.structural ? raw : reserveFacadeEnds(raw, facade, bp, frame, depth);
+            const segment = raw.boundary || room.structural ? raw : reserveFacadeEnds(raw, facade, bp, frame, depth, !uv.face);
             if (!segment || !segment.edge) continue;
             const a = Math.max(segment.a, segment.axis === 'H' ? plate.x : plate.z), b = Math.min(segment.b, segment.axis === 'H' ? plate.x + plate.w : plate.z + plate.d);
             if (b <= a + 1e-6) continue;
@@ -230,7 +247,7 @@ export function walls(
         }
     }
     if ((floor.kind === 'apartment' || floor.kind === 'residence_studio') && shellOwnsFacade(request, bp))
-      for (const closure of privacyReturns(uv.rooms, buildable, bp, request.blueprint.facade, frame)) {
+      for (const closure of privacyReturns(uv.rooms, planned, bp, request.blueprint.facade, frame)) {
         const l: Line = { axis: closure.axis, c: closure.c, runs: [], holes: [], boundary: false };
         // A return is a real two-faced opaque partition, using existing wall
         // modules and the shared room finish. It reaches the structural soffit.
@@ -277,6 +294,12 @@ export function walls(
         }
     }
     return lights;
+}
+
+/** Whether a segment runs along one of a rectangle's sides, within its span. */
+function alongRect(segment: { axis: 'H' | 'V'; c: number; a: number; b: number }, rect: UvRect): boolean {
+    const [low, high, from, to] = segment.axis === 'H' ? [rect.v, rect.v + rect.lv, rect.u, rect.u + rect.lu] : [rect.u, rect.u + rect.lu, rect.v, rect.v + rect.lv];
+    return Math.min(Math.abs(segment.c - low), Math.abs(segment.c - high)) < 1e-6 && segment.a >= from - 1e-6 && segment.b <= to + 1e-6;
 }
 
 /** Projects openings along their inward normals onto the room's axis-aligned boundary

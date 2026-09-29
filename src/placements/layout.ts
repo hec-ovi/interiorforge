@@ -6,13 +6,13 @@ import type { BuildingPlan } from '../layout/index.js';
 import { roomArea, roomPolygon } from '../layout/room-shape.js';
 import { balanceIllumination } from '../layout/lighting.js';
 import { uvToWorld, type UvRect } from '../layout/uv.js';
-import { constructionPlate, shellWallDepth } from '../layout/shell.js';
+import { constructionPlate, faceSteps, shellWallDepth } from '../layout/shell.js';
 import { assertInsideShell } from '../geometry/shell-fit.js';
 import { stairClearance } from '../geometry/stair-clearance.js';
 import { InteriorError } from '../core/errors.js';
 import { PlacementBuilder } from './builder.js';
 import { familyOf, roomFinish, type RoomFinish } from './finish.js';
-import { ceiling, rectangles, slabs, surface, uncoveredRects } from './surfaces.js';
+import { ceiling, coverRectangles, rectangles, slabs, surface, uncoveredRects } from './surfaces.js';
 import { walls } from './walls.js';
 import { openings } from './openings.js';
 import { stairs, stairLandingRect } from './stairs.js';
@@ -39,7 +39,7 @@ import { gridOrigin } from '../layout/tile-fit.js';
 import { placeBulkheadSides } from '../styles/systems/levels.js';
 import { subtractAll } from '../styles/systems/surface-grid.js';
 import { isLoftRequest } from '../styles/reference/kinds.js';
-import { HOUSINGS, STYLES } from '../styles/reference/registry.js';
+import { CEILINGS, HOUSINGS, STYLES } from '../styles/reference/registry.js';
 import { placeHousings } from '../styles/systems/housing.js';
 import type { DressContext, StyleSpec, SurfaceRoom } from '../styles/systems/types.js';
 
@@ -50,7 +50,13 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     const floor = plan.floors.find(f => f.floor === bp.index)!, uv = plan.uvFloors.get(bp.index)!, core = plan.core;
     const builder = new PlacementBuilder();
     const ceilingY = floor.ceilingElevation - floor.elevation;
-    const plate = constructionPlate(bp, core.frame, shellWallDepth(request.blueprint.facade));
+    // The rooms reach the shell's face once the building is planned (reachShell).
+    const plate = uv.face ?? constructionPlate(bp, core.frame, shellWallDepth(request.blueprint.facade));
+    // A loft void reaching the shell leaves its band open air: no ceiling below it, no floor above.
+    const openAir = (level: 'lower' | 'upper') => (uv.openAir ?? []).filter(item => item.level === level)
+        .flatMap(item => rectangles(item.polygon));
+    const ceilingParts = (rect: UvRect) => openAir('lower').reduce((parts, hole) => parts.flatMap(part => subtractRect(part, hole)),
+        duplexCeilingRects(floor, core.frame, rect));
     const family = familyOf(request.building.type, request.building.tier);
     const kinds = new Map<string, RoomKind>(floor.rooms.map(room => [room.id, room.kind]));
     const common = floor.rooms.find(room => room.kind === 'corridor' || room.kind === 'elevator_lobby' || room.kind === 'concourse')!;
@@ -76,7 +82,14 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     };
     const tag = `f${bp.index < 0 ? `m${-bp.index}` : bp.index}`;
 
-    const floorRects = uv.rooms.map(room => ({ room, rects: rectangles(roomPolygon(room, plate), room.holes) }));
+    // A room stepped out to a curved facade is cut largest rectangle first, and the thin
+    // strips along its steps take a plain floor and ceiling (faceSteps).
+    const steps = uv.face ? faceSteps(uv.face, uv.outline) : undefined;
+    const floorRects = uv.rooms.map(room => {
+        const polygon = roomPolygon(room, plate);
+        const curved = !!steps && polygon.some((a, i) => steps.edge(a, polygon[(i + 1) % polygon.length]!));
+        return { room, rects: curved ? coverRectangles(polygon, room.holes) : rectangles(polygon, room.holes) };
+    });
     // The whole room each surface system phases to, at its own ceiling height: a template
     // room's ceilingDrop never takes a facade room's ceiling below its highest window head.
     const grid = gridOrigin(uv.outline);
@@ -101,11 +114,18 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         const finish = finishOf(room.id, room.kind), whole = surfaceRooms.get(room.id)!;
         const own = floor.lights.filter(light => !light.furniture && light.room === room.id);
         for (const rect of rects) {
+            if (steps?.strip(rect)) {
+                const system = CEILINGS.get(finish.ceiling);
+                surface(builder, finish.floor, room.id, rect, 0, core.frame);
+                for (const part of ceilingParts(rect))
+                    surface(builder, system ? system.backing : finish.ceiling, room.id, part, ceilingY - (whole.ceilingDrop ?? 0), core.frame);
+                continue;
+            }
             if (loftRooms.has(room.id) && room.kind === 'living')
                 placeDuplexLivingFloor(builder, room.id, rect, uv.carpets.filter(carpet => carpet.room === room.id).map(carpet => carpet.rect), core.frame);
             else floor.lights.push(...slabs(builder, finish.floor, room.id, rect, 0, core.frame, whole));
             const bulkheads = planned.get(room.id)?.bulkheads ?? [];
-            for (const part of duplexCeilingRects(floor, core.frame, rect)) {
+            for (const part of ceilingParts(rect)) {
                 for (const open of subtractAll(part, bulkheads.map(item => item.rect)))
                     floor.lights.push(...ceiling(builder, finish, room.id, open, ceilingY, core.frame, whole, own));
                 for (const bulkhead of bulkheads) {
@@ -205,7 +225,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     // rectangle the rooms and core stand in, where consumers cut their storey plate: it takes
     // the slab and plain ceiling field of the room along its longest side.
     const shafts = [core.stairA, ...(core.stairB ? [core.stairB] : []), core.riser, ...core.elevators.map(e => e.rect),
-        ...duplexVoids(floor, core.frame, 'upper')];
+        ...duplexVoids(floor, core.frame, 'upper'), ...openAir('upper')];
     const standing = [...floorRects.flatMap(({ rects }) => rects), ...uv.sealed, ...shafts];
     const envelope = boundsOf(standing);
     for (const rect of envelope ? uncoveredRects(envelope, [...walkingSlabs(builder, core.frame), ...shafts], plate) : []) {
@@ -213,7 +233,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
             .sort((a, b) => b.side - a.side)[0];
         const room = owner && owner.side > 0 ? owner.room : common, finish = finishOf(room.id, room.kind);
         floor.lights.push(...slabs(builder, finish.floor, room.id, rect, 0, core.frame));
-        for (const part of duplexCeilingRects(floor, core.frame, rect)) {
+        for (const part of ceilingParts(rect)) {
             if (loftRooms.has(room.id)) floor.lights.push(...ceiling(builder, finish, room.id, part, ceilingY, core.frame));
             else surface(builder, finish.ceiling, room.id, part, ceilingY - (surfaceRooms.get(room.id)?.ceilingDrop ?? 0), core.frame);
         }
@@ -226,6 +246,10 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
             floor.lights.push(...ceiling(builder, finishOf(air, 'living'), air, { u: b.x, v: b.z, lu: b.w, lv: b.d }, ceilingY, core.frame));
         }
     }
+    // The band in front of an upper void is the void's air, under the same ceiling.
+    for (const item of (uv.openAir ?? []).filter(one => one.level === 'upper'))
+        for (const part of rectangles(item.polygon)) floor.lights.push(...ceiling(builder, finishOf(`${item.slice}-air-0`, 'living'),
+            `${item.slice}-air-0`, part, ceilingY, core.frame));
     for (const light of plannedLights) {
         const finish = finishOf(light.room), position: [number, number, number] = [light.position[0], light.position[1] - floor.elevation, light.position[2]];
         const rotation = -light.angleDeg * Math.PI / 180;

@@ -51,6 +51,41 @@ export function rectangles(polygon: Point[], holes: Point[][] = []): UvRect[] {
     return result;
 }
 
+/** Exact rectangles of an axis-aligned footprint, largest first: each is the biggest the part
+ *  still uncovered holds. A room stepped out to a curved facade keeps its body in a few large
+ *  rectangles this way, and only the steps along the curve come out as small ones. */
+export function coverRectangles(polygon: Point[], holes: Point[][] = []): UvRect[] {
+    const rings = [polygon, ...holes];
+    const xs = [...new Set(rings.flat().map(p => p[0]))].sort((a, b) => a - b);
+    const zs = [...new Set(rings.flat().map(p => p[1]))].sort((a, b) => a - b);
+    const nx = xs.length - 1, nz = zs.length - 1;
+    const free: boolean[][] = [];
+    for (let j = 0; j < nz; j++) {
+        free.push([]);
+        for (let i = 0; i < nx; i++)
+            free[j]!.push(roomFootprintContains({ polygon, holes }, [(xs[i]! + xs[i + 1]!) / 2, (zs[j]! + zs[j + 1]!) / 2]));
+    }
+    const result: UvRect[] = [];
+    for (;;) {
+        let best: { i0: number; i1: number; j0: number; j1: number; area: number } | undefined;
+        const top = new Array<number>(nx).fill(-1);
+        for (let j = 0; j < nz; j++) {
+            for (let i = 0; i < nx; i++) top[i] = free[j]![i] ? (top[i]! < 0 ? j : top[i]!) : -1;
+            for (let i0 = 0; i0 < nx; i0++) {
+                let high = -1;
+                for (let i1 = i0; i1 < nx && top[i1]! >= 0; i1++) {
+                    high = Math.max(high, top[i1]!);
+                    const area = (xs[i1 + 1]! - xs[i0]!) * (zs[j + 1]! - zs[high]!);
+                    if (!best || area > best.area + 1e-9) best = { i0, i1, j0: high, j1: j, area };
+                }
+            }
+        }
+        if (!best) return result;
+        for (let j = best.j0; j <= best.j1; j++) for (let i = best.i0; i <= best.i1; i++) free[j]![i] = false;
+        result.push({ u: xs[best.i0]!, v: zs[best.j0]!, lu: xs[best.i1 + 1]! - xs[best.i0]!, lv: zs[best.j1 + 1]! - zs[best.j0]! });
+    }
+}
+
 /** The parts of `bounds` inside `plate` that no rectangle of `covered` reaches, merged into
  *  the fewest row-wise rectangles. Slivers below a millimetre are rounding, not floor. */
 export function uncoveredRects(bounds: UvRect, covered: readonly UvRect[], plate: readonly Point[]): UvRect[] {
