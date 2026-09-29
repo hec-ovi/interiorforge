@@ -120,6 +120,17 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
         && !ctx.exclude?.has(`${room.id}:${t.id}`));
       if (!fitting.length) return;
       const template = fitting[index % fitting.length]!;
+      // A room of an already authored ground programme (the worn ground's named roles) keeps
+      // its shape and furniture: the template only names it.
+      if (room.id.includes("-damaged-")) {
+        const remainder = template.rooms.find(item => item.remainder && item.level !== "upper");
+        if (!remainder) return;
+        const stamped: PlanRoom = { ...room, style: remainder.style ?? template.style, template: `${template.id}/${remainder.id}`,
+          ...(remainder.role ? { role: remainder.role } : {}) };
+        rooms = rooms.map(item => item === room ? stamped : item);
+        templated.set(room.id, { key: template.id, rooms: [room.id] });
+        return;
+      }
       const facadeEdges = facadeEdgesOf(room.rect, ctx.plate);
       // an office hall takes one reference office per facade side it can, the rest one each
       const perRoom = slot.slot === "hall" ? 2 : 1;
