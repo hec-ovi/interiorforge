@@ -53,7 +53,11 @@ vi.mock('../src/styles/systems/floor.js', async original => {
 vi.mock('../src/styles/systems/portal.js', async original => {
     const actual = await original<typeof import('../src/styles/systems/portal.js')>();
     const { uvToWorld } = await import('../src/layout/uv.js');
+    const { FINISH } = await import('../src/modules/finishes.js');
     return { ...actual,
+        // the stand-in portal draws its passage header alone, whatever the real portal system draws
+        portalRecipes: (spec: { id: string }) => (add: (id: string, draw: (k: import('../src/modules/kit.js').Kit) => void) => void) =>
+            add(`door-header-${spec.id}`, k => k.box(FINISH.ivory, [-.25, 0, -.1], [.5, .3, .2])),
         portalEligible: (spec: { id: string }, _peers: unknown, hole: { width: number }) => spec.id === 'e1-arch' && hole.width >= .7,
         placePortal: (...args: Parameters<typeof actual.placePortal>) => {
             const [builder, spec, room, axis, c, at, width, height, frame] = args;
@@ -130,7 +134,6 @@ vi.mock('../src/styles/ref-a/index.js', async () => {
             add('wall-field-e2-frontage', k => k.cbox(FINISH.dark, [0, 0, .0475], [.5, .5, .095]));
             add('lift-landing-jamb-e2', k => k.box(FINISH.dark, [-.05, 0, -.115], [.1, 2.2, .16]));
             add('lift-landing-header-e2', k => k.box(FINISH.dark, [-.65, 0, -.115], [1.3, .13, .16]));
-            add('door-header-e1-arch', k => k.box(FINISH.ivory, [-.25, 0, -.1], [.5, .3, .2]));
             add('fit-e1-sofa', k => k.cbox(FINISH.dark, [0, 0, 0], [1.8, .8, .85]));
             add('ceiling-cove-e1-dress', k => k.cbox(FINISH.lensWarm, [0, 0, 0], [.4, .01, .1]));
         }],
