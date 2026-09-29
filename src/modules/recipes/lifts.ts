@@ -108,12 +108,13 @@ export const liftRecipes: RecipeSet = (add) => {
   });
   // Each stationary member is a separate solid box. A combined U-frame would
   // become a solid cuboid in the unchanged consumer and block the doorway.
+  const [frameBack, frameFront] = LIFT_LANDING.frame;
   add("lift-landing-jamb", (k) => {
-    k.box(FINISH.zinc, [-0.05, 0, -0.115], [0.10, 2.20, 0.16]);
+    k.box(FINISH.zinc, [-0.05, 0, frameBack], [0.10, 2.20, frameFront - frameBack]);
     k.box(FINISH.chrome, [-0.05, 0, -0.124], [0.022, 2.20, 0.009]);
   });
   add("lift-landing-header", (k) => {
-    k.box(FINISH.zinc, [-0.65, 0, -0.115], [1.30, 0.13, 0.16]);
+    k.box(FINISH.zinc, [-0.65, 0, frameBack], [1.30, 0.13, frameFront - frameBack]);
     k.box(FINISH.charcoal, [-0.25, 0.045, -0.127], [0.50, 0.065, 0.012]);
     k.box(FINISH.ledCyan, [-0.10, 0.064, -0.132], [0.20, 0.025, 0.005]);
   });

@@ -161,6 +161,29 @@ it('keeps every member that stands still at a landing out of the car front the c
     }
 });
 
+it('frames a landing with members that never show a face in the plane of another, so none of them flickers', () => {
+    const builder = new PlacementBuilder();
+    lifts(builder, plan, 'floor-slab-stone', 'lobby', 3.4, 4.5, 0);
+    const members = builder.placements.filter(p => /^(lift-landing-|lift-reveal-|elevator-shaft-wall)/.test(p.module!)).map(p => {
+        const box = new THREE.Box3();
+        for (const mesh of placedMeshes(p)) { mesh.geometry.computeBoundingBox(); box.union(mesh.geometry.boundingBox!.clone().applyMatrix4(mesh.matrixWorld)); }
+        return { module: p.module!, box };
+    });
+    const axes = ['x', 'y', 'z'] as const;
+    for (const [i, a] of members.entries()) for (const b of members.slice(i + 1)) {
+        // Only where one of the pair is the landing's own frame or reveal, which a player sees.
+        if (a.module === 'elevator-shaft-wall' && b.module === 'elevator-shaft-wall') continue;
+        for (const axis of axes) for (const side of ['min', 'max'] as const) {
+            // Undersides standing on the floor face into it and are never seen.
+            if (axis === 'y' && side === 'min' && Math.abs(a.box.min.y) < 1e-6) continue;
+            if (Math.abs(a.box[side][axis] - b.box[side][axis]) > 1e-6) continue;
+            const others = axes.filter(one => one !== axis);
+            const overlap = others.map(one => Math.min(a.box.max[one], b.box.max[one]) - Math.max(a.box.min[one], b.box.min[one]));
+            expect(overlap[0]! > 1e-4 && overlap[1]! > 1e-4, `${a.module} and ${b.module} share their ${side} ${axis} face`).toBe(false);
+        }
+    }
+});
+
 const engine = resolve('../engine/src/game');
 it.skipIf(!existsSync(engine))('real player collision keeps the camera inside cab skins and crosses the flush threshold', async () => {
     const load = (path: string) => import(pathToFileURL(resolve(engine, path)).href);

@@ -1,4 +1,4 @@
-import { LIFT_CAR, LIFT_SHAFT_FRONT } from '../geometry/lift-spec.js';
+import { LIFT_CAR, LIFT_LANDING, LIFT_SHAFT_FRONT } from '../geometry/lift-spec.js';
 import { elevatorDoorHole } from '../geometry/core-geo.js';
 import type { LightFixture } from '../core/types.js';
 import type { CorePlan } from '../layout/core-plan.js';
@@ -68,10 +68,12 @@ export function lifts(builder: PlacementBuilder, core: CorePlan, floorModule: st
         // wall line from the landing head to the next floor, so the lining of the
         // corridor or lobby, finished on its room side only, is never seen from the
         // shaft and no slot opens under the slab above.
-        const cheek = (rect.lu - passage.width) / 2, front = LIFT_SHAFT_FRONT.depth;
+        // The cheeks stand a centimetre clear of the doorway, so their faces stay
+        // behind the landing's jambs instead of sharing the jambs' plane.
+        const cheek = (rect.lu - passage.width) / 2 - 0.01, front = LIFT_SHAFT_FRONT.depth;
         for (const u of [rect.u + cheek / 2, rect.u + rect.lu - cheek / 2])
             solid(u, rect.v + front / 2, cheek, front);
-        solid(passage.at, rect.v + front / 2, passage.width + 0.02, front, LIFT_SHAFT_FRONT.faceFrom);
+        solid(passage.at, rect.v + front / 2, passage.width + 0.04, front, LIFT_SHAFT_FRONT.faceFrom);
         const gap = carFront - core.vFace;
         if (gap > 1e-6) {
             // No exposed shaft gap between the corridor slab and the car floor: the
@@ -79,15 +81,20 @@ export function lifts(builder: PlacementBuilder, core: CorePlan, floorModule: st
             const threshold = gap - LIFT_CAR.door.sill;
             if (threshold > 1e-6) surface(builder, floorModule, room,
                 { u: passage.at - passage.width / 2, v: core.vFace, lu: passage.width, lv: threshold }, 0, core.frame);
-            // The reveal lines the passage up to the car's leaves and stops short of
-            // them, so nothing standing at a landing reaches into the car's front as
-            // it passes the floor.
-            const reveal = Math.max(0.01, gap + LIFT_CAR.door.plane[0] - 0.004);
-            for (const side of [-1, 1]) {
-                const [jx, jz] = uvToWorld([passage.at + side * (passage.width / 2 + 0.01), core.vFace], core.frame);
-                builder.module('lift-reveal-jamb', elevator.id, [jx, 0, jz], [1, 1, reveal], angle);
+            // The reveal lines the passage from the back of the landing's frame to
+            // just short of the car's leaves, so it shares no face with the frame and
+            // nothing standing at a landing reaches into the car's front as it
+            // passes the floor.
+            const from = core.vFace + LIFT_LANDING.frame[1];
+            const reveal = carFront + LIFT_CAR.door.plane[0] - 0.004 - from;
+            if (reveal > 1e-3) {
+                for (const side of [-1, 1]) {
+                    const [jx, jz] = uvToWorld([passage.at + side * (passage.width / 2 + 0.01), from], core.frame);
+                    builder.module('lift-reveal-jamb', elevator.id, [jx, 0, jz], [1, 1, reveal], angle);
+                }
+                const [hx, hz] = uvToWorld([passage.at, from], core.frame);
+                builder.module('lift-reveal-header', elevator.id, [hx, 2.20, hz], [doorScale[0], 1, reveal], angle);
             }
-            builder.module('lift-reveal-header', elevator.id, [dx, 2.20, dz], [doorScale[0], 1, reveal], angle);
         }
     }
     return lights;

@@ -25,8 +25,9 @@ export const LIFT_CAR = {
 
 /** A landing's leaves: `leaf` wide each and meeting at the module's zero, so a shut pair is
  *  wider than the doorway and each tucks behind its jamb; `plane` is their depth about the
- *  wall line and `height` the doorway head they close. */
-export const LIFT_LANDING = { leaf: 0.56, height: 2.20, plane: [-0.03, 0.03] as const } as const;
+ *  wall line and `height` the doorway head they close. `frame` is the depth the landing's
+ *  jambs and head span about the wall line, a styled frame's included. */
+export const LIFT_LANDING = { leaf: 0.56, height: 2.20, plane: [-0.03, 0.03] as const, frame: [-0.115, 0.045] as const } as const;
 
 /** The shaft side of a landing's wall line: the cheeks beside the doorway and the face above
  *  the landing head stand `depth` into the shaft from the wall line, short of the car's

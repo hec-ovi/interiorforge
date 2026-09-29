@@ -28,8 +28,8 @@ it('fits a full-sized car and bridges the landing without a shaft gap at every o
         expect(recipe.size[2] * car.scale[2]).toBeCloseTo(size - 0.20, 6);
         expect(car.rotationY).toBeCloseTo(-angle * Math.PI / 180, 7);
         const reveal = builder.placements.find(p => p.module === 'lift-reveal-jamb')!;
-        // The reveal lines the passage from the wall line to just short of the car's leaves.
-        expect(reveal.scale[2]).toBeCloseTo(0.10 + LIFT_CAR.door.plane[0] - 0.004, 6);
+        // The reveal lines the passage from the back of the landing frame to just short of the car's leaves.
+        expect(reveal.scale[2]).toBeCloseTo(0.10 + LIFT_CAR.door.plane[0] - 0.004 - LIFT_LANDING.frame[1], 6);
         const doors = builder.placements.find(p => p.module === 'lift-doors')!;
         expect(reveal.rotationY).toBeCloseTo(doors.rotationY - Math.PI, 7);
         expect(builder.placements.filter(p => p.module === 'lift-car')).toHaveLength(1);
