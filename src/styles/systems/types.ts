@@ -305,6 +305,8 @@ export interface SurfaceRoom {
     ceilingY: number;
     /** floor-relative underside of the slab above: coffers rise at most to this minus 0.15 */
     soffitY: number;
+    /** floor elevation: light records are building-local, placements floor-relative */
+    elevation: number;
     /** raised or sunken zones, uv polygons */
     levels?: LevelZone[];
     ceilingDrop?: number;
