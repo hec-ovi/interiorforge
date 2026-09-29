@@ -95,7 +95,10 @@ function roomArrival(room: PlanRoom, rooms: readonly PlanRoom[], fixtureRoomsAtE
   // centres. Their atomic planner separately verifies body paths to every fixture.
   const fittedHomeKitchen = room.kind === 'kitchen' && room.unit !== undefined
     && rooms.some(main => main.unit === room.unit && main.kind === 'living' && main.furnishingKeepouts?.length);
-  if (fittedHomeKitchen || fixtureRoomsAtEntry && (room.kind === 'bathroom' || room.kind === 'kitchen')) {
+  // A reference bath keeps its authored size, too tight for vanity, shower and toilet
+  // around a reserved centre: its fixtures stand around the perimeter of a free floor.
+  const referenceBath = room.kind === 'bathroom' && room.template !== undefined;
+  if (fittedHomeKitchen || referenceBath || fixtureRoomsAtEntry && (room.kind === 'bathroom' || room.kind === 'kitchen')) {
     for (const door of room.doors) {
       const inside = doorApproaches(door, room)[0];
       if (roomClearance(room, inside) >= AGENT_RADIUS + .05) return inside;
