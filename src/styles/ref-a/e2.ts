@@ -62,9 +62,8 @@ export const E2_STYLE: StyleSpec = {
     id: 'e2', kind: 'A', tier: 'high_rich',
     finish(kind: RoomKind, _floorKind: FloorKind, base: RoomFinish): RoomFinish {
         const { frame: _frame, band: _band, services: _services, ...plain } = base;
-        if (!PUBLIC.has(kind)) return { ...plain, casing: 'e2' };
-        return { ...plain, family: 'luxury', field: E2_PANEL.system.id, floor: E2_FLOOR.system.id, ceiling: E2_CEILING.system.id,
-            casing: 'e2', portal: 'e2-lobby' };
+        if (!PUBLIC.has(kind)) return plain;
+        return { ...plain, family: 'luxury', field: E2_PANEL.system.id, floor: E2_FLOOR.system.id, ceiling: E2_CEILING.system.id };
     },
     lights: { plannedCoves: false, kelvin: 3000 },
     lift: { jamb: 'lift-landing-jamb-e2', header: 'lift-landing-header-e2' },
