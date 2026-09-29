@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { generate, type Blueprint } from '../src/index.js';
+import { generate, type Blueprint, type PlacementResult } from '../src/index.js';
+import { templateSwitch } from '../src/layout/templates/registry.js';
 import { polygonArea } from '../src/core/geom.js';
 import { RigidFrame2D } from '../src/core/rigid-frame.js';
 
@@ -19,8 +20,15 @@ it('fully regenerates complete luxury homes at a translated 37-degree facade/gri
   const blueprint: Blueprint = shell.blueprint;
   // Single storeys: as a kind B building its derived crown loft would pair the top two.
   const assignments = blueprint.floors.map(floor => ({ floor: floor.index, kind: floor.index === 0 ? 'lobby' as const : 'apartment' as const }));
-  const result = await generate({ seed: 'duplex-1702', building: { id: 'rotation-proof', type: 'residential', tier: 'high_rich' },
-    blueprint, assignments, materialTheme: 'cyberpunk' });
+  // Kind B homes now take the reference apartments; these are the generic perimeter homes they fall back to.
+  templateSwitch.enabled = false;
+  let result: PlacementResult;
+  try {
+    result = await generate({ seed: 'duplex-1702', building: { id: 'rotation-proof', type: 'residential', tier: 'high_rich' },
+      blueprint, assignments, materialTheme: 'cyberpunk' });
+  } finally {
+    templateSwitch.enabled = true;
+  }
   const area = (room: { polygon: [number, number][]; holes?: [number, number][][] }) => Math.abs(polygonArea(room.polygon))
     - (room.holes ?? []).reduce((sum, ring) => sum + Math.abs(polygonArea(ring)), 0);
   for (const name of ['middle', 'crown'] as const) {

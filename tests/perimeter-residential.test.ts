@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { generate } from '../src/index.js';
-import type { Blueprint, FloorPlacement, Room } from '../src/index.js';
+import type { Blueprint, FloorPlacement, InteriorRequest, PlacementResult, Room } from '../src/index.js';
+import { templateSwitch } from '../src/layout/templates/registry.js';
 import { polygonArea } from '../src/core/geom.js';
 
 const area = (room: Room) => Math.abs(polygonArea(room.polygon))
@@ -10,6 +11,17 @@ const area = (room: Room) => Math.abs(polygonArea(room.polygon))
 /** One storey per home floor: a high rich home on balcony-grid is a kind B building, whose
  *  derived crown loft would pair its top storeys; these plates certify the perimeter homes. */
 const storeys = (blueprint: Blueprint) => blueprint.floors.map(floor => ({ floor: floor.index, kind: floor.index === 0 ? 'lobby' as const : 'apartment' as const }));
+
+/** Kind B homes now take the reference apartments; these plates certify the generic
+ *  perimeter homes they fall back to, planned with the templates off. */
+async function generic(request: InteriorRequest): Promise<PlacementResult> {
+  templateSwitch.enabled = false;
+  try {
+    return await generate(request);
+  } finally {
+    templateSwitch.enabled = true;
+  }
+}
 
 function certify(layout: FloorPlacement, blueprint: Blueprint): number[] {
   const floor = layout.floor, shell = blueprint.floors.find(item => item.index === floor.floor)!;
@@ -82,7 +94,7 @@ function certify(layout: FloorPlacement, blueprint: Blueprint): number[] {
 
 it('fills the EXACT published review05 upper plate with four complete homes instead of a 689m² shared lounge', async () => {
   const blueprint: Blueprint = JSON.parse(readFileSync(new URL('./kit-plans/balcony-grid-review-05.blueprint.json', import.meta.url), 'utf8'));
-  const result = await generate({ seed: 'luxury-reference-review', building: { id: 'p0', type: 'residential', tier: 'high_rich' },
+  const result = await generic({ seed: 'luxury-reference-review', building: { id: 'p0', type: 'residential', tier: 'high_rich' },
     blueprint, assignments: storeys(blueprint), materialTheme: 'cyberpunk' });
   for (const name of ['middle', 'crown'] as const) {
     const areas = certify(result.layouts[name]!, blueprint);
@@ -102,7 +114,7 @@ it('splits additional legal bays on a 60m set while preserving coverage and comp
       buildingGrid: { origin: [81.5, 34], angle: 0, spacing: .5 } },
     building: { type: 'residential', tier: 'high_rich', floors: 6 }, theme: 'cyberpunk',
     options: { architecture: 'balcony-grid', glb: 'merged' } }, { textures: { mode: 'keys' } });
-  const result = await generate({ seed: 'luxury-reference-review', building: { id: 'wide', type: 'residential', tier: 'high_rich' },
+  const result = await generic({ seed: 'luxury-reference-review', building: { id: 'wide', type: 'residential', tier: 'high_rich' },
     blueprint, assignments: storeys(blueprint), materialTheme: 'cyberpunk' });
   for (const name of ['middle', 'crown'] as const) {
     const areas = certify(result.layouts[name]!, blueprint);
