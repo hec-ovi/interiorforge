@@ -70,7 +70,11 @@ const plainSlab = (id: string, slot: string): RecipeSet => add => add(id, k => {
 });
 
 export const surfaceRecipesC: RecipeSet = add => {
-    for (const preset of [c1, c7, c2, ceilingC1, floorC1]) preset.recipes(add);
+    for (const preset of [c1, c7, c2, floorC1]) preset.recipes(add);
+    // The ceiling backing closes the joints as a thin closed plate (a single face would
+    // publish a module of zero height).
+    ceilingC1.recipes((id, draw) => add(id, id !== ceilingC1.system.backing ? draw
+        : k => k.cbox(C.black, [0, .034, 0], [.5, .006, .5], undefined, ['bottom', 'north', 'south', 'east', 'west'])));
     plainSlab('floor-slab-c7', 'cyberpunk/interior-capsule-floor/mid#field')(add);
     plainSlab('floor-slab-c4', C.ochre)(add);
     // the public cassette ceiling and the service rooms' teal paint as plain fields, whose
