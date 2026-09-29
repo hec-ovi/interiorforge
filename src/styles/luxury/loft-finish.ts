@@ -34,6 +34,8 @@ const M={
   rug:'cyberpunk/loft1702-rug/rich#red',
 } as const;
 const CELL=.5,JOINT=.004;
+/** Pieces narrower than this are not placed (their scale would round to zero). */
+const MIN_PIECE=.001;
 type Sink=Pick<PlacementBuilder,'module'>;
 export type Loft1702WallMode='bays'|'fluted'|'panel'|'pattern';
 
@@ -164,7 +166,9 @@ export function placeLoft1702Wall(builder:Sink,room:string,at:Vec3,width:number,
   options:{phase?:number;mode?:Loft1702WallMode;wet?:boolean}={}):void{
   if(width<=1e-5||height<=1e-5)return;
   const phase=options.phase??0,mode=options.mode??'bays',c=Math.cos(rotationY),s=Math.sin(rotationY);
-  const place=(id:string,x:number,y:number,w:number,h:number)=>builder.module(id,room,[at[0]+x*c,at[1]+y,at[2]-x*s],[w/CELL,h/CELL,1],rotationY);
+  // A piece under a millimetre (a lattice interval clipped at the face end) is left out:
+  // it would publish a zero scale.
+  const place=(id:string,x:number,y:number,w:number,h:number)=>{if(w>=MIN_PIECE&&h>=MIN_PIECE)builder.module(id,room,[at[0]+x*c,at[1]+y,at[2]-x*s],[w/CELL,h/CELL,1],rotationY);};
   if(options.wet){place(LOFT1702_FINISH.wetWall,0,0,width,height);return;}
   place('loft1702-wall-backing',0,0,width,height);
   const skirt=at[1]>=-1e-6&&at[1]<.001&&height>.12;
@@ -195,7 +199,7 @@ export function placeLoft1702Wall(builder:Sink,room:string,at:Vec3,width:number,
 export function placeLoft1702Ceiling(builder:Sink,room:string,rect:UvRect,y:number,frame:Frame,
   options:{dark?:boolean;phase?:Point;grainAxis?:'u'|'v';edges?:('u0'|'u1'|'v0'|'v1')[]}={}):void{
   const rotation=-frame.angleDeg*Math.PI/180,phase=options.phase??[0,0];
-  const place=(id:string,r:UvRect)=>{const[x,z]=uvToWorld([r.u+r.lu/2,r.v+r.lv/2],frame);builder.module(id,room,[x,y,z],[r.lu/CELL,1,r.lv/CELL],rotation);};
+  const place=(id:string,r:UvRect)=>{if(r.lu<MIN_PIECE||r.lv<MIN_PIECE)return;const[x,z]=uvToWorld([r.u+r.lu/2,r.v+r.lv/2],frame);builder.module(id,room,[x,y,z],[r.lu/CELL,1,r.lv/CELL],rotation);};
   place('loft1702-ceiling-backing',rect);
   const longV=options.grainAxis!=='u';
   const us=loft1702Intervals(rect.u,rect.u+rect.lu,options.dark ? 1.5 : longV ? .25 : 2.4,phase[0]);
@@ -206,7 +210,7 @@ export function placeLoft1702Ceiling(builder:Sink,room:string,rect:UvRect,y:numb
     const back=v0>rect.v+1e-8?gapV/2:0,front=v1<rect.v+rect.lv-1e-8?gapV/2:0;
     const r={u:u0+left,v:v0+back,lu:w-left-right,lv:d-back-front};
     if(longV||options.dark)place(options.dark?'loft1702-ceiling-dark-panel':'loft1702-ceiling-board',r);
-    else{const[x,z]=uvToWorld([r.u+r.lu/2,r.v+r.lv/2],frame);builder.module('loft1702-ceiling-board',room,[x,y,z],[r.lv/CELL,1,r.lu/CELL],rotation+Math.PI/2);}
+    else if(r.lu>=MIN_PIECE&&r.lv>=MIN_PIECE){const[x,z]=uvToWorld([r.u+r.lu/2,r.v+r.lv/2],frame);builder.module('loft1702-ceiling-board',room,[x,y,z],[r.lv/CELL,1,r.lu/CELL],rotation+Math.PI/2);}
   }
   for(const edge of options.edges??[]){
     const horizontal=edge[0]==='v',length=horizontal?rect.lu:rect.lv;
