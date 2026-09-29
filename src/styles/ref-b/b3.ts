@@ -15,8 +15,9 @@ import { B_LOOK, B_WARM } from './looks.js';
 /** B3, the rich glass building's apartment with the raised bar: smoked walnut fields in
  *  1.2 m panels with fine gold joints and a gold reveal under the ceiling in the living
  *  rooms, charcoal fields with gold seams in the bedroom, dark lacquer with bronze strips in
- *  the bath; polished dark stone in 1.2 × 0.6 m slabs in the living rooms, dark wide planks
- *  in the bedroom, white marble in the bath; a glossy dark ceiling inside a dropped ring
+ *  the bath; warm walnut planks inside a pale timber border in the living rooms (the
+ *  platform and the pit in the same planks), smoked wide planks in the bedroom, white
+ *  marble in the bath; a glossy dark ceiling inside a dropped ring
  *  whose fascia carries a warm up-light (the double light loop); the bar stands on a
  *  raised platform with gold-nosed lit steps and a glass guard. */
 
@@ -40,13 +41,14 @@ const wetWall = panelPreset('B', 'b3-wet', {
         foot: { height: .05, module: 'wall-panel-b3-wet-foot' }, minColumn: .25 },
     profile: { skin: B_LOOK.charcoal, backing: B_LOOK.bronze, seams: [], foot: { slot: B_LOOK.bronze, depth: .1 } },
 });
-const livingFloor = floorPreset('B', 'b3', {
-    system: { tile: { size: [1.2, .6], joint: .003, block: 'floor-finish-b3-stone', blockTiles: [2, 4], phase: 'room' }, border: undefined },
-    profile: { tile: B_LOOK.stone },
+const livingFloor = floorPreset('B-plank', 'b3', {
+    system: { tile: { size: [2.4, .2], joint: .002, block: 'floor-finish-b3-planks', blockTiles: [1, 5], phase: 'room' },
+        border: { width: .18, module: 'floor-finish-b3-border' } },
+    profile: { tile: B_LOOK.walnut, border: B_LOOK.oak },
 });
 const bedFloor = floorPreset('B-plank', 'b3-plank', {
     system: { tile: { size: [2.4, .3], joint: .002, block: 'floor-finish-b3-plank-planks', blockTiles: [1, 4], phase: 'room' } },
-    profile: { tile: B_LOOK.plank },
+    profile: { tile: B_LOOK.smoked },
 });
 const wetFloor = floorPreset('B', 'b3-marble', {
     system: { tile: { size: [1.2, 1.2], joint: .002, block: 'floor-finish-b3-marble-slab', blockTiles: [2, 2], phase: 'room' },
@@ -66,7 +68,7 @@ const wetCeiling = ceilingPreset('B', 'b3-wet', {
 });
 
 export const B3_LEVEL: LevelProfile = {
-    top: B_LOOK.stone, riser: B_LOOK.smoked, nosing: B_LOOK.gold,
+    top: B_LOOK.walnut, riser: B_LOOK.smoked, nosing: B_LOOK.gold,
     guard: { glass: B_LOOK.glass, cap: B_LOOK.gold },
     lit: { kelvin: B_WARM, lumensPerMetre: 18 },
 };

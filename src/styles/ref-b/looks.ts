@@ -11,6 +11,8 @@ export const B_LOOK = {
     marble: 'cyberpunk/loft1702-stone/rich#pale',
     /** honed lobby stone */
     honed: 'cyberpunk/meridian-lobby-stone/rich#honed',
+    /** pale timber: floor borders round the living planks */
+    oak: 'cyberpunk/interior-luxury-timber/rich#field',
     /** dark wide planks: bedrooms */
     plank: 'cyberpunk/wood/high_rich#2',
     /** charcoal leather-like wall field (bedroom) */

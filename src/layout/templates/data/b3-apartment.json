@@ -20,7 +20,8 @@
     { "id": "v3", "axis": "v", "ref": 5.5 },
     { "id": "v4", "axis": "v", "ref": 6.2 },
     { "id": "v5", "axis": "v", "ref": 7.6 },
-    { "id": "v6", "axis": "v", "ref": 11.0 }
+    { "id": "v6", "axis": "v", "ref": 8.4 },
+    { "id": "v7", "axis": "v", "ref": 11.0 }
   ],
   "spans": [
     { "from": "u0", "to": "u1", "min": 3.9, "max": 4.8, "weight": 0.3 },
@@ -32,19 +33,20 @@
     { "from": "v2", "to": "v3", "min": 2.0, "max": 3.4, "weight": 0 },
     { "from": "v3", "to": "v4", "min": 0.5, "max": 1.2, "weight": 0 },
     { "from": "v4", "to": "v5", "min": 0.9, "max": null, "weight": 2.75 },
-    { "from": "v5", "to": "v6", "min": 2.9, "max": 3.6, "weight": 0.2 }
+    { "from": "v5", "to": "v6", "min": 0.8, "max": 0.8, "weight": 0 },
+    { "from": "v6", "to": "v7", "min": 2.1, "max": 2.8, "weight": 0.2 }
   ],
   "rooms": [
     { "id": "living", "kind": "living", "role": "living", "remainder": true, "ceiling": 3.0,
-      "keepouts": [ { "u": ["u0", "u1"], "v": ["v2", "v4"] }, { "u": ["u0", "u1"], "v": ["v5", "v6"] } ],
+      "keepouts": [ { "u": ["u0", "u1"], "v": ["v2", "v4"] } ],
       "levels": [
         { "u": ["u0", "u1"], "v": ["v2", "v4"], "delta": -0.3, "edge": "step" },
-        { "u": ["u0", "u1"], "v": ["v5", "v6"], "delta": 0.3, "edge": "step" }
+        { "u": ["u0", "u1"], "v": ["v5", "v7"], "delta": 0.3, "edge": "step" }
       ] },
     { "id": "bath", "kind": "bathroom", "role": "bath", "u": ["u3", "u4"], "v": ["v1", "v3"], "minClear": [2.6, 2.6], "ceiling": 2.8 },
     { "id": "study", "kind": "office_private", "role": "study", "u": ["u2", "u3"], "v": ["v1", "v3"],
       "optional": { "drop": 1 }, "minClear": [1.6, 2.2], "ceiling": 2.8 },
-    { "id": "bed", "kind": "bedroom", "role": "bedroom", "u": ["u2", "u4"], "v": ["v3", "v6"], "minClear": [4.2, 4.2], "ceiling": 3.0 }
+    { "id": "bed", "kind": "bedroom", "role": "bedroom", "u": ["u2", "u4"], "v": ["v3", "v7"], "minClear": [4.2, 4.2], "ceiling": 3.0 }
   ],
   "doors": [
     { "id": "entry", "between": ["living", "@public"], "width": 1.6, "leaves": 2, "kind": "pocket", "along": 0.45, "owner": "living" },
@@ -56,7 +58,7 @@
     { "id": "kitchen", "room": "living", "kind": "kitchen_block", "fit": "asm-b3-bar", "required": true, "wall": "u0",
       "along": { "line": "v5", "offset": 0.75 }, "size": [2.4, 0.65, 2.2], "rotationDeg": 90, "stretch": ["v"] },
     { "id": "bar", "room": "living", "kind": "bar_counter", "fit": "asm-b3-counter", "required": false, "wall": "free",
-      "along": { "centred": true }, "at": [2.35, 9.0], "size": [3.0, 0.7, 1.1], "rotationDeg": 180 },
+      "along": { "centred": true }, "at": [2.7, 8.9], "size": [2.8, 0.7, 1.1], "rotationDeg": 180 },
     { "id": "bamboo", "room": "living", "kind": "plant", "required": false, "wall": "free",
       "along": { "centred": true }, "at": [6.6, 2.3], "size": [1.8, 0.5, 2.6], "rotationDeg": 0 },
     { "id": "bed", "room": "bed", "kind": "bed_double", "required": true, "wall": "u1",
