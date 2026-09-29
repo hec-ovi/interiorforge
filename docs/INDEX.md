@@ -12,6 +12,8 @@ decisions. [Dimensions](RESEARCH.md) lists construction constants.
 | [Layout](../src/layout/CONTRACT.md) | Fit rooms inside the published room envelope and reduce service programs to fit | Core | [Floor](../schemas/floor.schema.json), [program changes](../schemas/building.schema.json), [circulation](../src/layout/schema/circulation.schema.json), [core fit](../src/layout/schema/core-feasibility.schema.json), [constants](../schemas/core-feasibility.json) |
 | [Lofts](../src/layout/lofts/CONTRACT.md) | Fit planning surfaces for multiple storeys | Layout, Core | [Floor](../schemas/floor.schema.json) |
 | [Luxury](../src/layout/luxury/CONTRACT.md) | Fit complete furniture groups | Layout | [Parameters](../src/layout/luxury/schema.ts) |
+| [Duplex](../src/layout/duplex/README.md) | Turn paired apartment storeys into private two-level homes | Layout, Placements | [Floor](../schemas/floor.schema.json) |
+| Styles: [luxury](../src/styles/luxury/README.md), [corporate](../src/styles/corporate/README.md), [capsule](../src/styles/capsule/README.md), [sandra](../src/styles/sandra/README.md), [damaged](../src/styles/damaged/README.md), [industrial](../src/styles/industrial/REFERENCE.md) | Each family's modules, fits, programs and finishes, adapted from its references | Layout, Modules, Placements | [Finish](../src/placements/finish.ts), [lift car](../src/geometry/lift-spec.ts), [entrances](../src/styles/luxury/apartment-doors.ts) |
 | [Geometry](../src/geometry/CONTRACT.md) | Measure wall boundaries and emitted clearance | Core, Layout, GLB | [Floor](../schemas/floor.schema.json), [blueprint](../schemas/blueprint.schema.json) |
 | [GLB](../src/glb/CONTRACT.md) | Build indexed meshes and read or write GLB | Core, glTF Transform | [Mesh parameters](../src/glb/mesh-builder.ts) |
 | [Modules](../src/modules/CONTRACT.md) | Publish reusable room geometry: surfaces, lights, core and built-in furniture wearing Materials keys | GLB, Materials, meshoptimizer | [Catalog](../schemas/modules.schema.json), [finishes](../src/modules/finishes.ts) |
@@ -34,13 +36,18 @@ Exterior published it once a core fit, and every floor whose kind names no progr
 against its parcel's, and `npm run sweep` runs it over every
 plan of every index and every shell of the city `URBE_CITY_DIR` names. `tests/kit-plans`
 holds consumed copies of the undertow plans and shell that once walled a 2 m balcony door
-shut, left floor open beside a lift, or cost an office desk its post to the toilets behind
-its partition, of the Sluice and white-grid plans whose street door once opened onto a
+shut or left floor open beside a lift, of the Sluice and white-grid plans whose street door once opened onto a
 stair or a toilets wall, and of the undertow plan whose balcony doors once left no core. One checks both compiled browser entries
 against their sources; others route synthetic and generated navigation and furnish with
 local models absent.
 Budget proof uses Exterior `planAssembly` through its
-public source entry and records `out/proof/budget.json`. Each measured export includes
-three JSON layouts, building.json and all shared modules. Budget buildings measure
-40 m by 40 m with 6 floors and 56 m by 56 m with 12 floors. The service regression
-uses a 16 m by 32 m kit with 5 floors. Tests cap workers at two.
+public source entry and records `out/proof/budget.json`: each building's export (three JSON
+layouts and building.json) and the shared module kit are measured apart. Budget buildings
+measure 40 m by 40 m with 6 floors and 56 m by 56 m with 12 floors. The service regression
+uses a 16 m by 32 m kit with 5 floors. Tests cap workers at two. Integration tests that
+generate whole paired buildings with Exterior, and walk them with the Engine's player,
+read the sibling `exterior` and `engine` checkouts. [Stair construction](stair-construction.md)
+describes the stair profiles and the tests that cover them. `scripts/` holds review tooling
+that assembles one generated building into an Engine world and captures it in a headless
+Chromium-family browser (`--browser` or `URBE_BROWSER`, else Brave, Chrome or Chromium on
+`PATH`).

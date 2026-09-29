@@ -1,7 +1,7 @@
 # Stair construction and reference profiles
 
 The stair is a complete construction assembly, shared by every footprint and storey
-height the core planner accepts. The canonical `stair-flight-N` retains the unchanged
+height the core planner accepts. The canonical `stair-flight-N` retains the existing
 consumer's tread and guard collision contract. Its structural walking surfaces sit
 12 mm below the finish; separate tread/riser caps finish them at exactly the nominal
 walking height. The closed sloping soffit and side profiles replace exposed sawtooth

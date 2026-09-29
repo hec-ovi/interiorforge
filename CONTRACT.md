@@ -10,8 +10,8 @@ Every named Exterior architecture has a registered Interior recipe in
 its preferred frontage widths, wall/frame palette, floor finish and ceiling treatment;
 the common planner still enforces the exact shell openings, circulation and core.
 The building output publishes optional `architecture`, identifying the chosen recipe.
-Unlabelled legacy shells keep their existing generic interiors. Tier and industrial-use
-rules remain authoritative over luxury finishes.
+Unlabelled legacy shells keep their existing generic interiors. Tier, office and
+industrial-use rules remain authoritative: a recipe's palette dresses luxury rooms only.
 
 ## Calls
 
@@ -27,11 +27,20 @@ rules remain authoritative over luxury finishes.
 | `coreFeasibility` | Consumed blueprint, building type | [Core fit](src/layout/schema/core-feasibility.schema.json), the placement `generate` furnishes |
 
 `makeFixture` also provides a blueprint and shell document for feasibility tools.
+Two source modules are consumed directly and are part of this contract.
+[`src/geometry/lift-spec.ts`](src/geometry/lift-spec.ts) exports `LIFT_CAR`, the authored
+car coordinates (a 2.3 m cab, scaled by its placement into its shaft, with its 1.1 m
+doorway, the control panel's screen and six buttons, and its ceiling lens); the Engine's
+lift consumer reads it so controls, display, passenger collision and cab light stand on the
+model, and a change there changes the Engine's lifts.
+[`src/styles/luxury/apartment-doors.ts`](src/styles/luxury/apartment-doors.ts) exports
+`apartmentEntrances` and `apartmentSlots`, which build the entrance records below.
 `npm run build` compiles the browser entries `src/feasibility.ts` and `src/nav.ts` to
 `dist/feasibility.js` and `dist/nav.js`; `npm run build:feasibility` runs the same build.
 
 Generation accepts a rectangular construction plate, at least one floor at or above
-index zero, and one storey per assignment. Basements stay closed and the lowest
+index zero, and one storey per assignment, or two consecutive storeys above the ground
+floor for an `apartment-1702` duplex (below). Basements stay closed and the lowest
 above-ground floor is the ground layout, whatever index it carries. Two floors publish `ground` and `crown` alone, and
 a stack whose plates hold no vertical core opens as its ground floor alone, with no
 connectors. The manifest names the layouts it publishes. An irregular outline is read through its
@@ -61,6 +70,13 @@ A kind naming its own program keeps it (a hotel's `restaurant` or `bar`, `execut
 `gym`, a `shop` floor as the parcel's venue). Input objects remain unchanged. Optional `shellGlb` is metadata;
 generation consumes the assembled blueprint. No shell, texture or furniture geometry is loaded.
 
+`building.interiorStyle` optionally names a reference identity, independent of shell and
+seed, and the building output publishes the resolved one. `h10` and `japantown` are the two
+capsule profiles of a mid home or hotel (Japantown on white-grid and mirror-shutters
+shells, H10 otherwise, when none is named); `sandra-dorsett` furnishes a mid interior with
+its tatami capsule kit; `apartment-1702` turns `apartment` assignments with `spans: 2` into
+private duplexes. Any other assignment spans one storey.
+
 ## Files and frames
 
 `npm run modules -- --out <dir>` writes shared GLBs and `modules.json`, following
@@ -79,7 +95,12 @@ where an intermediate plate or program differs. Consumers load the manifest's en
 [Building schema](schemas/building.schema.json),
 [layout schema](schemas/floor-placement.schema.json), [types](src/placements/types.ts).
 The lowest floor uses ground, ordinary intermediate floors use middle, and the highest
-uses crown; a two floor building has no middle layout and writes two files.
+uses crown; a two floor building has no middle layout and writes two files. A reachable
+roof adds one more floor reference and one `floor-<roof index>` layout of kind `roof` at the
+roof elevation: it carries the roof navigation once and no furnished rooms, lift stops or
+duplicate placements, and only the roof housing's interior is published as a room
+(`stair-a`). Six occupied storeys and a served roof publish seven floor references; count
+occupied storeys by the layouts whose kind is not `roof`.
 Each layout contains floor metadata, source openings, placements and NPC data.
 
 Placements name exactly one `module` or `prop`, an instance `id`, `room`, XYZ
@@ -93,18 +114,42 @@ XZ stays in the blueprint frame; layout Y starts at the walking surface.
 
 ## The look
 
-A building is furnished in one family: `luxury` for rich and high rich tiers, `capsule`
-for mid, `damaged` for poor, `industrial` for factory and military parcels. Each room
-takes its finish from the family and its kind ([finish table](src/placements/finish.ts)).
+A building is furnished in one family: `luxury` for rich and high rich tiers, `corporate`
+for corpo and offices parcels at mid, rich and high rich tiers, `capsule` for mid, `damaged`
+for poor, `industrial` for factory and military parcels. Each room takes its finish from
+the family and its kind ([finish table](src/placements/finish.ts)). `src/styles/` holds each
+family's own modules, fits and programs, with a README per style on the reference it adapts:
+[luxury](src/styles/luxury/README.md) (with the Corpo Plaza bathroom and the Apartment 1702
+loft), [corporate](src/styles/corporate/README.md), [capsule](src/styles/capsule/README.md),
+[sandra](src/styles/sandra/README.md), [damaged](src/styles/damaged/README.md) and
+[industrial](src/styles/industrial/REFERENCE.md). Their shared GLB recipes are published
+once; building layouts retain dynamic room dimensions and exact shell openings.
+Freestanding furniture uses the `fit-` module prefix so consumers include it in occupancy
+and exclude it from enclosure reflectance. Large wall fields keep sparse joints; service
+runs stretch only their straight sections, with brackets and couplings placed at their
+authored physical sizes. Family furniture publishes its own dimensions and diffuser
+positions. Material UVs use the selected variant's physical repeat when present, then the
+entry's repeat; material maps stay shared outside the GLBs.
 
-Every wall face a room owns is a nine-slice panel frame, its own face on the shell
-included: one fitted field over the whole run as the backing, four one-cell corners, a
-rail along the head and the foot, a stile up each end, and a lit joint at the top and
-bottom, published as `cove` light records. Each member is 12 mm short of its cell, so the
-joints between them show field. A run shorter than 1.5 m, a door header and the unframed
-families (damaged, industrial) take one fitted plain field instead. An office, meeting or
-executive room looks onto public space through a glass field in the same frame. A frame
-band always contrasts its field: walnut on the light walls, ivory on the dark ones.
+Lift cars, moving leaves, stationary landing members and full-height shaft walls are
+separate modules. A lift shaft is 3.5 m square and holds a 3.3 m car, about 3.07 m clear
+inside, with a 1.58 m clear doorway. The Engine owns cab movement and floor selection and
+reads the car's controls from `LIFT_CAR`; generated landing reveals and thresholds keep a
+clear body passage. Internal room apertures retain clear framed passages; they publish no
+moving leaves, and an apartment's entrance is the only door that does (below).
+
+Every wall face a room owns is finished by its family, its own face on the shell included.
+A capsule public room keeps the nine-slice panel frame: one fitted field over the whole run
+as the backing, four one-cell corners, a rail along the head and the foot, a stile up each
+end, and a lit joint at the top and bottom, published as `cove` light records; each member
+is 12 mm short of its cell, so the joints between them show field, and the ivory band
+contrasts its charcoal field. Every other face is one fitted field over its run: the luxury
+family's broad mineral, ivory and walnut panels with backed reveals and metal skirting, the
+corporate family's graphite and mineral panels with warm metal inlays and a red base, the
+capsule family's domestic and utility shells, and the plain fields of the damaged and
+industrial families. A run shorter than 1.5 m and a door header always take one plain
+field. An office, meeting, executive room or lounge looks onto public space through a glass
+field.
 
 For paired `balcony-grid`, `corporate-sectors`, `faceted-bays`, `white-grid`,
 `mirror-shutters`, `mirror-frame` and `garden-taper` blueprints with a room envelope, Exterior owns
@@ -125,7 +170,9 @@ rooms, takes the slab and a plain ceiling field of the room along its longest si
 consumer cutting its storey plate by that rectangle finds no hole. Ceilings carry a fitted outer band, an inset field, recessed spot
 modules and a cove module on every cove record; damaged and industrial families hang
 exposed services instead of a band. Carpets lie under the seating and suite groups a rich
-interior fits, in homes, lounges, receptions and the seated bay of a large shop floor.
+interior fits, in homes, lounges, receptions and the seated bay of a large shop floor; the
+luxury family lays woven reference rugs there instead (`floor-rug-corpo` in homes,
+`floor-rug-biotechnica` in public rooms).
 
 Every room is lit to the illuminance its kind asks for, measured as the flux it publishes
 over its own floor area, not as a fixture count. Ceiling luminaires stand on a grid across
@@ -155,12 +202,18 @@ counters, kitchen runs, beds with planted headboards, wardrobes, showers, toilet
 lit planters, planted screens, aquarium walls, screens, art, shelves, stools, chairs,
 sofas, tables, capsule pods, crates) are scaled per axis to their record; the rest resolve
 catalog props, each turned by its catalog `frontYawDeg` to face its piece's front and
-filling at least three fifths of the record's width and depth. A capsule, damaged or
-industrial bed or wardrobe no present model fills stands as its family's own
-(`fit-bed-capsule`, `fit-wardrobe-capsule`, `fit-bed-worn`, `fit-wardrobe-worn`). Programs: a lobby stands its desk on the axis of the wall facing the
-entrance with seating bays and planter cases; a restaurant runs a counter with its back
-bar and stools, dining tables between planted screens; a residence fits a kitchen run with
-a breakfast bar, a suite and a bathroom with a glazed shower and a planter; a toilets room
+filling at least three fifths of the record's width and depth. The capsule, Sandra and
+damaged families stand their own modules for the pieces they author, beds and wardrobes
+included (`fit-capsule-bed`, `fit-capsule-wardrobe` or the H10 profile's
+`fit-capsule-h10-wardrobe`, `fit-sandra-bed`, `fit-damaged-bed`, `fit-damaged-wardrobe`),
+whatever models are present; the luxury and corporate families prefer a present catalog
+model and stand their own module otherwise. Programs: a lobby stands its concierge desk at
+the arrival, beside the entrance axis, facing the door or, where that would stand it in the
+route to the core, the arrival aisle, with waiting bays flanking the entrance and planted
+displays against opaque walls, or planters on the floor of a glazed arrival; a restaurant
+runs a counter with its back bar and stools, dining tables between planted screens; a home
+fits a working kitchen, a bedroom suite with bedside cabinets and a wardrobe, and complete
+bathrooms of vanity, shower and toilet, a luxury home the Corpo Plaza vanity; a toilets room
 stands its toilets in a row of 0.7 m stalls along one wall, so both are in use at once. A hall
 furnishes by its floor area, not by a fixed handful: a shop floor takes its checkout,
 shelving along the walls, display aisles across the plate and, past 80 m2, a seated bay on
@@ -175,8 +228,15 @@ adjacent backing planes. Door thresholds join the floor to source passages; a po
 
 Construction uses the 0.5 m grid. Measured facade attachments and closing boundaries
 retain exact source coordinates. Stair variants have 7 through 14 treads at 0.28 m
-pitch; their fitted rise stays between 0.16 and 0.18 m. Props scale uniformly.
-Stair risers and soffits are closed. Stairwell walls use a full-depth service finish at
+authored pitch; generous plates scale their tread to 0.30 m. Their fitted rise
+stays between 0.16 and 0.18 m. Plates at least 22 m across each principal axis
+first reserve 4.5 m wide stair shafts with 2 m landings and broad end-facing
+portals; constrained plots retain the minimum profile. Props scale uniformly.
+Stair risers and sloping soffits are closed. The canonical structural flight carries
+rounded handrails; tier-specific flush tread/riser caps, glass or solid infill and
+wall lighting follow [stair construction](docs/stair-construction.md). Each climb
+owns its top landing and bearing, so its upper soffit remains present with the
+current flight when the next floor is outside the streamed band. Stairwell walls use a full-depth service finish at
 every tier and reach the full storey height. The lowest shaft has a complete finished
 floor; landings reach partition lines beneath the wall finish. Shafts without an onward
 flight have a ceiling. Arrival landings and doorway thresholds meet without uncovered strips.
@@ -201,12 +261,15 @@ against the consumer's resource base. Layout file paths resolve beside building.
 Modules carry their finish keys; prop materials belong to their existing models.
 
 `building.floors[].openings` maps the layout's door IDs to this floor's door IDs, and
-`treatments` carries this floor's own window returns, built from its own openings. Exterior door placement and room connection IDs match the blueprint.
+`treatments` carries this floor's own window returns, built from its own openings, and the next shared stair flight's uniquely owned soffits and enclosure finish skins. The upper wall retains an opaque recessed body for downward views; every piece stays within the original structural volume. Exterior door placement and room connection IDs match the blueprint.
 Core placements carry `connector` and an actual corridor room ID. `building.corePlacement`
 is the stair the building was furnished around, the shape `coreFeasibility` returns for
 the same blueprint and building type, so a window measured against the gate stays clear. A second stair is built
 only where its flights keep the published headroom. `building.reservationCrossing` names
 the exterior opening the core crosses when the plate holds no clear position.
+[core-feasibility.json](schemas/core-feasibility.json) publishes the constants Exterior
+fits a core with: a 3.5 m `elevatorShaft`, the `generousStair` profile of plates at least
+22 m across, and the `stairRoofReserve` kept around stair A for its roof housing.
 Floors with reduced service rooms carry `program: {kind, changes}` in building.json.
 Each change names the room kind, requested width and depth, and fitted dimensions
 or null for an omitted room. Reduction order is executive office, meeting, storage,
@@ -217,6 +280,37 @@ The Engine owns moving exterior leaves, lift motion and runtime collision. Remov
 Exterior `floor:<index>/slab` nodes and shell scenery when drawing Interior surfaces;
 the module floors retain the stair and lift cutouts. Use one active car per lift shaft;
 car placements describe its stop pose. Landing doors remain at every floor.
+Every stair shaft (`stair-a`, `stair-b`) and lift shaft (`elev-<n>`) a floor serves is
+also one of its rooms, of kind `corridor`: the polygon is the shaft, its floor is the real
+flights and landings rather than a slab, and the placements, lights and lift-car record
+inside it carry its room ID. A stair opens onto the room in front of it through an
+`openFront` portal; a lift through a two-leaf connection with `clearDepth` 0.
+
+Apartment and studio floors publish `building.floors[].apartmentEntrances`, per floor:
+each dwelling's one numbered entrance, `<floor><position>` such as `101`, where positions
+follow the physical bays of the first residential floor and survive room-ID changes
+between layouts. Of a dwelling's doors onto public space the one a living room, studio or
+bedroom opens onto a corridor or lift lobby is numbered, then the widest; any other stays
+an ordinary framed passage. Each record carries two pocket leaves that retract into
+carved wall and jamb channels with opaque skins, a concealed overhead runner and end
+stops, and a numberplate beside a jamb on an opaque wall face (`fixed`); the
+leaves are the Engine's to move and are never static placements. Rich tiers wear timber
+and bronze, mid capsule enamel and zinc, poor the damaged kit. An entrance whose cassettes
+would leave its wall (a corner, glass, another dwelling or a second opening) is not
+carved and publishes no record; one with no opaque wall beside it publishes no plate.
+A dwelling with no supported entrance, a floor past the 99th and a bay past the 99th
+stay unnumbered, and the building keeps every other entrance. Ground lobbies and internal
+doors get no apartment labels.
+
+An `apartment-1702` pair of storeys publishes, in each storey's layout, `floor.duplexes`:
+the private slice of every home that becomes one dwelling across both levels, with its
+footprint, lounge void, stair opening and entries in world XZ, per
+[floor.schema.json](schemas/floor.schema.json). Living, dining, guest bedroom, bathroom,
+kitchen and utility stand below; the primary bedroom, bathroom, dressing, linen, study and
+a gallery above, joined by the home's own stair. The public core and corridor stay on both
+levels, the lower dwelling keeps its number and the upper slice gets none. Only identical
+rectangular homes of at least 15 by 10 m that seat their partitions on both storeys
+convert; a pair with none keeps its two ordinary apartment storeys.
 
 Layout NPC records use `sourceFloor` and local identities. `expandBuilding` applies
 floor identities, opening mappings, elevations and building connectors for Simulation.
@@ -266,19 +360,28 @@ connection lands on when that is lower. No two wall fields of a face overlap. St
 2.1 m headroom. The shell check measures transformed module vertices and prop bounds.
 Identical input and resource catalogs produce identical JSON and module bytes.
 
+A home floor first plans complete homes: living room, bedrooms, kitchen and bathrooms,
+each furnished in full (a full-size bed with its bedside pieces, complete kitchen and
+bathroom fixtures on their clearances), and frontage no generous home can take holds smaller ones rather than
+a shared lounge. A floor whose complete homes cannot all fit steps back to the plain
+studio-and-bathroom allocation of its bays, then to that allocation furnished with what
+fits, where a unit left without a bed or toilet stays rooms but is not published as a
+home. Only a floor that holds no room at any step fails, with its first error.
+
 | Error code | Meaning |
 | --- | --- |
 | `E_BLUEPRINT_INVALID` | Invalid schema, opening overlap or unsupported construction axes |
-| `E_ASSIGNMENT_INVALID` | Incomplete assignments or multiple storeys |
+| `E_ASSIGNMENT_INVALID` | Incomplete assignments, or several storeys other than an `apartment-1702` pair |
 | `E_FLOOR_TOO_SMALL` | Floor cannot hold one room beside its core and circulation |
 | `E_UNREACHABLE_SPACE` | Circulation, door, stair or anchor fails clearance; an unreachable room is dropped instead |
 | `E_SHELL_BREACH` | Module geometry or prop bounds reach forbidden shell space |
 
 CLI argument and file errors exit nonzero. The modules command takes only `--out`.
 Budget tests use Exterior `planAssembly` for a 40 m by 40 m, 6-floor mirror-frame
-residence and a 56 m by 56 m, 12-floor corporate-sectors office. Each export,
-including one complete shared module kit, stays under 2 MB and 30 seconds. Existing
-prop geometry and Exterior assets are city resources, outside the building export.
+residence and a 56 m by 56 m, 12-floor corporate-sectors office. Each building's export
+stays under 2 MB, the complete shared module kit (about 17 MB, published once per city)
+under 20 MB, and a building with the kit under 30 seconds. Existing prop geometry and
+Exterior assets are city resources, outside the building export.
 
 ## Dependencies
 

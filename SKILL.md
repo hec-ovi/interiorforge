@@ -16,7 +16,9 @@ npm run generate -- --request request.json --out out/building
 The [request schema](schemas/request.schema.json) requires `seed`, `building`
 with `id`, Atlas `type` and `tier`, `blueprint`, and `materialTheme`.
 `assignments` is optional and derives from blueprint kinds. Each assignment covers
-one floor. Equal middle floors share geometry and program; distinct plates or programmes
+one floor, except an `apartment` assignment with `spans: 2` under
+`building.interiorStyle: 'apartment-1702'`, which pairs two storeys into private duplexes.
+`interiorStyle` may also name a mid capsule profile, `h10`, `japantown` or `sandra-dorsett`. Equal middle floors share geometry and program; distinct plates or programmes
 publish an additional `floor-<index>` layout. `shellGlb` is optional metadata.
 
 ```ts
@@ -36,7 +38,8 @@ Each placement gives `module` or `prop`, `id`, `room`, `position`, `rotationY`,
 `scale` and optional source `opening` or core `connector`. Use metres and radians
 about positive Y.
 Add `building.floors[].elevation` to layout Y and use its `openings` map for blueprint
-identities. Module origins and material slots (`key#variant`, tile-unit UVs) are in
+identities. A reachable roof adds a last floor reference whose layout has kind `roof`;
+`building.floors[].apartmentEntrances` carries each floor's numbered pocket entrances. Module origins and material slots (`key#variant`, tile-unit UVs) are in
 `modules.json`; props resolve through the existing Assets catalog. Resource bases belong
 to the consumer. `npm run preview` with `?sample=hotel`, `restaurant` or `residence`
 shows a published kit plan furnished in its family.

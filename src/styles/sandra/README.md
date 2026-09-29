@@ -25,7 +25,7 @@ retain the existing functional kitchen and bathroom modules. Do not put new stat
 door leaves into the plan: the shared numbered-apartment door system owns those.
 
 All mapped furniture keeps the existing mid-tier footprint and height. New seats
-meet the unchanged consumer's 0.49 m support surface. The double bed is a conventional
+meet the existing consumer's 0.49 m support surface. The double bed is a conventional
 1.6 × 2.1 m platform; the independently authored single is 1 × 2.05 m. Both keep
 the current 0.55 m height reservation and real leg/pillow sizes. Their divided head rail
 is deliberately low. A taller wall headboard needs a separately reserved wall

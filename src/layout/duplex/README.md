@@ -3,7 +3,7 @@
 This directory is wired into public `generate` for the explicit
 `building.interiorStyle: 'apartment-1702'` and `apartment` assignments with
 `spans: 2`. The real 40 m and rotated 60 m producer outputs are checked against the
-exported shell with the unchanged Engine player body.
+exported shell with the Engine player body.
 
 `section.ts` accounts for a canonical 15 × 10 m private allocation: 150 m²
 downstairs, 100 m² upstairs, a real 38 m² lounge opening and a separate 12 m²
@@ -26,7 +26,7 @@ appliance approaches. Particular facade mounting and appearance still require
 the rendered multi-view check.
 
 `capability.ts` is an unfurnished structural specimen using existing published
-modules. `tests/duplex-capability.test.ts` imports the unchanged Engine and checks
+modules. `tests/duplex-capability.test.ts` imports the Engine and checks
 real `PlayerBody` ascent/descent, rotated geometry, and `StoreyPlates` removal of
 the original shell plate over the private holes. It does not call the older
 whole-floor `mezzanineOf` path, which removes global stops and is unsuitable for

@@ -16,6 +16,9 @@ lift car and doors), [furniture](recipes/furniture.ts) (built-in pieces at their
 canonical sizes), and [sanitary](recipes/sanitary.ts) (recessed ceramic toilet and
 basin bodies, rounded seats, taps and drains). Every slot is a [finish](finishes.ts)
 key, `theme/kind/tier#variant`.
+The [terminal stair guard](recipes/stair-guards.ts) closes the unused half-flight
+mouth at crown and roof arrivals. Its width follows the lane; its 1.1 m height and
+0.06 m depth remain fixed, with posts mounted beside the landing slab.
 The authored construction unit is 0.5 m; a wall or surface piece is one cell that the
 placement scales to its run. A frame member is 12 mm short of its cell in the axes the
 placement does not stretch, so the shadow gap between two members is the module's own and
@@ -54,3 +57,15 @@ identical files and manifest bytes. Triangle and byte counts describe the publis
 Depends on [GLB](../glb/CONTRACT.md), [Materials](../materials/CONTRACT.md), glTF
 Transform and meshoptimizer. The compression pipeline follows the
 [upstream implementation](https://github.com/donmccurdy/glTF-Transform/blob/main/packages/functions/src/meshopt.ts).
+
+Lift cabins retain the runtime IDs `lift-car` and `lift-doors`. A 3.5 m shaft
+contains a 3.3 m car, about 3.07 m clear inside, with a proportional 1.58 m
+clear doorway. Opaque mineral linings replace environment-map mirrors that
+looked like exterior views. The broad ceiling diffuser owns one 1600 lm source
+at each served landing; the source ID is the car placement ID. Landing records retain their floor elevations; the elevator consumer also
+attaches its own cabin lighting to the moving car. The shared
+`geometry/lift-spec.ts` keeps runtime controls, display, passenger collision
+and diffuser placement aligned with the authored model. Thick separate shaft liners sit 40 mm behind the
+car interior surfaces, including front cheeks, so the existing cuboid collision
+keeps the camera inside the cabin. Each stationary member remains a separate
+solid module so no enclosing bounding box seals the real doorway.

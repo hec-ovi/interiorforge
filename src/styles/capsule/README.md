@@ -26,7 +26,7 @@ handles and trim. The custom sofa and chair use the existing consumer's 0.49 m
 seat support default; the bench and office chair reuse existing known modules.
 Wall shelves retain the consumer's `wall-shelf-` prefix. Furniture lights align
 with the shared fixture origins. Freestanding furniture retains the `fit-`
-prefix required by the unchanged consumer's occupancy classification.
+prefix required by the existing consumer's occupancy classification.
 Materials use explicit published variants;
 the molded enamel and hex floor are supplied by Materials.
 
@@ -48,7 +48,7 @@ Parent integration applies `CAPSULE_SIZES` from `profile.ts` to capsule
 `RoomPlacer` dimensions so these fixtures remain scale 1. `CAPSULE_SHOWER_PARTS`
 from `shower.ts` must be placed individually, using the same component branch as
 the existing luxury shower. `fit-capsule-shower` is a combined catalog preview,
-not a valid placed collider. Real unchanged Engine physics tests cover walking
+not a valid placed collider. Real Engine physics tests cover walking
 into/out of the component assembly and standing inside it at four rotations.
 The shared compact-fixture allocator fits complete kitchens and bathrooms; a room
 too tight for the complete recipe keeps the fixtures that fit their own clearances.

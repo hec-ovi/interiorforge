@@ -9,12 +9,22 @@ same transport. `writePlacements(result, out)` writes the manifest and its compa
 
 Generation plans each distinct construction plate and program once; equal intermediate
 floors share `middle`, differing plates publish `floor-<index>`, and later equal plates
-reuse the same declared layout. Ground and crown retain their own identities. Two floors plan ground and crown
-alone, and a stack with no room for a core plans its ground floor alone. Shared layouts
+reuse the same declared layout. Ground and crown retain their own identities. Two occupied floors plan ground and crown,
+and a stack with no room for a core plans its ground floor alone. Shared layouts
 have identical outline, envelope, height, doors and programs;
 the manifest maps the layout's door IDs to each floor's own. Windows vary per floor,
 so a shell without authored inner returns publishes its per-floor window returns in
-`building.floors[].treatments`. Paired architecture shells own their finished facade.
+`building.floors[].treatments`. This packet also owns the next shared stair flight's soffits and wall finish skins: the upper floor retains walking surfaces and opaque recessed wall bodies. No repeated exposed faces or expanded collision volumes are introduced; private duplex stairs stay local. Paired architecture shells own their finished facade.
+
+A reachable roof adds one `floor-<roof index>` layout and manifest floor, with kind
+`roof`, at the roof elevation. It carries the roof navigation grid once and no furnished
+rooms, elevator stops or duplicate placements. Exterior owns the outdoor surface and
+enclosure; crown retains the final flight, landing and guard and its `roofAccess`
+descriptor. Only the actual roof bulkhead interior publishes an enclosed circulation room;
+the remaining roof stays outdoors. No extra slab, furnishing or NPC anchor is added.
+The separate roof band allows the existing door consumer to wait for a real
+loaded floor before opening the roof door. Thus six occupied storeys plus a served roof
+publish seven floor references. A building with no reachable roof adds none.
 
 The building's [family](finish.ts) (luxury, capsule, damaged, industrial) and each room's
 kind pick its modules. [Walls](walls.ts) build one face per room on every run it owns,
@@ -45,12 +55,20 @@ Transforms apply positive XYZ scale, radians about positive Y, position, then fl
 elevation. A stretched placement publishes `uvRepeat`, the factor its module's tile-unit
 UVs multiply by, so a fitted piece never stretches its map past the material's own size. No geometry is serialized here. Temporary transformed vertices prove shell,
 door and stair clearance. Prop bounds participate in those checks.
+The last landing of each stair, including a served roof, guards the absent ascending
+flight's half of its edge. The descending lane and full 1.2 m turning depth stay clear;
+ground-level shafts with no flight need no guard.
 
 Walls, surfaces, window returns and prop bounds stay inside the floor's `roomEnvelope`,
 or, without one, inside `facade.wallDepth`, default 0.12 m. The band out to the outline
 is open floor over the exterior slab: no partition, no surface, walkable for navigation.
 Window return width includes its jambs at adjacent backing planes. Source openings
-retain their dimensions. Exterior thresholds join the inset plate to the passage, which for a pocket door is its published clearance behind the cassette back plane.
+retain their dimensions. Exterior thresholds join the actual placed room floor to the passage,
+which for a pocket door is its full published clearance behind the cassette back plane.
+The room envelope may stand farther inside than the facade backing; thresholds bridge that
+complete distance, split at stepped floor edges, and never overlay an existing room slab.
+Generated Exterior shells recess the corresponding structural support by the 20 mm finish
+thickness, keeping the finished passage flush without coplanar shell and tile faces.
 `building.floors[].program` records reduced services as requested and fitted width
 and depth, or null for omission. Repeated floors carry their source layout's changes.
 
@@ -65,3 +83,22 @@ produce byte identical output.
 Depends on [Blueprint](../blueprint/CONTRACT.md), [Layout](../layout/CONTRACT.md),
 [Geometry](../geometry/CONTRACT.md), [Modules](../modules/CONTRACT.md),
 [Assets](../assets/CONTRACT.md) and [NPC](../npc/CONTRACT.md).
+
+Apartment and studio floors in every tier publish optional `building.floors[].apartmentEntrances`.
+These are per-floor numbered private boundaries, never static placement rows or Exterior
+openings. Physical bay positions survive generated room-ID changes between layouts. Two
+pocket leaves translate into actual carved wall/jamb channels with opaque skins, concealed
+runners and end stops. Mid uses capsule enamel/zinc, poor uses the damaged kit, and rich
+uses timber/bronze. Each cassette needs half the clear opening width plus 90 mm beside its
+jamb; an entrance whose chamber would cross an opening, corner or another unit is left
+uncarved and unpublished, a framed passage, and the floor keeps its other entrances.
+Numberplate fitting follows cavity construction and requires its whole footprint on an
+opaque face; with none on either side the entrance keeps its number and stands no plate.
+Ground lobbies and internal bathroom/kitchen/bedroom connections get no apartment labels.
+
+A stair climb owns its top arrival landing and recessed bearing under the next
+outgoing tread. The receiving floor omits the duplicate base slab and passes that
+linked support to threshold generation. The roof threshold adds only its extension.
+Tier-specific tread caps remain flush with the canonical tread height; segmented
+guard infill keeps collision aligned without introducing a full-height invisible
+box under the flight. See [construction profiles](../../docs/stair-construction.md).

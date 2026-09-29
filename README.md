@@ -2,7 +2,9 @@
 
 A TypeScript generator for furnished buildings made from shared room modules.
 One building stores ground, middle and crown layouts. Every middle floor references
-the same table, including rooms, furniture, lights and NPC navigation.
+the same table, including rooms, furniture, lights and NPC navigation. Five families
+furnish it (luxury, corporate, capsule, damaged, industrial), each from its own module
+kit, with numbered apartment entrances, rideable 3.5 m lifts and generous public stairs.
 
 ## Run
 
@@ -41,5 +43,8 @@ modules, deterministic bytes, middle reuse, opening rectangles, pocket doors, na
 stair and backing clearance, service program reductions, framed wall faces, published
 repeats over tile-unit modules, room illuminance bands, published emitters, furnished
 programs with their staff, both building budgets, floor-aware routes, furnishing without
-local models, and both compiled browser entries. Tests use at most two workers. `out/proof/budget.json` records
-measured bytes, seconds and placement counts.
+local models, and both compiled browser entries. Family tests cover each style's modules,
+furnishing and finishes, numbered apartment entrances, rideable lifts, the generous stair
+profile, private duplexes, and walks through generated buildings with the Engine's player.
+Tests use at most two workers. `out/proof/budget.json` records measured bytes, seconds
+and placement counts.

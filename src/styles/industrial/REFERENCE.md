@@ -19,7 +19,7 @@ repeat at independent metre intervals. Services drop at most 0.269 m below the
 ceiling and are omitted below 2.38 m ceiling height or in narrow remainder strips.
 
 All overrides fit the planner's furniture bounds and use existing published
-materials. Unknown seat modules use the unchanged consumer's 0.49 m seat support;
+materials. Unknown seat modules use the existing consumer's 0.49 m seat support;
 the bench remains the existing `fit-bench`, whose support the consumer knows.
 `fit-`, `wall-`, `floor-`, and `ceiling-services` prefixes retain existing runtime
 occupancy, room-enclosure, surface and collision classification.

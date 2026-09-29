@@ -36,5 +36,5 @@ have failed their body-path check: a room with no legal arrangement reports that
 nothing fits instead of trying every combination of 0.10 m offsets, and the room
 then keeps the fixtures that fit their own clearances. The recorded-room tests
 (`tests/fixture-data/compact-failures.json`) preserve all fifteen original failure
-cases. Real unchanged Engine `floorBoxes` and `PlayerBody` tests walk from a doorway
+cases. Real Engine `floorBoxes` and `PlayerBody` tests walk from a doorway
 to every bathroom and kitchen use position and back.

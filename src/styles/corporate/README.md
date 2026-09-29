@@ -25,7 +25,7 @@ not reconstructions of a photographed building.
 recessed grips and inset pale faces. Private libraries retain occupied upper
 shelves: bound covers, paper blocks, label pockets, finger rings and stacked
 folders are separate geometry. `seating.ts` supplies a fixed navy upholstered
-bench with its support at the unchanged consumer's 0.49 m sitting datum.
+bench with its support at the existing consumer's 0.49 m sitting datum.
 `desk.ts` gives the executive a dark veined top, warm metal edge, recessed visitor
 face, modest drawer pedestal and open knee bay. `executive.ts` uses the shared
 atomic workstation fitter for a freestanding desk beside the arrival line;

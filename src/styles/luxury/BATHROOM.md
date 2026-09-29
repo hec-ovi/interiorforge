@@ -38,7 +38,7 @@ also verify orientation on four walls and compressed GLB bowl geometry.
 The shower glass and the vanity mirror use the Corpo Plaza optics
 (`corpo-plaza-glass/rich#clear`, `corpo-plaza-mirror/rich#silver`): clear glass with
 full transmission and near-zero roughness, and an opaque polished metallic mirror on
-solid backing. The mirror uses the unchanged engine environment reflection, not a new
+solid backing. The mirror uses the Engine environment reflection, not a new
 live planar reflection.
 
 Folded towels use `cyberpunk/meridian-terry/rich#ivory`, a neutral 512 px
@@ -49,6 +49,6 @@ panes, rear riser, overhead head, mixer, hand shower and shelf. `props.ts` keeps
 original furniture ID on the tray and gives the other components stable child IDs.
 All remain collidable through their normal measured bounds. The combined
 `fit-shower-luxury` exists for preview only and is never placed as one closed box.
-`luxury-shower-walking.test.ts` uses the unchanged engine `floorBoxes`, Rapier and
+`luxury-shower-walking.test.ts` uses the Engine `floorBoxes`, Rapier and
 `PlayerBody` to enter, stand, collide with the side glass and exit at four rotations;
 it also reproduces the blocking behavior of the old combined bounding box.
