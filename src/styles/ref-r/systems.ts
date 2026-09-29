@@ -4,6 +4,7 @@ import { floorPreset } from '../systems/floor-recipes.js';
 import { glazingPreset } from '../systems/glazing.js';
 import { panelPreset } from '../systems/panel-recipes.js';
 import type { PortalSpec } from '../systems/types.js';
+import type { Kit } from '../../modules/kit.js';
 import { R1 } from './look.js';
 
 /** The rich office's surface systems, measured on the reference office:
@@ -37,13 +38,26 @@ export const R1_PANEL = panelPreset('R', 'r1', {
 /** Ceiling: continuous warm timber in large 1.5 × 3 m panels with 3 mm joints (the reference
  *  ceiling shows none), phased to the building grid so a cut panel stays timber up to the
  *  black 25 mm shadow gap along the walls. */
-export const R1_CEILING = ceilingPreset('R', 'r1', {
+const CEILING = ceilingPreset('R', 'r1', {
     system: {
         grid: { pitch: [1.5, 3], block: 'ceiling-r1-panel', blockCells: [1, 1], joint: .003, phase: 'grid' },
         perimeter: { width: .025, drop: -.02, edge: 'ceiling-r1-shadow', corner: 'ceiling-r1-shadow-corner' }, snapSpots: false,
     },
     profile: { panel: R1.ceiling, backing: R1.black, perimeter: R1.black },
 });
+
+/** The ceiling's modules, with the backing and the recessed shadow gap drawn as closed thin
+ *  slabs: the shared ceiling recipes draw them as single downward faces, whose zero height
+ *  the published floor schema refuses (a module size must be positive in every axis). */
+const SHADOW = .025, PANEL = .03;
+const thin: Record<string, (k: Kit) => void> = {
+    'ceiling-r1-backing': k => k.cbox(R1.black, [0, PANEL + .004, 0], [.5, .006, .5], undefined, ['bottom', 'top']),
+    'ceiling-r1-shadow': k => k.box(R1.black, [-.25, .02, 0], [.5, .014, SHADOW], undefined, ['bottom', 'top']),
+    'ceiling-r1-shadow-corner': k => k.box(R1.black, [0, .02, 0], [SHADOW, .014, SHADOW], undefined, ['bottom', 'top']),
+};
+export const R1_CEILING: typeof CEILING = {
+    ...CEILING, recipes: add => CEILING.recipes((id, draw) => add(id, thin[id] ?? draw)),
+};
 
 /** Floor: walnut boards 2 × 0.2 m with 2 mm joints, laid from the room's corner. */
 export const R1_FLOOR = floorPreset('R', 'r1', { profile: { tile: R1.walnut } });
