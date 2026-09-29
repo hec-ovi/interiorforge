@@ -272,7 +272,8 @@ class RoomPlacer {
     // cabinets merely because its clear foot-of-bed aisle overlapped the door approach.
     const group = fitLuxuryComposition(kind, this.room, bounds, (rect, pieces) => this.covers(rect)
       && pieces.every(piece => this.fits(footprintOf(piece), piece.kind)
-        && (piece.kind !== 'display_screen' || this.solidBacking(piece)) && this.bedBacking(piece))
+        && (piece.kind !== 'display_screen' || this.solidBacking(piece))
+        && (piece.kind !== 'ornament_wall' || this.solidBacking(backFace(piece))) && this.bedBacking(piece))
       && (!accepts || accepts(pieces)));
     if (!group) return false;
     for (const piece of group.pieces) {
@@ -647,6 +648,15 @@ function usableRect(r: UvRect, isFacade: (edge: Edge) => boolean, depth: number)
   const u0 = isFacade("u0") ? depth : 0;
   const u1 = isFacade("u1") ? depth : 0;
   return { u: r.u + u0, v: r.v + v0, lu: Math.max(0, r.lu - u0 - u1), lv: Math.max(0, r.lv - v0 - v1) };
+}
+
+/** A deep wall-backed piece measured like a screen: its back face 40 mm in front of
+ *  the wall it needs, so a planted display stands against opaque partition, never glass. */
+function backFace<T extends Pick<PlanFurniture, 'rotationDeg' | 'size' | 'at'>>(item: T): T {
+  const reach = item.size[1] / 2 - .04;
+  const [du, dv] = item.rotationDeg === 0 ? [0, -reach] : item.rotationDeg === 180 ? [0, reach]
+    : item.rotationDeg === 90 ? [-reach, 0] : [reach, 0];
+  return { ...item, at: [item.at[0] + du, item.at[1] + dv] };
 }
 
 function footprintOf(item: Pick<PlanFurniture, 'rotationDeg' | 'size' | 'at'>): UvRect {

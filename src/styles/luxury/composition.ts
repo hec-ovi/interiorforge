@@ -235,8 +235,10 @@ export function furnishLuxuryComposition(room: PlanRoom, p: LuxuryPlacer): boole
         if (desk) p.seatAt(desk, 'office_chair', true);
       }
       p.receptionWaiting();
-      p.composition('display');
-      if (area >= 100) p.composition('display');
+      // A planted display needs an opaque wall behind it; a glazed arrival stands its
+      // planters on the floor instead.
+      const displays = Number(p.composition('display')) + Number(area >= 100 && p.composition('display'));
+      for (let i = displays; i < (area >= 100 ? 2 : 1); i++) p.anyEdge('plant');
       p.wallPiece('display_screen');
       return true;
     }
