@@ -32,7 +32,7 @@ import { loftBathroomRecipes } from "../styles/luxury/loft-bathroom.js";
 import { luxuryRugRecipes } from "../styles/luxury/rugs.js";
 import { luxuryDiningRecipes } from "../styles/luxury/dining.js";
 import { loft1702FinishRecipes } from "../styles/luxury/loft-finish.js";
-import { referenceRecipes } from "../styles/reference/recipes.js";
+import { referenceRecipes, panelPieces } from "../styles/reference/recipes.js";
 
 export type { ModuleRecipe } from "./types.js";
 
@@ -72,6 +72,7 @@ export function moduleRecipes(tile: UvScale = () => [1, 1], alignment?: Alignmen
     });
   };
   for (const set of SETS) set(add);
-  stairWallSkins([...recipes], add);
+  const pieces = panelPieces();
+  stairWallSkins([...recipes], add, id => pieces.has(id));
   return recipes;
 }

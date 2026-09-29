@@ -21,6 +21,13 @@ import { privacyReturns } from '../layout/privacy-returns.js';
 import { duplexAirOwners, duplexPerimeterSegment, duplexWallSegments, duplexVoids } from './duplex.js';
 import { isLoft1702Wall, LOFT1702_FINISH, placeLoft1702Wall } from '../styles/luxury/loft-finish.js';
 import { duplexCoveSpans } from './duplex-finish.js';
+import { gridOrigin } from '../layout/tile-fit.js';
+import { GLAZING, PANELS, PORTALS, STYLES } from '../styles/reference/registry.js';
+import { placePanelSystem } from '../styles/systems/panel.js';
+import { placeGlazing } from '../styles/systems/glazing.js';
+import { placePortal, portalCut, portalEligible } from '../styles/systems/portal.js';
+import type { PanelSystem, PortalSpec, WallFace } from '../styles/systems/types.js';
+import type { Placement } from './types.js';
 
 /** Fixed frame piece: corners are one cell, edges one cell wide. */
 const PIECE = 0.5;
@@ -53,6 +60,7 @@ export function walls(
     const buildable = constructionPlate(bp, frame, depth), plate = polygonBounds(buildable);
     const height = floor.ceilingElevation - floor.elevation;
     const ceilingHoles = duplexVoids(floor, frame, 'lower');
+    const grid = gridOrigin(uv.outline);
     const lines = new Map<string, Line>();
     const line = (axis: 'H' | 'V', c: number, boundary = false): Line => {
         const key = `${boundary ? 'B' : 'P'}:${axis}:${c.toFixed(6)}`;
@@ -135,30 +143,75 @@ export function walls(
         return !mergeHoles(l.holes, CASING_MEMBER).some(other => Math.abs(other.at - h.at) > 1e-6
             && Math.abs(other.at - h.at) < (other.width + h.width) / 2 + pad + CASING_MEMBER + .01);
     };
+    // A reference portal frames a wide opening between two rooms whose finishes name the
+    // same PortalSpec; the luxury public portal frames the other openings it fits.
+    const layersOf = (spec: PortalSpec): PortalSpec[] => (spec.layers ?? []).map(id => PORTALS.get(id)).filter((s): s is PortalSpec => !!s);
+    const referencePortal = (l: Line, h: WallHole): PortalSpec | undefined => {
+        if (l.boundary || h.y0 !== 0) return undefined;
+        const peers = l.runs.filter(r => r.draw && h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01);
+        if (peers.length < 2 || peers.some(r => r.room.startsWith('stair-'))) return undefined;
+        const ids = new Set(peers.map(r => finishOf(r.room, r.kind).portal));
+        const spec = ids.size === 1 ? PORTALS.get([...ids][0] ?? '') : undefined;
+        if (!spec) return undefined;
+        const units = peers.map(r => uv.rooms.find(room => room.id === r.room)?.unit);
+        if (units.some(Boolean) && new Set(units).size > 1) return undefined;
+        const cut = portalCut(spec, layersOf(spec), h), pad = (cut.width - h.width) / 2;
+        if (!peers.every(r => cut.at - cut.width / 2 >= r.a - .01 && cut.at + cut.width / 2 <= r.b + .01)) return undefined;
+        if (mergeHoles(l.holes, CASING_MEMBER).some(other => Math.abs(other.at - h.at) > 1e-6
+            && Math.abs(other.at - h.at) < (other.width + h.width) / 2 + pad + CASING_MEMBER + .01)) return undefined;
+        return portalEligible(spec, peers.map(r => ({ room: r.room, kind: r.kind })), h, height) ? spec : undefined;
+    };
+    const chosen = new Map<string, PortalSpec | 'luxury' | null>();
+    const portalOf = (l: Line, h: WallHole): PortalSpec | 'luxury' | null => {
+        const key = `${l.boundary}:${l.axis}:${l.c.toFixed(6)}:${h.at.toFixed(6)}:${h.width.toFixed(6)}:${h.y0.toFixed(6)}:${h.y1.toFixed(6)}`;
+        if (!chosen.has(key)) chosen.set(key, referencePortal(l, h) ?? (portal(l, h) ? 'luxury' : null));
+        return chosen.get(key)!;
+    };
+    const styleOfRoom = (room: string) => STYLES.get(finishOf(room, kinds.get(room) ?? 'corridor').style ?? '');
     const lights: LightFixture[] = [];
     for (const l of lines.values()) {
         // A partition frames each opening once in its casing; the lining cuts the union of
         // everything its line carries, so no stretch takes two heads or a sill across a door.
         const casing = l.boundary ? 0 : CASING_MEMBER;
         const holes = l.boundary ? l.holes : mergeHoles(l.holes, casing);
-        const cuts = wallCuts(holes.map(h => portal(l, h)
-            ? { ...h, width: h.width + 2 * PUBLIC_PORTAL.band, y1: h.y1 + PUBLIC_PORTAL.radius + PUBLIC_PORTAL.band }
-            : { ...h, width: h.width + 2 * casing, y1: h.y1 + casing }));
+        const cuts = wallCuts(holes.map(h => {
+            const chosenPortal = portalOf(l, h);
+            return chosenPortal === 'luxury'
+                ? { ...h, width: h.width + 2 * PUBLIC_PORTAL.band, y1: h.y1 + PUBLIC_PORTAL.radius + PUBLIC_PORTAL.band }
+                : chosenPortal ? portalCut(chosenPortal, layersOf(chosenPortal), h)
+                : { ...h, width: h.width + 2 * casing, y1: h.y1 + casing };
+        }));
         for (const run of l.runs) {
             if (!run.draw) continue;
             const baseFinish = finishOf(run.room, run.kind);
+            const stair = run.room.startsWith('stair-');
             // A stair's structural enclosure reaches its flights at every height.
             // The thin backing behind decorative frame joints leaves an open channel
             // beside a flight; use the full-depth service finish for every tier.
-            const finish = run.room.startsWith('stair-') ? { ...baseFinish, frame: undefined } : baseFinish;
+            const finish = stair ? { ...baseFinish, frame: undefined } : baseFinish;
             // Stairwell walls close the full storey, including the ceiling service band.
-            const runHeight = run.room.startsWith('stair-') ? bp.height : height;
-            const face = new Face(builder, l, run, frame, runHeight, floor.elevation, finish, nextLineId, lights, ceilingHoles);
+            const runHeight = stair ? bp.height : height;
             // The other side of this run: a glazed office looks through glass onto public space.
             const across = l.runs.find(other => other.side !== run.side && other.a < run.b - 1e-6 && other.b > run.a + 1e-6);
-            const glazed = (finish.family === 'luxury' || finish.family === 'corporate' || !!finish.frame) && GLAZED_ROOMS.has(run.kind) && !!across && GLAZED_ONTO.has(kinds.get(across.room)!);
-            const mirror = (finish.family === 'luxury' || finish.family === 'corporate' || !!finish.frame) && !!across && GLAZED_ROOMS.has(across.kind) && GLAZED_ONTO.has(run.kind);
-            const build = (a: number, b: number) => run.air === undefined ? face.build(a, b, glazed, mirror) : face.plain(a, b, -run.air, runHeight);
+            // A common room's style may line the runs it shares with a dwelling in its frontage panels.
+            const frontageId = styleOfRoom(run.room)?.frontage;
+            const dwellingAcross = !!across && !!uv.rooms.find(room => room.id === across.room)?.unit && !uv.rooms.find(room => room.id === run.room)?.unit;
+            const panel: PanelSystem | null | undefined = stair ? null : frontageId && dwellingAcross ? PANELS.get(frontageId) : undefined;
+            const face = new Face(builder, l, run, frame, runHeight, floor.elevation, finish, nextLineId, lights, ceilingHoles, { ceilingY: height, grid, panel });
+            const legacy = finish.family === 'luxury' || finish.family === 'corporate' || !!finish.frame;
+            const glass = finish.glazing ? GLAZING.get(finish.glazing) : undefined;
+            const acrossFinish = across ? finishOf(across.room, across.kind) : undefined;
+            const acrossGlass = acrossFinish?.glazing ? GLAZING.get(acrossFinish.glazing) : undefined;
+            const glazed = !!across && (glass ? glass.rooms.includes(run.kind) && glass.onto.includes(kinds.get(across.room)!)
+                : legacy && GLAZED_ROOMS.has(run.kind) && GLAZED_ONTO.has(kinds.get(across.room)!));
+            const mirror = !!across && (acrossGlass ? acrossGlass.rooms.includes(across.kind) && acrossGlass.onto.includes(run.kind)
+                : legacy && GLAZED_ROOMS.has(across.kind) && GLAZED_ONTO.has(run.kind));
+            const build = (a: number, b: number) => {
+                if (run.air !== undefined) face.plain(a, b, -run.air, runHeight);
+                else if (glass && glazed) placeGlazing(face, glass, a, b);
+                // Glass is one plate seen from both rooms: the glazed room's system owns it.
+                else if (!(acrossGlass && mirror)) face.build(a, b, glazed, mirror);
+            };
             // Glass is one plate seen from both rooms: the office side owns it, the public side keeps its frame.
             let cursor = run.a;
             for (const cut of cuts) {
@@ -184,7 +237,7 @@ export function walls(
         for (const side of [1, -1] as const) {
             const run: Run = { ...closure, side, draw: true };
             const finish = { ...finishOf(closure.room, closure.kind), frame: undefined };
-            const face = new Face(builder, l, run, frame, bp.height, floor.elevation, finish, nextLineId, lights);
+            const face = new Face(builder, l, run, frame, bp.height, floor.elevation, finish, nextLineId, lights, [], { ceilingY: height, grid });
             face.plain(closure.a - .02, closure.b + .02, 0, bp.height);
         }
     }
@@ -198,15 +251,26 @@ export function walls(
             const inside = (r: Run) => h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01;
             const owner = l.runs.find(r => r.draw && inside(r)) ?? l.runs.find(inside);
             if (!owner) continue;
-            if (portal(l, h)) {
+            const chosenPortal = portalOf(l, h);
+            if (chosenPortal === 'luxury') {
                 placeLuxuryPortal(builder, owner.room, l.axis, l.c, h.at, h.width, h.y1, frame);
                 continue;
             }
-            const family = finishOf(owner.room, owner.kind).family;
+            if (chosenPortal) {
+                // Layers stand concentrically: each outer layer frames the inner one's surround.
+                let width = h.width, head = h.y1;
+                for (const spec of [chosenPortal, ...layersOf(chosenPortal)]) {
+                    lights.push(...placePortal(builder, spec, owner.room, l.axis, l.c, h.at, width, head, frame));
+                    width += 2 * spec.band;
+                    head += spec.band;
+                }
+                continue;
+            }
+            const ownerFinish = finishOf(owner.room, owner.kind);
             // Core thresholds retain the stable member IDs used by stair walking
             // consumers. Room passages may vary their casing without changing bounds.
             const coreEntry = [stairEntryHole(core, 'a', 0), ...(core.stairB ? [stairEntryHole(core, 'b', 0)] : [])].some(matches);
-            const suffix = coreEntry ? '' : `-${family}`;
+            const suffix = coreEntry ? '' : `-${ownerFinish.casing ?? ownerFinish.family}`;
             const rotation = -frame.angleDeg * Math.PI / 180 + (l.axis === 'V' ? -Math.PI / 2 : 0);
             for (const t of [h.at - h.width / 2 - CASING_MEMBER / 2, h.at + h.width / 2 + CASING_MEMBER / 2]) {
                 const [x, z] = uvToWorld(l.axis === 'H' ? [t, l.c] : [l.c, t], frame);
@@ -250,20 +314,45 @@ function projectShellCuts(floors: readonly BlueprintFloor[], frame: Frame, heigh
     }
 }
 
-/** One room's face of one partition run: its pieces stand on the line and face the room. */
-class Face {
-    private readonly rotation: number;
+/** One room's face of one partition run: its pieces stand on the line and face the room.
+ *  A finish whose field is a registered panel system builds every fragment through it. */
+class Face implements WallFace {
+    readonly rotation: number;
+    readonly along: 1 | -1;
+    readonly room: string;
+    readonly kind: RoomKind;
+    readonly axis: 'H' | 'V';
+    readonly c: number;
+    readonly side: 1 | -1;
+    readonly ceilingY: number;
+    readonly gridOrigin: number;
+    private readonly panel: PanelSystem | undefined;
 
     constructor(
-        private readonly builder: PlacementBuilder, private readonly line: Line, private readonly run: Run,
-        private readonly frame: Frame, private readonly height: number, private readonly elevation: number,
-        private readonly finish: RoomFinish, private readonly nextId: () => string, private readonly lights: LightFixture[],
+        readonly builder: PlacementBuilder, private readonly line: Line, private readonly run: Run,
+        readonly frame: Frame, readonly height: number, readonly elevation: number,
+        private readonly finish: RoomFinish, readonly nextId: () => string, readonly lights: LightFixture[],
         private readonly ceilingHoles: readonly UvRect[] = [],
+        options: { ceilingY?: number; grid?: Point; panel?: PanelSystem | null } = {},
     ) {
         // Local +z of a wall piece points into its room: along the line's normal on the run's side.
         const d: Point = line.axis === 'H' ? [0, run.side] : [run.side, 0];
         const w = [d[0] * frame.cos - d[1] * frame.sin, d[0] * frame.sin + d[1] * frame.cos];
         this.rotation = Math.atan2(w[0]!, w[1]!);
+        // Piece-local +x may run against the line: phase every repeat from the same end.
+        const tangent = [Math.cos(this.rotation), -Math.sin(this.rotation)];
+        const along = line.axis === 'H'
+            ? tangent[0]! * frame.cos + tangent[1]! * frame.sin
+            : -tangent[0]! * frame.sin + tangent[1]! * frame.cos;
+        this.along = along > 0 ? 1 : -1;
+        this.room = run.room;
+        this.kind = run.kind;
+        this.axis = line.axis;
+        this.c = line.c;
+        this.side = run.side;
+        this.ceilingY = options.ceilingY ?? height;
+        this.gridOrigin = options.grid ? (line.axis === 'H' ? options.grid[0] : options.grid[1]) : 0;
+        this.panel = options.panel === null ? undefined : options.panel ?? PANELS.get(finish.field);
     }
 
     /** A run between holes: a nine-slice frame where one fits, a plain field otherwise. The
@@ -283,6 +372,11 @@ class Face {
                 this.piece('wall-meridian-glass-rail', mid, y, [length / PIECE, 1, 1]);
             return;
         }
+        // A panel system replaces the nine-slice frame on every face of the room.
+        if (this.panel) {
+            if (!mirror) this.plain(a, b, 0, this.height);
+            return;
+        }
         if (!frame || length < MIN_FRAME - 1e-6 || this.height < MIN_FRAME - 1e-6) {
             this.plain(a, b, 0, this.height);
             return;
@@ -298,15 +392,16 @@ class Face {
         for (const [y, facing] of [[PIECE, 'down'], [top, 'up']] as const) this.lightLine(mid, y, inner - 2 * LINE_GAP, facing);
     }
 
-    /** A plain field: one fitted piece over the whole run and height. */
+    /** A plain field: one fitted piece over the whole run and height; a panel system's
+     *  columns, fills and bands where the finish names one. */
     plain(a: number, b: number, y0: number, y1: number): void {
+        if (this.panel) {
+            placePanelSystem(this, this.panel, a, b, y0, y1);
+            return;
+        }
         if (isLoft1702Wall(this.finish.field)) {
-            const tangent = [Math.cos(this.rotation), -Math.sin(this.rotation)];
-            const along = this.line.axis === 'H'
-                ? tangent[0]! * this.frame.cos + tangent[1]! * this.frame.sin
-                : -tangent[0]! * this.frame.sin + tangent[1]! * this.frame.cos;
             placeLoft1702Wall(this.builder, this.run.room, this.at((a + b) / 2, y0), b - a, y1 - y0, this.rotation,
-                { phase: along > 0 ? a : -b, wet: this.finish.field === LOFT1702_FINISH.wetWall });
+                { phase: this.along > 0 ? a : -b, wet: this.finish.field === LOFT1702_FINISH.wetWall });
             if (this.finish.field === LOFT1702_FINISH.wall && ['living', 'corridor'].includes(this.run.kind)
                 && Math.abs(y1 - this.height) < 1e-6 && y1 - y0 >= .3) {
                 for (const [from, to] of duplexCoveSpans(a, b, this.line.axis, this.line.c, this.run.side, this.ceilingHoles))
@@ -333,14 +428,14 @@ class Face {
         if (skirt) this.piece('wall-meridian-skirting', (a + b) / 2, 0, [(b - a) / PIECE, 1, 1]);
     }
 
-    private at(t: number, y: number, proud = 0): [number, number, number] {
+    at(t: number, y: number, proud = 0): [number, number, number] {
         const off = proud * this.run.side;
         const [x, z] = uvToWorld(this.line.axis === 'H' ? [t, this.line.c + off] : [this.line.c + off, t], this.frame);
         return [x, y, z];
     }
 
-    private piece(module: string, t: number, y: number, scale: [number, number, number]): void {
-        this.builder.module(module, this.run.room, this.at(t, y), scale, this.rotation);
+    piece(module: string, t: number, y: number, scale: [number, number, number], extra: { id?: string; proud?: number } = {}): Placement {
+        return this.builder.module(module, this.run.room, this.at(t, y, extra.proud ?? 0), scale, this.rotation, extra.id ? { id: extra.id } : {});
     }
 
     /** Physical wall pocket and matching restrained red source, both facing

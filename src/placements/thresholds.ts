@@ -5,6 +5,7 @@ import type { PlacementBuilder } from './builder.js';
 import type { Placement } from './types.js';
 import { surface } from './surfaces.js';
 import { PUBLIC_PORTAL } from '../styles/luxury/portals.js';
+import { portalOfHeader } from '../styles/reference/registry.js';
 
 /** Join an exterior passage to the floor that was actually placed behind it. Facade
  * backing depth and the room envelope are independent: a recessed facade may leave
@@ -41,7 +42,11 @@ export function exteriorThreshold(builder: PlacementBuilder, face: EdgeFrame, op
 export function thresholds(builder: PlacementBuilder, frame: Frame, floorOf: (room: string) => string, linkedSupport: readonly UvRect[] = []): void {
     const support = [...walkingSlabs(builder, frame), ...linkedSupport];
     for (const door of builder.placements.filter(p => p.module && /^door-header(?:-|$)/.test(p.module))) {
-        const width = door.module === 'door-header-luxury-public' ? door.scale[0] * .5 + 2 * PUBLIC_PORTAL.radius : door.scale[0] * .5 - .16;
+        // A portal header spans its straight run between the two corners; a casing header
+        // spans the opening plus both jambs.
+        const portal = portalOfHeader(door.module!);
+        const width = door.module === 'door-header-luxury-public' ? door.scale[0] * .5 + 2 * PUBLIC_PORTAL.radius
+            : portal ? door.scale[0] * .5 + 2 * portal.radius : door.scale[0] * .5 - .16;
         let gaps = [footprint(door, width, .2, frame)];
         for (const floor of support) gaps = gaps.flatMap(gap => subtractRect(gap, floor));
         for (const gap of gaps) {

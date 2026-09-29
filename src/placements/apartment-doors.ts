@@ -5,7 +5,20 @@ import type { GeneratedInterior, Placement } from './types.js';
 import { carveApartmentPockets } from './apartment-pockets.js';
 import { capsuleApartmentEntrances } from '../styles/capsule/apartment-doors.js';
 import { damagedApartmentEntrances } from '../styles/damaged/apartment-doors.js';
-import type { FloorInterior } from '../core/types.js';
+import type { FloorInterior, Tier } from '../core/types.js';
+import { styleOf } from '../styles/reference/registry.js';
+
+type EntranceKit = 'luxury' | 'capsule' | 'damaged';
+const TIER_KIT: Record<Tier, EntranceKit> = { poor: 'damaged', mid: 'capsule', rich: 'luxury', high_rich: 'luxury' };
+
+/** The entrance kit of one dwelling: its living room's reference style names it, the
+ *  building tier otherwise. */
+function entranceKit(entrance: ApartmentEntrance, floor: FloorInterior, tier: Tier): EntranceKit {
+  const own = floor.rooms.filter(room => room.unit === entrance.unit);
+  const living = own.find(room => room.kind === 'living' || room.kind === 'studio_main')
+    ?? own.find(room => room.id === entrance.privateRoom);
+  return styleOf(living)?.entrance ?? TIER_KIT[tier] ?? 'luxury';
+}
 
 /** Per-floor identities stay outside shared layouts. Only the apartment programme
  * produces private dwelling entrances; hotel, office and internal room doors retain
@@ -26,8 +39,11 @@ export function publishApartmentEntrances(result: GeneratedInterior): void {
     if (!carved.has(entry.layout)) carved.set(entry.layout, carveApartmentPockets(numbered, layout.placements, floor.rooms));
     const entrances = numbered.filter(entrance => carved.get(entry.layout)!.has(entrance.id));
     fitApartmentNumberplates(entrances, layout.placements);
-    if (entrances.length) entry.apartmentEntrances = result.building.tier === 'poor' ? damagedApartmentEntrances(entrances)
-      : result.building.tier === 'mid' ? capsuleApartmentEntrances(entrances) : entrances;
+    const tier = result.building.tier as Tier;
+    if (entrances.length) entry.apartmentEntrances = entrances.map(entrance => {
+      const kit = entranceKit(entrance, floor, tier);
+      return kit === 'damaged' ? damagedApartmentEntrances([entrance])[0]! : kit === 'capsule' ? capsuleApartmentEntrances([entrance])[0]! : entrance;
+    });
   }
 }
 

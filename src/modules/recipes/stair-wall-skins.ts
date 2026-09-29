@@ -11,10 +11,12 @@ export const stairWallLayer = (recipe: ModuleRecipe) => {
 /** A real front finish and its closed rear surface. The wall body remains local;
  * this finish belongs to the landing below, which can see it before its floor
  * streams in. The 1 mm cavity prevents coincident body/finish faces. Front UVs
- * and relief are copied exactly from the authored wall, rather than retiled. */
-export function stairWallSkins(recipes: readonly ModuleRecipe[], add: Parameters<RecipeSet>[0]): void {
+ * and relief are copied exactly from the authored wall, rather than retiled.
+ * Only fields a stair wall can wear get one: `skip` names the plain-looking pieces of
+ * panel systems (backings, fills, bands), which stair walls never stand as. */
+export function stairWallSkins(recipes: readonly ModuleRecipe[], add: Parameters<RecipeSet>[0], skip: (id: string) => boolean = () => false): void {
     for (const recipe of recipes) {
-        if (!(/^(wall-field-|wall-meridian-skirting$)/.test(recipe.id)) || recipe.size[2] <= .00001
+        if (!(/^(wall-field-|wall-meridian-skirting$)/.test(recipe.id)) || skip(recipe.id) || recipe.size[2] <= .00001
             || recipe.mesh.materials().some(slot => /glass|\/light-fixture\//.test(slot))) continue;
         add(stairWallSkinId(recipe.id), kit => {
             const { back, skinScale } = stairWallLayer(recipe), copied = new MeshBuilder();

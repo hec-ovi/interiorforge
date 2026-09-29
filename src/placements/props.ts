@@ -2,7 +2,9 @@ import { chooseFurnitureAsset, type ModelPresence } from '../assets/families.js'
 import { fitAssetBounds } from '../assets/catalog.js';
 import type { FloorInterior, FurnitureKind, InteriorRequest } from '../core/types.js';
 import type { UvFloorData } from '../layout/plan-floor.js';
-import { clean, litModule, type PlacementBuilder } from './builder.js';
+import { clean, litModule, placementRecipe, type PlacementBuilder } from './builder.js';
+import { ASSEMBLIES, styleOf } from '../styles/reference/registry.js';
+import { placeAssembly } from '../styles/systems/assembly.js';
 import type { Family } from './finish.js';
 import { CAPSULE_FURNITURE, capsuleFurnitureFor } from '../styles/capsule/furniture.js';
 import { capsuleProfile } from '../styles/capsule/profile.js';
@@ -73,13 +75,34 @@ const FALLBACK: Record<Family, Partial<Record<FurnitureKind, Fit>>> = {
 
 /** Built-in modules and catalog props both own furniture anchors; furniture that fits
  *  neither, or whose fitting models are all absent here, leaves the published layout. Only a
- *  piece standing as a lit module keeps the light records of its lenses. */
+ *  piece standing as a lit module keeps the light records of its lenses. A piece naming a
+ *  registered assembly (`asm-*`) is built as that assembly, which publishes its own lens
+ *  records; one naming a module (`fit-*`), or fitted by its room's reference style, stands as
+ *  that module at its canonical size. */
 export function props(builder: PlacementBuilder, floor: FloorInterior, uv: UvFloorData, family: Family, models: ModelPresence, request?: InteriorRequest): void {
     const retained = new Set<string>(), lit = new Set<string>();
     const table = BUILT_IN[family];
     const roomKinds = new Map(uv.rooms.map(room => [room.id, room.kind]));
+    const rooms = new Map(floor.rooms.map(room => [room.id, room]));
+    const ceilingY = floor.ceilingElevation - floor.elevation;
     for (const item of floor.furniture) {
         const position: [number, number, number] = [item.position[0], item.elevation ?? 0, item.position[1]];
+        const assembly = item.fit?.startsWith('asm-') ? ASSEMBLIES.get(item.fit) : undefined;
+        if (assembly) {
+            // The assembly's lenses replace whatever the plan lit for the reservation.
+            const records = placeAssembly(builder, floor, item, assembly, ceilingY);
+            floor.lights = [...floor.lights.filter(light => light.furniture !== item.id), ...records.map(light => ({ ...light, furniture: item.id }))];
+            retained.add(item.id); lit.add(item.id);
+            continue;
+        }
+        const room = rooms.get(item.room);
+        const styleFit = item.fit?.startsWith('fit-') ? item.fit : room ? styleOf(room)?.fit?.(item, room) ?? undefined : undefined;
+        if (styleFit && placementRecipe(styleFit)) {
+            builder.module(styleFit, item.room, position, [1, 1, 1], item.rotationDeg * Math.PI / 180, { id: item.id });
+            retained.add(item.id);
+            if (litModule(styleFit)) lit.add(item.id);
+            continue;
+        }
         const bathScreen = item.kind === 'room_divider' && usesResidentialVanity(family, roomKinds.get(item.room), floor.kind);
         if (!bathScreen && (family === 'luxury' || family === 'corporate') && placeLuxuryPlants(builder, item, models)) {
             retained.add(item.id); lit.add(item.id); continue;

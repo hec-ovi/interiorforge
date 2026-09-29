@@ -31,8 +31,18 @@ import { lifts } from './lifts.js';
 import { duplexVoids, duplexCeilingRects, duplexGalleryEdges, placeDuplexStructure } from './duplex.js';
 import { LOFT1702_FINISH, loft1702Finish, placeLoft1702GalleryFascia } from '../styles/luxury/loft-finish.js';
 import { placeDuplexLivingFloor } from './duplex-finish.js';
-import { polygonBounds } from '../core/geom.js';
+import { boundaryDistance, polygonBounds } from '../core/geom.js';
 import { worldToUv } from '../layout/uv.js';
+import type { LevelZone, LightFixture, Room, StyleId } from '../core/types.js';
+import type { PlanRoom } from '../layout/plan-types.js';
+import { gridOrigin } from '../layout/tile-fit.js';
+import { isLoftRequest } from '../styles/reference/kinds.js';
+import { HOUSINGS, STYLES } from '../styles/reference/registry.js';
+import { placeHousings } from '../styles/systems/housing.js';
+import type { DressContext, StyleSpec, SurfaceRoom } from '../styles/systems/types.js';
+
+/** Reference fields a planned room carries once the template layer stamps them. */
+type StyledPlanRoom = PlanRoom & { style?: StyleId; ceilingDrop?: number; levels?: LevelZone[] };
 
 export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: InteriorRequest, models: ModelPresence, climb: number, roof?: RoofAccessPlan | null, shared: readonly BlueprintFloor[] = [bp]): PlacementBuilder {
     const floor = plan.floors.find(f => f.floor === bp.index)!, uv = plan.uvFloors.get(bp.index)!, core = plan.core;
@@ -43,22 +53,54 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     const kinds = new Map<string, RoomKind>(floor.rooms.map(room => [room.id, room.kind]));
     const common = floor.rooms.find(room => room.kind === 'corridor' || room.kind === 'elevator_lobby' || room.kind === 'concourse')!;
     const duplexUnits = new Set((floor.duplexes ?? []).map(slice => slice.unit));
-    const loftRooms = new Set(request.building.interiorStyle === 'apartment-1702'
+    const loftRooms = new Set(isLoftRequest(request)
         ? floor.rooms.filter(room => room.unit && duplexUnits.has(room.unit)).map(room => room.id) : []);
+    // A room wearing a registered reference style is finished by it, over the family base.
+    const published = new Map<string, Room>(floor.rooms.map(room => [room.id, room]));
+    const planned = new Map<string, StyledPlanRoom>(uv.rooms.map(room => [room.id, room as StyledPlanRoom]));
+    const styleOfRoom = (room: string): StyleSpec | undefined => {
+        const id = published.get(room)?.style ?? planned.get(room)?.style;
+        return id ? STYLES.get(id) : undefined;
+    };
     const finishOf = (room: string, kind: RoomKind = kinds.get(room) ?? common.kind): RoomFinish => {
-        const base = architectureFinish(request, family, kind, roomFinish(family, kind, floor.kind as FloorKind));
-        return loft1702Finish(kind, base, { privateRoom: loftRooms.has(room) });
+        const style = styleOfRoom(room);
+        const base = loft1702Finish(kind, architectureFinish(request, family, kind, roomFinish(family, kind, floor.kind as FloorKind), !!style),
+            { privateRoom: loftRooms.has(room) });
+        if (!style) return base;
+        const styled = style.finish(kind, floor.kind as FloorKind, base);
+        return { ...styled, style: style.id, spot: style.lights?.spot ?? styled.spot, cove: style.lights?.cove ?? styled.cove };
     };
     const tag = `f${bp.index < 0 ? `m${-bp.index}` : bp.index}`;
 
     const floorRects = uv.rooms.map(room => ({ room, rects: rectangles(roomPolygon(room, plate), room.holes) }));
+    // The whole room each surface system phases to, at its own ceiling height: a template
+    // room's ceilingDrop never takes a facade room's ceiling below its highest window head.
+    const grid = gridOrigin(uv.outline);
+    const head = Math.max(0, ...shared.flatMap(level => level.openings.map(opening => opening.sill + opening.height)));
+    const surfaceRooms = new Map<string, SurfaceRoom>(floorRects.map(({ room }) => {
+        const polygon = roomPolygon(room, plate), b = polygonBounds(polygon), styled = planned.get(room.id)!;
+        const facade = polygon.some(point => boundaryDistance(point, plate) < .3);
+        const drop = Math.max(0, facade ? Math.min(styled.ceilingDrop ?? 0, ceilingY - head) : styled.ceilingDrop ?? 0);
+        const style = published.get(room.id)?.style ?? styled.style;
+        return [room.id, {
+            id: room.id, kind: room.kind, ...(style ? { style } : {}), polygon, ...(room.holes ? { holes: room.holes } : {}),
+            bounds: { u: b.x, v: b.z, lu: b.w, lv: b.d }, gridOrigin: grid, ceilingY, soffitY: bp.height, elevation: floor.elevation,
+            ...(styled.levels?.length ? { levels: styled.levels } : {}), ...(drop > 0 ? { ceilingDrop: drop } : {}),
+        }];
+    }));
+    // Planned fixtures follow their room's style: its light colour, its own coves or none,
+    // and a lowered ceiling.
+    const styledLights = (lights: LightFixture[]) => lights.filter(light => light.furniture || light.kind !== 'cove'
+        || styleOfRoom(light.room)?.lights?.plannedCoves !== false);
+    floor.lights = styledLights(floor.lights);
     for (const { room, rects } of floorRects) {
-        const finish = finishOf(room.id, room.kind);
+        const finish = finishOf(room.id, room.kind), whole = surfaceRooms.get(room.id)!;
+        const own = floor.lights.filter(light => !light.furniture && light.room === room.id);
         for (const rect of rects) {
             if (loftRooms.has(room.id) && room.kind === 'living')
                 placeDuplexLivingFloor(builder, room.id, rect, uv.carpets.filter(carpet => carpet.room === room.id).map(carpet => carpet.rect), core.frame);
-            else slabs(builder, finish.floor, room.id, rect, 0, core.frame);
-            for (const part of duplexCeilingRects(floor, core.frame, rect)) ceiling(builder, finish, room.id, part, ceilingY, core.frame);
+            else floor.lights.push(...slabs(builder, finish.floor, room.id, rect, 0, core.frame, whole));
+            for (const part of duplexCeilingRects(floor, core.frame, rect)) floor.lights.push(...ceiling(builder, finish, room.id, part, ceilingY, core.frame, whole, own));
         }
     }
     const plain = finishOf(common.id);
@@ -75,9 +117,15 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     // Architectural coves follow actual opaque wall/ceiling junctions below;
     // generic room-perimeter lines would float over the open lounge void.
     floor.lights = floor.lights.filter(light => light.kind !== 'cove' || light.furniture || !loftRooms.has(light.room));
-    const planned = floor.lights.filter(light => !light.furniture);
+    const plannedLights = floor.lights.filter(light => !light.furniture);
     if (['steel', 'graphite'].includes(interiorRecipe(request)?.frame ?? '')) {
-        for (const light of planned) { light.colorTemperatureK = 4000; delete light.color; }
+        for (const light of plannedLights) { light.colorTemperatureK = 4000; delete light.color; }
+    }
+    for (const light of plannedLights) {
+        const style = styleOfRoom(light.room)?.lights, drop = surfaceRooms.get(light.room)?.ceilingDrop ?? 0;
+        if (style?.kelvin) light.colorTemperatureK = style.kelvin;
+        if (style?.color) light.color = [...style.color];
+        if (drop > 0) light.position[1] -= drop;
     }
     floor.lights.push(...walls(builder, floor, uv, core, bp, request, finishOf, tag, shared));
     for (const slice of floor.duplexes ?? []) if (slice.level === 'upper') {
@@ -93,6 +141,17 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     if (family === 'capsule' && request.building.interiorStyle !== 'sandra-dorsett')
         dressCapsuleArchitecture(builder, floor, capsuleProfile(request));
     if (family === 'damaged') dressDamagedRooms(builder, floor, uv, core, bp);
+    // Each reference style present dresses its own rooms: housings, trims, signage.
+    for (const style of STYLES.values()) {
+        const rooms = floor.rooms.filter(room => styleOfRoom(room.id) === style);
+        if (!rooms.length) continue;
+        const context: DressContext = { builder, floor, uv, core, bp, request, rooms, ceilingY, frame: core.frame };
+        if (style.dress) floor.lights.push(...style.dress(context));
+        for (const id of style.housings ?? []) {
+            const housing = HOUSINGS.get(id);
+            if (housing) floor.lights.push(...placeHousings(context, housing));
+        }
+    }
     // Every record the room publishes is in now, so each luminaire takes the share that
     // lands the room in its kind's illuminance band.
     balanceIllumination(uv.rooms.map(room => ({ id: room.id, kind: room.kind, area: roomArea(room, plate) })), floor.lights, request.building.tier);
@@ -115,7 +174,8 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         for (const uncovered of subtractRect({ u: rect.x, v: rect.z, lu: rect.w, lv: rect.d }, structuralLanding))
             surface(builder, stairFloor, 'stair-a', uncovered, climb, core.frame);
     }
-    floor.lights.push(...lifts(builder, core, plain.floor, common.id, Math.min(...request.blueprint.floors.map(f => f.height)), bp.height, floor.elevation));
+    floor.lights.push(...lifts(builder, core, plain.floor, common.id, Math.min(...request.blueprint.floors.map(f => f.height)), bp.height, floor.elevation,
+        styleOfRoom(common.id)?.lift));
     const incomingLandings = lowest ? [] : [core.stairA, ...(core.stairB ? [core.stairB] : [])]
         .map((shaft, i) => stairLandingRect(shaft, baseLanding(shaft, entryAtLowEnd(core, i === 0 ? 'a' : 'b'), 0)));
     thresholds(builder, core.frame, room => finishOf(room).floor, incomingLandings);
@@ -130,10 +190,10 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         const owner = floorRects.map(({ room, rects }) => ({ room, side: Math.max(0, ...rects.map(other => sharedSide(rect, other))) }))
             .sort((a, b) => b.side - a.side)[0];
         const room = owner && owner.side > 0 ? owner.room : common, finish = finishOf(room.id, room.kind);
-        slabs(builder, finish.floor, room.id, rect, 0, core.frame);
+        floor.lights.push(...slabs(builder, finish.floor, room.id, rect, 0, core.frame));
         for (const part of duplexCeilingRects(floor, core.frame, rect)) {
-            if (loftRooms.has(room.id)) ceiling(builder, finish, room.id, part, ceilingY, core.frame);
-            else surface(builder, finish.ceiling, room.id, part, ceilingY, core.frame);
+            if (loftRooms.has(room.id)) floor.lights.push(...ceiling(builder, finish, room.id, part, ceilingY, core.frame));
+            else surface(builder, finish.ceiling, room.id, part, ceilingY - (surfaceRooms.get(room.id)?.ceilingDrop ?? 0), core.frame);
         }
     }
     for (const slice of floor.duplexes ?? []) {
@@ -141,10 +201,10 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         placeDuplexStructure(builder, slice, room);
         if (slice.level === 'upper') for (const [index, ring] of [...slice.loungeVoids, slice.stairOpening].entries()) {
             const b = polygonBounds(ring.map(point => worldToUv(point, core.frame))), air = `${slice.id}-air-${index}`;
-            ceiling(builder, finishOf(air, 'living'), air, { u: b.x, v: b.z, lu: b.w, lv: b.d }, ceilingY, core.frame);
+            floor.lights.push(...ceiling(builder, finishOf(air, 'living'), air, { u: b.x, v: b.z, lu: b.w, lv: b.d }, ceilingY, core.frame));
         }
     }
-    for (const light of planned) {
+    for (const light of plannedLights) {
         const finish = finishOf(light.room), position: [number, number, number] = [light.position[0], light.position[1] - floor.elevation, light.position[2]];
         const rotation = -light.angleDeg * Math.PI / 180;
         if (light.kind === 'spot') builder.module(finish.spot, light.room, position, [1, 1, 1], rotation, { id: light.id });

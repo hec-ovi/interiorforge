@@ -10,6 +10,12 @@ import { placeIndustrialServices } from '../styles/industrial/services.js';
 import { placeLuxuryCeiling } from '../styles/luxury/ceiling.js';
 import { placeLuxuryStoneFloor } from '../styles/luxury/surfaces.js';
 import { isLoft1702Ceiling, LOFT1702_FINISH, placeLoft1702Ceiling } from '../styles/luxury/loft-finish.js';
+import type { LightFixture } from '../core/types.js';
+import { CEILINGS, FLOORS } from '../styles/reference/registry.js';
+import { placeCeilingSystem } from '../styles/systems/ceiling.js';
+import { placeFloorSystem } from '../styles/systems/floor.js';
+import { levelFloorRects, placeLevels } from '../styles/systems/levels.js';
+import type { SurfaceRoom } from '../styles/systems/types.js';
 
 /** Fitted ceiling band width, one construction cell. */
 const BAND = 0.5;
@@ -82,29 +88,42 @@ export function surface(builder: PlacementBuilder, module: string, room: string,
     builder.module(module, room, [x, y, z], [rect.lu / .5, 1, rect.lv / .5], -frame.angleDeg * Math.PI / 180);
 }
 
-/** The floor of a room rectangle: one fitted slab, tiled by its own map. */
-export function slabs(builder: PlacementBuilder, module: string, room: string, rect: UvRect, y: number, frame: Frame): void {
-    if (module === 'floor-slab-meridian-stone' || module === 'floor-slab-luxury-polished') {
-        placeLuxuryStoneFloor(builder, room, rect, y, frame, module === 'floor-slab-luxury-polished' ? 'floor-finish-luxury-polished' : undefined);
-        return;
+/** The floor of a room rectangle: one fitted slab, tiled by its own map. Given the whole
+ *  room, a registered floor system lays it (phased to the room or the grid), and the room's
+ *  level zones take their part of the rectangle as platforms. Returns lens records. */
+export function slabs(builder: PlacementBuilder, module: string, room: string, rect: UvRect, y: number, frame: Frame, whole?: SurfaceRoom): LightFixture[] {
+    const lights: LightFixture[] = [];
+    const zones = whole?.levels?.length ? whole.levels : undefined;
+    const system = whole ? FLOORS.get(module) : undefined;
+    for (const part of zones ? levelFloorRects(rect, zones) : [rect]) {
+        if (system) lights.push(...placeFloorSystem(builder, system, whole!, part, y, frame));
+        else if (module === 'floor-slab-meridian-stone' || module === 'floor-slab-luxury-polished')
+            placeLuxuryStoneFloor(builder, room, part, y, frame, module === 'floor-slab-luxury-polished' ? 'floor-finish-luxury-polished' : undefined);
+        else surface(builder, module, room, part, y, frame);
     }
-    surface(builder, module, room, rect, y, frame);
+    if (zones && whole) lights.push(...placeLevels(builder, whole.style ?? module.replace(/^floor-slab-/, ''), whole, rect, frame));
+    return lights;
 }
 
 /** A ceiling over a room rectangle: the fitted outer band where the rectangle can hold one,
- *  inset fields inside it, and the family's exposed services along the run. */
-export function ceiling(builder: PlacementBuilder, finish: RoomFinish, room: string, rect: UvRect, y: number, frame: Frame): void {
+ *  inset fields inside it, and the family's exposed services along the run. Given the whole
+ *  room, a registered ceiling system builds it at the room's own height (the storey ceiling
+ *  less its ceilingDrop) and may move the room's `planned` spots. Returns lens records. */
+export function ceiling(builder: PlacementBuilder, finish: RoomFinish, room: string, rect: UvRect, y: number, frame: Frame,
+    whole?: SurfaceRoom, planned: LightFixture[] = []): LightFixture[] {
+    const system = whole ? CEILINGS.get(finish.ceiling) : undefined;
+    if (system) return placeCeilingSystem(builder, system, whole!, rect, y - (whole!.ceilingDrop ?? 0), frame, planned);
     if (isLoft1702Ceiling(finish.ceiling)) {
         placeLoft1702Ceiling(builder, room, rect, y, frame, { dark: finish.ceiling === LOFT1702_FINISH.wetCeiling });
-        return;
+        return [];
     }
     if (finish.family === 'corporate') {
         placeCorporateCeiling(builder, room, rect, y, frame, finish.ceiling);
-        return;
+        return [];
     }
     if (finish.family === 'luxury') {
         placeLuxuryCeiling(builder, room, rect, y, frame);
-        return;
+        return [];
     }
     const banded = finish.band && rect.lu >= 2 * BAND + 1 && rect.lv >= 2 * BAND + 1;
     if (banded) {
@@ -117,7 +136,7 @@ export function ceiling(builder: PlacementBuilder, finish: RoomFinish, room: str
     surface(builder, finish.ceiling, room, field, y, frame);
     if (finish.services === 'ceiling-services-industrial') {
         placeIndustrialServices(builder, room, rect, y, frame);
-        return;
+        return [];
     }
     if (finish.services && Math.max(rect.lu, rect.lv) >= 2 && Math.min(rect.lu, rect.lv) >= .5) {
         const alongU = rect.lu >= rect.lv;
@@ -125,4 +144,5 @@ export function ceiling(builder: PlacementBuilder, finish: RoomFinish, room: str
         builder.module(finish.services, room, [x, y, z], [(alongU ? rect.lu : rect.lv) / .5, 1, 1],
             -frame.angleDeg * Math.PI / 180 + (alongU ? 0 : -Math.PI / 2));
     }
+    return [];
 }

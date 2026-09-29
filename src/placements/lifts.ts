@@ -7,8 +7,11 @@ import type { PlacementBuilder } from './builder.js';
 import { surface } from './surfaces.js';
 
 /** Fit one shared rideable car pose into each shaft and a landing at every served
- * floor. The engine mounts one lift-car per shaft and animates only lift-doors. */
-export function lifts(builder: PlacementBuilder, core: CorePlan, floorModule: string, room: string, minimumStoreyHeight: number, storeyHeight = minimumStoreyHeight, elevation = 0): LightFixture[] {
+ * floor. The engine mounts one lift-car per shaft and animates only lift-doors. A lobby
+ * wearing a reference style frames its landings in that style's jamb and header, whose
+ * bounds match the plain `lift-landing-jamb` and `lift-landing-header`. */
+export function lifts(builder: PlacementBuilder, core: CorePlan, floorModule: string, room: string, minimumStoreyHeight: number, storeyHeight = minimumStoreyHeight, elevation = 0,
+    surround: { jamb: string; header: string } = { jamb: 'lift-landing-jamb', header: 'lift-landing-header' }): LightFixture[] {
     const lights: LightFixture[] = [];
     const angle = -core.frame.angleDeg * Math.PI / 180;
     // All landings use the same car height, including taller ground floors.
@@ -34,9 +37,9 @@ export function lifts(builder: PlacementBuilder, core: CorePlan, floorModule: st
         builder.module('lift-doors', elevator.id, [dx, 0, dz], doorScale, angle + Math.PI);
         for (const side of [-1, 1]) {
             const [jx, jz] = uvToWorld([passage.at + side * (passage.width / 2 + 0.05), core.vFace], core.frame);
-            builder.module('lift-landing-jamb', elevator.id, [jx, 0, jz], [1, 1, 1], angle);
+            builder.module(surround.jamb, elevator.id, [jx, 0, jz], [1, 1, 1], angle);
         }
-        builder.module('lift-landing-header', elevator.id, [dx, 2.20, dz], doorScale, angle);
+        builder.module(surround.header, elevator.id, [dx, 2.20, dz], doorScale, angle);
         const solid = (u: number, v: number, w: number, d: number) => {
             const [sx, sz] = uvToWorld([u, v], core.frame);
             builder.module('elevator-shaft-wall', elevator.id, [sx, 0, sz], [w, storeyHeight, d], angle);
