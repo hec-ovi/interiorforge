@@ -3,7 +3,8 @@ import { triangulate } from '../../core/triangulate.js';
 import type { Kit } from '../../modules/kit.js';
 import type { RecipeSet } from '../../modules/recipes.js';
 import { placeIsland, placeTallRun, type IslandSpec, type TallRunSpec } from './assembly.js';
-import { registerModuleSizes, xyPrism, yzPrism } from './built-ins.js';
+import { registerModuleSizes } from './built-ins.js';
+import { bambooBay, tuft } from './foliage.js';
 import { placeGlassPlanter, type GlassPlanterSpec } from './planter.js';
 import { kitchenRecipes, roundedSection, type KitchenLook } from './kitchen-modules.js';
 import { LOOK } from './reference-looks.js';
@@ -204,19 +205,16 @@ const kindA: RecipeSet = add => {
     box(k, LOOK.black, -.25, .25, .925, .94, -.25, .25);
     for (const x of [-.25, .238]) for (const z of [-.25, .238]) box(k, LOOK.black, x, x + .012, .03, .925, z, z + .012);
   });
-  add('fit-e1-planter-body', k => { yzPrism(k, LOOK.e1Cream, TROUGH, -.25, .25, false); box(k, LOOK.black, -.25, .25, .5, .516, .36, .362); });
-  add('fit-e1-planter-end', k => yzPrism(k, LOOK.e1Cream, TROUGH, -.02, .02));
+  add('fit-e1-planter-body', k => { k.sweep(LOOK.e1Cream, TROUGH, -.25, .25, { caps: false }); box(k, LOOK.black, -.25, .25, .5, .516, .36, .362); });
+  add('fit-e1-planter-end', k => k.sweep(LOOK.e1Cream, TROUGH, -.02, .02));
   add('fit-e1-planter-soil', k => box(k, LOOK.soil, -.25, .25, .73, .75, .04, .27));
   // Six broad-leaved tufts per metre leaning out of the bed towards the room, never back
-  // into the window.
+  // into the window: arching blades with a keel, inside the bay and a hand over the front.
   add('fit-e1-planter-bay', k => {
+    const bounds = { x: [-.5, .5] as [number, number], y: [.75, 2.2] as [number, number], z: [.01, .46] as [number, number] };
     for (let i = 0; i < 6; i++) {
       const x = -.42 + i * .168, z = .12 + (i % 2) * .07, h = .55 + (i % 3) * .1;
-      k.rod(LOOK.stem, [x, .75, z], [x, .75 + h * .4, z], .016);
-      for (let j = 0; j < 7; j++) {
-        const heading = -.15 + ((j * 2.399 + i * .7) % 3.44), length = h * (.4 + .08 * ((j + i) % 3));
-        k.leaf(LOOK.leaf, [x, .75 + h * (.15 + .04 * j), z], heading, Math.min(length, .26), h * .16, .3 + .05 * (j % 4));
-      }
+      tuft(k, LOOK.leaf, LOOK.stem, [x, .75, z], h * .75, 91 + i * 17, 7, Math.PI / 2, bounds);
     }
   });
   // Open wardrobe: black steel frames on dark timber, a red line on the floor.
@@ -233,8 +231,8 @@ const kindA: RecipeSet = add => {
   add('fit-e1-shelf-bulkhead', k => box(k, LOOK.e1Shelf, -.25, .25, 0, .5, 0, .4));
   add('fit-e1-wardrobe-line', k => box(k, LOOK.lensRed, -.25, .25, 0, .006, -.006, .006));
   // Cream AC housing over doors and portals.
-  add('housing-e1-ac-body', k => yzPrism(k, LOOK.e1Cream, HOUSING, -.25, .25, false));
-  add('housing-e1-ac-cap', k => yzPrism(k, LOOK.e1Cream, HOUSING, -.015, .015));
+  add('housing-e1-ac-body', k => k.sweep(LOOK.e1Cream, HOUSING, -.25, .25, { caps: false }));
+  add('housing-e1-ac-cap', k => k.sweep(LOOK.e1Cream, HOUSING, -.015, .015));
   add('housing-e1-ac-grille', k => grillePanel(k, [[-.2, .15], [.2, .15], [.2, .28], [-.2, .28]], .4512, LOOK.e1Mesh, LOOK.black));
 };
 
@@ -243,14 +241,8 @@ const kindA: RecipeSet = add => {
 const kindAExtra: RecipeSet = add => {
   add('fit-e1-bamboo-base', k => { box(k, LOOK.e1Housing, -.25, .25, 0, .3, -.25, .25); box(k, LOOK.black, -.25, .25, 0, .04, -.252, .252); });
   add('fit-e1-bamboo-soil', k => box(k, LOOK.soil, -.25, .25, .3, .31, -.25, .25));
-  // A dense metre of bamboo: twelve culms in two staggered lines, leaves up top.
-  add('fit-e1-bamboo-bay', k => {
-    for (let i = 0; i < 12; i++) {
-      const x = -.44 + i * .08, z = (i % 2 ? .04 : -.04) + ((i * 37) % 5 - 2) * .01, h = 2 + (i % 4) * .12;
-      k.cylinder(LOOK.stem, [x, 0, z], .015, h, 5);
-      for (let j = 0; j < 5; j++) k.leaf(LOOK.leaf, [x, h * (.5 + j * .1), z], i * 1.7 + j * 2.1, .11, .04, .12);
-    }
-  });
+  // A dense metre of bamboo: round culms with node rings, twigs and narrow leaves up top.
+  add('fit-e1-bamboo-bay', k => bambooBay(k, LOOK.stem, LOOK.leaf, .96, .3, 2.3, 2609));
   add('fit-e1-bamboo-pane', k => box(k, LOOK.glass, -.25, .25, 0, .5, -.005, .005));
   add('fit-e1-bamboo-post', k => box(k, LOOK.black, -.015, .015, 0, .5, -.015, .015));
   add('ceiling-cove-e1-bamboo-frame', k => box(k, LOOK.lensCool, -.25, .25, -.01, 0, -.02, .02));

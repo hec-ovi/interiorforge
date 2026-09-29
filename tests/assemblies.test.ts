@@ -205,7 +205,8 @@ describe('runs, planters and enclosures', () => {
     const { builder } = place('asm-e1-planter', [3, .4, .8], 3);
     expect(builder.placements.filter(p => p.module === 'fit-e1-planter-end')).toHaveLength(2);
     expect(builder.placements.filter(p => p.module === 'fit-e1-planter-bay').every(p => p.scale.every(s => s === 1))).toBe(true);
-    expect(tris(builder.placements)).toBeLessThan(2000);
+    // Planting is baked leaf blades now, not bent quads: a metre stays under 5 k triangles.
+    expect(tris(builder.placements)).toBeLessThan(12000);
   });
 
   it('closes the bamboo enclosure with glass to the ceiling and records every LED frame lens', () => {

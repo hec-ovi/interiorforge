@@ -200,8 +200,8 @@ export function clothSurface(k: Kit, slot: string, sample: (u: number, v: number
 }
 
 /** Loose pillow: four pinched sewn corners, inflated centre and edge tension folds. */
-export function loosePillow(k: Kit, slot: string, at: Vec3, width: number, depth: number, height: number, yaw = 0, tilt = 0, uvOffset: [number,number] = [0,0]): void {
-  const g = surface(), n = 28, stride = n + 1, layer = stride ** 2;
+export function loosePillow(k: Kit, slot: string, at: Vec3, width: number, depth: number, height: number, yaw = 0, tilt = 0, uvOffset: [number,number] = [0,0], n = 28): void {
+  const g = surface(), stride = n + 1, layer = stride ** 2;
   for (const bottom of [false, true]) for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) {
     const u = i / n * 2 - 1, v = j / n * 2 - 1, fullness = Math.pow(Math.max(0, (1 - u * u) * (1 - v * v)), .55);
     const x = u * width / 2 * (1 - .07 * (1 - v * v)), z = v * depth / 2 * (1 - .09 * (1 - u * u));
