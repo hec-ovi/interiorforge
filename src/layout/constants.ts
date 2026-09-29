@@ -52,7 +52,7 @@ export function stairSlab(storeyHeight: number): number {
 }
 
 export const ELEVATOR = {
-  shaft: 2.5, // square shaft per car
+  shaft: 3.5, // square shaft: 3.3 m car, about 3.07 m clear inside
   lobbyDepth: 2.4,
   officeAreaPerCar: 4200,
   unitsPerCar: 70,
