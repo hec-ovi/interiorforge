@@ -11,6 +11,7 @@ import type { Frame, UvRect } from "./uv.js";
 import { pointInUvRect, uvRectCorners, uvRectWorldBounds, uvToWorld, worldToUv } from "./uv.js";
 import { roomContains, roomEdges } from "./room-shape.js";
 import { ArchitectureTransitions } from "./architecture-transitions.js";
+import { raisedZoneRects } from "./levels.js";
 
 export type ArchitecturalGrid = WalkGrid & { architecture?: ArchitectureTransitions };
 
@@ -73,6 +74,10 @@ export function buildNavGrid(
     if (physical || NON_BLOCKING.has(f.kind) || (f.elevation ?? 0) > 0) continue;
     blockUvRect(grid, frame, furnitureUvRect(f), FURNITURE_MARGIN);
   }
+
+  // A raised zone (a bar platform, a split lobby's upper lounge) is not walked in v1:
+  // routes go around its steps; its furniture stands on it at the zone's height.
+  for (const room of rooms) for (const rect of raisedZoneRects(room)) blockUvRect(grid, frame, rect, 0);
 
   for (const room of rooms) {
     for (const door of room.doors) {
