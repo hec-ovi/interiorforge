@@ -39,10 +39,12 @@ const PRE_REFERENCE: Partial<Record<ReferenceKind, { placements?: number; triang
 };
 
 /** Kit growth a kind may still spend above KIT_GROWTH_BYTES, lowered as it trims: kind A's
- *  embedded E1 kitchen wall (about 101 KB) and layered E1 portals (about 100 KB) carry the
- *  per-file GLB overhead of their many small bays. The engine loads only the modules a
- *  building's floors place, so kit size is not paid by every world. */
-const KIT_GROWTH_ALLOWANCE: Partial<Record<ReferenceKind, number>> = { A: 720_000 };
+ *  embedded E1 kitchen wall (about 180 KB since its bays are rounded joinery with a pressed
+ *  bowl, mixer and glass hob rather than boxes) and layered E1 portals (about 100 KB) carry
+ *  the per-file GLB overhead of their many small bays; kind B's back bar is the same
+ *  joinery with baked bottles. The engine loads only the modules a building's floors
+ *  place, so kit size is not paid by every world. */
+const KIT_GROWTH_ALLOWANCE: Partial<Record<ReferenceKind, number>> = { A: 880_000, B: 520_000 };
 
 describe('kit growth per reference kind', () => {
     const theme = loadTheme('cyberpunk')?.library.themeIndex ?? null;
