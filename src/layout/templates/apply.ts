@@ -15,7 +15,7 @@ import type { ProgramChange } from "../service-program.js";
 import { facadeDepth } from "../shell.js";
 import { gridOrigin } from "../tile-fit.js";
 import { toWorldPolygon, uvToWorld, worldToUv, type UvRect } from "../uv.js";
-import { fitTemplate } from "./fit.js";
+import { fitTemplate, templateTrace } from "./fit.js";
 import { dwellingTemplates, publicTemplates } from "./registry.js";
 import type { PublicSlot, SpaceTemplate, TemplateFit, TemplateTarget } from "./schema.js";
 
@@ -158,8 +158,9 @@ function safeFit(template: SpaceTemplate, target: TemplateTarget, unit: string |
   probe: (rooms: PlanRoom[]) => boolean, keep?: PlanRoom): TemplateFit | null {
   try {
     return fitTemplate(template, target, unit, ids, probe, keep);
-  } catch {
+  } catch (error) {
     // a template problem refuses the template, never the building
+    templateTrace(`${template.id}: threw ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 }

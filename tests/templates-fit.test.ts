@@ -38,6 +38,11 @@ describe('template fitting', () => {
         expect(t.daylight, t.id).toContain('v1');
         expect(t.fixtures.some(f => f.required), t.id).toBe(true);
       }
+      for (const room of t.rooms) {
+        expect(room.id, t.id).toMatch(/^[a-z0-9-]+$/);
+        if (room.role) expect(room.role, t.id).toMatch(/^[a-z0-9-]+$/);
+      }
+      for (const fixture of t.fixtures) if (fixture.fit) expect(fixture.fit, t.id).toMatch(/^(asm|fit)-[a-z0-9-]+$/);
       for (const axis of ['u', 'v'] as const) {
         const lines = t.lines.filter(line => line.axis === axis).sort((a, b) => a.ref - b.ref);
         expect(lines[0]!.ref, t.id).toBe(0);

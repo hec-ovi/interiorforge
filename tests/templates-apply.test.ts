@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generate, type InteriorRequest } from '../src/index.js';
 import { templateSwitch } from '../src/layout/templates/registry.js';
+import { KIND_TEMPLATES } from '../src/styles/reference/kinds.js';
 
 /** Kit plans straight from Exterior's assembly planner (tests/fixtures.ts pattern). */
 async function kitRequest(family: string, type: InteriorRequest['building']['type'], tier: InteriorRequest['building']['tier'],
@@ -10,11 +11,12 @@ async function kitRequest(family: string, type: InteriorRequest['building']['typ
   return { seed: 'interior-proof', building: { id: `templates-${family}`, type, tier }, blueprint, materialTheme: 'cyberpunk' };
 }
 
+// Exterior's kit planner has piece sets for the paired shells; a poor white-grid shell is kind C.
 const cases = [
-  { kind: 'A', family: 'mirror-frame', type: 'residential', tier: 'high_rich', width: 24, depth: 40, keys: ['e1-apartment', 'e6-apartment2'] },
-  { kind: 'B', family: 'balcony-grid', type: 'residential', tier: 'rich', width: 40, depth: 40, keys: ['b3-apartment', 'b2-suite'] },
-  { kind: 'C', family: 'residential-serviced', type: 'residential', tier: 'poor', width: 40, depth: 40, keys: ['c7-room', 'c1-capsule', 'c6-studio'] },
-  { kind: 'R', family: 'corporate-sectors', type: 'offices', tier: 'rich', width: 40, depth: 40, keys: ['r1-office'] },
+  { kind: 'A', family: 'mirror-frame', type: 'residential', tier: 'high_rich', width: 24, depth: 40 },
+  { kind: 'B', family: 'balcony-grid', type: 'residential', tier: 'rich', width: 40, depth: 40 },
+  { kind: 'C', family: 'white-grid', type: 'residential', tier: 'poor', width: 40, depth: 40 },
+  { kind: 'R', family: 'corporate-sectors', type: 'offices', tier: 'rich', width: 40, depth: 40 },
 ] as const;
 
 describe('space templates in generated buildings', () => {
@@ -25,13 +27,14 @@ describe('space templates in generated buildings', () => {
     const templated = floors.flatMap(floor => floor.rooms.filter(room => room.template));
     expect(templated.length, item.kind).toBeGreaterThan(0);
     for (const room of templated) {
-      expect(item.keys as readonly string[]).toContain(room.template!.split('/')[0]);
+      expect(KIND_TEMPLATES[item.kind] as readonly string[]).toContain(room.template!.split('/')[0]);
       expect(room.style).toBe(room.template!.slice(0, 2));
     }
     for (const floor of floors) for (const room of floor.rooms) {
       if (room.id.startsWith('stair-')) continue;
       expect(room.style, `${floor.floor} ${room.id} ${room.kind}`).toBeDefined();
     }
+    expect(templated.some(room => room.unit || item.kind === 'R')).toBe(true);
     // every templated dwelling keeps exactly one public entrance and its whole program
     for (const floor of floors) {
       const units = new Set(floor.rooms.filter(room => room.unit && room.template).map(room => room.unit!));
