@@ -19,6 +19,12 @@ export function buildNpcSupport(plan: BuildingPlan, request: InteriorRequest): N
     const start = lower?.loft?.stair.upperEntry ?? (corridor ? roomFloodStart(grid, corridor) : null);
     if (!start) throw new InteriorError("E_UNREACHABLE_SPACE", `floor ${floor.floor} has no walkable entry`, floor.floor);
     const visited = grid.flood(start);
+    // Private upper rooms are reached through their own lower dwelling's stair,
+    // while the same storey still has an ordinary public corridor and core.
+    for (const slice of floor.duplexes ?? []) if (slice.level === 'upper') {
+      const privateReach = grid.flood(slice.upperEntry);
+      for (let index = 0; index < visited.length; index++) visited[index] = visited[index]! | privateReach[index]!;
+    }
     const floorAnchorList = [
       ...floorAnchors(floor, grid, visited),
       ...(floor.mezzanineOf === undefined ? coreAnchors(floor, grid, visited, plan.core) : []),

@@ -69,6 +69,10 @@ export function buildNav(
     id: floor.loft.id, kind: "stair", floors: [floor.floor, floor.loft.upperFloor],
     entryByFloor: { [floor.floor]: floor.loft.stair.lowerEntry, [floor.loft.upperFloor]: floor.loft.stair.upperEntry },
   });
+  for (const floor of floors) for (const slice of floor.duplexes ?? []) if (slice.level === 'lower') connectors.push({
+    id: slice.id, kind: 'stair', floors: [slice.lowerFloor, slice.upperFloor],
+    entryByFloor: { [slice.lowerFloor]: slice.lowerEntry, [slice.upperFloor]: slice.upperEntry },
+  });
   return {
     cellSize: CELL, floors: navFloors, connectors,
     ...(roof ? { roofAccess: roof.access } : {}),
