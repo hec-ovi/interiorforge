@@ -1,5 +1,5 @@
 import type { Point } from "../../core/geom.js";
-import { boundaryDistance, clipPolygonToRect, polygonArea, polygonBounds } from "../../core/geom.js";
+import { boundaryDistance, clipPolygonToRect, pointInPolygon, polygonArea, polygonBounds } from "../../core/geom.js";
 import type { BlueprintFloor, FloorKind, InteriorRequest, RoomKind } from "../../core/types.js";
 import { commonTransit } from "../architecture-access.js";
 import { WALL } from "../constants.js";
@@ -146,9 +146,13 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
       // an office hall takes one reference office per facade side it can, the rest one each
       const perRoom = slot.slot === "hall" ? 2 : 1;
       let current = room, placed = 0;
-      const tries = entryEdges(slot.slot, room, facadeEdges, template, street, lifts)
-        .flatMap(entryEdge => windows(room.rect, entryEdge, slot.slot === "hall" ? template.envelope.width * 1.5 : Infinity,
-          slot.slot === "hall" ? [template.envelope.depth, template.envelope.min[1] + 0.5] : [])
+      // a lobby deeper than its reference front (one wrapped round the core) lays the
+      // template out in a front band from its street wall, so its lounges stay by the arrival
+      const front = slot.slot === "ground-front";
+      const tries = entryEdges(slot.slot, room, facadeEdges, template, street?.at ?? null, lifts)
+        .flatMap(entryEdge => [...windows(room.rect, entryEdge, slot.slot === "hall" ? template.envelope.width * 1.5 : Infinity,
+          slot.slot === "hall" ? [template.envelope.depth, template.envelope.min[1] + 0.5] : []),
+        ...front ? frontBands(room.rect, entryEdge, [template.envelope.max[1], template.envelope.depth]) : []]
           .map(rect => ({ entryEdge, rect })));
       const used = new Set<EdgeName>();
       for (const { entryEdge, rect } of tries) {
@@ -182,7 +186,9 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
             });
           // the refined room itself furnishes as it always has; its carved rooms are probed
           const carved = candidate.filter(item => item.id !== shape.id);
-          return stillReached && probe(carved, carved);
+          // a lobby's street door opens into its reception, never into a room carved beside it
+          const arrival = !front || !street || !carved.some(item => street.behind.some(point => inRect(point, item.rect)));
+          return stillReached && arrival && probe(carved, carved);
         }, shape);
         if (!fit) continue;
         rooms = replaceRooms(rooms, [shape], fit.rooms);
@@ -239,14 +245,41 @@ function entryEdges(slot: PublicSlot, room: PlanRoom, facade: EdgeName[], templa
   return [...all].sort((a, b) => distance(a) - distance(b));
 }
 
-/** The main street door of the floor, in uv, when it has one. */
-function streetDoor(ctx: TemplateContext): Point | null {
+/** How far past the plate edge the floor behind a street door is sampled (as the facade
+ *  connections look for it). */
+const BEHIND_PLATE = 0.3;
+
+/** The main street door of the floor, in uv, when it has one: its centre on the outline and
+ *  the floor points just behind the plate across its width, where its room must stand. */
+function streetDoor(ctx: TemplateContext): { at: Point; behind: Point[] } | null {
   const openings = ctx.floor.openings.filter(o => o.kind !== "window");
   const main = openings.find(o => (o as { doorRole?: string }).doorRole === "main") ?? openings[0];
   if (!main) return null;
-  const a = ctx.floor.outline[main.edge]!, b = ctx.floor.outline[(main.edge + 1) % ctx.floor.outline.length]!;
+  const a = worldToUv(ctx.floor.outline[main.edge]!, ctx.core.frame);
+  const b = worldToUv(ctx.floor.outline[(main.edge + 1) % ctx.floor.outline.length]!, ctx.core.frame);
   const length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = (main.offset + main.width / 2) / length;
-  return worldToUv([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], ctx.core.frame);
+  const at: Point = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  const along: Point = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
+  const depth = Math.abs(boundaryDistance(at, ctx.plate)) + BEHIND_PLATE;
+  // the side of the outline the plate stands on
+  const sign = pointInPolygon([at[0] - along[1] * depth, at[1] + along[0] * depth], ctx.plate) ? 1 : -1;
+  const inward: Point = [-along[1] * sign, along[0] * sign];
+  const behind: Point[] = [];
+  for (let s = -main.width / 2; s <= main.width / 2 + 1e-9; s += 0.25)
+    behind.push([at[0] + along[0] * s + inward[0] * depth, at[1] + along[1] * s + inward[1] * depth]);
+  return { at, behind };
+}
+
+function inRect([u, v]: Point, rect: UvRect): boolean {
+  return u > rect.u + 1e-6 && u < rect.u + rect.lu - 1e-6 && v > rect.v + 1e-6 && v < rect.v + rect.lv - 1e-6;
+}
+
+/** Bands of a common room reaching `depth` in from its entry edge, full width. */
+function frontBands(rect: UvRect, entry: EdgeName, depths: number[]): UvRect[] {
+  const full = entry === "v0" || entry === "v1" ? rect.lv : rect.lu;
+  return [...new Set(depths)].filter(depth => depth < full - 1e-6).map(depth =>
+    entry === "v0" ? { ...rect, lv: depth } : entry === "v1" ? { ...rect, v: rect.v + rect.lv - depth, lv: depth }
+      : entry === "u0" ? { ...rect, lu: depth } : { ...rect, u: rect.u + rect.lu - depth, lu: depth });
 }
 
 interface Unit { id: string; rooms: PlanRoom[]; target: Omit<TemplateTarget, "seatLegal" | "gridOrigin">; angle: number; at: Point }
