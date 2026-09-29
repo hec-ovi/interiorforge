@@ -630,7 +630,7 @@ class RoomPlacer {
         continue;
       }
       if (!piece.required) { templateTrace(`${this.room.template}: optional ${piece.id} (${piece.kind}) left out`); continue; }
-      templateTrace(`${this.room.template}: required ${piece.id} (${piece.kind}) cannot stand at ${fmtRect(fp)} (${this.whyNot(fp, piece.kind)}); the room falls back`);
+      templateTrace(`${this.room.template}: required ${piece.id} (${piece.kind}) cannot stand at ${fmtRect(base)} (${this.whyNot(base, piece.kind)}); the room falls back`);
       this.blocked.splice(blocked);
       for (const item of this.out.splice(out)) this.rects.delete(item.id);
       return false;
@@ -861,15 +861,18 @@ export function furnish(
     const authored = !!room.authored?.length && p.authored(room.authored, ceilingHeight);
     p.keepOffLevels();
     if (room.template && PASSAGE_ROLES.has(room.role ?? '') && !ADDITIVE.has(room.kind)) continue;
-    if (authored && (room.template && room.unit && !ADDITIVE.has(room.kind) || authoredComplete(room, out))) {
-      if ((room.kind === 'living' || room.kind === 'studio_main') && out.some(item => item.room === room.id && item.kind === 'sofa')) {
+    const ownProgram = !!room.template && !!room.unit && !ADDITIVE.has(room.kind) && !!room.authored?.length;
+    if (ownProgram || authored && authoredComplete(room, out)) {
+      if (authored && (room.kind === 'living' || room.kind === 'studio_main') && out.some(item => item.room === room.id && item.kind === 'sofa')) {
         const own = out.filter(item => item.room === room.id);
         if (!own.some(item => item.kind === 'low_table')) p.center('low_table');
         if (!own.some(item => item.kind === 'display_screen')) p.wallPiece('display_screen');
       }
-      if (!room.template || !room.unit || authoredComplete(room, out)) continue;
-      // a templated private room short of the piece that makes it what it is still gets it,
-      // from the family's own dispatch when no wall takes it alone
+      if (!ownProgram || authoredComplete(room, out)) continue;
+      // a room whose template authored only optional pieces holds what of them stood
+      if (!room.authored!.some(piece => piece.required)) continue;
+      // one whose required piece could not stand still gets the piece that makes it what
+      // it is, from the family's own dispatch when no wall takes it alone
       if (furnishDefining(room, p)) continue;
     }
     if (family === 'industrial' && furnishIndustrial(room, floorKind, p)) continue;

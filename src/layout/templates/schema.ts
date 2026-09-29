@@ -134,6 +134,8 @@ export interface TemplateFit {
   cost: number;
   /** true when every rigid span kept its reference value */
   exact: boolean;
+  /** a pit deeper than a slab holds meets the facade (the fit prefers a mirror that does not) */
+  facadePit?: boolean;
 }
 
 /** Checks a candidate unit (core-frame rooms plus the public room) the way the floor will:

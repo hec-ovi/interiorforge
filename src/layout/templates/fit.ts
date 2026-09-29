@@ -15,6 +15,9 @@ import type { FitProbe, SpaceTemplate, TemplateDoor, TemplateFit, TemplateLine, 
 import { positionsOf, snapAxis, solveAxis, type AxisSpan, type SnapCandidate } from "./solve.js";
 import { BAND_MAX, BAND_MIN, withEntryBand } from "./band.js";
 
+/** Pit depth a slab holds without the storey below making room (`styles/systems/levels.ts`). */
+const PIT_SLAB = 0.3;
+
 const GRID = 0.5;
 const EPS = 1e-6;
 /** How far a facade partition may move from its solved place to find a legal seat. */
@@ -69,10 +72,10 @@ export function fitTemplate(t: SpaceTemplate, target: TemplateTarget, unit: stri
       if (!best || fit.cost < best.cost - 1e-9) best = { ...fit, frame };
       break;
     }
-    if (best?.exact && !best.dropped.length) break;
+    if (best?.exact && !best.dropped.length && !best.facadePit) break;
   }
   if (!best) return null;
-  const { frame: _frame, ...fit } = best;
+  const { frame: _frame, facadePit: _pit, ...fit } = best;
   trace?.(`fitted ${t.id} ${fit.exact ? "exact" : fit.dropped.length ? "dropped" : "scaled"} ${best.frame.width.toFixed(1)}x${best.frame.depth.toFixed(1)}`);
   return { ...fit, rooms: reId(fit.rooms, ids, keepRemainder) };
 }
@@ -199,6 +202,12 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
   if (remainderKeepouts.length) rest.furnishingKeepouts = remainderKeepouts;
   const remainderLevels = levelZones(remainder, frame, at);
   if (remainderLevels.length) rest.levels = remainderLevels;
+  // A pit deeper than a slab holds hangs a bulkhead in the storey below, which a room at
+  // the facade can only take clear of its glass: of two mirrors, the one keeping the pit
+  // off the facade wins.
+  let facadePit = false;
+  for (const room of [rest, ...rooms]) for (const zone of room.levels ?? [])
+    if (zone.delta < -PIT_SLAB - 1e-9 && onFacade(zoneUvRect(zone), target)) { cost += 0.5; facadePit = true; }
   rooms.unshift(rest);
   byId.set(remainder.id, rest);
 
@@ -246,7 +255,7 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
 
   const candidate = keepRemainder ? rooms : [...rooms, publicRoom];
   if (!probe(candidate, t)) return refuse(`${t.id}: probe (facade seats or furnishing) failed`);
-  return { rooms, mirrored: frame.mirrored, dropped, changes, cost,
+  return { rooms, mirrored: frame.mirrored, dropped, changes, cost, ...(facadePit ? { facadePit } : {}),
     exact: solved.u.exact && solved.v.exact && !dropped.length };
 }
 

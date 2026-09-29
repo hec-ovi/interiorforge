@@ -8,6 +8,7 @@ import type { UvRect } from '../layout/uv.js';
 import type { Point } from '../core/geom.js';
 import { constructionPlate, shellWallDepth } from '../layout/shell.js';
 import { PIT_MAX, TRAY_HANG } from '../styles/systems/levels.js';
+import { templateTrace } from '../layout/templates/fit.js';
 
 /** Air a pit's tray keeps above the finished ceiling of the room under it. */
 const CLEAR = .015;
@@ -82,6 +83,7 @@ export function seatPits(plan: BuildingPlan, request: InteriorRequest, floors: r
           if (same) same.drop = Math.max(same.drop, extra); else other.bulkheads.push({ rect: box, drop: extra });
           continue;
         }
+        templateTrace(`pit ${room.id} over ${other.id}: needs ${(needed - gap).toFixed(2)} m more, ${box ? touchesFacade(box, plateOf(under)) ? 'bulkhead at the facade' : 'bulkhead too low' : 'no bulkhead'}`);
         hold = Math.min(hold, below.height - ceilingY + Math.max(effective, Math.min(limit, wanted)));
       }
       if (!Number.isFinite(hold)) continue;

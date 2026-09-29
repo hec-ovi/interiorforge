@@ -78,6 +78,12 @@ export function buildNavGrid(
   // A raised zone (a bar platform, a split lobby's upper lounge) is not walked in v1:
   // routes go around its steps; its furniture stands on it at the zone's height.
   for (const room of rooms) for (const rect of raisedZoneRects(room)) blockUvRect(grid, frame, rect, 0);
+  // A template's required pieces stand where its reference puts them: the routes planned
+  // before furnishing go round them, as the furnished floor's routes will.
+  if (physical) for (const room of rooms) for (const piece of room.authored ?? []) {
+    if (!piece.required || NON_BLOCKING.has(piece.kind) || (piece.elevation ?? 0) > 0) continue;
+    blockUvRect(grid, frame, furnitureUvRect({ ...piece, room: room.id }), 0);
+  }
 
   for (const room of rooms) {
     for (const door of room.doors) {
