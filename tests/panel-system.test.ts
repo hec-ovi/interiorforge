@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { BufferGeometry, Float32BufferAttribute, FrontSide, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three';
 import { loadTheme } from '../src/materials/load.js';
 import { panelCells, panelIntervals, placePanelSystem } from '../src/styles/systems/panel.js';
-import { EDGE_HALF, panelPreset, pairOf, type PanelPresetName } from '../src/styles/systems/panel-recipes.js';
+import { EDGE_HALF, groupOf, panelIds, panelPreset, pairOf, type PanelPresetName } from '../src/styles/systems/panel-recipes.js';
 import { bounds, glbBytes, kits, local, placed, recordingFace, triangles, type RecordingFace } from './surface-system-helpers.js';
 
 const PRESETS: PanelPresetName[] = ['A', 'A-bed', 'B', 'B-stone', 'C', 'C-capsule', 'R'];
 const presets = new Map(PRESETS.map(name => [name, panelPreset(name, `t${name.toLowerCase().replace('-', '')}`)]));
-const catalog = kits(...[...presets.values()].map(p => p.recipes), add => add('wall-field-meridian-backing', k => k.cbox('x', [0, 0, .044], [.5, .5, .088])));
+const edged = panelPreset('C', 'tce', { system: { edge: panelIds('tce').edge } });
+const catalog = kits(...[...presets.values(), edged].map(p => p.recipes), add => add('wall-field-meridian-backing', k => k.cbox('x', [0, 0, .044], [.5, .5, .088])));
 const SKIN = /^wall-panel-[a-z0-9-]+-(col|top|fill|edge)/;
 
 /** The t-extent of every skin piece of a face, sorted along the run. */
@@ -45,17 +46,17 @@ describe('panel walls', () => {
                 const face = recordingFace({ axis, side, angle, c: 3.25, height: 3, gridOrigin: .25 });
                 const a = 1.1, b = a + length;
                 placePanelSystem(face, spec, a, b, 0, 3);
-                const columns = face.placements.filter(p => /-col\d+(x2)?$/.test(p.module!));
+                const columns = face.placements.filter(p => /-col\d+(x\d)?$/.test(p.module!));
                 // A 2.3 m run can be all fill once its slivers merge; longer runs keep columns.
                 if (length >= 5) expect(columns.length, `${name} ${length} ${angle}`).toBeGreaterThan(0);
                 for (const p of columns) {
                     expect(p.scale).toEqual([1, 1, 1]);
-                    const paired = p.module!.endsWith('x2');
-                    // A single column is centred on its cell, a pair on the seam between two.
-                    const phase = ((face.t(p) - .25 - (paired ? 0 : pitch / 2)) / pitch);
+                    const n = Number(/x(\d)$/.exec(p.module!)?.[1] ?? 1);
+                    // A group of n cells is centred on a seam when n is even, on a cell centre when odd.
+                    const phase = ((face.t(p) - .25 - (n % 2 ? pitch / 2 : 0)) / pitch);
                     expect(Math.abs(phase - Math.round(phase)), `${p.module} at ${face.t(p)}`).toBeLessThan(1e-6);
                 }
-                for (const p of face.placements.filter(p => /-top\d+(x2)?$/.test(p.module!))) {
+                for (const p of face.placements.filter(p => /-top\d+(x\d)?$/.test(p.module!))) {
                     expect(p.scale[0]).toBe(1); expect(p.scale[2]).toBe(1);
                 }
                 // Skin reaches both run ends; between pieces only the seam shows.
@@ -77,21 +78,19 @@ describe('panel walls', () => {
         }
     });
 
-    it('pairs equal whole cells into one column and one top placement', () => {
+    it('groups up to four equal whole cells into one column and one top placement', () => {
         const spec = presets.get('A')!.system, face = recordingFace({ axis: 'H', side: 1, height: 3 });
         placePanelSystem(face, spec, 0, 6, 0, 3);
         const modules = face.placements.map(p => p.module);
-        expect(modules.filter(m => m === pairOf(spec.column(1)))).toHaveLength(3);
-        expect(modules.filter(m => m === pairOf(spec.top(1)))).toHaveLength(3);
-        // backing + 3 column pairs + 3 top pairs + head
-        expect(face.placements).toHaveLength(8);
+        expect(modules).toEqual([spec.backing, groupOf(spec.column(1), 4), groupOf(spec.top(1), 4), pairOf(spec.column(1)), pairOf(spec.top(1))]);
+        // The head band is the bare backing: nothing more stands on the run.
         const top = face.placements.find(p => p.module === pairOf(spec.top(1)))!;
         expect(top.position[1]).toBeCloseTo(spec.rows, 9);
         expect(top.scale[1] * .5).toBeCloseTo(3 - spec.rows - spec.head!.height, 9);
     });
 
-    it('fills and edges the cells a hole cuts, runs the seams on over the lintel and keeps the foot on the floor only', () => {
-        const spec = presets.get('C')!.system, face = recordingFace({ axis: 'V', side: -1, angle: 37, height: 3 });
+    it('fills and edges the cells a hole cuts, fills the lintel whole and keeps the foot on the floor only', () => {
+        const spec = edged.system, face = recordingFace({ axis: 'V', side: -1, angle: 37, height: 3 });
         // A door from 2.2 to 3.3 cut with its casing: two full-height fragments and a lintel.
         placePanelSystem(face, spec, 0, 2.2, 0, 3);
         placePanelSystem(face, spec, 2.2, 3.3, 2.58, 3);
@@ -100,11 +99,9 @@ describe('panel walls', () => {
         // Cut cells at the door and the clipped cell at the far corner; the whole cell at 0 keeps its column's bevel.
         expect(edges.map(p => +face.t(p).toFixed(6)).sort()).toEqual([2.2 - EDGE_HALF, 3.3 + EDGE_HALF, 7 - EDGE_HALF].map(v => +v.toFixed(6)));
         const lintel = face.placements.filter(p => p.position[1] >= 2.58 - 1e-9 && p.module === spec.fill);
-        // The lintel crosses the 3.0 grid line: its fills stop at the seam either side of it.
-        expect(lintel).toHaveLength(2);
-        const ext = lintel.map(p => { const ts = placed(p, catalog.get(p.module!)!).map(v => local(face, v)[0]); return [Math.min(...ts), Math.max(...ts)]; })
-            .sort((x, y) => x[0]! - y[0]!);
-        expect(ext[0]![1]).toBeCloseTo(3 - spec.seam / 2, 9); expect(ext[1]![0]).toBeCloseTo(3 + spec.seam / 2, 9);
+        expect(lintel).toHaveLength(1);
+        const ts = placed(lintel[0]!, catalog.get(spec.fill)!).map(v => local(face, v)[0]);
+        expect(Math.min(...ts)).toBeCloseTo(2.2, 9); expect(Math.max(...ts)).toBeCloseTo(3.3, 9);
         const feet = face.placements.filter(p => p.module === spec.foot!.module);
         expect(feet).toHaveLength(2);
         expect(feet.every(p => p.position[1] === 0)).toBe(true);
@@ -132,14 +129,17 @@ describe('panel walls', () => {
     it('keeps sill and lintel fragments free of columns and skirting, heads only at the ceiling', () => {
         const spec = presets.get('A')!.system, face = recordingFace({ axis: 'H', side: 1, height: 3 });
         placePanelSystem(face, spec, 0, 2, 0, .9);
-        expect(face.placements.map(p => p.module)).toEqual([spec.backing, spec.fill, spec.fill]);
+        expect(face.placements.map(p => p.module)).toEqual([spec.backing, spec.fill]);
         const lintel = recordingFace({ axis: 'H', side: 1, height: 3 });
         placePanelSystem(lintel, spec, 0, 2, 2.2, 3);
-        expect(lintel.placements.map(p => p.module)).toEqual([spec.backing, spec.fill, spec.fill, spec.head!.module]);
+        expect(lintel.placements.map(p => p.module)).toEqual([spec.backing, spec.fill]);
+        const fill = lintel.placements[1]!;
+        expect(fill.position[1]).toBeCloseTo(2.2, 9); expect(fill.scale[1] * .5).toBeCloseTo(.8 - spec.head!.height, 9);
         // A stair wall runs past the ceiling: columns and tops, no head band.
         const stair = recordingFace({ axis: 'H', side: 1, height: 3.6, ceilingY: 3 });
         placePanelSystem(stair, spec, 0, 2, 0, 3.6);
-        expect(stair.placements.some(p => p.module === spec.head!.module)).toBe(false);
+        // No head band: the tops run on to the storey.
+        for (const p of stair.placements.filter(p => p.module === pairOf(spec.top(1)))) expect(p.scale[1] * .5).toBeCloseTo(3.6 - spec.rows, 9);
         expect(stair.placements.some(p => p.module === pairOf(spec.column(1)))).toBe(true);
     });
 
@@ -193,7 +193,8 @@ describe('panel modules', () => {
             const own = kits(preset.recipes);
             let bytes = 0;
             for (const [id, k] of own) {
-                const limit = id.endsWith('x2') ? 800 : 400;
+                // At most 400 triangles per column cell a module holds.
+                const limit = 400 * Number(/x(\d)$/.exec(id)?.[1] ?? 1);
                 expect(triangles(k), id).toBeLessThanOrEqual(limit);
                 bytes += await glbBytes(k);
             }

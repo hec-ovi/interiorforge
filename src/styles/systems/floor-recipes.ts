@@ -32,9 +32,13 @@ export interface FloorProfile {
 
 const SIDES = ['top', 'north', 'south', 'east', 'west'] as const;
 
+/** Tiles of a block or sub-block: one top face per tile (the joints between them show the
+ *  support 2 mm down) and the block's outer edges, which a cut or a band can expose. */
 function tiles(k: Kit, slot: string, [pu, pv]: [number, number], [nu, nv]: [number, number], joint: number): void {
     for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++)
-        k.cbox(slot, [(i - (nu - 1) / 2) * pu, -SKIN, (j - (nv - 1) / 2) * pv], [pu - joint, SKIN, pv - joint], undefined, SIDES);
+        k.cbox(slot, [(i - (nu - 1) / 2) * pu, -SKIN, (j - (nv - 1) / 2) * pv], [pu - joint, SKIN, pv - joint], undefined, ['top']);
+    const w = nu * pu - joint, d = nv * pv - joint;
+    k.box(slot, [-w / 2, -SKIN, -d / 2], [w, SKIN, d], undefined, ['north', 'south', 'east', 'west']);
 }
 
 /** Support, tile block/row/column/cell, border, inlay and pit modules of one floor system.
@@ -142,31 +146,32 @@ const SLOT = {
 export function floorPreset(name: FloorPresetName, sid: string, overrides: { system?: Partial<Omit<FloorSystem, 'id'>>; profile?: Partial<FloorProfile> } = {}): FloorPreset {
     const id = `floor-slab-${sid}`, finish = (n: string) => `floor-finish-${sid}-${n}`;
     const base: Record<FloorPresetName, { system: Omit<FloorSystem, 'id'>; profile: FloorProfile }> = {
-        // E1: dark polished stone in 1.5 m squares, 3 mm joints, on the building grid.
-        'A': { system: { support: `${id}-support`, tile: { size: [1.5, 1.5], joint: .003, block: finish('stone'), blockTiles: [2, 2], phase: 'grid' } },
+        // E1: dark polished stone in 1.5 m squares, 3 mm joints, laid from the room's corner
+        // in 6 m blocks (whole stones along two walls, cut ones along the other two).
+        'A': { system: { support: `${id}-support`, tile: { size: [1.5, 1.5], joint: .003, block: finish('stone'), blockTiles: [4, 4], phase: 'room' } },
             profile: { tile: SLOT.darkStone } },
         // E1 lounge: the same stone round a walk-on glass rock pit, 2.4 × 4 m, corners of
         // 0.8 m, 0.5 m deep, lit cyan from below.
-        'A-pit': { system: { support: `${id}-support`, tile: { size: [1.5, 1.5], joint: .003, block: finish('stone'), blockTiles: [2, 2], phase: 'grid' },
+        'A-pit': { system: { support: `${id}-support`, tile: { size: [1.5, 1.5], joint: .003, block: finish('stone'), blockTiles: [4, 4], phase: 'room' },
                 pit: { size: [2.4, 4], radius: .8, depth: .5, straight: `${id}-pit-straight`, end: `${id}-pit-end`, rim: `${id}-pit`,
                     lens: { color: [.05, .75, 1], lumensPerMetre: 120 } } },
             profile: { tile: SLOT.darkStone } },
         // Glass building lobby: honed stone 2 × 1 m in running blocks, a pale border with a
         // bronze inlay along the walls.
-        'B': { system: { support: `${id}-support`, tile: { size: [2, 1], joint: .003, block: finish('stone'), blockTiles: [1, 2], phase: 'grid' },
+        'B': { system: { support: `${id}-support`, tile: { size: [2, 1], joint: .003, block: finish('stone'), blockTiles: [2, 4], phase: 'grid' },
                 border: { width: .45, module: finish('border'), inlay: { width: .012, module: finish('inlay') } } },
             profile: { tile: SLOT.honed, border: 'cyberpunk/loft1702-stone/rich#pale', inlay: F.bronze } },
         // Glass building homes: 2 m walnut planks 0.25 m wide.
-        'B-plank': { system: { support: `${id}-support`, tile: { size: [2, .25], joint: .002, block: finish('planks'), blockTiles: [1, 8], phase: 'grid' } },
+        'B-plank': { system: { support: `${id}-support`, tile: { size: [2, .25], joint: .002, block: finish('planks'), blockTiles: [2, 8], phase: 'room' } },
             profile: { tile: SLOT.plank } },
         // Poor building: worn metre tiles.
-        'C': { system: { support: `${id}-support`, tile: { size: [1, 1], joint: .004, block: finish('tiles'), blockTiles: [2, 2], phase: 'grid' } },
+        'C': { system: { support: `${id}-support`, tile: { size: [1, 1], joint: .004, block: finish('tiles'), blockTiles: [4, 4], phase: 'room' } },
             profile: { tile: SLOT.worn } },
         // Capsule homes: worn hex sheet in 2 m panels.
         'C-hex': { system: { support: `${id}-support`, tile: { size: [2, 2], joint: .003, block: finish('hex'), blockTiles: [1, 1], phase: 'grid' } },
             profile: { tile: SLOT.hex } },
         // Office: walnut boards 2 m by 0.2 m.
-        'R': { system: { support: `${id}-support`, tile: { size: [2, .2], joint: .002, block: finish('boards'), blockTiles: [1, 10], phase: 'grid' } },
+        'R': { system: { support: `${id}-support`, tile: { size: [2, .2], joint: .002, block: finish('boards'), blockTiles: [2, 10], phase: 'room' } },
             profile: { tile: SLOT.walnut } },
     };
     const system: FloorSystem = { ...base[name].system, ...overrides.system, id };

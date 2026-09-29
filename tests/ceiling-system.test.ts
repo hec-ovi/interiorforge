@@ -4,7 +4,6 @@ import { loadTheme } from '../src/materials/load.js';
 import { makeFrame, uvToWorld, worldToUv, type UvRect } from '../src/layout/uv.js';
 import { ceilingOrigin, cofferRect, MIN_STEP_BOTTOM, placeCeilingSystem } from '../src/styles/systems/ceiling.js';
 import { ceilingPreset, type CeilingPresetName } from '../src/styles/systems/ceiling-recipes.js';
-import { gridIds } from '../src/styles/systems/surface-grid.js';
 import type { SurfaceRoom } from '../src/styles/systems/types.js';
 import { glbBytes, kits, recordingBuilder, triangles, uvExtent } from './surface-system-helpers.js';
 
@@ -17,37 +16,68 @@ const catalog = kits(...[...presets.values(), coffered].map(p => p.recipes));
 const L = { polygon: [[0, 0], [6, 0], [6, 2], [2, 2], [2, 6], [0, 6]] as [number, number][], rects: [{ u: 0, v: 0, lu: 6, lv: 2 }, { u: 0, v: 2, lu: 2, lv: 4 }] };
 const room = (over: Partial<SurfaceRoom> = {}): SurfaceRoom => ({ id: 'lounge', kind: 'lounge', polygon: L.polygon, bounds: { u: 0, v: 0, lu: 6, lv: 6 },
     gridOrigin: [.25, .25], ceilingY: 3, soffitY: 3.25, elevation: 7.2, ...over });
-const GRID = /-(row|col|cell)$/;
+const GRID = /-\d+x\d+$/;
 
 describe('ceiling systems', () => {
     it('keeps joints and phase on one grid across the rectangles of an L-shaped room, reveals only along real walls', () => {
         for (const angle of [0, 37]) for (const name of ['A', 'R', 'C'] as const) {
             const { system } = presets.get(name)!, frame = makeFrame(angle), builder = recordingBuilder(), r = room();
             for (const rect of L.rects) placeCeilingSystem(builder, system, r, rect, 3, frame, []);
-            const origin = ceilingOrigin(system, r), [pu, pv] = system.grid.pitch, j = system.grid.joint, ids = gridIds(system.grid.block, system.grid.blockCells);
+            const origin = ceilingOrigin(system, r), [pu, pv] = system.grid.pitch, j = system.grid.joint, block = system.grid.block, [cu, cv] = system.grid.blockCells;
             const onGrid = (x: number, o: number, p: number) => Math.abs((x - o) / p - Math.round((x - o) / p)) < 1e-6;
-            const pieces = builder.placements.filter(p => p.module === ids.block || GRID.test(p.module!));
+            const pieces = builder.placements.filter(p => p.module === block || GRID.test(p.module!));
             expect(pieces.length).toBeGreaterThan(4);
             for (const p of pieces) {
                 const e = uvExtent(p, catalog.get(p.module!)!, frame);
                 expect(p.scale[1]).toBe(1);
-                // A block that is also its own row or column stretches as one; otherwise it never does.
-                if (p.module === ids.block && ids.row !== ids.block && ids.col !== ids.block) expect(p.scale).toEqual([1, 1, 1]);
-                // Every piece edge is either half a joint off a grid line or the side of the area it fills.
-                const sides = [0, 2, 6, .22, 1.78, 5.78, .05, 1.95, 5.95];
+                // A block of more than one cell each way is only ever laid whole.
+                if (p.module === block && cu > 1 && cv > 1) expect(p.scale).toEqual([1, 1, 1]);
+                // Every piece edge is either half a joint off a grid line or the side of the area it
+                // fills: a wall, the cut between the rectangles, or the inner edge of a reveal.
+                const reveals = system.perimeter ? builder.placements.filter(q => q.module === system.perimeter!.edge)
+                    .flatMap(q => { const x = uvExtent(q, catalog.get(q.module!)!, frame); return [x.u0, x.u1, x.v0, x.v1]; }) : [];
+                const sides = [0, 2, 6, ...reveals];
                 const ok = (x: number, o: number, p: number, sign: number) => onGrid(x + sign * j / 2, o, p) || sides.some(s => Math.abs(x - s) < 1e-6);
                 expect(ok(e.u0, origin[0], pu, -1) && ok(e.u1, origin[0], pu, 1) && ok(e.v0, origin[1], pv, -1) && ok(e.v1, origin[1], pv, 1),
                     `${name} ${angle} ${p.module} ${JSON.stringify(e)}`).toBe(true);
             }
             const perimeter = system.perimeter;
             if (!perimeter) continue;
-            // The cut between the two rectangles (v = 2 for u < 2) carries no reveal.
-            for (const p of builder.placements.filter(p => p.module === perimeter.edge)) {
-                const e = uvExtent(p, catalog.get(p.module!)!, frame);
-                const onCut = e.u1 <= 2 + 1e-6 && Math.abs(e.v1 - e.v0 - perimeter.width) < 1e-3 && (Math.abs(e.v1 - 2) < 1e-3 || Math.abs(e.v0 - 2) < 1e-3);
+            const w = perimeter.width, grid = pieces.map(p => uvExtent(p, catalog.get(p.module!)!, frame));
+            // The grid keeps the reveal's width off every real wall and runs on across the cut
+            // between the rectangles (v = 2 for u < 2), where there is no wall.
+            for (const e of grid) {
+                expect(e.u0).toBeGreaterThanOrEqual(w - 1e-6); expect(e.v0).toBeGreaterThanOrEqual(w - 1e-6);
+                expect(e.u1).toBeLessThanOrEqual(6 - w + 1e-6); expect(e.v1).toBeLessThanOrEqual(6 - w + 1e-6);
+                if (e.u0 >= 2 - 1e-6) expect(e.v1).toBeLessThanOrEqual(2 - w + 1e-6);
+                if (e.v0 >= 2 - 1e-6) expect(e.u1).toBeLessThanOrEqual(2 - w + 1e-6);
+            }
+            expect(grid.some(e => e.u1 <= 2 && Math.abs(e.v1 - 2) < 1e-6 || e.u1 <= 2 && Math.abs(e.v0 - 2) < 1e-6 || e.u1 <= 2 && e.v0 < 2 && e.v1 > 2)).toBe(true);
+            if (perimeter.edge === system.backing) {
+                expect(builder.placements.filter(p => p.module === system.backing)).toHaveLength(2);
+                continue;
+            }
+            // One straight band per wall from corner to corner: no corner pieces, no overlaps.
+            expect(builder.placements.filter(p => p.module === perimeter.corner)).toHaveLength(0);
+            const bands = builder.placements.filter(p => p.module === perimeter.edge).map(p => uvExtent(p, catalog.get(p.module!)!, frame));
+            for (const [i, x] of bands.entries()) for (const y of bands.slice(i + 1))
+                expect(Math.min(x.u1, y.u1) - Math.max(x.u0, y.u0) > 1e-4 && Math.min(x.v1, y.v1) - Math.max(x.v0, y.v0) > 1e-4, `${name} bands overlap`).toBe(false);
+            for (const e of bands) {
+                const onCut = e.u1 <= 2 + 1e-6 && Math.abs(e.v1 - e.v0 - w) < 1e-3 && (Math.abs(e.v1 - 2) < 1e-3 || Math.abs(e.v0 - 2) < 1e-3);
                 expect(onCut, `${name} reveal at ${JSON.stringify(e)}`).toBe(false);
             }
-            expect(builder.placements.filter(p => p.module === perimeter.corner)).toHaveLength(5);
+        }
+    });
+
+    it('keeps every band inside a narrow rectangle', () => {
+        for (const name of ['A', 'B', 'R'] as const) for (const width of [.3, .7, 1.3]) {
+            const { system } = presets.get(name)!, frame = makeFrame(23), builder = recordingBuilder(), rect = { u: 1, v: 1, lu: width, lv: 4 };
+            placeCeilingSystem(builder, system, room({ polygon: [[1, 1], [1 + width, 1], [1 + width, 5], [1, 5]], bounds: rect }), rect, 3, frame, []);
+            for (const p of builder.placements) {
+                const e = uvExtent(p, catalog.get(p.module!)!, frame);
+                expect(e.u0, `${name} ${width} ${p.module}`).toBeGreaterThanOrEqual(1 - 1e-6); expect(e.u1, `${name} ${width} ${p.module}`).toBeLessThanOrEqual(1 + width + 1e-6);
+                expect(e.v0).toBeGreaterThanOrEqual(1 - 1e-6); expect(e.v1).toBeLessThanOrEqual(5 + 1e-6);
+            }
         }
     });
 
@@ -113,7 +143,7 @@ describe('ceiling systems', () => {
         const c = cofferRect(system, r)!;
         expect(c).toEqual({ u: 2, v: 1.5, lu: 2, lv: 2 });
         const rise = Math.min(system.coffers!.rise, 3.2 - .15 - 3);
-        const raised = builder.placements.filter(p => Math.abs(p.position[1] - (3 + rise)) < 1e-9 && (GRID.test(p.module!) || p.module === gridIds(system.grid.block, system.grid.blockCells).block));
+        const raised = builder.placements.filter(p => Math.abs(p.position[1] - (3 + rise)) < 1e-9 && (GRID.test(p.module!) || p.module === system.grid.block));
         expect(raised.length).toBeGreaterThan(0);
         for (const p of raised) {
             const e = uvExtent(p, catalog.get(p.module!)!, frame);

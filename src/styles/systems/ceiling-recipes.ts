@@ -67,16 +67,16 @@ export function ceilingRecipes(spec: CeilingSystem, profile: CeilingProfile): Re
             add(piece.id, k => cells(k, profile.panel, g.pitch, piece.cells, g.joint, t, piece.id === g.block ? bevel : 0));
         const lenses = new Map<string, LitJoint>();
         const p = spec.perimeter;
-        if (p) {
+        if (p && p.edge !== spec.backing) {
             const slot = profile.perimeter ?? F.black, low = -p.drop, high = Math.max(t + .004, low + .004);
             add(p.edge, k => {
                 k.box(slot, [-CELL / 2, low, 0], [CELL, high - low, p.width], undefined, ['bottom']);
                 // A band hanging below the panels shows its inner face; a recessed one hides it.
                 if (low < -1e-4) k.box(slot, [-CELL / 2, low, 0], [CELL, -low, p.width], undefined, ['north']);
             });
-            add(p.corner, k => k.box(slot, [0, low, 0], [p.width, high - low, p.width], undefined, ['bottom']));
-            if (p.lens) lenses.set(p.lens.module, p.lens);
+            if (p.corner !== spec.backing) add(p.corner, k => k.box(slot, [0, low, 0], [p.width, high - low, p.width], undefined, ['bottom']));
         }
+        if (p?.lens) lenses.set(p.lens.module, p.lens);
         for (const step of spec.steps ?? []) {
             const slot = profile.step ?? profile.panel;
             add(`${step.fascia}-soffit`, k => k.cbox(slot, [0, 0, 0], [CELL, .02, CELL], undefined, ['bottom']));
@@ -131,10 +131,11 @@ export function ceilingPreset(name: CeilingPresetName, sid: string, overrides: {
     const id = `ceiling-field-${sid}`, piece = (n: string) => `ceiling-${sid}-${n}`, cove = (n: string) => `ceiling-cove-${sid}-${n}`;
     const base: Record<CeilingPresetName, { system: Omit<CeilingSystem, 'id'>; profile: CeilingProfile }> = {
         // E1: dark gloss square panels on the metre, 3 × 3 per block, symmetric in the room,
-        // light satin joints, a black reveal recessed 30 mm along the walls, spots on cells.
+        // black joints, and the black backing left bare as the reveal along the walls (34 mm
+        // up), which also takes a cut panel narrower than half a cell; spots on cells.
         'A': { system: { backing: piece('backing'), grid: { pitch: [1, 1], block: piece('grid1x1'), blockCells: [3, 3], joint: .008, phase: 'room-centre' },
-                perimeter: { width: .22, drop: -.03, edge: piece('reveal'), corner: piece('reveal-corner') }, snapSpots: true },
-            profile: { panel: SLOT.gloss, backing: SLOT.satin, bevel: .004, perimeter: F.black } },
+                perimeter: { width: .22, drop: -.034, edge: piece('backing'), corner: piece('backing') }, snapSpots: true },
+            profile: { panel: SLOT.gloss, backing: F.black, bevel: .004 } },
         // E2 public: dark 1.5 m fields with a luminous field every third block.
         'A-fields': { system: { backing: piece('backing'), grid: { pitch: [1.5, 1.5], block: piece('grid15'), blockCells: [1, 1], joint: .006, phase: 'grid' },
                 fields: { every: 3, module: cove('field'), lumens: 2300 }, snapSpots: true },
@@ -145,8 +146,8 @@ export function ceilingPreset(name: CeilingPresetName, sid: string, overrides: {
                 steps: [{ inset: .6, drop: .2, fascia: piece('step'), lens: { module: cove('step'), y: .19, facing: 'up', lumensPerMetre: 30, kelvin: 2700, proud: .03 } }],
                 snapSpots: true },
             profile: { panel: SLOT.smoked, backing: F.black, bevel: .003, step: SLOT.smoked } },
-        // Poor building: worn metre cassettes, gunmetal joints, no reveal, no lit lines.
-        'C': { system: { backing: piece('backing'), grid: { pitch: [1, 1], block: piece('grid1x1'), blockCells: [2, 2], joint: .012, phase: 'grid' }, snapSpots: false },
+        // Poor building: worn 1.5 m cassettes, gunmetal joints, no reveal, no lit lines.
+        'C': { system: { backing: piece('backing'), grid: { pitch: [1.5, 1.5], block: piece('grid15'), blockCells: [3, 3], joint: .012, phase: 'grid' }, snapSpots: false },
             profile: { panel: SLOT.worn, backing: SLOT.gunmetal } },
         // Office: walnut boards 2 m long on a 0.5 m course, a black shadow gap at the walls.
         'R': { system: { backing: piece('backing'), grid: { pitch: [2, .5], block: piece('boards'), blockCells: [1, 4], joint: .004, phase: 'grid' },

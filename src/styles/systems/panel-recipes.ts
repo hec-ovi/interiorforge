@@ -2,15 +2,15 @@ import { FINISH as F } from '../../modules/finishes.js';
 import type { Kit } from '../../modules/kit.js';
 import type { RecipeSet } from '../../modules/recipes.js';
 import type { LitJoint, PanelProfile, PanelSystem } from './types.js';
-import { bevelSlab, extrude, facing, roundedSection, stud } from './surface-shapes.js';
+import { bevelSlab, extrude, facing, roundedSection } from './surface-shapes.js';
 
 /** Panel-system modules, drawn from a profile. A column is one panel cell of the pitch
  *  (`pitch − seam` wide) from the floor or skirting to `rows`: its horizontal seams, bevels
  *  and fixings are baked, so it is always placed at scale 1. The top piece carries the same
  *  rounded section from `rows` to the head and only ever stretches in y. Fill and edge close
  *  cut cells; head and foot bands and lit-joint lenses are fixed sections stretched along
- *  the run. Pair modules (`<column>x2`, `<top>x2`) hold two equal cells with their seam, so a
- *  run spends one column and one top placement per two cells. */
+ *  the run. Group modules (`<column>x2` … `x4`, and the same tops) hold up to four equal
+ *  cells with their seams, so a run spends one column and one top placement per group. */
 
 const CELL = .5;
 /** Half the width of an edge bullnose; the placer centres it this far inside a cut side. */
@@ -18,9 +18,13 @@ export const EDGE_HALF = .008;
 /** Lens section of a lit joint: 12 mm tall, 12 mm deep, centred on its record. */
 const LENS = .012;
 
-/** Pair modules panelRecipes drew, so the placer only asks for pairs that exist. */
-export const PAIRED_COLUMNS = new Set<string>();
-export const pairOf = (id: string): string => `${id}x2`;
+/** Most equal cells one column or top module holds. */
+export const MAX_GROUP = 4;
+/** Group modules panelRecipes drew, so the placer only asks for groups that exist. */
+export const GROUPED_COLUMNS = new Set<string>();
+/** The module of `n` equal cells side by side: the column itself for one. */
+export const groupOf = (id: string, n: number): string => n === 1 ? id : `${id}x${n}`;
+export const pairOf = (id: string): string => groupOf(id, 2);
 
 export interface PanelRecipeOptions {
     /** a lower skin for pieces ending at or below `to` (a dado, a stone course) */
@@ -62,7 +66,9 @@ function skinBack(profile: PanelProfile): number {
  *  (`panelMarker` draws that). */
 export function panelRecipes(spec: PanelSystem, profile: PanelProfile, options: PanelRecipeOptions = {}): RecipeSet {
     const widths = [...new Set(spec.pitch)];
-    for (const w of widths) PAIRED_COLUMNS.add(pairOf(spec.column(w)));
+    // Groups only for a width the pitch repeats back to back (a single-width pitch always does).
+    const groupable = (w: number) => spec.pitch.some((p, i) => p === w && spec.pitch[(i + 1) % spec.pitch.length] === w);
+    for (const w of widths) if (groupable(w)) for (let n = 2; n <= MAX_GROUP; n++) GROUPED_COLUMNS.add(groupOf(spec.column(w), n));
     const back = skinBack(profile), front = profile.depth[1];
     return add => {
         if (profile.backing) add(spec.backing, k => k.box(profile.backing!, [-CELL / 2, 0, 0], [CELL, CELL, profile.depth[0]], undefined,
@@ -70,14 +76,17 @@ export function panelRecipes(spec: PanelSystem, profile: PanelProfile, options: 
         for (const w of widths) {
             add(spec.column(w), k => column(k, spec, profile, options, w, [0]));
             add(spec.top(w), k => top(k, spec, profile, w, [0]));
-            add(pairOf(spec.column(w)), k => column(k, spec, profile, options, w, [-w / 2, w / 2]));
-            add(pairOf(spec.top(w)), k => top(k, spec, profile, w, [-w / 2, w / 2]));
+            for (let n = 2; n <= MAX_GROUP && groupable(w); n++) {
+                const centres = Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * w);
+                add(groupOf(spec.column(w), n), k => column(k, spec, profile, options, w, centres));
+                add(groupOf(spec.top(w), n), k => top(k, spec, profile, w, centres));
+            }
         }
         add(spec.fill, k => k.box(profile.skin, [-CELL / 2, 0, back], [CELL, CELL, front - back], undefined,
             ['north', 'east', 'west', 'top', 'bottom']));
         if (spec.edge) add(spec.edge, k => extrude(k, profile.skin,
             roundedSection(EDGE_HALF, back, front + .0015, EDGE_HALF, Math.max(2, profile.bevel.segments)), 0, CELL, back));
-        if (spec.head) {
+        if (spec.head && spec.head.module !== spec.backing) {
             const band = profile.head ?? { slot: F.black, depth: profile.depth[0] + .002 };
             const z = Math.max(band.depth, profile.depth[0] + .002), h = spec.head.height;
             add(spec.head.module, k => k.box(band.slot, [-CELL / 2, 0, 0], [CELL, h, z], undefined, ['north', 'bottom', 'east', 'west']));
@@ -137,10 +146,11 @@ function column(k: Kit, spec: PanelSystem, profile: PanelProfile, options: Panel
         }
         // The top piece stretches, so its lower corners' fixings live here, just above rows.
         if (seamAtTop) heights.push(spec.rows + fix.inset[1]);
-        const pill: [number, number] = [2 * fix.radius, 4.5 * fix.radius];
+        // A pill is a flat plate 1.5 mm proud of the face: two triangles, no sides.
+        const pw = fix.radius, ph = 2.25 * fix.radius, z = front + .0015;
         for (const y of heights) for (const side of [-1, 1]) for (let n = 0; n < Math.max(1, fix.pairs); n++) {
             const x = cx + side * (half - fix.inset[0] - n * 3 * fix.radius);
-            stud(k, fix.slot, [x, y], pill, front - .0005, front + .0015);
+            facing(k, fix.slot, [[x - pw, y - ph, z], [x + pw, y - ph, z], [x + pw, y + ph, z], [x - pw, y + ph, z]], [0, 0, 1]);
         }
     }
 }
@@ -199,11 +209,11 @@ type Base = { system: Omit<PanelSystem, 'id' | 'column' | 'top'>; profile: Panel
 function presetBase(name: PanelPresetName, ids: Ids): Base {
     switch (name) {
         // E1 suite: cream full-height panels on the metre, thin dark seams at 1.2 and 2.15 m,
-        // rounded vertical edges, a pill fixing at every panel corner meeting a seam, a black
-        // recessed head band under the ceiling and no skirting.
+        // rounded vertical edges, a pill fixing at every panel corner meeting a seam, the black
+        // backing left bare as the recessed head band under the ceiling, and no skirting.
         case 'A': return {
-            system: { backing: 'wall-field-meridian-backing', pitch: [1], phase: 'grid', rows: 2.15, fill: ids.fill, edge: ids.edge,
-                seam: .006, head: { height: .22, module: ids.head }, foot: null, minColumn: .3 },
+            system: { backing: 'wall-field-meridian-backing', pitch: [1], phase: 'grid', rows: 2.15, fill: ids.fill,
+                seam: .006, head: { height: .22, module: 'wall-field-meridian-backing' }, foot: null, minColumn: .3 },
             profile: { skin: SLOT.cream, bevel: { radius: .01, segments: 3 },
                 seams: [{ y: 1.2, width: .006, slot: F.black }, { y: 2.15, width: .006, slot: F.black }],
                 fixings: { inset: [.035, .045], radius: .005, slot: F.black, pairs: 1 }, depth: [.088, .095],
@@ -213,17 +223,17 @@ function presetBase(name: PanelPresetName, ids: Ids): Base {
         // E1 bedroom: full-height panels in a 0.5/1.0/0.7 m rhythm, no horizontal seams.
         case 'A-bed': return {
             system: { backing: 'wall-field-meridian-backing', pitch: [.5, 1, .7], exact: true, phase: 'grid', rows: 2, fill: ids.fill,
-                edge: ids.edge, seam: .006, head: { height: .22, module: ids.head }, foot: null, minColumn: .25 },
+                seam: .006, head: { height: .22, module: 'wall-field-meridian-backing' }, foot: null, minColumn: .25 },
             profile: { skin: SLOT.cream, bevel: { radius: .01, segments: 3 }, seams: [],
                 fixings: { inset: [.035, .045], radius: .005, slot: F.black, pairs: 1 }, depth: [.088, .095],
                 head: { slot: F.black, depth: .091 } },
             options: {},
         };
         // Glass building (B3/B2): dark smoked veneer panels on the metre, bronze joints (the
-        // backing shows gold in every seam), a bronze trim under the ceiling.
+        // backing shows gold in every seam and as a reveal under the ceiling).
         case 'B': return {
-            system: { backing: ids.backing, pitch: [1], phase: 'grid', rows: 2, fill: ids.fill, edge: ids.edge, seam: .004,
-                head: { height: .035, module: ids.head }, foot: null, minColumn: .3 },
+            system: { backing: ids.backing, pitch: [1], phase: 'grid', rows: 2, fill: ids.fill, seam: .004,
+                head: { height: .035, module: ids.backing }, foot: null, minColumn: .3 },
             profile: { skin: SLOT.smoked, backing: F.bronze, bevel: { radius: .003, segments: 1 }, seams: [], depth: [.086, .095],
                 head: { slot: F.bronze, depth: .097 } },
             options: {},
@@ -231,8 +241,8 @@ function presetBase(name: PanelPresetName, ids: Ids): Base {
         // Glass building lobby (B1): polished stone to 1.2 m under a bronze course, walnut
         // above, 1.5 m bays, a black skirting.
         case 'B-stone': return {
-            system: { backing: ids.backing, pitch: [1.5], phase: 'grid', rows: 1.2, fill: ids.fill, edge: ids.edge, seam: .004,
-                head: { height: .035, module: ids.head }, foot: { height: .06, module: ids.foot }, minColumn: .4 },
+            system: { backing: ids.backing, pitch: [1.5], phase: 'grid', rows: 1.2, fill: ids.fill, seam: .004,
+                head: { height: .035, module: ids.backing }, foot: { height: .06, module: ids.foot }, minColumn: .4 },
             profile: { skin: SLOT.walnut, backing: F.black, bevel: { radius: .003, segments: 1 },
                 seams: [{ y: 1.2, width: .03, slot: F.bronze }], depth: [.086, .095],
                 head: { slot: F.bronze, depth: .097 }, foot: { slot: F.black, depth: .1 } },
@@ -241,7 +251,7 @@ function presetBase(name: PanelPresetName, ids: Ids): Base {
         // Poor building (C2-C6): 1.5 m worn plates, petrol enamel dado to 1.15 m under a
         // gunmetal course, worn paint above, gunmetal joints, rivets and skirting, unlit.
         case 'C': return {
-            system: { backing: ids.backing, pitch: [1.5], phase: 'grid', rows: 1.15, fill: ids.fill, edge: ids.edge, seam: .008,
+            system: { backing: ids.backing, pitch: [1.5], phase: 'grid', rows: 1.15, fill: ids.fill, seam: .008,
                 foot: { height: .1, module: ids.foot }, minColumn: .4 },
             profile: { skin: SLOT.worn, backing: SLOT.gunmetal, bevel: { radius: .004, segments: 1 },
                 seams: [{ y: 1.15, width: .03, slot: SLOT.gunmetal }],
@@ -250,10 +260,10 @@ function presetBase(name: PanelPresetName, ids: Ids): Base {
             options: { lower: { to: 1.15, skin: SLOT.petrol } },
         };
         // Capsule homes in the poor building (C1/C7): rounded ivory enamel plates on 1.5 m,
-        // a low petrol course, a seam at 2.1 m and a petrol band under the ceiling.
+        // a low petrol course, a seam at 2.1 m and a dark recessed band under the ceiling.
         case 'C-capsule': return {
-            system: { backing: 'wall-field-meridian-backing', pitch: [1.5], phase: 'grid', rows: 2.1, fill: ids.fill, edge: ids.edge,
-                seam: .008, head: { height: .12, module: ids.head }, foot: null, minColumn: .4 },
+            system: { backing: 'wall-field-meridian-backing', pitch: [1.5], phase: 'grid', rows: 2.1, fill: ids.fill,
+                seam: .008, head: { height: .12, module: 'wall-field-meridian-backing' }, foot: null, minColumn: .4 },
             profile: { skin: SLOT.enamel, bevel: { radius: .012, segments: 3 },
                 seams: [{ y: .3, width: .008, slot: SLOT.gunmetal }, { y: 2.1, width: .008, slot: F.black }],
                 fixings: { inset: [.04, .04], radius: .005, slot: SLOT.gunmetal, pairs: 1 }, depth: [.088, .095],
@@ -261,10 +271,10 @@ function presetBase(name: PanelPresetName, ids: Ids): Base {
             options: { lower: { to: .3, skin: SLOT.enamelPetrol } },
         };
         // Rich office (R1): dark smoked timber in 1.5 m bays with bronze inlaid joints, a
-        // black base with a red floor line, a black shadow gap at the ceiling.
+        // black base with a red floor line, a bronze reveal at the ceiling.
         case 'R': return {
-            system: { backing: ids.backing, pitch: [1.5], phase: 'grid', rows: 2, fill: ids.fill, edge: ids.edge, seam: .005,
-                head: { height: .03, module: ids.head }, foot: { height: .05, module: ids.foot }, minColumn: .4,
+            system: { backing: ids.backing, pitch: [1.5], phase: 'grid', rows: 2, fill: ids.fill, seam: .005,
+                head: { height: .03, module: ids.backing }, foot: { height: .05, module: ids.foot }, minColumn: .4,
                 litJoints: [{ module: ids.line, y: 'foot', facing: 'down', lumensPerMetre: 12, kelvin: 2700, color: [1, .035, .022], proud: .1 }] },
             profile: { skin: SLOT.smoked, backing: F.bronze, bevel: { radius: .003, segments: 1 }, seams: [], depth: [.086, .095],
                 head: { slot: F.black, depth: .088 }, foot: { slot: F.black, depth: .1 } },

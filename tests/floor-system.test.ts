@@ -3,7 +3,6 @@ import { loadTheme } from '../src/materials/load.js';
 import { makeFrame, worldToUv, type UvRect } from '../src/layout/uv.js';
 import { floorOrigin, pitIds, pitRect, placeFloorSystem } from '../src/styles/systems/floor.js';
 import { floorPreset, type FloorPresetName } from '../src/styles/systems/floor-recipes.js';
-import { gridIds } from '../src/styles/systems/surface-grid.js';
 import type { SurfaceRoom } from '../src/styles/systems/types.js';
 import type { Placement } from '../src/placements/types.js';
 import { glbBytes, kits, recordingBuilder, triangles, uvExtent } from './surface-system-helpers.js';
@@ -52,15 +51,15 @@ describe('floor systems', () => {
         for (const name of ['A', 'B', 'R', 'C'] as const) {
             const { system } = presets.get(name)!, frame = makeFrame(12), builder = recordingBuilder(), r = room();
             for (const rect of L.rects) placeFloorSystem(builder, system, r, rect, 0, frame);
-            const ids = gridIds(system.tile.block, system.tile.blockTiles), origin = floorOrigin(system, r), [pu, pv] = system.tile.size, j = system.tile.joint;
+            const block = system.tile.block, [cu, cv] = system.tile.blockTiles, origin = floorOrigin(system, r), [pu, pv] = system.tile.size, j = system.tile.joint;
             const onGrid = (x: number, o: number, p: number) => Math.abs((x - o) / p - Math.round((x - o) / p)) < 1e-6;
             const band = system.border ? [0, system.border.width, system.border.width + (system.border.inlay?.width ?? 0)] : [0];
             const sides = [0, 2, 3, 6, 7].flatMap(s => band.flatMap(d => [s + d, s - d]));
             const ok = (x: number, o: number, p: number, sign: number) => onGrid(x + sign * j / 2, o, p) || sides.some(s => Math.abs(x - s) < 1e-6);
-            const pieces = builder.placements.filter(p => p.module === ids.block || /-(row|col|cell)$/.test(p.module!));
+            const pieces = builder.placements.filter(p => p.module === block || /-\d+x\d+$/.test(p.module!));
             expect(pieces.length).toBeGreaterThan(3);
             for (const p of pieces) {
-                if (p.module === ids.block && ids.row !== ids.block && ids.col !== ids.block) expect(p.scale).toEqual([1, 1, 1]);
+                if (p.module === block && cu > 1 && cv > 1) expect(p.scale).toEqual([1, 1, 1]);
                 const e = uvExtent(p, catalog.get(p.module!)!, frame);
                 expect(ok(e.u0, origin[0], pu, -1) && ok(e.u1, origin[0], pu, 1) && ok(e.v0, origin[1], pv, -1) && ok(e.v1, origin[1], pv, 1),
                     `${name} ${p.module} ${JSON.stringify(e)}`).toBe(true);

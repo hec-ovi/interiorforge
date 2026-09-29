@@ -5,7 +5,7 @@ import { uvToWorld, worldToUv } from '../../layout/uv.js';
 import type { PlacementBuilder } from '../../placements/builder.js';
 import type { CeilingSystem, LitJoint, SurfaceRoom } from './types.js';
 import {
-    bandRect, facingRotation, gridIds, gridPieces, inward, lay, subtractAll, wallBands, wallIntervals, type Band, type Side,
+    bandRect, facingRotation, gridId, gridPieces, inward, lay, subtractAll, wallBands, wallIntervals, type Band, type Side,
 } from './surface-grid.js';
 
 /** Ceilings: a backing that closes every joint, stepped rings hanging below the datum along
@@ -28,12 +28,21 @@ const SPOT_BELOW = .04;
 /** Planned records already moved: one room's rectangles share them. */
 const moved = new WeakSet<LightFixture>();
 
-/** Where the grid counts from: the building grid origin, or a block centred on the room's
- *  centre so the cells run out evenly to opposite walls. */
+/** Where the grid counts from: the building grid origin, or, room-centred, cells symmetric
+ *  about the room's centre (a joint or a cell on the centre line, whichever leaves the
+ *  narrower cut cell at the reveal, which then takes it) with blocks counted from the first
+ *  whole cell inside the reveal, so a room spends as few pieces as its cells allow. */
 export function ceilingOrigin(spec: CeilingSystem, room: SurfaceRoom): Point {
     if (spec.grid.phase === 'grid') return room.gridOrigin;
-    const b = room.bounds, [pu, pv] = spec.grid.pitch, [cu, cv] = spec.grid.blockCells;
-    return [b.u + b.lu / 2 - pu * cu / 2, b.v + b.lv / 2 - pv * cv / 2];
+    const b = room.bounds, depth = (spec.steps?.reduce((m, s) => Math.max(m, s.inset), 0) ?? 0) + (spec.perimeter?.width ?? 0);
+    const axis = (lo: number, length: number, pitch: number): number => {
+        const centre = lo + length / 2, edge = lo + depth;
+        const cut = (o: number) => { const k = Math.ceil((edge - o) / pitch - 1e-9); return o + k * pitch - edge; };
+        const [a, c] = [centre, centre + pitch / 2];
+        const o = cut(a) <= cut(c) ? a : c;
+        return edge + cut(o);
+    };
+    return [axis(b.u, b.lu, spec.grid.pitch[0]), axis(b.v, b.lv, spec.grid.pitch[1])];
 }
 
 /** The coffer of a room, centred on its bounds, at least one perimeter band (or half a
@@ -82,24 +91,23 @@ export function placeCeilingSystem(builder: PlacementBuilder, spec: CeilingSyste
         }
         offset = step.inset;
     }
-    // The perimeter reveal along the walls, inside any rings.
+    // The perimeter reveal along the walls, inside any rings. On a room-centred grid the band
+    // also takes a cut cell narrower than half a cell, so whole panels meet the reveal.
+    const origin = ceilingOrigin(spec, room);
     const perimeter = stair ? undefined : spec.perimeter;
     if (perimeter) {
-        const { bands, corners } = wallBands(rect, walls, offset, perimeter.width);
+        const widths = revealWidths(spec, rect, offset + perimeter.width, origin);
+        const { bands } = wallBands(rect, walls, offset, widths);
+        // The v-side bands own the corner squares, so one straight piece runs corner to corner.
+        // A reveal in the backing's own module is the backing left bare: nothing to place.
         for (const band of bands) {
             cuts.push(bandRect(rect, band));
-            edgePiece(builder, perimeter.edge, room.id, rect, band, y, frame, [(band.b - band.a) / CELL, 1, 1]);
+            if (perimeter.edge !== spec.backing)
+                edgePiece(builder, perimeter.edge, room.id, rect, band, y, frame, [(band.b - band.a) / CELL, 1, band.width / perimeter.width]);
         }
-        for (const c of corners) {
-            const u = c.u === 'u0' ? rect.u + offset : rect.u + rect.lu - offset, v = c.v === 'v0' ? rect.v + offset : rect.v + rect.lv - offset;
-            const du = inward(c.u), dv = inward(c.v);
-            cuts.push({ u: du[0] > 0 ? u : u - perimeter.width, v: dv[1] > 0 ? v : v - perimeter.width, lu: perimeter.width, lv: perimeter.width });
-            cornerPiece(builder, perimeter.corner, room.id, [u, v], du, dv, y, frame);
-        }
-        if (perimeter.lens) for (const edge of wallBands(rect, walls, offset + perimeter.width, 0).bands)
-            lights.push(...lens(builder, perimeter.lens, room, rect, edge, y, frame));
+        if (perimeter.lens) for (const band of bands)
+            lights.push(...lens(builder, perimeter.lens, room, rect, { ...band, offset: band.offset + band.width, width: 0 }, y, frame));
     }
-    const ids = gridIds(spec.grid.block, spec.grid.blockCells), origin = ceilingOrigin(spec, room);
     const grid = { pitch: spec.grid.pitch, cells: spec.grid.blockCells, joint: spec.grid.joint };
     const levels: { region: UvRect; y: number }[] = subtractAll(rect, hollow ? [...cuts, hollow] : cuts).map(region => ({ region, y }));
     if (hollow) {
@@ -110,18 +118,33 @@ export function placeCeilingSystem(builder: PlacementBuilder, spec: CeilingSyste
     // The grid fills what the rings, the reveal and the coffer leave.
     for (const { region, y: at } of levels) for (const piece of gridPieces(region, origin, grid)) {
         const fields = spec.fields;
-        if (fields && piece.kind === 'block' && mod(piece.block[0] + piece.block[1], fields.every) === 0) {
+        if (fields && piece.whole && mod(piece.block[0] + piece.block[1], fields.every) === 0) {
             const placement = lay(builder, fields.module, room.id, piece.rect, at, frame, [1, 1]);
             lights.push(fieldRecord(placement.id, room, piece.rect, at, frame, fields.lumens));
             continue;
         }
-        lay(builder, ids[piece.kind], room.id, piece.rect, at, frame, piece.scale);
+        lay(builder, gridId(spec.grid.block, spec.grid.blockCells, piece.cells), room.id, piece.rect, at, frame, piece.scale);
     }
     moveRecords(spec, room, rect, y, frame, origin, planned);
     return lights;
 }
 
 const mod = (a: number, n: number) => ((a % n) + n) % n;
+
+/** Reveal depth per side: the band's own width, plus, on a room-centred grid, the cut cell
+ *  between the band and the next grid line when it is narrower than half a cell. */
+function revealWidths(spec: CeilingSystem, rect: UvRect, depth: number, origin: Point): Record<Side, number> {
+    const w = spec.perimeter!.width, out = { u0: w, u1: w, v0: w, v1: w } as Record<Side, number>;
+    if (spec.grid.phase !== 'room-centre') return out;
+    for (const side of ['u0', 'u1', 'v0', 'v1'] as const) {
+        const axis = side[0] === 'u' ? 0 : 1, pitch = spec.grid.pitch[axis], o = origin[axis]!;
+        const low = side.endsWith('0'), wall = axis === 0 ? (low ? rect.u : rect.u + rect.lu) : (low ? rect.v : rect.v + rect.lv);
+        const edge = wall + (low ? depth : -depth), k = (edge - o) / pitch;
+        const next = o + (low ? Math.ceil(k - 1e-9) : Math.floor(k + 1e-9)) * pitch, cut = Math.abs(next - edge);
+        if (cut > 1e-6 && cut < pitch / 2) out[side] = w + cut;
+    }
+    return out;
+}
 
 /** The four sides of a coffer: fascias rising from the ceiling to the coffer's floor, facing
  *  its centre, unscaled corner posts, and a lens along each side at the top. */

@@ -4,7 +4,7 @@ import type { Frame, UvRect } from '../../layout/uv.js';
 import { uvToWorld } from '../../layout/uv.js';
 import type { PlacementBuilder } from '../../placements/builder.js';
 import type { FloorSystem, PitSpec, SurfaceRoom } from './types.js';
-import { bandRect, gridIds, gridPieces, lay, subtractAll, wallBands, wallIntervals } from './surface-grid.js';
+import { bandRect, gridId, gridPieces, lay, subtractAll, wallBands, wallIntervals } from './surface-grid.js';
 
 /** Floors: one support slab per rectangle with its top 2 mm under Y0 (so the walking-slab
  *  count sees the floor whole), a border and inlay along the real walls, and the field in
@@ -62,10 +62,10 @@ export function placeFloorSystem(builder: PlacementBuilder, spec: FloorSystem, r
             cuts.push(r);
         }
     }
-    const ids = gridIds(spec.tile.block, spec.tile.blockTiles), origin = floorOrigin(spec, room);
+    const origin = floorOrigin(spec, room);
     const grid = { pitch: spec.tile.size, cells: spec.tile.blockTiles, joint: spec.tile.joint };
     for (const region of subtractAll(rect, cuts)) for (const piece of gridPieces(region, origin, grid))
-        lay(builder, ids[piece.kind], room.id, piece.rect, y, frame, piece.scale);
+        lay(builder, gridId(spec.tile.block, spec.tile.blockTiles, piece.cells), room.id, piece.rect, y, frame, piece.scale);
     return hole ? placePit(builder, spec, room, hole, y, frame) : [];
 }
 

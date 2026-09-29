@@ -57,17 +57,19 @@ export function wallCorner(walls: Record<Side, [number, number][]>, rect: UvRect
     return reaches(walls[vSide], u) && reaches(walls[uSide], v);
 }
 
-/** One straight band along a wall interval: `offset` from the wall, `width` deep, trimmed at
- *  both ends by `trim` (the part a perpendicular band or a corner piece owns). */
+/** One straight band along a wall interval: `offset` from the wall, `width` deep. */
 export interface Band { side: Side; a: number; b: number; offset: number; width: number }
 
-/** Bands of `width` at `offset` from every real wall of the rectangle. At a corner where two
- *  bands meet, the v-sides (running along u) keep the corner square and the u-sides stop
- *  short of it, so no two bands overlap. `corners` lists those shared corner squares. */
-export function wallBands(rect: UvRect, walls: Record<Side, [number, number][]>, offset: number, width: number):
+/** Bands at `offset` from every real wall of the rectangle, `width` deep (one width, or one
+ *  per side). At a corner where two bands meet, the v-sides (running along u) keep the
+ *  corner square and the u-sides stop short of it, so no two bands overlap; `corners` lists
+ *  those corners. */
+export function wallBands(rect: UvRect, walls: Record<Side, [number, number][]>, offset: number, width: number | Record<Side, number>):
     { bands: Band[]; corners: { u: 'u0' | 'u1'; v: 'v0' | 'v1' }[] } {
     const bands: Band[] = [], corners: { u: 'u0' | 'u1'; v: 'v0' | 'v1' }[] = [];
-    const inner = offset + width;
+    // Never deeper than half the rectangle across: bands from opposite walls must not meet.
+    const deep = (side: Side) => Math.max(0, Math.min(typeof width === 'number' ? width : width[side],
+        (side[0] === 'u' ? rect.lu : rect.lv) / 2 - offset));
     for (const uSide of ['u0', 'u1'] as const) for (const vSide of ['v0', 'v1'] as const)
         if (wallCorner(walls, rect, uSide, vSide)) corners.push({ u: uSide, v: vSide });
     const corner = (u: 'u0' | 'u1', v: 'v0' | 'v1') => corners.some(c => c.u === u && c.v === v);
@@ -78,10 +80,13 @@ export function wallBands(rect: UvRect, walls: Record<Side, [number, number][]>,
             if (corner('u0', side) && Math.abs(a0 - rect.u) < 1e-5) a += offset;
             if (corner('u1', side) && Math.abs(b0 - rect.u - rect.lu) < 1e-5) b -= offset;
         } else {
-            if (corner(side, 'v0') && Math.abs(a0 - rect.v) < 1e-5) a += inner;
-            if (corner(side, 'v1') && Math.abs(b0 - rect.v - rect.lv) < 1e-5) b -= inner;
+            // Along v: stop where the v-side band that owns the corner ends.
+            if (corner(side, 'v0') && Math.abs(a0 - rect.v) < 1e-5) a += offset + deep('v0');
+            if (corner(side, 'v1') && Math.abs(b0 - rect.v - rect.lv) < 1e-5) b -= offset + deep('v1');
         }
-        if (b > a + 1e-4) bands.push({ side, a, b, offset, width });
+        // A zero-width band is a line (a fascia, a lens) at `offset`: it needs the room to reach it.
+        const line = typeof width === 'number' && width === 0 && offset <= (side[0] === 'u' ? rect.lu : rect.lv) / 2 + 1e-9;
+        if (b > a + 1e-4 && (deep(side) > 1e-3 || line)) bands.push({ side, a, b, offset, width: deep(side) });
     }
     return { bands, corners };
 }
@@ -125,81 +130,72 @@ export interface CellGrid {
     joint: number;
 }
 
-/** A piece of a cell grid: a whole block, a row or column of one block's cells, or one
- *  cell. `rect` is the area its skin covers (joints already taken off on cell boundaries,
- *  never on the region's own sides); `scale` is the stretch of the authored piece in u, v. */
-export interface GridPiece { kind: 'block' | 'row' | 'col' | 'cell'; rect: UvRect; scale: [number, number]; block: [number, number] }
+/** A piece of a cell grid: `cells` [a, b] of one block laid as one module, the block's own
+ *  module when it is whole. Along each axis a piece holds either whole cells (unscaled) or
+ *  one cell cut by the area's side (stretched on that axis). `rect` is the area its skin
+ *  covers (joints already taken off on cell boundaries, never on the area's own sides);
+ *  `scale` is the stretch of the authored piece in u, v. */
+export interface GridPiece { cells: [number, number]; whole: boolean; rect: UvRect; scale: [number, number]; block: [number, number] }
 
-/** Ids of a grid's pieces by convention: the block module, then `-row`, `-col`, `-cell`.
- *  A piece shaped like one already named reuses it (a one-row block is its own row, a
- *  one-cell block its own cell), so a single-cell grid needs only its block module. */
-export function gridIds(block: string, [cu, cv]: readonly [number, number]): Record<GridPiece['kind'], string> {
-    const shapes: [GridPiece['kind'], number, number, string][] = [
-        ['block', cu, cv, block], ['row', cu, 1, `${block}-row`], ['col', 1, cv, `${block}-col`], ['cell', 1, 1, `${block}-cell`]];
-    const ids = {} as Record<GridPiece['kind'], string>;
-    for (const [kind, a, b] of shapes) ids[kind] = shapes.find(([, x, y]) => x === a && y === b)![3];
-    return ids;
+/** Module id of an a × b piece of a grid: the block itself when whole, else `<block>-<a>x<b>`. */
+export function gridId(block: string, cells: readonly [number, number], [a, b]: readonly [number, number]): string {
+    return a === cells[0] && b === cells[1] ? block : `${block}-${a}x${b}`;
 }
 
-/** Every distinct piece of a grid: kind, cells across u and v, and module id. */
+/** Every piece module a grid can need: all a × b sub-blocks of its block. */
 export function gridModules(block: string, cells: readonly [number, number]): { id: string; cells: [number, number] }[] {
-    const ids = gridIds(block, cells), [cu, cv] = cells;
-    const shape: Record<GridPiece['kind'], [number, number]> = { block: [cu, cv], row: [cu, 1], col: [1, cv], cell: [1, 1] };
-    const seen = new Set<string>();
-    return (Object.keys(ids) as GridPiece['kind'][]).filter(kind => !seen.has(ids[kind]) && !!seen.add(ids[kind]))
-        .map(kind => ({ id: ids[kind], cells: shape[kind] }));
+    const out: { id: string; cells: [number, number] }[] = [];
+    for (let a = 1; a <= cells[0]; a++) for (let b = 1; b <= cells[1]; b++) out.push({ id: gridId(block, cells, [a, b]), cells: [a, b] });
+    return out;
 }
 
 /** Covers `region` with the grid phased at `origin`: every block wholly inside is one block
- *  piece at scale 1; a block cut across v only becomes its cell rows (full width, v
- *  stretched), across u only its cell columns, across both its single cells. Joints stay on
- *  the grid: a clipped piece keeps half a joint on each side that is a cell boundary. */
+ *  piece at scale 1; a clipped block becomes its whole cells as one unscaled sub-block plus
+ *  the cells the area's sides cut, grouped per side into sub-blocks stretched only across
+ *  the cut. Joints stay on the grid: a piece keeps half a joint on each side that is a cell
+ *  boundary, and none on the area's own sides unless they fall on a grid line. */
 export function gridPieces(region: UvRect, origin: Point, grid: CellGrid): GridPiece[] {
-    const [pu, pv] = grid.pitch, [cu, cv] = grid.cells, bu = pu * cu, bv = pv * cv, j = grid.joint;
+    const [pu, pv] = grid.pitch, [cu, cv] = grid.cells, bu = pu * cu, bv = pv * cv;
     const r0: Point = [region.u, region.v], r1: Point = [region.u + region.lu, region.v + region.lv];
     const out: GridPiece[] = [];
-    const inset = (x0: number, x1: number, lo: number, hi: number, origin: number, pitch: number): [number, number] => {
-        const onGrid = (x: number) => Math.abs((x - origin) / pitch - Math.round((x - origin) / pitch)) < 1e-6;
-        return [x0 + (x0 > lo + 1e-7 || onGrid(x0) ? j / 2 : 0), x1 - (x1 < hi - 1e-7 || onGrid(x1) ? j / 2 : 0)];
-    };
     for (let bj = Math.floor((r0[1] - origin[1]) / bv + 1e-9); origin[1] + bj * bv < r1[1] - 1e-7; bj++) {
         for (let bi = Math.floor((r0[0] - origin[0]) / bu + 1e-9); origin[0] + bi * bu < r1[0] - 1e-7; bi++) {
             const ku = origin[0] + bi * bu, kv = origin[1] + bj * bv;
-            const iu0 = Math.max(ku, r0[0]), iu1 = Math.min(ku + bu, r1[0]), iv0 = Math.max(kv, r0[1]), iv1 = Math.min(kv + bv, r1[1]);
-            if (iu1 - iu0 < 1e-4 || iv1 - iv0 < 1e-4) continue;
-            const fullU = iu0 <= ku + 1e-7 && iu1 >= ku + bu - 1e-7, fullV = iv0 <= kv + 1e-7 && iv1 >= kv + bv - 1e-7;
-            const block: [number, number] = [bi, bj];
-            if (fullU && fullV) {
-                out.push({ kind: 'block', rect: { u: ku + j / 2, v: kv + j / 2, lu: bu - j, lv: bv - j }, scale: [1, 1], block });
-                continue;
-            }
-            const us = cellSpans(iu0, iu1, ku, pu, cu), vs = cellSpans(iv0, iv1, kv, pv, cv);
-            if (fullU) for (const [v0, v1] of vs) {
-                const [a, b] = inset(v0, v1, r0[1], r1[1], origin[1], pv);
-                if (b - a > 1e-4) out.push({ kind: 'row', rect: { u: ku + j / 2, v: a, lu: bu - j, lv: b - a }, scale: [1, (b - a) / (pv - j)], block });
-            }
-            else if (fullV) for (const [u0, u1] of us) {
-                const [a, b] = inset(u0, u1, r0[0], r1[0], origin[0], pu);
-                if (b - a > 1e-4) out.push({ kind: 'col', rect: { u: a, v: kv + j / 2, lu: b - a, lv: bv - j }, scale: [(b - a) / (pu - j), 1], block });
-            }
-            else for (const [v0, v1] of vs) for (const [u0, u1] of us) {
-                const [a, b] = inset(u0, u1, r0[0], r1[0], origin[0], pu), [c, d] = inset(v0, v1, r0[1], r1[1], origin[1], pv);
-                if (b - a > 1e-4 && d - c > 1e-4) out.push({ kind: 'cell', rect: { u: a, v: c, lu: b - a, lv: d - c }, scale: [(b - a) / (pu - j), (d - c) / (pv - j)], block });
-            }
+            const us = runs(Math.max(ku, r0[0]), Math.min(ku + bu, r1[0]), ku, pu, cu, [origin[0], r0[0], r1[0]], grid.joint);
+            const vs = runs(Math.max(kv, r0[1]), Math.min(kv + bv, r1[1]), kv, pv, cv, [origin[1], r0[1], r1[1]], grid.joint);
+            for (const su of us) for (const sv of vs) out.push({
+                cells: [su.count, sv.count], whole: su.count === cu && sv.count === cv, block: [bi, bj],
+                rect: { u: su.a, v: sv.a, lu: su.b - su.a, lv: sv.b - sv.a },
+                scale: [su.cut ? (su.b - su.a) / (pu - grid.joint) : 1, sv.cut ? (sv.b - sv.a) / (pv - grid.joint) : 1],
+            });
         }
     }
     return out;
 }
 
-/** The cell intervals of one block inside [lo, hi]. */
-function cellSpans(lo: number, hi: number, start: number, pitch: number, count: number): [number, number][] {
-    const spans: [number, number][] = [];
+/** One block's cells inside [lo, hi] along one axis, as runs: each cell the area's side
+ *  cuts on its own (stretched), the whole cells between them together (unscaled). Skins
+ *  keep half a joint off every cell boundary; an area side takes none unless it lies on a
+ *  grid line, where the next area's skin meets it. */
+function runs(lo: number, hi: number, start: number, pitch: number, count: number, [origin, r0, r1]: [number, number, number], j: number):
+    { a: number; b: number; count: number; cut: boolean }[] {
+    if (hi - lo < 1e-4) return [];
+    const onGrid = (x: number) => Math.abs((x - origin) / pitch - Math.round((x - origin) / pitch)) < 1e-6;
+    const out: { a: number; b: number; count: number; cut: boolean }[] = [];
     for (let i = 0; i < count; i++) {
-        const a = Math.max(lo, start + i * pitch), b = Math.min(hi, start + (i + 1) * pitch);
-        if (b > a + 1e-4) spans.push([a, b]);
+        const c0 = start + i * pitch, c1 = c0 + pitch, a = Math.max(lo, c0), b = Math.min(hi, c1);
+        if (b - a <= 1e-4) continue;
+        const cut = a > c0 + 1e-7 || b < c1 - 1e-7, last = out[out.length - 1];
+        if (!cut && last && !last.cut) { last.b = b; last.count++; continue; }
+        out.push({ a, b, count: 1, cut });
     }
-    return spans;
+    for (const run of out) {
+        run.a += run.a > r0 + 1e-7 || onGrid(run.a) ? j / 2 : 0;
+        run.b -= run.b < r1 - 1e-7 || onGrid(run.b) ? j / 2 : 0;
+    }
+    return out.filter(run => run.b - run.a > 1e-4);
 }
+
 
 /** Places a flat piece lying in the room plane: centre of `rect`, stretched [su, 1, sv]. */
 export function lay(builder: Pick<PlacementBuilder, 'module'>, module: string, room: string, rect: UvRect, y: number, frame: Frame,

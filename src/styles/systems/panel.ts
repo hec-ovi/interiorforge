@@ -1,5 +1,5 @@
 import type { LitJoint, PanelSystem, WallFace } from './types.js';
-import { EDGE_HALF, PAIRED_COLUMNS, pairOf } from './panel-recipes.js';
+import { EDGE_HALF, GROUPED_COLUMNS, groupOf, MAX_GROUP } from './panel-recipes.js';
 
 /** Panel walls: the nine-slice rule on the construction module. A wall fragment is cut into
  *  column cells of the system's pitch, phased to the 0.5 m grid (or centred in the run) and
@@ -80,9 +80,9 @@ export function panelCells(spec: Pick<PanelSystem, 'pitch' | 'phase' | 'minColum
 }
 
 /** A panel-system wall fragment [a, b] × [y0, y1] on one face. A fragment from the floor to
- *  the top of the run takes columns; a sill or lintel fragment takes one fill per cell, so
- *  the vertical seams run on above doors and below windows. The head band only where the
- *  fragment reaches the ceiling, the foot only on the floor. */
+ *  the top of the run takes columns; a sill or lintel fragment takes one fill. The head band
+ *  only where the fragment reaches the ceiling (none when it is the backing itself, left
+ *  bare as a recessed band), the foot only on the floor. */
 export function placePanelSystem(face: WallFace, spec: PanelSystem, a: number, b: number, y0: number, y1: number): void {
     if (b - a < 1e-3 || y1 - y0 < 1e-3) return;
     const length = b - a, mid = (a + b) / 2;
@@ -92,9 +92,8 @@ export function placePanelSystem(face: WallFace, spec: PanelSystem, a: number, b
     const head = spec.head && ceiling && y1 - y0 > spec.head.height + .05 ? spec.head : undefined;
     const foot = spec.foot && floor && y1 - y0 > .3 ? spec.foot : undefined;
     const bottom = y0 + (foot?.height ?? 0), top = y1 - (head?.height ?? 0);
-    // A sill or lintel keeps every seam of the columns beside it, however narrow its cells.
-    const cells = whole ? panelCells(spec, a, b, face.gridOrigin)
-        : panelIntervals(a, b, spec.pitch, panelOrigin(spec, a, b, face.gridOrigin), spec.seam);
+    // A sill or lintel is one fill: the casing or the window frame owns its ends.
+    const cells = whole ? panelCells(spec, a, b, face.gridOrigin) : [{ a, b, width: b - a, full: false }];
     const tall = whole && top - bottom - spec.rows >= MIN_TOP;
     const fill = (from: number, to: number) => face.piece(spec.fill, (from + to) / 2, bottom, [(to - from) / CELL, (top - bottom) / CELL, 1]);
     for (let i = 0; i < cells.length; i++) {
@@ -105,14 +104,14 @@ export function placePanelSystem(face: WallFace, spec: PanelSystem, a: number, b
             if (to - from > 1e-4) fill(from, to);
             continue;
         }
-        const next = cells[i + 1];
-        const pair = next && next.full && Math.abs(next.width - cell.width) < 1e-9 && PAIRED_COLUMNS.has(pairOf(spec.column(cell.width)));
-        const column = pair ? pairOf(spec.column(cell.width)) : spec.column(cell.width);
-        const crown = pair ? pairOf(spec.top(cell.width)) : spec.top(cell.width);
-        const at = pair ? cell.b : (cell.a + cell.b) / 2;
-        face.piece(column, at, bottom, [1, 1, 1]);
-        face.piece(crown, at, bottom + spec.rows, [1, (top - bottom - spec.rows) / CELL, 1]);
-        if (pair) i++;
+        // Up to MAX_GROUP equal whole cells in a row stand as one column and one top module.
+        let n = 1;
+        while (n < MAX_GROUP && cells[i + n]?.full && Math.abs(cells[i + n]!.width - cell.width) < 1e-9) n++;
+        while (n > 1 && !GROUPED_COLUMNS.has(groupOf(spec.column(cell.width), n))) n--;
+        const at = (cell.a + cells[i + n - 1]!.b) / 2;
+        face.piece(groupOf(spec.column(cell.width), n), at, bottom, [1, 1, 1]);
+        face.piece(groupOf(spec.top(cell.width), n), at, bottom + spec.rows, [1, (top - bottom - spec.rows) / CELL, 1]);
+        i += n - 1;
     }
     // A clipped end cell of a full-height fragment rounds its cut like a column's edge.
     if (whole && spec.edge) {
@@ -120,7 +119,8 @@ export function placePanelSystem(face: WallFace, spec: PanelSystem, a: number, b
         if ((!cells[cells.length - 1]!.full || !tall) && length > 4 * EDGE_HALF)
             face.piece(spec.edge, b - EDGE_HALF, bottom, [1, (top - bottom) / CELL, 1]);
     }
-    if (head) face.piece(head.module, mid, top, [length / CELL, 1, 1]);
+    // A head band in the backing's own module is the backing showing: nothing to place.
+    if (head && head.module !== spec.backing) face.piece(head.module, mid, top, [length / CELL, 1, 1]);
     if (foot) face.piece(foot.module, mid, y0, [length / CELL, 1, 1]);
     const joints = [...(spec.litJoints ?? []), ...(head?.lens ? [head.lens] : [])];
     for (const joint of joints) {
