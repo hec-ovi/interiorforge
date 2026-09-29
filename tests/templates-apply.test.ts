@@ -44,7 +44,16 @@ describe('space templates in generated buildings', () => {
         expect(own.flatMap(room => room.doors.filter(door => common.has(door.to))), unit).toHaveLength(1);
         for (const bed of own.filter(room => room.kind === 'bedroom'))
           expect(floor.furniture.some(piece => piece.room === bed.id && ['bed_double', 'bed_single', 'sleeping_pod'].includes(piece.kind)), bed.id).toBe(true);
+        // a luxury reference bath keeps vanity, shower and toilet
+        if (item.kind === 'A' || item.kind === 'B') for (const bath of own.filter(room => room.kind === 'bathroom'))
+          expect(floor.furniture.filter(piece => piece.room === bath.id).map(piece => piece.kind), bath.id)
+            .toEqual(expect.arrayContaining(['shower', 'sink', 'toilet']));
       }
+    }
+    // a refined lobby keeps its street door on the reception, where the concierge meets the arrival
+    if (item.kind === 'A' || item.kind === 'B') {
+      const ground = result.layouts.ground!.floor;
+      expect(ground.rooms.find(room => room.doors.some(door => door.to === 'outside'))?.kind).toBe('reception');
     }
     // scaled or dropped reference rooms are reported with the floor's program
     const changes = result.building.floors.flatMap(floor => floor.program?.changes ?? []);
