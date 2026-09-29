@@ -10,6 +10,8 @@ import { doorUvPoint } from "./plan-floor.js";
 import type { IdGen } from "./rooms.js";
 import type { FloorBounds } from "./shell.js";
 import type { UvRect } from "./uv.js";
+import { NAV_LEVEL_MIN, zoneUvRect } from "./levels.js";
+import { templateTrace } from "./templates/fit.js";
 import { roomAnchor, roomArea, roomContains, roomCoversRect, roomEdges, sharedRoomEdges } from "./room-shape.js";
 import { BATHROOM_WALL_CLEARANCE, fitBathroomRecipe, overlaps } from "./bathroom-recipe.js";
 import { fitLuxuryGroup } from "./luxury/fit.js";
@@ -85,6 +87,8 @@ const STALL = BODY_CLEAR + 0.1;
 
 class RoomPlacer {
   private readonly blocked: UvRect[] = [];
+  /** what each fixed reservation is, for template diagnostics */
+  private readonly sources = new Map<UvRect, string>();
   private pairedDesk = false;
   /** Set only while placing a last-resort bed: any wall, glazed ones included. */
   private anyHeadwall = false;
@@ -112,6 +116,9 @@ class RoomPlacer {
     // furniture margin, instead of testing thousands of other units' route boxes.
     this.blocked.push(...[...doorZones, ...openingZones, ...(room.furnishingKeepouts ?? [])]
       .filter(zone => overlaps(zone, room.rect, .15)));
+    for (const zone of doorZones) this.sources.set(zone, 'door zone');
+    for (const zone of openingZones) this.sources.set(zone, 'opening zone');
+    for (const zone of room.furnishingKeepouts ?? []) this.sources.set(zone, 'keepout');
     this.rect = usableRect(room.rect, (edge) => this.isFacade(edge), bounds.facadeDepth);
     if (sizes === LUXURY_SIZES || family === 'corporate') for (const other of neighbours) {
       if (other === room) continue;
@@ -575,23 +582,41 @@ class RoomPlacer {
     return placed;
   }
 
+  /** Level zones (a pit, a raised bar) are the template's to furnish: whatever the room adds
+   *  after its authored pieces keeps off them and their edges, so no generic table sinks
+   *  into a platform or stands across a step. */
+  keepOffLevels(): void {
+    for (const zone of this.room.levels ?? []) if (Math.abs(zone.delta) >= NAV_LEVEL_MIN) this.blocked.push(zoneUvRect(zone));
+  }
+
   /** Commits a template's authored pieces at their exact places and sizes. A colliding
    *  optional piece is left out; when a required one cannot stand, nothing is kept and the
    *  room falls back to the family dispatch. Built-in runs reserve the wall to the ceiling. */
   authored(pieces: readonly AuthoredPiece[], ceilingHeight: number): boolean {
     const blocked = this.blocked.length, out = this.out.length;
     for (let piece of pieces) {
-      // a wall piece slides off its wall (facade lining, door swing) before it gives up
-      const back = BACK_NORMAL[piece.rotationDeg]!;
-      let fp = footprintOf(piece);
-      for (let step = 1; step <= 10 && !this.fits(fp, piece.kind); step++) {
-        const base = footprintOf(piece);
-        fp = { ...base, u: base.u + back[0] * step * 0.05, v: base.v + back[1] * step * 0.05 };
+      // a wall piece slides off its wall (facade lining, door swing), then a little along it,
+      // before it gives up; a free piece nudges any way
+      const back = BACK_NORMAL[piece.rotationDeg]!, side: [number, number] = [back[1], back[0]];
+      const base = footprintOf(piece);
+      // A piece standing in a level zone (a pit's banquette, a bar's counter) only meets
+      // what stands in that zone: no route or approach outside it can run through a pit.
+      const zone = (this.room.levels ?? []).map(zoneUvRect).find(rect => base.u >= rect.u - 1e-6 && base.v >= rect.v - 1e-6
+        && base.u + base.lu <= rect.u + rect.lu + 1e-6 && base.v + base.lv <= rect.v + rect.lv + 1e-6);
+      const fits = (rect: UvRect) => this.fits(rect, piece.kind, undefined, zone);
+      let fp = base;
+      const moves: [number, number][] = [back, side, [-side[0], -side[1]], [-back[0], -back[1]]];
+      for (let i = 0; i < moves.length && !fits(fp); i++) {
+        const [du, dv] = moves[i]!;
+        for (let step = 1; step <= (i === 0 ? 10 : 8); step++) {
+          fp = { ...base, u: base.u + du * step * 0.05, v: base.v + dv * step * 0.05 };
+          if (fits(fp)) break;
+        }
       }
       // a hung piece keeps the rule of every wall piece: a solid wall behind it, never the
       // facade run or a glass partition, whatever wall its template drew it on
       const at: Point = [fp.u + fp.lu / 2, fp.v + fp.lv / 2];
-      if (this.fits(fp, piece.kind) && (MOUNT[piece.kind] === undefined || this.solidBacking({ ...piece, at }))) {
+      if (fits(fp) && (MOUNT[piece.kind] === undefined || this.solidBacking({ ...piece, at }))) {
         piece = { ...piece, at };
         const size: [number, number, number] = piece.fit?.startsWith('asm-') && (piece.kind === 'kitchen_block' || piece.kind === 'wardrobe')
           && Number.isFinite(ceilingHeight) ? [piece.size[0], piece.size[1], Math.max(piece.size[2], ceilingHeight - (piece.elevation ?? 0))] : piece.size;
@@ -604,7 +629,8 @@ class RoomPlacer {
         this.rects.set(item.id, fp);
         continue;
       }
-      if (!piece.required) continue;
+      if (!piece.required) { templateTrace(`${this.room.template}: optional ${piece.id} (${piece.kind}) left out`); continue; }
+      templateTrace(`${this.room.template}: required ${piece.id} (${piece.kind}) cannot stand at ${fmtRect(fp)} (${this.whyNot(fp, piece.kind)}); the room falls back`);
       this.blocked.splice(blocked);
       for (const item of this.out.splice(out)) this.rects.delete(item.id);
       return false;
@@ -612,11 +638,21 @@ class RoomPlacer {
     return this.out.length > out;
   }
 
-  private fits(fp: UvRect, kind: FurnitureKind, except?: UvRect): boolean {
+  /** Why a footprint does not fit, for template diagnostics. */
+  whyNot(fp: UvRect, kind: FurnitureKind): string {
+    if (!this.covers(fp)) return `outside ${fmtRect(this.rect)}`;
+    const gap = MOUNT[kind] ? 0.05 : SEATS.has(kind) ? 0.06 : 0.15;
+    const hit = this.blocked.find(b => !(fp.u + fp.lu + gap <= b.u || b.u + b.lu + gap <= fp.u || fp.v + fp.lv + gap <= b.v || b.v + b.lv + gap <= fp.v));
+    const piece = hit && [...this.rects].find(([, rect]) => rect === hit)?.[0];
+    const item = piece && this.out.find(other => other.id === piece);
+    return hit ? `blocked by ${item ? `${item.kind} ${item.fit ?? ''} ` : this.sources.get(hit) ?? ''} ${fmtRect(hit)}` : 'backing';
+  }
+
+  private fits(fp: UvRect, kind: FurnitureKind, except?: UvRect, within?: UvRect): boolean {
     if (!this.covers(fp)) return false;
     const gap = MOUNT[kind] ? 0.05 : SEATS.has(kind) ? 0.06 : 0.15;
     return this.blocked.every(
-      (b) => b === except
+      (b) => b === except || within !== undefined && !overlaps(b, within)
         || fp.u + fp.lu + gap <= b.u || b.u + b.lu + gap <= fp.u
         || fp.v + fp.lv + gap <= b.v || b.v + b.lv + gap <= fp.v,
     );
@@ -818,17 +854,23 @@ export function furnish(
       rooms, family,
     );
     const area = roomArea(room);
-    // A templated room stands its authored pieces first; the family dispatch still runs for
-    // a room whose template did not author the piece that makes it what it is.
-    if (room.authored?.length && p.authored(room.authored, ceilingHeight) && authoredComplete(room, out)) {
-      // an authored salon still gets the companions its template left to the room: a table
-      // before the sofa and a screen on a free wall
-      if (room.kind === 'living' || room.kind === 'studio_main') {
+    // A templated room stands its authored pieces first: they are its program. A private
+    // room of a template adds only the companions its reference salon has (a table before
+    // the sofa, a screen on a free wall); the family dispatch still runs for a public room
+    // the template adds to, and for a room whose required pieces could not stand.
+    const authored = !!room.authored?.length && p.authored(room.authored, ceilingHeight);
+    p.keepOffLevels();
+    if (room.template && PASSAGE_ROLES.has(room.role ?? '') && !ADDITIVE.has(room.kind)) continue;
+    if (authored && (room.template && room.unit && !ADDITIVE.has(room.kind) || authoredComplete(room, out))) {
+      if ((room.kind === 'living' || room.kind === 'studio_main') && out.some(item => item.room === room.id && item.kind === 'sofa')) {
         const own = out.filter(item => item.room === room.id);
         if (!own.some(item => item.kind === 'low_table')) p.center('low_table');
         if (!own.some(item => item.kind === 'display_screen')) p.wallPiece('display_screen');
       }
-      continue;
+      if (!room.template || !room.unit || authoredComplete(room, out)) continue;
+      // a templated private room short of the piece that makes it what it is still gets it,
+      // from the family's own dispatch when no wall takes it alone
+      if (furnishDefining(room, p)) continue;
     }
     if (family === 'industrial' && furnishIndustrial(room, floorKind, p)) continue;
     if (family === 'corporate' && furnishCorporate(room, floorKind, p)) continue;
@@ -1066,6 +1108,23 @@ const DEFINING: Partial<Record<string, readonly FurnitureKind[]>> = {
   office_private: ['desk'], executive_office: ['desk'], office_open: ['desk'], meeting: ['meeting_table'],
   reception: ['reception_desk'], bar: ['bar_counter'],
 };
+
+const fmtRect = (r: UvRect) => `[${r.u.toFixed(2)},${r.v.toFixed(2)} ${r.lu.toFixed(2)}x${r.lv.toFixed(2)}]`;
+
+/** Template roles that are circulation (an entry vestibule, a hall, a walkway): their
+ *  authored pieces are all they hold, never a salon or a dining group. */
+const PASSAGE_ROLES: ReadonlySet<string> = new Set(['foyer', 'passage', 'hall', 'walkway', 'genkan', 'entry']);
+
+/** The one defining piece of a templated private room its template did not author (a bed,
+ *  a toilet, a cooking run), stood where it fits; false when nothing was needed. */
+function furnishDefining(room: PlanRoom, p: RoomPlacer): boolean {
+  switch (room.kind) {
+    case 'bedroom': return !!(p.anyEdge('bed_double') ?? p.anyEdge('bed_single'));
+    case 'bathroom': return !!p.anyEdge('toilet');
+    case 'kitchen': return !!p.anyEdge('kitchen_block');
+    default: return false;
+  }
+}
 
 /** Public rooms whose authored pieces add to the family's own furnishing. */
 const ADDITIVE: ReadonlySet<string> = new Set(['reception', 'office_open', 'lounge', 'corridor', 'elevator_lobby',
