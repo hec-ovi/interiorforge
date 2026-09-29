@@ -49,9 +49,12 @@ export function validateArchitecture(
     const fixed = repairOne(unreached, rooms, access, ids, bounds.inner, core, rebuild);
     if (!fixed) {
       // No wall can open into it: the floor keeps its circulation and loses the room,
-      // rather than the building staying closed over one unreachable corner.
+      // rather than the building staying closed over one unreachable corner. Only the
+      // floor's own spine, where every route starts, cannot be lost; a further concourse
+      // or corridor that a shaft cuts off goes like any other room.
       const room = unreached[0]!;
-      if (SPINE_KINDS.has(room.kind) || rooms.length === 1) {
+      const spine = rooms.find(other => commonTransit(other) && SPINE_KINDS.has(other.kind));
+      if (room === spine || rooms.length === 1) {
         throw new InteriorError("E_UNREACHABLE_SPACE",
           `no ${commonTransit(room) ? "public" : "access-domain"} shared-wall repair for ${room.id}(${room.kind}): ${missing(access, room)} unreachable body-clear cells`, floorIndex);
       }
