@@ -98,6 +98,14 @@ export function props(builder: PlacementBuilder, floor: FloorInterior, uv: UvFlo
         }
         const room = rooms.get(item.room);
         const styleFit = item.fit?.startsWith('fit-') ? item.fit : room ? styleOf(room)?.fit?.(item, room) ?? undefined : undefined;
+        // A style may stand a generic record as one of its assemblies (E6's kitchen wall).
+        const styleAssembly = styleFit?.startsWith('asm-') ? ASSEMBLIES.get(styleFit) : undefined;
+        if (styleAssembly) {
+            const records = placeAssembly(builder, floor, item, styleAssembly, ceilingY);
+            floor.lights = [...floor.lights.filter(light => light.furniture !== item.id), ...records.map(light => ({ ...light, furniture: item.id }))];
+            retained.add(item.id); lit.add(item.id);
+            continue;
+        }
         if (styleFit && placementRecipe(styleFit)) {
             builder.module(styleFit, item.room, position, [1, 1, 1], item.rotationDeg * Math.PI / 180, { id: item.id });
             retained.add(item.id);

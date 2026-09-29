@@ -254,6 +254,9 @@ export interface KitchenWallSpec {
     bulkhead: { module: string };
     column?: { width: number; depth: number; modules: { stack: string[]; screen: string } };
     lens: { y: number; z: number; lumensPerMetre: number; color?: [number, number, number] };
+    /** stand the whole wall (uppers, bulkhead, column) whatever the record's height, unless a
+     *  window is behind the run: a style's kitchen on a generic counter-height record */
+    fullWall?: boolean;
 }
 
 export interface HousingSpec {

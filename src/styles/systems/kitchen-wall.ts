@@ -104,7 +104,7 @@ export function placeKitchenWall(builder: PlacementBuilder, floor: FloorInterior
   const windows = windowsBehind(floor, item, frame);
   // A reservation lower than the room (a bar counter) keeps the assembly under its top: no
   // uppers, bulkhead or column, the splash cut at the record's height.
-  const fullHeight = item.size[2] >= ceiling - .05;
+  const fullHeight = item.size[2] >= ceiling - .05 || (spec.fullWall === true && windows.length === 0);
   const layout = kitchenLayout(spec, w, windows[0]?.x, fullHeight);
   const put = (module: string, x: number, y: number, sx = 1, sy = 1, z = 0) =>
     frame.place(builder, module, room, x, y, back + z, [sx, sy, 1]);

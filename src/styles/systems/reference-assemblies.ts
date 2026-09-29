@@ -82,10 +82,18 @@ export const E1_KITCHEN = kitchenSpec('e1', 'e1', ['display', 'sink', 'door', 'd
  *  worktop steps up into a ledge along the glass. */
 export const E1_KITCHEN_WINDOW = kitchenSpec('e1', 'e1', ['drawers', 'sink', 'display', 'door'], CYAN, false, true);
 export const B3_BAR = kitchenSpec('b3', 'bar', ['drawers', 'door', 'sink', 'door', 'display', 'drawers'], undefined, true);
+/** The E6 kitchen: an ivory moulded wall on the E1 carcass, a honed stone top, a grooved
+ *  splash, cream uppers and a column with a tablet screen, whatever the record's height. */
+export const E6_KITCHEN: KitchenWallSpec = { ...kitchenSpec('e6', 'e1', ['sink', 'door', 'drawers', 'hob', 'door', 'drawers'], undefined, true), fullWall: true };
 
 const E1_LOOK: KitchenLook = {
   carcass: LOOK.e1Housing, front: LOOK.e1Housing, toe: LOOK.black, kick: LOOK.e1Steel, top: LOOK.e1Steel, splash: LOOK.e1Splash, upper: LOOK.e1Housing,
   line: LOOK.black, grille: LOOK.e1Mesh, screen: LOOK.e1Screen, panel: LOOK.e1Panel, lens: LOOK.lensCool, steel: LOOK.e1Steel, glass: LOOK.black, uppers: 'e1',
+};
+const E6_LOOK: KitchenLook = {
+  carcass: LOOK.e5Ivory, front: LOOK.e5Ivory, toe: LOOK.black, kick: LOOK.bronze, top: LOOK.e5Stone, splash: LOOK.e5Ivory, upper: LOOK.e5Ivory,
+  line: LOOK.black, grille: LOOK.black, screen: LOOK.e1Panel, panel: LOOK.e1Panel, lens: LOOK.lensWarm, steel: STAINLESS, glass: LOOK.black,
+  splashGrooves: [.25, .5, .75], uppers: 'e1',
 };
 const B3_LOOK: KitchenLook = {
   carcass: LOOK.b3Walnut, front: LOOK.b3Walnut, toe: LOOK.black, kick: LOOK.gold, top: LOOK.b3Stone, splash: LOOK.b3Walnut, upper: LOOK.b3Walnut,
@@ -186,6 +194,17 @@ const HOUSING: Point[] = [[0, 0], [.35, 0], [.35, .45], [.12, .45],
 
 const kindA: RecipeSet = add => {
   kitchenRecipes('e1', E1_LOOK, E1_KITCHEN, true)(add);
+  kitchenRecipes('e6', E6_LOOK, E6_KITCHEN)(add);
+  // E6's integrated fridge: a tall ivory housing with two rounded doors on a dark plinth,
+  // a finger channel between them, a small status screen.
+  add('fit-e6-fridge', k => {
+    box(k, LOOK.black, -.33, .33, 0, .08, -.3, .3);
+    k.bevelBox(LOOK.e5Ivory, [-.35, .08, -.35], [.7, 1.72, .66], .008);
+    k.bevelBox(LOOK.e5Ivory, [-.345, .1, .31], [.69, .5, .03], .005);
+    k.bevelBox(LOOK.e5Ivory, [-.345, .64, .31], [.69, 1.14, .03], .005);
+    box(k, LOOK.black, -.35, .35, .6, .64, .305, .31);
+    box(k, LOOK.e1Panel, -.06, .06, 1.5, 1.58, .3401, .3412);
+  });
   // E5 back bar storage: ivory door bays between mineral ends, a mineral top, a dark plinth.
   add('fit-e5-bar-end', k => box(k, LOOK.e5Mineral, -.02, .02, 0, 1.1, 0, .45));
   add('fit-e5-bar-top', k => { box(k, LOOK.e5Stone, -.25, .25, 1.06, 1.1, 0, .45); box(k, LOOK.black, -.25, .25, 0, .08, .03, .41); });
@@ -347,6 +366,7 @@ export const BUILT_INS_A: { assemblies: Record<string, AssemblySpec>; housings: 
     'asm-e1-planter': { type: 'planter', spec: E1_PLANTER },
     'asm-e1-wardrobe': { type: 'custom', place: (b, f, i, c) => placeTallRun(b, f, i, E1_WARDROBE, c) },
     'asm-e5-bar': { type: 'run', spec: E5_BAR },
+    'asm-e6-kitchen': { type: 'kitchen', spec: E6_KITCHEN },
   },
   housings: [E1_HOUSING_DOORS, E1_HOUSING_PORTALS],
   recipes: [kindA],

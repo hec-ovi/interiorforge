@@ -47,6 +47,9 @@ export const E6_STYLE: StyleSpec = {
         return { ...plain, family: 'luxury', field, floor, ceiling: E6_CEILING.system.id, casing: 'e1' };
     },
     fit(item: Furniture, _room: Room): string | null {
+        // The kitchen is the suite's own ivory wall, not the walnut family run.
+        if (item.kind === 'kitchen_block') return 'asm-e6-kitchen';
+        if (item.kind === 'fridge') return 'fit-e6-fridge';
         return sandraFurnitureFor(item.kind)?.module ?? null;
     },
     lights: { plannedCoves: false, kelvin: 2900 },

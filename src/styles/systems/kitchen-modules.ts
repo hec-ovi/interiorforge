@@ -26,6 +26,8 @@ export interface KitchenLook {
     steel: string;
     /** hob glass */
     glass: string;
+    /** horizontal grooves across the splash (E6's moulded wall), as fractions of its height */
+    splashGrooves?: number[];
     /** open bottle shelves of a bar: bottle glass, dark glass */
     bottle?: [string, string];
     /** e1: two tiers (projecting tier with an angled underside, set-back vent tier); bar: one tall tier */
@@ -259,7 +261,10 @@ export function kitchenRecipes(sid: string, look: KitchenLook, spec: KitchenWall
                 box(k, look.lens, -.16, -.11, t + .005, t + .0056, z1 - .028, z1 - .024);
             });
         }
-        add(id('splash'), k => bevel(k, look.splash, -.25, .25, 0, .5, 0, .012, .002));
+        add(id('splash'), k => {
+            bevel(k, look.splash, -.25, .25, 0, .5, 0, .012, .002);
+            for (const f of look.splashGrooves ?? []) box(k, look.line, -.25, .25, .5 * f - .003, .5 * f + .003, .0115, .0125);
+        });
         add(id('lens'), k => box(k, look.lens, -.25, .25, -.008, 0, -.015, .015));
         const half = w / 2 - .0015;
         if (look.uppers === 'e1') {

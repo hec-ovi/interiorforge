@@ -165,6 +165,23 @@ describe('kitchen wall assembly', () => {
   });
 });
 
+describe('the E6 kitchen wall', () => {
+  it('stands its whole wall on a counter-height record, and keeps under a window', async () => {
+    const { E6_STYLE } = await import('../src/styles/ref-a/e6.js');
+    const record = { id: 'k', kind: 'kitchen_block', room: 'room-a', position: [0, 0], rotationDeg: 0, size: [2.4, .75, 1.17] } as Furniture;
+    expect(E6_STYLE.fit!(record, { id: 'room-a', kind: 'kitchen' } as Room)).toBe('asm-e6-kitchen');
+    expect(E6_STYLE.fit!({ ...record, kind: 'fridge' }, { id: 'room-a', kind: 'kitchen' } as Room)).toBe('fit-e6-fridge');
+    const builder = new FreeBuilder();
+    placeAssembly(builder, floorOf(3.1), { ...record, fit: 'asm-e6-kitchen' }, ALL['asm-e6-kitchen']!, 3.1);
+    expect(builder.placements.some(p => /^fit-e6-kitchen-upper-a/.test(p.module!))).toBe(true);
+    expect(builder.placements.some(p => p.module === 'fit-e6-kitchen-bulkhead')).toBe(true);
+    const windowed = floorOf(3.1, { openingReservations: [{ opening: 'w', kind: 'window', position: [0, -.375 - .2], angleDeg: 0, inward: [0, 1], width: 1.2, sill: .9, height: 1.4, depth: .2 }] as FloorInterior['openingReservations'] });
+    const under = new FreeBuilder();
+    placeAssembly(under, windowed, { ...record, fit: 'asm-e6-kitchen' }, ALL['asm-e6-kitchen']!, 3.1);
+    expect(under.placements.some(p => /upper|bulkhead|column/.test(p.module!))).toBe(false);
+  });
+});
+
 describe('runs, planters and enclosures', () => {
   it('lays runs at a fixed pitch with one stretched filler and fixed ends', () => {
     expect(runLayout(R1_LIBRARY, 2).bays).toHaveLength(2);
@@ -329,9 +346,9 @@ describe('modules and budgets', () => {
       }
       // The kind's whole kit growth (panels, ceilings, floors too) has its own gate in the
       // reference budget; the built-ins, drawn as rounded joinery rather than boxes, keep
-      // under 400 KB of it.
+      // under 400 KB of it, kind A under 512 KB with its E1 and E6 kitchen walls.
       report.push(`${kind}: ${(bytes / 1024).toFixed(0)} KB, ${triangles} triangles`);
-      expect(bytes, `kind ${kind}: ${bytes} bytes, ${triangles} triangles`).toBeLessThanOrEqual(400 * 1024);
+      expect(bytes, `kind ${kind}: ${bytes} bytes, ${triangles} triangles`).toBeLessThanOrEqual((kind === 'A' ? 512 : 400) * 1024);
     }
     console.log(`built-in kit per kind: ${report.join('; ')}`);
   }, 60000);
