@@ -2,7 +2,7 @@ import type { RoomKind } from '../../core/types.js';
 import type { RoomFinish } from '../../placements/finish.js';
 import { ceilingPreset } from '../systems/ceiling-recipes.js';
 import { floorPreset } from '../systems/floor-recipes.js';
-import { levelRecipes, type LevelProfile } from '../systems/levels.js';
+import type { LevelProfile } from '../systems/levels.js';
 import { panelPreset } from '../systems/panel-recipes.js';
 import type { StyleSpec } from '../systems/types.js';
 import { B_LOOK, B_WARM } from './looks.js';
@@ -14,9 +14,11 @@ import { B_LOOK, B_WARM } from './looks.js';
  *  up-light; the upper lounge on a raised zone behind a glass guard with one flight. */
 
 const wall = panelPreset('B-stone', 'b1', { system: { foot: null } });
-const floor = floorPreset('B', 'b1');
-const ceiling = ceilingPreset('B', 'b1', { system: { steps: [] }, profile: { panel: B_LOOK.walnut, backing: B_LOOK.black, step: B_LOOK.walnut } });
+const floor = floorPreset('B', 'b1', { system: { tile: { size: [2, 1], joint: .003, block: 'floor-finish-b1-stone', blockTiles: [1, 2], phase: 'grid' },
+    border: { width: .45, module: 'floor-finish-b1-border', inlay: { width: .012, module: 'floor-finish-b1-inlay' } } } });
+const ceiling = ceilingPreset('B', 'b1', { system: { steps: [], grid: { pitch: [1.5, 1.5], block: 'ceiling-b1-grid15', blockCells: [1, 1], joint: .006, phase: 'room-centre' } }, profile: { panel: B_LOOK.walnut, backing: B_LOOK.black, step: B_LOOK.walnut } });
 
+/** The lobby's level look, for when a b1 template carries a split level (drawn then). */
 export const B1_LEVEL: LevelProfile = {
     top: B_LOOK.honed, riser: B_LOOK.stone, nosing: B_LOOK.bronze,
     guard: { glass: B_LOOK.glass, cap: B_LOOK.bronze },
@@ -40,5 +42,5 @@ export const b1 = {
     panels: [wall.system],
     floors: [floor.system],
     ceilings: [ceiling.system],
-    recipes: [wall.recipes, floor.recipes, ceiling.recipes, levelRecipes('b1', B1_LEVEL)],
+    recipes: [wall.recipes, floor.recipes, ceiling.recipes],
 };

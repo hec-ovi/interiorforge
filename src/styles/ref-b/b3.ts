@@ -14,8 +14,7 @@ import { B_LOOK, B_WARM } from './looks.js';
 
 /** B3, the rich glass building's apartment with the raised bar: smoked walnut fields in
  *  1.2 m panels with fine gold joints and a gold reveal under the ceiling in the living
- *  rooms, charcoal fields with gold seams in the bedroom, dark lacquer with bronze strips in
- *  the bath; warm walnut planks inside a pale timber border in the living rooms (the
+ *  rooms, charcoal fields with gold seams in the bedroom and the bath; warm walnut planks inside a pale timber border in the living rooms (the
  *  platform and the pit in the same planks), smoked wide planks in the bedroom, white
  *  marble in the bath; a glossy dark ceiling inside a dropped ring
  *  whose fascia carries a warm up-light (the double light loop); the bar stands on a
@@ -36,37 +35,27 @@ const bedWall = panelPreset('B', 'b3-bed', {
     system: { pitch: [1], rows: 2.1, seam: .006, head: { height: .05, module: 'wall-panel-b3-bed-backing' }, minColumn: .3 },
     profile: { skin: B_LOOK.charcoal, backing: B_LOOK.gold, seams: [{ y: 2.2, width: .012, slot: B_LOOK.gold }] },
 });
-const wetWall = panelPreset('B', 'b3-wet', {
-    system: { pitch: [.6, 1.2], exact: true, rows: 2.1, seam: .01, head: { height: .08, module: 'wall-panel-b3-wet-backing' },
-        foot: { height: .05, module: 'wall-panel-b3-wet-foot' }, minColumn: .25 },
-    profile: { skin: B_LOOK.charcoal, backing: B_LOOK.bronze, seams: [], foot: { slot: B_LOOK.bronze, depth: .1 } },
-});
 const livingFloor = floorPreset('B-plank', 'b3', {
-    system: { tile: { size: [2.4, .2], joint: .002, block: 'floor-finish-b3-planks', blockTiles: [1, 5], phase: 'room' },
+    system: { tile: { size: [2.4, .2], joint: .002, block: 'floor-finish-b3-planks', blockTiles: [1, 3], phase: 'room' },
         border: { width: .18, module: 'floor-finish-b3-border' } },
     profile: { tile: B_LOOK.walnut, border: B_LOOK.oak },
 });
 const bedFloor = floorPreset('B-plank', 'b3-plank', {
-    system: { tile: { size: [2.4, .3], joint: .002, block: 'floor-finish-b3-plank-planks', blockTiles: [1, 4], phase: 'room' } },
+    system: { tile: { size: [2.4, .3], joint: .002, block: 'floor-finish-b3-plank-planks', blockTiles: [1, 2], phase: 'room' } },
     profile: { tile: B_LOOK.smoked },
 });
 const wetFloor = floorPreset('B', 'b3-marble', {
-    system: { tile: { size: [1.2, 1.2], joint: .002, block: 'floor-finish-b3-marble-slab', blockTiles: [2, 2], phase: 'room' },
+    system: { tile: { size: [1.2, 1.2], joint: .002, block: 'floor-finish-b3-marble-slab', blockTiles: [1, 1], phase: 'room' },
         border: { width: .06, module: 'floor-finish-b3-marble-border' } },
     profile: { tile: B_LOOK.marble, border: B_LOOK.bronze },
 });
 const ceiling = ceilingPreset('B', 'b3', {
     system: {
-        grid: { pitch: [1.2, 1.2], block: 'ceiling-b3-grid12', blockCells: [2, 2], joint: .004, phase: 'room-centre' },
+        grid: { pitch: [1.2, 1.2], block: 'ceiling-b3-grid12', blockCells: [1, 1], joint: .004, phase: 'room-centre' },
         steps: [{ inset: .6, drop: .15, fascia: 'ceiling-b3-step', lens: { module: 'ceiling-cove-b3-step', y: .14, facing: 'up', lumensPerMetre: 38, kelvin: B_WARM, proud: .03 } }],
     },
     profile: { panel: B_LOOK.gloss, backing: B_LOOK.black, step: B_LOOK.smoked },
 });
-const wetCeiling = ceilingPreset('B', 'b3-wet', {
-    system: { grid: { pitch: [1.2, 1.2], block: 'ceiling-b3-wet-grid12', blockCells: [2, 2], joint: .004, phase: 'room-centre' }, steps: [] },
-    profile: { panel: B_LOOK.stone, backing: B_LOOK.bronze },
-});
-
 export const B3_LEVEL: LevelProfile = {
     top: B_LOOK.walnut, riser: B_LOOK.smoked, nosing: B_LOOK.gold,
     guard: { glass: B_LOOK.glass, cap: B_LOOK.gold },
@@ -82,9 +71,9 @@ export const b3Style: StyleSpec = {
         const wet = WET.has(room), bed = BED.has(room);
         return {
             ...base, family: 'luxury', frame: undefined, band: undefined, services: undefined,
-            field: wet ? wetWall.system.id : bed ? bedWall.system.id : wall.system.id,
+            field: wet || bed ? bedWall.system.id : wall.system.id,
             floor: wet ? wetFloor.system.id : bed ? bedFloor.system.id : livingFloor.system.id,
-            ceiling: wet ? wetCeiling.system.id : ceiling.system.id,
+            ceiling: ceiling.system.id,
         };
     },
     lights: { plannedCoves: false, kelvin: B_WARM },
@@ -124,9 +113,9 @@ function dressLoungePit(ctx: DressContext): LightFixture[] {
 
 export const b3 = {
     styles: [b3Style],
-    panels: [wall.system, bedWall.system, wetWall.system],
+    panels: [wall.system, bedWall.system],
     floors: [livingFloor.system, bedFloor.system, wetFloor.system],
-    ceilings: [ceiling.system, wetCeiling.system],
-    recipes: [wall.recipes, bedWall.recipes, wetWall.recipes, livingFloor.recipes, bedFloor.recipes, wetFloor.recipes,
-        ceiling.recipes, wetCeiling.recipes, levelRecipes('b3', B3_LEVEL)],
+    ceilings: [ceiling.system],
+    recipes: [wall.recipes, bedWall.recipes, livingFloor.recipes, bedFloor.recipes, wetFloor.recipes,
+        ceiling.recipes, levelRecipes('b3', B3_LEVEL)],
 };

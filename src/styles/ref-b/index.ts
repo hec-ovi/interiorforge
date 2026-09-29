@@ -18,7 +18,7 @@ export const kind: KindExports = {
     glazing: [...b2.glazing],
     ceilings: [...b1.ceilings, ...b2.ceilings, ...b3.ceilings],
     floors: [...b1.floors, ...b2.floors, ...b3.floors],
-    portals: [...b2.portals],
+    portals: [],
     assemblies: { ...BUILT_INS_B.assemblies },
     housings: [...BUILT_INS_B.housings],
     recipes: [...b1.recipes, ...b2.recipes, ...b3.recipes, ...BUILT_INS_B.recipes,
