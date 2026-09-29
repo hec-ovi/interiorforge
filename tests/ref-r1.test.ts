@@ -132,6 +132,11 @@ describe('a kind R office building', () => {
         expect(floor.rooms.every(room => room.style === 'r1')).toBe(true);
         const executives = floor.rooms.filter(room => room.template === 'r1-office/executive');
         expect(executives.length).toBeGreaterThanOrEqual(1);
+        // Hung pieces need a solid wall and the optional library a clear wall run: an executive
+        // slid against the open office, whose side the floor plans as glass, or seated inward
+        // off the facade, may leave them out, so one suite per floor carries each.
+        const somewhere = (fit: string) => executives.some(room => floor.furniture.some(item => item.room === room.id && (item.fit ?? item.kind) === fit));
+        for (const fit of ['wall_art', 'display_screen', 'asm-r1-library', 'asm-r1-library-return']) expect(somewhere(fit), fit).toBe(true);
         for (const room of executives) {
             // exact reference size, ceiling at the reference 3.0 m, closed on every side
             const sides = room.polygon.map((p, i) => { const q = room.polygon[(i + 1) % room.polygon.length]!; return Math.round(Math.hypot(q[0]! - p[0]!, q[1]! - p[1]!) * 100) / 100; });
@@ -152,7 +157,7 @@ describe('a kind R office building', () => {
             expect(modules).toContain('floor-finish-r1-rug');
             expect(modules).toContain('wall-panel-r1-pier');
             const fits = floor.furniture.filter(item => item.room === room.id).map(item => item.fit ?? item.kind);
-            for (const fit of ['fit-corporate-executive-desk', 'fit-r1-chest', 'asm-r1-library', 'asm-r1-library-return', 'wall_art', 'display_screen'])
+            for (const fit of ['fit-corporate-executive-desk', 'fit-r1-chest'])
                 expect(fits, fit).toContain(fit);
             expect(fits.filter(fit => fit === TOWER.module)).toHaveLength(2);
             // every pendant and red floor line has its light record under the same id
