@@ -8,7 +8,7 @@ import { roomCoversRect, sharedRoomEdges, type RoomShape, type RoomStretch } fro
 import { BAND_CLEAR, doorWidthOn, MIN_STRETCH, type IdGen } from "../rooms.js";
 import type { ProgramChange } from "../service-program.js";
 import { uvRectCorners, type UvRect } from "../uv.js";
-import { axisToUv, edgeToUv, localFrame, rectToUv, rotationToUv, toUv, type LocalFrame } from "./frame.js";
+import { axisToUv, edgeToUv, localFrame, rectToUv, rotationToUv, toLocal, toUv, type LocalFrame } from "./frame.js";
 import type { FitProbe, SpaceTemplate, TemplateDoor, TemplateFit, TemplateLine, TemplateRoom, TemplateSpan,
   TemplateTarget } from "./schema.js";
 import { positionsOf, snapAxis, solveAxis, type AxisSpan, type SnapCandidate } from "./solve.js";
@@ -50,7 +50,10 @@ export function fitTemplate(t: SpaceTemplate, target: TemplateTarget, unit: stri
       continue;
     }
     for (const dropped of dropSequence(t)) {
-      const fit = attempt(t, target, frame, dropped, unit, probe, keepRemainder);
+      // second pass: interior walls snap onto the target's own corners (a shaft notch, a
+      // corridor edge) so no body-thin sliver of the remainder is left beside them
+      const fit = attempt(t, target, frame, dropped, unit, probe, keepRemainder, false)
+        ?? (isRectangle(target) ? null : attempt(t, target, frame, dropped, unit, probe, keepRemainder, true));
       if (!fit) continue;
       if (!best || fit.cost < best.cost - 1e-9) best = { ...fit, frame };
       break;
@@ -72,8 +75,21 @@ function dropSequence(t: SpaceTemplate): string[][] {
   return out;
 }
 
+function isRectangle(target: TemplateTarget): boolean {
+  return !target.holes?.length && target.polygon.length === 4 && target.polygon.every(([u, v]) =>
+    (Math.abs(u - target.rect.u) < 1e-6 || Math.abs(u - target.rect.u - target.rect.lu) < 1e-6)
+    && (Math.abs(v - target.rect.v) < 1e-6 || Math.abs(v - target.rect.v - target.rect.lv) < 1e-6));
+}
+
+/** Local coordinates of the target's own vertices along one axis (notches, corners). */
+function features(target: TemplateTarget, frame: LocalFrame, axis: "u" | "v"): number[] {
+  const index = axis === "u" ? 0 : 1;
+  const points = [target.polygon, ...target.holes ?? []].flat().map(point => toLocal(frame, point)[index]!);
+  return [...new Set(points.map(value => Math.round(value * 1e4) / 1e4))];
+}
+
 function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dropped: string[],
-  unit: string | undefined, probe: FitProbe, keepRemainder?: PlanRoom): TemplateFit | null {
+  unit: string | undefined, probe: FitProbe, keepRemainder: PlanRoom | undefined, snapFeatures: boolean): TemplateFit | null {
   const active = t.rooms.filter(room => !dropped.includes(room.id) && room.level !== "upper");
   const remainder = active.find(room => room.remainder);
   if (!remainder) return refuse(`${t.id}: no remainder`);
@@ -91,10 +107,14 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
     positions[positions.length - 1] = length;
     const facade = facadeLines(t, axis, placed, frame, target);
     const phase = gridPhase(frame, axis, target.gridOrigin);
+    const featureAt = snapFeatures ? features(target, frame, axis) : [];
     const candidates = model.lines.map((line, i): SnapCandidate[] => {
       if (i === 0) return [{ at: 0, penalty: 0 }];
       if (i === model.lines.length - 1) return [{ at: length, penalty: 0 }];
-      return lineCandidates(line, positions[i]!, length, phase, facade.get(line.id), frame, target);
+      const own = lineCandidates(line, positions[i]!, length, phase, facade.get(line.id), frame, target);
+      if (!snapFeatures || facade.get(line.id)?.length || line.exact) return own;
+      return [...own, ...featureAt.filter(x => Math.abs(x - positions[i]!) <= 3.2 && x > 1e-6 && x < length - 1e-6)
+        .map(x => ({ at: x, penalty: -12 }))];
     });
     const bounds = model.spans.map((span, i): [number, number] =>
       [Math.max(Math.min(span.min, lengths[i]!), MIN_SIDE * 0.5), Math.max(span.max, lengths[i]!)]);

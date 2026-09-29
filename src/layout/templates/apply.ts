@@ -143,12 +143,14 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
           const reaches = (a: PlanRoom, b: PlanRoom) => sharedRoomEdges(a, b).some(edge => edge.hi - edge.lo >= MIN_STRETCH);
           // every room that opened onto it still shares a wall with what is left of it, and so
           // does every room its own doors lead to
-          // a door into the refined room keeps its opening and both pocket returns on a shared wall
+          // a door into the refined room keeps its opening and both pocket returns clear of
+          // every room carved out of it
+          const carvedRects = candidate.filter(item => item.id !== shape.id).map(item => item.rect);
           const keepsDoor = (owner: PlanRoom, door: PlanDoor) => {
-            const at = doorUvPoint(door, owner), along = door.edge.startsWith("v") ? 0 : 1;
-            return sharedRoomEdges(owner, kept).some(edge => edge.edge === door.edge
-              && Math.abs(edge.c - at[1 - along]!) < 1e-6
-              && at[along]! - door.width - 0.3 >= edge.lo - 1e-6 && at[along]! + door.width + 0.3 <= edge.hi + 1e-6);
+            const at = doorUvPoint(door, owner), reach = door.width + 0.3;
+            const box = door.edge.startsWith("v") ? { u: at[0] - reach, v: at[1] - 0.3, lu: 2 * reach, lv: 0.6 }
+              : { u: at[0] - 0.3, v: at[1] - reach, lu: 0.6, lv: 2 * reach };
+            return !carvedRects.some(rect => overlaps(rect, box));
           };
           const stillReached = rooms.every(other => other === shape || !other.doors.some(door => door.to === shape.id)
             || reaches(other, kept) && other.doors.filter(door => door.to === shape.id).every(door => keepsDoor(other, door)))
