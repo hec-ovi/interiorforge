@@ -45,7 +45,8 @@ export function furnitureLights(items: readonly PlanFurniture[], frame: Frame, e
     const profileLit = family === 'capsule' && interiorStyle === 'japantown'
       ? (CAPSULE_PROFILE_LIGHTS.japantown as Partial<Record<FurnitureKind, Lit>>)[item.kind] : undefined;
     const residentialBath = usesResidentialVanity(family, roomKinds.get(item.room), programme);
-    const lit: Lit | undefined = (residentialBath && item.kind === 'sink' ? residentialVanityLights(interiorStyle)
+    // a sink standing its own basin module (a reference bath's luxury basin) keeps that basin's lenses
+    const lit: Lit | undefined = (residentialBath && item.kind === 'sink' && !item.fit ? residentialVanityLights(interiorStyle)
       : residentialBath && item.kind === 'room_divider' ? CORPO_BATH_DIVIDER_LIGHTS : undefined)
       ?? profileLit ?? (family === 'luxury' || family === 'corporate'
       ? LUXURY_REFERENCE_LIGHTS[item.kind] ?? LIT[item.kind] : LIT[item.kind]);

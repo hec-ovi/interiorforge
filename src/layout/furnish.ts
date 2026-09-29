@@ -212,23 +212,26 @@ class RoomPlacer {
     return placed;
   }
 
-  bathroom(withPlantScreen = false): boolean {
-    const recipe = fitBathroomRecipe(this.room, this.sizes, this.rng,
+  /** The complete bathroom recipe; `basin` stands that exact basin module in place of the
+   *  room's own. */
+  bathroom(withPlantScreen = false, basin?: { module: string; size: Size3 }): boolean {
+    const recipe = fitBathroomRecipe(this.room, basin ? { ...this.sizes, sink: basin.size } : this.sizes, this.rng,
       (footprint, kind) => this.fits(footprint, kind),
       operation => roomCoversRect(this.room, operation, BATHROOM_WALL_CLEARANCE)
         && roomCoversRect({ rect: this.rect, polygon: this.bounds.inner }, operation));
     if (!recipe) return false;
-    const fixtures = recipe.map(item => this.commit(item.kind, item.footprint, item.rotationDeg));
+    const fixtures = recipe.map(item => this.commit(item.kind, item.footprint, item.rotationDeg,
+      item.kind === 'sink' ? basin : undefined));
     // These are usable fixture fronts, including the shower approach. Later dressing
     // cannot consume them merely because its solid geometry misses the fixtures.
     this.blocked.push(...recipe.map(item => item.operation));
-    const basin = fixtures.find(item => item.kind === 'sink');
-    if (withPlantScreen && basin) {
-      const angle = basin.rotationDeg * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
+    const vanity = fixtures.find(item => item.kind === 'sink');
+    if (withPlantScreen && vanity) {
+      const angle = vanity.rotationDeg * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
       for (const side of [-1, 1]) {
         const x = side * 1.36, z = .60;
-        const at: Point = [basin.at[0] + x * c + z * s, basin.at[1] - x * s + z * c];
-        const rotation = ((basin.rotationDeg + (side < 0 ? 90 : 270)) % 360) as 0 | 90 | 180 | 270;
+        const at: Point = [vanity.at[0] + x * c + z * s, vanity.at[1] - x * s + z * c];
+        const rotation = ((vanity.rotationDeg + (side < 0 ? 90 : 270)) % 360) as 0 | 90 | 180 | 270;
         if (this.placeAt('room_divider', at, rotation)) break;
       }
     }
@@ -655,13 +658,15 @@ class RoomPlacer {
       || findOpaqueBedHeadwall(this.room, item, this.bounds, this.neighbours, this.glazing) !== null;
   }
 
-  private commit(kind: FurnitureKind, fp: UvRect, rotationDeg: 0 | 90 | 180 | 270): PlanFurniture {
+  private commit(kind: FurnitureKind, fp: UvRect, rotationDeg: 0 | 90 | 180 | 270,
+    fit?: { module: string; size: Size3 }): PlanFurniture {
     this.blocked.push(fp);
     const mount = MOUNT[kind];
     const item: PlanFurniture = {
       id: this.ids.furniture(), kind, room: this.room.id,
       at: [fp.u + fp.lu / 2, fp.v + fp.lv / 2] as Point,
-      rotationDeg, size: this.sizes[kind],
+      rotationDeg, size: fit?.size ?? this.sizes[kind],
+      ...(fit ? { fit: fit.module } : {}),
       ...(mount === undefined ? {} : { elevation: mount }),
     };
     this.out.push(item);
@@ -912,7 +917,11 @@ export function furnish(
         if (!luxury && family !== 'industrial' && family !== 'corporate') {
           if (p.compactFixtures()) break;
         } else if (luxury || area >= 9 - 1e-6) {
-          if (p.bathroom(usesResidentialVanity(family, room.kind, floorKind) && ceilingHeight >= CORPO_BATH_DIVIDER_FIT.size[2] + .02)) break;
+          const residential = usesResidentialVanity(family, room.kind, floorKind);
+          if (p.bathroom(residential && ceilingHeight >= CORPO_BATH_DIVIDER_FIT.size[2] + .02)) break;
+          // A reference bath keeps its authored size: where the fitted residential vanity
+          // leaves no room for the shower, the complete recipe stands the luxury basin.
+          if (residential && room.template && p.bathroom(false, LUXURY_REFERENCE_FITS.sink)) break;
         }
         // Short of the complete recipe, the fixtures that keep their own clearances
         // stand; a home still needs its toilet (checked below).
