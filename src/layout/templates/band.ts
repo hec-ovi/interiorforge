@@ -9,7 +9,7 @@ export const BAND_LINE = "v-band";
 /** Narrowest service room of the band; a narrower stretch joins its neighbour. */
 const BAND_ROOM_MIN = 3;
 /** Widest service room pieces before the same room merge into. */
-const BAND_ROOM_MAX = 7.5;
+const BAND_ROOM_MAX = 9;
 
 interface Piece { lo: string; hi: string; width: number; behind: string; role: string }
 /** Finished ceiling of the service rooms in the band. */
