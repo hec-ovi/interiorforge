@@ -83,7 +83,8 @@ export function props(builder: PlacementBuilder, floor: FloorInterior, uv: UvFlo
     const retained = new Set<string>(), lit = new Set<string>();
     const table = BUILT_IN[family];
     const roomKinds = new Map(uv.rooms.map(room => [room.id, room.kind]));
-    const rooms = new Map(floor.rooms.map(room => [room.id, room]));
+    // A caller may hand only the furniture and lights; such a floor has no styled rooms.
+    const rooms = new Map((floor.rooms ?? []).map(room => [room.id, room]));
     const ceilingY = floor.ceilingElevation - floor.elevation;
     for (const item of floor.furniture) {
         const position: [number, number, number] = [item.position[0], item.elevation ?? 0, item.position[1]];
