@@ -142,6 +142,7 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
     publishRoofBand(result, request);
     publishApartmentEntrances(result);
     publishStairSpaces(result, request, plan.core);
+    stampPublishedStyles(result, request);
     publishStairSoffits(result.building.floors, result.layouts);
     return result;
 }
@@ -166,6 +167,14 @@ function stampStyles(plan: BuildingPlan, request: InteriorRequest): void {
             const style = room.style ?? byId.get(room.id) ?? styleFor(room);
             if (style) room.style = style;
         }
+    }
+}
+/** Rooms published after planning (stair spaces, the roof landing) take the public style. */
+function stampPublishedStyles(result: GeneratedInterior, request: InteriorRequest): void {
+    if (!referenceKind(request)) return;
+    for (const layout of Object.values(result.layouts)) for (const room of layout.floor.rooms) {
+        const style = room.style ?? defaultStyle(request, layout.floor.kind as FloorKind, room);
+        if (style) room.style = style;
     }
 }
 /** Requested pairs must hold a loft; a derived pair no unit holds leaves its two floors
