@@ -41,8 +41,9 @@ it('routes deep public portals while retaining ordinary private entry casings an
  const result=await generate(request);
  expect(result.layouts.ground!.placements.some(p=>p.module==='door-header-luxury-public')).toBe(true);
  expect(result.layouts.middle!.placements.some(p=>p.module==='door-header-luxury')).toBe(true);
- expect(result.layouts.middle!.placements.some(p=>p.module==='wall-field-meridian-walnut')).toBe(true);
- expect(result.layouts.middle!.placements.some(p=>p.module==='floor-finish-luxury-polished')).toBe(true);
+ // A high_rich balcony-grid home is reference kind B: its apartments wear the b3 living and bedroom finishes instead of the family's.
+ for(const module of ['wall-panel-b3-fill','wall-panel-b3-bed-fill','floor-finish-b3-planks','floor-finish-b3-plank-planks'])
+  expect(result.layouts.middle!.placements.some(p=>p.module===module),module).toBe(true);
 },30000);
 
 it('preserves the aperture after rotated V-axis placement and supports its full doorway width',async()=>{
