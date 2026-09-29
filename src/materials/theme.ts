@@ -5,6 +5,7 @@ export type MapSlot = "basecolor" | "normal" | "roughness" | "metallic" | "metal
 
 export interface MaterialVariant {
   id: string;
+  tiling?: { worldSize: [number, number] };
   resolution: [number, number];
   maps: Partial<Record<MapSlot, string>> & { basecolor: string };
 }

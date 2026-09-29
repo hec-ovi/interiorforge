@@ -24,9 +24,11 @@ export interface ModuleOptions {
 export function tileScale(theme: ThemeIndex | null | undefined): UvScale {
   const library = theme ? new MaterialLibrary(theme) : null;
   return (slot) => {
-    const entry = library?.entry(splitVariant(slot)[0]);
-    if (!entry || entry.alignment !== "tile" || !entry.tiling) return [1, 1];
-    const [w, h] = entry.tiling.worldSize;
+    const [key, id] = splitVariant(slot), entry = library?.entry(key);
+    const variant = entry?.variants.find(variant => variant.id === id);
+    const tiling = variant?.tiling ?? entry?.tiling;
+    if (!entry || entry.alignment !== "tile" || !tiling) return [1, 1];
+    const [w, h] = tiling.worldSize;
     return [1 / w, 1 / h];
   };
 }
