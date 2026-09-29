@@ -45,8 +45,9 @@ ceilings and protects upper voids from residual-slab repair; only actual void
 boundary walls become guarded open edges. Each private stair connects its own
 pair. The entrance publisher excludes only upper duplex unit IDs, retaining the
 lower dwelling's number and every ordinary home on that upper storey. A requested
-pair with no legal complete allocation fails with `E_FLOOR_TOO_SMALL` rather than
-publishing ordinary floors as the requested duplex.
+pair with no legal complete allocation keeps its two ordinary apartment storeys and
+publishes no `floor.duplexes` entry for them: the building is never lost to the
+request, and no ordinary floor is labelled a duplex.
 
 Actual shell dimensions remain authoritative. The 40 m balcony-grid sample has
 195+142 m² and 221+168 m² private pairs at a 4.5 m pitch. Its comfortable stair

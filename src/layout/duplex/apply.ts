@@ -23,8 +23,9 @@ interface Unit { id: string; rooms: PlanRoom[]; rect: UvRect }
 interface UnitFrame { origin: Point; turn: number; width: number; depth: number; corridor: string }
 
 /** Replace only real matching private allocations. No common room, public core,
- * or unrelated upper home is removed. A pair with no legal complete candidate
- * fails explicitly instead of pretending the requested duplex was generated. */
+ * or unrelated upper home is removed. A pair with no legal complete candidate keeps
+ * its two ordinary apartment storeys and publishes no duplex, so the building never
+ * pretends the requested duplex was generated and never loses its floors to it. */
 export function applyDuplexPairs(plan: BuildingPlan, pairs: DuplexPair[], request: InteriorRequest): void {
   for (const pair of pairs) {
     const lower = plan.floors.find(floor => floor.floor === pair.lower);
@@ -32,8 +33,7 @@ export function applyDuplexPairs(plan: BuildingPlan, pairs: DuplexPair[], reques
     const lowerUv = plan.uvFloors.get(pair.lower), upperUv = plan.uvFloors.get(pair.upper);
     if (!lower || !upper || !lowerUv || !upperUv)
       throw new InteriorError('E_ASSIGNMENT_INVALID', 'both duplex floors require their own sampled placement layout');
-    const upperUnits = unitsOf(upperUv.rooms), failures: string[] = [];
-    let converted = 0;
+    const upperUnits = unitsOf(upperUv.rooms);
     for (const unit of unitsOf(lowerUv.rooms)) {
       const peer = upperUnits.find(candidate => equalRect(candidate.rect, unit.rect));
       if (!peer) continue;
@@ -72,13 +72,11 @@ export function applyDuplexPairs(plan: BuildingPlan, pairs: DuplexPair[], reques
           furniture.carpets.lower.map(carpet => ({ ...carpet, rect: mapRect(carpet.rect, local) })), slices[0], routes.lower, local);
         install(plan, request, upper, peer, mapped.upper, furniture.upper.map(piece => mapFurniture(piece, local)),
           furniture.carpets.upper.map(carpet => ({ ...carpet, rect: mapRect(carpet.rect, local) })), slices[1], routes.upper, local);
-        converted++;
       } catch (error) {
+        // A candidate that fails before anything is installed leaves its home as it was.
         if (committing || !(error instanceof InteriorError)) throw error;
-        failures.push(error.message);
       }
     }
-    if (!converted) throw new InteriorError('E_FLOOR_TOO_SMALL', `floors ${pair.lower}/${pair.upper} have no complete legal duplex allocation${failures.length ? `: ${failures.join('; ')}` : ' of at least 15×10 m with identical private ownership'}`, pair.lower);
   }
 }
 

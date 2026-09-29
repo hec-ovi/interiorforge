@@ -157,26 +157,26 @@ export function planPerimeterResidential(request: InteriorRequest, floor: Bluepr
   doorBetween(utility, fullCorridor.id, fullCorridor, ids, 1, .9);
   for (const branch of publicRooms.slice(1)) doorBetween(branch, fullCorridor.id, fullCorridor, ids, 2, 2.4);
   const rooms: PlanRoom[] = [...publicRooms, utility];
-  allocated.forEach((allocation, index) => {
+  for (const [index, allocation] of allocated.entries()) {
     const unit = `f${floor.index}-home-${index + 1}`;
     const main: PlanRoom = { ...allocation.main, id: ids.room(), kind: 'living', unit, doors: [],
       furnishingKeepouts: [allocation.entry.foyer] };
     const target = publicRooms.find(room => room.id === allocation.entry.target)!;
     const entry = fixedEntryFit(main, target, allocation.entry);
-    if (!entry) throw new Error('perimeter dwelling lost its validated pocket entrance');
+    if (!entry) { diagnostics.push(`${unit} lost its validated pocket entrance`); return null; }
     const entrance = doorBetween(main, target.id, target, ids, 2, LUXURY_ENTRY_WIDTH, entry.fraction, entry.stretch);
     if (entrance && !entrance.openFront) entrance.clearDepth = 0; // paired pockets have no inward swing
     rooms.push(main);
     for (const part of allocation.parts) {
       const room: PlanRoom = { ...part, polygon: roomPolygon(part), id: ids.room(), unit, doors: [] };
       const fit = doorFit(room, main, part.kind === 'kitchen' ? 1.6 : LUXURY_ROOM_OPENING, allocation.salon);
-      if (!fit) throw new Error('perimeter dwelling lost its validated private doorway');
+      if (!fit) { diagnostics.push(`${unit} lost its validated private doorway`); return null; }
       const opening = doorBetween(room, main.id, main, ids, part.kind === 'kitchen' ? 2 : 1,
         part.kind === 'kitchen' ? 1.6 : LUXURY_ROOM_OPENING, fit.fraction, fit.stretch);
       if (opening && !opening.openFront) opening.clearDepth = 0; // currently an open internal passage
       rooms.push(room);
     }
-  });
+  }
   return rooms;
 }
 
