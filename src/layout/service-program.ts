@@ -21,8 +21,9 @@ const requestedSize = (kind: RoomKind): number => kind === "executive_office" ? 
 
 /** Try complete programs before reducing one service at a time on the construction grid. */
 export function fitServiceProgram(kinds: readonly RoomKind[], occupied: readonly UvRect[], plate: Point[],
-  frame: FloorFrame, ids: IdGen): { rooms: PlanRoom[]; changes: ProgramChange[] } {
-  const sizes = new Map(kinds.map(kind => [kind, requestedSize(kind)]));
+  frame: FloorFrame, ids: IdGen, requestedSizes: Readonly<Partial<Record<RoomKind, number>>> = {}): { rooms: PlanRoom[]; changes: ProgramChange[] } {
+  const requestedFor = (kind: RoomKind) => requestedSizes[kind] ?? requestedSize(kind);
+  const sizes = new Map(kinds.map(kind => [kind, requestedFor(kind)]));
   const fit = (): PlanRoom[] | null => {
     const fitted: PlanRoom[] = [];
     for (const kind of kinds) {
@@ -49,7 +50,7 @@ export function fitServiceProgram(kinds: readonly RoomKind[], occupied: readonly
   return {
     rooms: (rooms ?? []).map(room => ({ ...room, id: ids.room() })),
     changes: REDUCTION_ORDER.flatMap(kind => {
-      const size = sizes.get(kind), requested = requestedSize(kind);
+      const size = sizes.get(kind), requested = requestedFor(kind);
       return size === undefined || size === requested ? [] : [{ kind,
         requested: [requested, requested] as [number, number],
         fitted: size ? [size, size] as [number, number] : null }];

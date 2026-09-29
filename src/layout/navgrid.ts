@@ -108,6 +108,12 @@ export function blockPhysicalFurniture(grid: ArchitecturalGrid, frame: Frame, fu
   }
 }
 
+/** Exact planning keepouts, already expanded to their required route clearance.
+ * They constrain saved routes without masquerading as serialized furniture. */
+export function blockPhysicalReservations(grid: ArchitecturalGrid, frame: Frame, reservations: readonly UvRect[]): void {
+  for (const rect of reservations) blockUvRect(grid, frame, rect, 0, true);
+}
+
 /** Interior wall segments of a room in uv space: its polygon edges off the buildable plate's
  *  own boundary, where the facade lining or Exterior's open slab stands instead of a wall. */
 function roomWallSegments(room: PlanRoom, plate: readonly Point[]): [Point, Point][] {
@@ -141,8 +147,8 @@ export function stairDoorChannelsUv(core: CorePlan): UvRect[] {
   return stairs.map((which) => {
     const access = stairAccess(core, which);
     return access.axis === "H"
-      ? { u: access.at - 0.5, v: access.c - across, lu: 1.0, lv: 2 * across }
-      : { u: access.c - across, v: access.at - 0.5, lu: 2 * across, lv: 1.0 };
+      ? { u: access.at - access.width / 2, v: access.c - across, lu: access.width, lv: 2 * across }
+      : { u: access.c - across, v: access.at - access.width / 2, lu: 2 * across, lv: access.width };
   });
 }
 

@@ -1,7 +1,7 @@
 import { InteriorError } from "../core/errors.js";
 import { clipPolygonToRect, polygonArea, polygonBounds, type Point } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
-import type { FloorKind } from "../core/types.js";
+import type { FloorKind, Tier } from "../core/types.js";
 import { CORRIDOR, ROOM } from "./constants.js";
 import type { CorePlan } from "./core-plan.js";
 import { coreRectsOf } from "./pier-align.js";
@@ -17,7 +17,7 @@ interface Seat { rect: UvRect; side: "v0" | "v1"; outerU: [boolean, boolean] }
 /** Public circulation is reserved before seeded private strip programs are allocated. */
 export function planLegacyPublicRooms(core: CorePlan, frame: FloorFrame, kind: FloorKind,
   corridor: PlanRoom, backing: { rooms: PlanRoom[]; sealed: UvRect[] }, plate: Point[],
-  outline: Point[], ids: IdGen, rng: Rng, floor: number): PlanRoom[] {
+  outline: Point[], ids: IdGen, rng: Rng, floor: number, tier: Tier = 'mid'): PlanRoom[] {
   const stair = frame.stairB!;
   const exterior = polygonBounds(outline);
   const east = exterior.x + exterior.w, north = exterior.z + exterior.d;
@@ -73,7 +73,7 @@ export function planLegacyPublicRooms(core: CorePlan, frame: FloorFrame, kind: F
     } else {
       const fill = kind === "mall_floor"
         ? fillShopStrip(seat.rect, seat.side, corridor, rng, ids, unit, outline)
-        : fillUnitStrip(seat.rect, seat.side, corridor, kind, rng, ids, unit, outline);
+        : fillUnitStrip(seat.rect, seat.side, corridor, kind, rng, ids, unit, outline, tier);
       allocated = fill.rooms;
     }
     for (const room of allocated) {

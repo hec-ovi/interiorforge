@@ -7,6 +7,8 @@ export class ArchitectureIndex<T> {
   private readonly entries: T[] = [];
   private readonly seen: number[] = [];
   private readonly found: T[] = [];
+  /** One immutable candidate list per queried bucket; bounded by the index grid. */
+  private readonly singleBucket = new Map<number, readonly T[]>();
   private queryId = 0;
   private readonly cols: number;
   private readonly rows: number;
@@ -25,6 +27,7 @@ export class ArchitectureIndex<T> {
         if (segmentDistance(center, center, segment.a, segment.b) > segment.clearance + this.size / Math.SQRT2) return;
       }
       this.buckets[index]!.push(id);
+      this.singleBucket.delete(index);
     });
   }
 
@@ -36,6 +39,18 @@ export class ArchitectureIndex<T> {
     const c1 = Math.min(this.cols - 1, Math.floor((x + Math.abs(a[0] - b[0]) - this.bounds.x) / this.size));
     const r0 = Math.max(0, Math.floor((z - this.bounds.z) / this.size));
     const r1 = Math.min(this.rows - 1, Math.floor((z + Math.abs(a[1] - b[1]) - this.bounds.z) / this.size));
+    // Fine body-grid neighbours overwhelmingly remain in one spatial bucket.
+    // Its entries are already unique and ordered; rebuilding the same list for
+    // every directed edge does not add any geometric certification.
+    if (c0 === c1 && r0 === r1 && c0 >= 0 && r0 >= 0 && c0 < this.cols && r0 < this.rows) {
+      const index = r0 * this.cols + c0;
+      let candidates = this.singleBucket.get(index);
+      if (!candidates) {
+        candidates = this.buckets[index]!.map(id => this.entries[id]!);
+        this.singleBucket.set(index, candidates);
+      }
+      return candidates;
+    }
     for (let row = r0; row <= r1; row++) for (let col = c0; col <= c1; col++) {
       for (const id of this.buckets[row * this.cols + col]!) {
         if (this.seen[id] !== this.queryId) {

@@ -30,9 +30,12 @@ export function fitBathroomRecipe(
   fits: (footprint: UvRect, kind: BathroomKind) => boolean,
   covers: (operation: UvRect) => boolean,
 ): BathroomPlacement[] | null {
+  const generous = sizes.sink[0] >= 1;
   const walls = rng.shuffle(roomEdges(room).filter(wall => wall.edge !== null));
   const candidates = RECIPE.map(module => {
     const [width, depth] = sizes[module.kind];
+    const clearWidth = generous ? Math.max(width, module.kind === "toilet" ? .85 : module.kind === "shower" ? 1 : width) : module.clearWidth;
+    const front = generous ? (module.kind === "sink" ? .85 : module.kind === "toilet" ? .75 : .8) : module.front;
     const out: BathroomPlacement[] = [];
     for (const wall of walls) {
       const edge = wall.edge!;
@@ -45,9 +48,16 @@ export function fitBathroomRecipe(
       // Include both ends and center, then the intervening quarter-metre positions.
       const offsets = new Set([0, available, available / 2]);
       for (let offset = 0.25; offset < available; offset += 0.25) offsets.add(offset);
+      // Wider standing space sets its own legal wall ends. A quarter-metre
+      // sample can miss the narrow pocket between a door and that clearance.
+      const operationInset = Math.max(0, BATHROOM_WALL_CLEARANCE + Math.max(0, (clearWidth - width) / 2) - .1);
+      if (operationInset <= available / 2) {
+        offsets.add(operationInset);
+        offsets.add(available - operationInset);
+      }
       for (const offset of offsets) {
         const footprint = wallFootprint(edge, wall.a[across]!, low + 0.1 + offset, width, depth);
-        const operation = operationFootprint(footprint, edge, module.clearWidth, module.front);
+        const operation = operationFootprint(footprint, edge, clearWidth, front);
         if (fits(footprint, module.kind) && covers(operation)) {
           out.push({ kind: module.kind, footprint, operation, rotationDeg: rotation(edge) });
         }

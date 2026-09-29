@@ -85,7 +85,9 @@ export function coversRect(uvOutline: readonly Point[], r: UvRect): boolean {
 }
 
 export function snap(value: number): number {
-  return Math.round(value / SNAP) * SNAP;
+  // Match snapUp/snapDown: inverse rotation must not move an exact half-grid
+  // tie to the opposite cell through machine-sized round-off.
+  return Math.round(value / SNAP + 1e-9) * SNAP;
 }
 
 export function snapDown(value: number): number {

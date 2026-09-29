@@ -1,7 +1,7 @@
 import type { Point } from "../core/geom.js";
 import { boundaryDistance, clipPolygonToRect, footOnSegment, polygonArea } from "../core/geom.js";
 import type { Rng } from "../core/rng.js";
-import type { FloorKind, RoomKind } from "../core/types.js";
+import type { FloorKind, RoomKind, Tier } from "../core/types.js";
 import { CORRIDOR, DOOR, ELEVATOR, ROOM, WALL } from "./constants.js";
 import { BAND_PROUD } from "./shell.js";
 import type { CorePlan } from "./core-plan.js";
@@ -172,7 +172,8 @@ export function splitFrontages(length: number, range: readonly [number, number],
 // ---- residential and hotel units ----
 
 const FRONTAGE: Partial<Record<FloorKind, readonly [number, number]>> = {
-  apartment: ROOM.apartmentFront,
+  // A 3m kitchen and 2.5m bathroom still leave a 2.5m entry/living opening.
+  apartment: [8, 10],
   residence_studio: ROOM.studioFront,
   hotel_rooms: ROOM.hotelFront,
 };
@@ -238,12 +239,16 @@ function stripSlots(
 export function fillUnitStrip(
   strip: UvRect, corridorSide: "v0" | "v1", corridorRoom: PlanRoom, kind: FloorKind,
   rng: Rng, ids: IdGen, unitPrefix: string, uvOutline: readonly Point[],
+  tier: Tier = 'mid',
 ): StripFill {
-  const { slots, sealed } = stripSlots(strip, corridorRoom, FRONTAGE[kind] ?? ROOM.studioFront, rng, uvOutline);
+  const luxury = tier === 'rich' || tier === 'high_rich';
+  const frontage: readonly [number, number] = luxury ? kind === 'apartment' ? [11, 14] : [8, 10]
+    : FRONTAGE[kind] ?? ROOM.studioFront;
+  const { slots, sealed } = stripSlots(strip, corridorRoom, frontage, rng, uvOutline);
   const rooms: PlanRoom[] = [];
   slots.forEach((slot, n) => {
     const unit = `${unitPrefix}-u${n}`;
-    rooms.push(...fillUnit(slot.rect, corridorSide, slot.deadRight, corridorRoom, kind, rng, ids, unit));
+    rooms.push(...fillUnit(slot.rect, corridorSide, slot.deadRight, corridorRoom, kind, rng, ids, unit, luxury));
   });
   return { rooms, sealed };
 }
@@ -251,9 +256,10 @@ export function fillUnitStrip(
 function fillUnit(
   rect: UvRect, corridorSide: "v0" | "v1", deadRight: boolean, corridorRoom: PlanRoom,
   kind: FloorKind, rng: Rng, ids: IdGen, unit: string,
+  luxury: boolean,
 ): PlanRoom[] {
   const ops = sideOps(corridorSide);
-  const bandDepth = Math.min(2.7, rect.lv - 2.3);
+  const bandDepth = Math.min(luxury ? 3.5 : 3, rect.lv - 2.3);
   const bandA = ops.near(rect, bandDepth);
   const bandB = ops.far(rect, bandDepth);
   const rooms: PlanRoom[] = [];
@@ -264,17 +270,17 @@ function fillUnit(
   };
 
   // strips too shallow for an entry band: one plain room per unit, shared WC on the floor
-  if (rect.lv < 4.6) {
+  if (rect.lv < (luxury ? 5.8 : 4.6) || luxury && rect.lu < 7) {
     const only = mk(kind === "hotel_rooms" ? "bedroom" : "studio_main", rect);
     doorBetween(only, corridorRoom.id, corridorRoom, ids);
     return rooms;
   }
 
   let hall: PlanRoom;
-  if (kind === "apartment" && rect.lu >= 6.5) {
+  if (kind === "apartment" && rect.lu >= (luxury ? 10 : 8)) {
     // entry band: hall keeps the corridor-contact side; services sit toward the dead side
-    const bw = ROOM.bath.w;
-    const kw = ROOM.kitchen.w;
+    const bw = luxury ? 3.5 : 2.5;
+    const kw = 3;
     const a0 = bandA.u;
     const a1 = bandA.u + bandA.lu;
     if (deadRight) {
@@ -305,12 +311,13 @@ function fillUnit(
     // studio and hotel room (and small apartments): entry band with bath, main at the facade
     const a0 = bandA.u;
     const a1 = bandA.u + bandA.lu;
+    const bathWidth = luxury ? 3.5 : ROOM.bath.w;
     if (deadRight) {
-      hall = mk("living", uSlice(bandA, a0, a1 - ROOM.bath.w));
-      mk("bathroom", uSlice(bandA, a1 - ROOM.bath.w, a1));
+      hall = mk("living", uSlice(bandA, a0, a1 - bathWidth));
+      mk("bathroom", uSlice(bandA, a1 - bathWidth, a1));
     } else {
-      mk("bathroom", uSlice(bandA, a0, a0 + ROOM.bath.w));
-      hall = mk("living", uSlice(bandA, a0 + ROOM.bath.w, a1));
+      mk("bathroom", uSlice(bandA, a0, a0 + bathWidth));
+      hall = mk("living", uSlice(bandA, a0 + bathWidth, a1));
     }
     mk(kind === "hotel_rooms" ? "bedroom" : "studio_main", bandB);
   }

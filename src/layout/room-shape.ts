@@ -53,6 +53,24 @@ export function roomEdges(room: RoomShape, outline?: readonly Point[]): RoomEdge
 
 /** A rectangle cannot span a concave notch even when its corners happen to fit. */
 export function roomCoversRect(room: RoomShape, rect: UvRect, margin = 0): boolean {
+  // Authored service rooms often retain their explicit four-corner polygon.
+  // A strictly contained rectangle needs no clipping or signed-distance scan.
+  // Near-boundary tolerances and every nonrectangular footprint keep the full
+  // predicate below, so this shortcut cannot broaden a fitted opening/fixture.
+  if (!room.holes?.length && room.polygon?.length === 4
+    && rect.lu + 2 * margin > 0 && rect.lv + 2 * margin > 0
+    && rect.u - margin >= room.rect.u && rect.v - margin >= room.rect.v
+    && rect.u + rect.lu + margin <= room.rect.u + room.rect.lu
+    && rect.v + rect.lv + margin <= room.rect.v + room.rect.lv) {
+    let corners = 0;
+    for (const [u, v] of room.polygon) {
+      const x = u === room.rect.u ? 0 : u === room.rect.u + room.rect.lu ? 1 : -1;
+      const z = v === room.rect.v ? 0 : v === room.rect.v + room.rect.lv ? 1 : -1;
+      if (x < 0 || z < 0) { corners = 0; break; }
+      corners |= 1 << (x + z * 2);
+    }
+    if (corners === 15) return true;
+  }
   if (!room.polygon && !room.holes?.length) return rect.u - margin >= room.rect.u - 1e-8 && rect.v - margin >= room.rect.v - 1e-8
     && rect.u + rect.lu + margin <= room.rect.u + room.rect.lu + 1e-8
     && rect.v + rect.lv + margin <= room.rect.v + room.rect.lv + 1e-8;
