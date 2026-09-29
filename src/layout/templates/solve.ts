@@ -13,8 +13,9 @@ export interface AxisSpan {
 const EPS = 1e-6;
 
 /** Span lengths summing to `length`, or null when even every minimum is too long.
- *  Growth: weighted spans share the slack up to their max, anything left goes to the
- *  unbounded spans, then (last resort) to the weighted spans past their max.
+ *  Growth: the unbounded (living, corridor, remainder) spans take the slack by weight, so
+ *  bedrooms and service rooms keep their reference size whenever the axis has one; only
+ *  then bounded weighted spans grow to their max, and last of all past it.
  *  Shrink: weighted spans first (toward their min), rigid spans only after that. */
 export function solveAxis(spans: readonly AxisSpan[], length: number): number[] | null {
   const total = spans.reduce((sum, span) => sum + span.ref, 0);
@@ -22,6 +23,8 @@ export function solveAxis(spans: readonly AxisSpan[], length: number): number[] 
   let slack = length - total;
   if (Math.abs(slack) < EPS) return out;
   if (slack > 0) {
+    const open = spans.map((span, i) => span.weight > 0 && span.max === Infinity ? i : -1).filter(i => i >= 0);
+    slack = waterFill(out, open, spans, slack, () => Infinity, i => spans[i]!.weight);
     slack = waterFill(out, spans.map((span, i) => span.weight > 0 ? i : -1).filter(i => i >= 0), spans,
       slack, i => spans[i]!.max, i => spans[i]!.weight);
     if (slack > EPS) {

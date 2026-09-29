@@ -16,8 +16,15 @@ describe('template axis solver', () => {
     expect(out[1]).toBeCloseTo(9, 9);
   });
 
-  it('shares growth by weight and caps a bounded span at its max', () => {
+  it('grows the unbounded spans first and keeps a bounded span (a bedroom) at its reference', () => {
     const out = solveAxis([{ ref: 4, min: 3, max: 5, weight: 2 }, flexible(6), rigid(2)], 16)!;
+    expect(out[0]).toBe(4);
+    expect(out[1]).toBeCloseTo(10, 9);
+    expect(out[2]).toBe(2);
+  });
+
+  it('shares growth among bounded spans by weight, capped at their max, when nothing is unbounded', () => {
+    const out = solveAxis([{ ref: 4, min: 3, max: 5, weight: 2 }, { ref: 6, min: 5, max: 12, weight: 6 }, rigid(2)], 16)!;
     expect(out[0]).toBeCloseTo(5, 9);
     expect(out[1]).toBeCloseTo(9, 9);
     expect(out[2]).toBe(2);
