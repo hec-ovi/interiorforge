@@ -12,8 +12,10 @@ import { SHELL_WALL } from "../layout/shell.js";
 
 /** GLB positions are Float32. At city-scale coordinates their rounding is below 0.1 mm. */
 const EPS = 1e-4;
-/** an edge's wall zone reaches this far out through its skin: everything outside counts */
-const OUTSIDE = 1e4;
+/** An edge's wall zone reaches this far out through its skin: the outside a reveal near a
+ *  corner could stray into. No further, or on a notched facade the far side of a notch would
+ *  swallow the reveals of the glass bays beside it, across the balcony it faces. */
+const OUTSIDE = 2;
 
 /** One outline edge as a frame: `t` runs along it from its start, depth runs inward. */
 export interface EdgeFrame {
@@ -135,14 +137,15 @@ function revealRun(outline: readonly Point[], e: number, wallDepth: number): [nu
 }
 
 /** An edge's wall as the interior keeps out of it: the strip behind its skin to the wall
- *  depth, and everything outside through that skin. CCW. */
+ *  depth, and the outside just through that skin. CCW. */
 function wallZone(f: EdgeFrame, wallDepth: number): Point[] {
   return [edgePoint(f, 0, -OUTSIDE), edgePoint(f, f.len, -OUTSIDE), edgePoint(f, f.len, wallDepth), edgePoint(f, 0, wallDepth)];
 }
 
 function inWallZone(f: EdgeFrame, p: Point, wallDepth: number): boolean {
   const t = along(f, p);
-  return t > EPS && t < f.len - EPS && across(f, p) < wallDepth - EPS;
+  const depth = across(f, p);
+  return t > EPS && t < f.len - EPS && depth < wallDepth - EPS && depth > -OUTSIDE;
 }
 
 function inHole(f: EdgeFrame, p: Point, y: number, hole: OpeningHole): boolean {
