@@ -37,6 +37,8 @@ export class LocalFrame {
   get angleDeg(): number { return round(((-this.rotation * 180 / Math.PI) % 360 + 360) % 360, 100); }
   /** the same frame turned half round about its origin: local +z becomes the back */
   get reversed(): LocalFrame { return new LocalFrame(this.origin, this.rotation + Math.PI); }
+  /** the same origin turned about +Y: `turned(Math.PI / 2)` has its +z along this +x */
+  turned(turn: number): LocalFrame { return new LocalFrame(this.origin, this.rotation + turn); }
   /** a frame whose origin is local (x, y, z) of this one */
   shifted(x: number, y: number, z: number): LocalFrame { return new LocalFrame(this.at(x, y, z), this.rotation); }
   place(builder: PlacementBuilder, module: string, room: string, x: number, y: number, z: number,
@@ -145,6 +147,8 @@ export function pill(cx: number, cy: number, length: number, width: number, segm
 }
 
 export interface LensLight {
+  /** record kind: an assembly lens is a strip, an architectural line a cove, unless given */
+  kind?: 'strip' | 'cove';
   /** line colour (linear RGB); kelvin when absent */
   color?: [number, number, number];
   kelvin?: number;
@@ -163,7 +167,7 @@ export function lensRecord(frame: LocalFrame, room: string, id: string, x: numbe
   direction?: V3, axis?: V3): LightFixture {
   const p = frame.at(x, y, z);
   return {
-    id, ...(owner ? { furniture: owner.furniture } : {}), kind: owner ? 'strip' : 'cove', room,
+    id, ...(owner ? { furniture: owner.furniture } : {}), kind: light.kind ?? (owner ? 'strip' : 'cove'), room,
     position: [round(p[0]), round(p[1] + elevation), round(p[2])], length: round(length), angleDeg: frame.angleDeg,
     intensity: Math.round(length * light.lumensPerMetre), colorTemperatureK: light.kelvin ?? 4000,
     ...(light.color ? { color: light.color } : {}),
