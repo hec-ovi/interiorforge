@@ -98,7 +98,7 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
 
   const solved: Record<"u" | "v", Solved> = { u: { pos: new Map(), exact: true }, v: { pos: new Map(), exact: true } };
   for (const axis of ["u", "v"] as const) {
-    const model = axisModel(t, axis, placed);
+    const model = axisModel(t, axis, [...placed, remainder]);
     if (!model) return refuse(`${t.id}: axis ${axis} has no lines`);
     const length = axis === "u" ? frame.width : frame.depth;
     const lengths = solveAxis(model.spans, length);
@@ -186,6 +186,8 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
       : [rectToUv(frame, kx0, kx1, ky0, ky1)];
   });
   if (remainderKeepouts.length) rest.furnishingKeepouts = remainderKeepouts;
+  const remainderLevels = levelZones(remainder, frame, at);
+  if (remainderLevels.length) rest.levels = remainderLevels;
   rooms.unshift(rest);
   byId.set(remainder.id, rest);
 
@@ -249,7 +251,7 @@ function axisModel(t: SpaceTemplate, axis: "u" | "v", placed: TemplateRoom[]): A
   if (all.length < 2) return null;
   const used = new Set<string>([all[0]!.id, all.at(-1)!.id]);
   for (const room of placed) {
-    for (const id of axis === "u" ? room.u! : room.v!) used.add(id);
+    for (const id of (axis === "u" ? room.u : room.v) ?? []) used.add(id);
     for (const k of room.keepouts ?? []) for (const id of axis === "u" ? k.u : k.v) used.add(id);
     for (const level of room.levels ?? []) for (const id of axis === "u" ? level.u : level.v) used.add(id);
   }
@@ -267,6 +269,7 @@ function axisModel(t: SpaceTemplate, axis: "u" | "v", placed: TemplateRoom[]): A
     const ref = b.ref - a.ref;
     if (ref <= EPS) return null;
     const covered = placed.some(room => {
+      if (!(axis === "u" ? room.u : room.v)) return false;
       const [lo, hi] = (axis === "u" ? room.u! : room.v!).map(id => all.find(line => line.id === id)?.ref ?? NaN);
       return lo! <= a.ref + EPS && hi! >= b.ref - EPS;
     });
