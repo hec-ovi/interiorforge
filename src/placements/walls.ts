@@ -159,7 +159,7 @@ export function walls(
         if (!peers.every(r => cut.at - cut.width / 2 >= r.a - .01 && cut.at + cut.width / 2 <= r.b + .01)) return undefined;
         if (mergeHoles(l.holes, CASING_MEMBER).some(other => Math.abs(other.at - h.at) > 1e-6
             && Math.abs(other.at - h.at) < (other.width + h.width) / 2 + pad + CASING_MEMBER + .01)) return undefined;
-        return portalEligible(spec, peers.map(r => ({ room: r.room, kind: r.kind })), h, height) ? spec : undefined;
+        return portalEligible(spec, peers.map(r => ({ room: r.room, kind: r.kind })), h, height, layersOf(spec)) ? spec : undefined;
     };
     const chosen = new Map<string, PortalSpec | 'luxury' | null>();
     const portalOf = (l: Line, h: WallHole): PortalSpec | 'luxury' | null => {
@@ -257,13 +257,9 @@ export function walls(
                 continue;
             }
             if (chosenPortal) {
-                // Layers stand concentrically: each outer layer frames the inner one's surround.
-                let width = h.width, head = h.y1;
-                for (const spec of [chosenPortal, ...layersOf(chosenPortal)]) {
-                    lights.push(...placePortal(builder, spec, owner.room, l.axis, l.c, h.at, width, head, frame));
-                    width += 2 * spec.band;
-                    head += spec.band;
-                }
+                // One call places the portal and its concentric outer layers.
+                lights.push(...placePortal(builder, chosenPortal, owner.room, l.axis, l.c, h.at, h.width, h.y1, frame,
+                    { layers: layersOf(chosenPortal), elevation: floor.elevation }));
                 continue;
             }
             const ownerFinish = finishOf(owner.room, owner.kind);

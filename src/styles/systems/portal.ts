@@ -22,16 +22,26 @@ export function portalCut(spec: PortalSpec, layers: readonly PortalSpec[], hole:
     return { ...hole, width: hole.width + 2 * band, y1: hole.y1 + spec.radius + band };
 }
 
-/** Whether this spec may frame the opening: room kinds, minimum size, headroom (h + r + band
- *  + 0.01 within the face height) and one style on both sides (PT).
- *  Stub until package PT lands: never, so openings keep their casings. */
-export function portalEligible(_spec: PortalSpec, _peers: readonly PortalPeer[], _hole: PortalHole, _height: number): boolean {
+/** Whether this spec, with its resolved outer `layers`, may frame the opening: room kinds,
+ *  minimum size, headroom (the whole surround 0.01 under the face height) (PT). One style on
+ *  both sides is the caller's rule. Stub until package PT lands: never, so openings keep
+ *  their casings. */
+export function portalEligible(_spec: PortalSpec, _peers: readonly PortalPeer[], _hole: PortalHole, _height: number,
+    _layers: readonly PortalSpec[] = []): boolean {
     return false;
 }
 
-/** Places the portal pieces per side and the header `door-header-<pid>`; returns the lens
- *  records of a lit reveal (PT). Stub until package PT lands: nothing. */
+export interface PortalPlacement {
+    /** floor elevation: light records are building-local */
+    elevation?: number;
+    /** the spec's outer layers, resolved; placed concentrically in the same call */
+    layers?: readonly PortalSpec[];
+}
+
+/** Places the portal and its concentric layers around a clear aperture `width` wide whose
+ *  straight jambs rise to `height`; only the passage header is `door-header-<pid>`. Returns
+ *  the lens records of a lit reveal (PT). Stub until package PT lands: nothing. */
 export function placePortal(_builder: PlacementBuilder, _spec: PortalSpec, _room: string, _axis: 'H' | 'V', _c: number, _at: number,
-    _width: number, _height: number, _frame: Frame): LightFixture[] {
+    _width: number, _height: number, _frame: Frame, _options: PortalPlacement = {}): LightFixture[] {
     return [];
 }
