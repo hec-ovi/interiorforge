@@ -1,3 +1,4 @@
+import type { UnitSizing } from '../../layout/templates/registry.js';
 import type { BlueprintFloor, InteriorRequest } from '../../core/types.js';
 import { polygonArea, polygonBounds, type Point } from '../../core/geom.js';
 import { uvRectCorners, uvToWorld, worldToUv, type UvRect } from '../../layout/uv.js';
@@ -31,9 +32,9 @@ export function damagedCorridorRect(request: InteriorRequest, frame: FloorFrame,
  * Poor rooms retain their own furniture, wet-room parts, material profile and
  * public services after allocation; compatible facade seats are tried on all sides. */
 export function planDamagedResidential(request: InteriorRequest, floor: BlueprintFloor, core: CorePlan,
-  frame: FloorFrame, plate: Point[], outline: Point[], ids: IdGen): PlanRoom[] | null {
+  frame: FloorFrame, plate: Point[], outline: Point[], ids: IdGen, sizes?: UnitSizing['references']): PlanRoom[] | null {
   if (!isDamagedResidential(request)) return null;
-  const rooms = planCapsuleResidential(request, floor, core, frame, plate, outline, ids, 'poor', [], damagedStandardProgram);
+  const rooms = planCapsuleResidential(request, floor, core, frame, plate, outline, ids, 'poor', [], damagedStandardProgram, sizes);
   if (!rooms) return null;
   alignEntryPhase(rooms);
   // A broad-clearance packing proxy may overlook a smaller disconnected pocket.

@@ -11,6 +11,7 @@ import { doorBetween, idGen, type IdGen } from '../../layout/rooms.js';
 import { makeFrame, toUvPolygon, toWorldPolygon, uvRectCorners, worldToUv, type Frame, type UvRect } from '../../layout/uv.js';
 import { fitResidentialComposition } from './composition.js';
 import { capsuleProfile } from './profile.js';
+import type { UnitSizing } from '../../layout/templates/registry.js';
 
 interface Candidate { rect: UvRect; bath: UvRect; kitchen?: UvRect; bedroom?: UvRect; score: number; face: number; low: number; high: number; template?: PlanRoom[] }
 /** A family may provide a complete validated private programme in the core frame. */
@@ -23,7 +24,8 @@ const overlap = (a: UvRect, b: UvRect): boolean => Math.min(a.u + a.lu, b.u + b.
  * to a 200 m² studio merely because one facade has unusually sparse supports.
  * Core and exterior seats remain authoritative. All dimensions are metre values. */
 export function planCapsuleResidential(request: InteriorRequest, floor: BlueprintFloor, core: CorePlan,
-  frame: FloorFrame, plate: Point[], outline: Point[], ids: IdGen, tier: 'mid' | 'poor' = 'mid', diagnostics: string[] = [], unitProgram?: StandardUnitProgram): PlanRoom[] | null {
+  frame: FloorFrame, plate: Point[], outline: Point[], ids: IdGen, tier: 'mid' | 'poor' = 'mid', diagnostics: string[] = [], unitProgram?: StandardUnitProgram,
+  sizes?: UnitSizing['references']): PlanRoom[] | null {
   if (request.building.type !== 'residential' || request.building.tier !== tier || Math.abs(polygonArea(plate)) < 500) return null;
   const bounds = polygonBounds(plate);
   if (Math.abs(polygonArea(plate)) < bounds.w * bounds.d * .98) return null;
@@ -55,10 +57,17 @@ export function planCapsuleResidential(request: InteriorRequest, floor: Blueprin
     };
     for (let a = 0; a < cuts.length; a++) for (let b = a + 1; b < cuts.length; b++) {
       const width = cuts[b]! - cuts[a]!;
-      if (width < 7 || width > 10.5) continue;
+      // A kind building cuts its homes to its reference homes' own frontage and depth.
+      const refs = sizes?.map((ref, order) => ({ ...ref, order })).filter(ref => width >= ref.width[0] - 1e-6 && width <= ref.width[2] + 1e-6);
+      if (refs ? !refs.length : width < 7 || width > 10.5) continue;
       const targetDepth = Math.round(75 / width * 2) / 2;
-      for (const depth of [targetDepth, targetDepth - .5, targetDepth + .5, targetDepth - 1, targetDepth + 1]) {
-      if (depth < 7 || depth > 11 || width * depth < 67.5 || width * depth > 86.25) continue;
+      const depths = refs ? [...new Set(refs.flatMap(ref => [0, .5, -.5].map(step =>
+        Math.round(Math.min(ref.depth[2], Math.max(ref.depth[0], ref.depth[1] + step)) * 2) / 2)))]
+        : [targetDepth, targetDepth - .5, targetDepth + .5, targetDepth - 1, targetDepth + 1];
+      const referenceScore = (depth: number) => Math.min(...refs!.map(ref => 20 * ((width - ref.width[1]) / ref.width[1]) ** 2
+        + 5 * ((depth - ref.depth[1]) / ref.depth[1]) ** 2 + ref.order * .3));
+      for (const depth of depths) {
+      if (refs ? depth < 7 : depth < 7 || depth > 11 || width * depth < 67.5 || width * depth > 86.25) continue;
       const local: UvRect = { u: cuts[a]!, v: localBounds.z, lu: width, lv: depth };
       const rect = convert(local);
       if (rect.u < bounds.x - 1e-6 || rect.v < bounds.z - 1e-6
@@ -82,7 +91,7 @@ export function planCapsuleResidential(request: InteriorRequest, floor: Blueprin
         const template = unitProgram?.(local, cuts, face, core.frame, idGen(floor.index));
         if (unitProgram && !template) continue;
         const candidate: Candidate = { rect, bath, kitchen, bedroom, ...(template ? { template } : {}), face: quarter, low: local.u, high: local.u + local.lu,
-          score: Math.abs(width * depth - 75) + Math.abs(width - 8.5) * .6 };
+          score: refs ? referenceScore(depth) : Math.abs(width * depth - 75) + Math.abs(width - 8.5) * .6 };
         const parts = unitRooms(candidate, 'probe', idGen(floor.index));
         if (!parts || !checkRooms(parts)) continue;
         // Allocation includes a real living bay, before a room's unrelated
@@ -106,7 +115,9 @@ export function planCapsuleResidential(request: InteriorRequest, floor: Blueprin
       if (!bySpan.has(key)) bySpan.set(key, candidate);
     }
     const cuts = [...new Set(options.flatMap(candidate => [candidate.low, candidate.high]))].sort((a, b) => a - b);
-    for (const [low, high] of facadeSlots(cuts, 8.5, (low, high) => bySpan.has(`${low}:${high}`))) primary.push(bySpan.get(`${low}:${high}`)!);
+    const slots = sizes ? cheapestCover(cuts, (low, high) => bySpan.get(`${low}:${high}`)?.score)
+      : facadeSlots(cuts, 8.5, (low, high) => bySpan.has(`${low}:${high}`));
+    for (const [low, high] of slots) primary.push(bySpan.get(`${low}:${high}`)!);
   }
   const selected: Candidate[] = [];
   for (const candidate of [...primary, ...candidates]) {
@@ -124,7 +135,7 @@ export function planCapsuleResidential(request: InteriorRequest, floor: Blueprin
     selected.push(candidate);
   }
   diagnostics.push(`${candidates.length} feasible candidates; ${selected.length} selected standard homes`);
-  if (selected.length < 4) return null;
+  if (selected.length < (sizes ? 2 : 4)) return null;
   const publicShapes = new RoomRegion(plate).subtract([...solids, ...selected.map(unit => unit.rect)]);
   const rooms: PlanRoom[] = publicShapes.map((shape, index) => ({ ...shape,
     id: index === 0 ? `f${floor.index}-corridor` : ids.room(), kind: 'corridor', doors: [] }));
@@ -233,4 +244,22 @@ function unitRooms({ rect, bath, kitchen, bedroom, template }: Candidate, unit: 
     if (!doorway.openFront) doorway.clearDepth = 0;
   }
   return [main, ...rooms];
+}
+
+/** Most frontage, then the least summed score, over one face's cuts: the homes a kind
+ *  building cuts to its reference sizes. */
+function cheapestCover(cuts: readonly number[], score: (low: number, high: number) => number | undefined): [number, number][] {
+  const best: { cover: number; cost: number; pairs: [number, number][] }[] = [{ cover: 0, cost: 0, pairs: [] }];
+  for (let end = 1; end < cuts.length; end++) {
+    let here = best[end - 1]!;
+    for (let start = 0; start < end; start++) {
+      const cost = score(cuts[start]!, cuts[end]!);
+      if (cost === undefined) continue;
+      const previous = best[start]!, cover = previous.cover + cuts[end]! - cuts[start]!, total = previous.cost + cost + .15;
+      if (cover > here.cover + 1e-6 || Math.abs(cover - here.cover) < 1e-6 && total < here.cost)
+        here = { cover, cost: total, pairs: [...previous.pairs, [cuts[start]!, cuts[end]!]] };
+    }
+    best[end] = here;
+  }
+  return best.at(-1)?.pairs ?? [];
 }

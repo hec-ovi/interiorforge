@@ -47,9 +47,9 @@
     {"id": "fridge", "room": "kitchen", "kind": "fridge", "fit": "fit-capsule-fridge", "required": false, "wall": "u0", "along": {"line": "v1", "offset": 2.8}, "size": [0.97, 0.65, 2.15], "rotationDeg": 90},
     {"id": "tall-cabinet", "room": "kitchen", "kind": "shelf", "required": false, "wall": "u0", "along": {"line": "v1", "offset": 3.8}, "size": [0.97, 0.65, 2.75], "rotationDeg": 90},
     {"id": "service-column", "room": "kitchen", "kind": "counter", "required": false, "wall": "v0", "along": {"line": "u0", "offset": 0.8}, "size": [1.9, 0.55, 2.75], "rotationDeg": 0},
-    {"id": "bar", "room": "living", "kind": "bar_counter", "required": false, "wall": "v0", "along": {"line": "u1", "offset": 2.0}, "size": [0.65, 2.3, 1.1], "rotationDeg": 0},
-    {"id": "sofa", "room": "living", "kind": "sofa", "required": true, "wall": "v0", "along": {"line": "u3", "offset": -3.46}, "size": [3.4, 2.4, 0.8], "rotationDeg": 0},
-    {"id": "pouf", "room": "living", "kind": "low_table", "required": false, "wall": "free", "along": {"centred": true}, "at": [4.4, 3.6], "size": [0.9, 0.9, 0.4], "rotationDeg": 0},
+    {"id": "bar", "room": "living", "kind": "bar_counter", "required": false, "wall": "v0", "along": {"line": "u3", "offset": -0.8}, "size": [0.65, 2.3, 1.1], "rotationDeg": 0},
+    {"id": "sofa", "room": "living", "kind": "sofa", "required": true, "wall": "free", "along": {"centred": true}, "size": [3.2, 2.3, 0.8], "rotationDeg": 180, "at": [3.1, 5.05]},
+    {"id": "pouf", "room": "living", "kind": "low_table", "required": false, "wall": "free", "along": {"centred": true}, "at": [3.1, 3.3], "size": [0.9, 0.9, 0.4], "rotationDeg": 0},
     {"id": "desk", "room": "living", "kind": "desk", "required": false, "wall": "u0", "along": {"line": "v2", "offset": -2.2}, "size": [2.1, 1.1, 0.92], "rotationDeg": 90},
     {"id": "sill-band", "room": "living", "kind": "counter", "required": false, "wall": "v1", "along": {"line": "u1", "offset": 1.2}, "size": [4.9, 0.35, 0.95], "rotationDeg": 180},
     {"id": "shrine", "room": "passage", "kind": "display_rack", "required": false, "wall": "v1", "along": {"line": "u3", "offset": 0.2}, "size": [2.9, 0.4, 1.0], "rotationDeg": 180},
@@ -58,7 +58,7 @@
     {"id": "window-seat", "room": "bed", "kind": "bench", "required": false, "wall": "v1", "along": {"line": "u4", "offset": 0.6}, "size": [2.6, 0.6, 0.45], "rotationDeg": 180},
     {"id": "toilet", "room": "bath", "kind": "toilet", "required": true, "wall": "v0", "along": {"line": "u0", "offset": 1.6}, "size": [0.45, 0.7, 0.8], "rotationDeg": 0},
     {"id": "sink", "room": "bath", "kind": "sink", "fit": "fit-capsule-basin", "required": false, "wall": "u0", "along": {"line": "v0", "offset": 0.4}, "size": [1.2, 0.4, 0.9], "rotationDeg": 90},
-    {"id": "shower", "room": "bath", "kind": "shower", "fit": "fit-capsule-shower", "required": true, "wall": "v0", "along": {"line": "u2", "offset": -1.2}, "size": [1.1, 1.1, 2.2], "rotationDeg": 0}
+    {"id": "shower", "room": "bath", "kind": "shower", "fit": "fit-capsule-shower", "required": true, "wall": "v0", "along": {"line": "u2", "offset": -1.15}, "size": [1.0, 1.0, 2.2], "rotationDeg": 0}
   ],
   "source": {"key": "c7-room", "revision": "hand-3"}
 }

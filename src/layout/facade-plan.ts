@@ -88,7 +88,8 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
   if (!previous && (kind === 'apartment' || kind === 'residence_studio')) {
     const standard = planCapsuleResidential(request, floor, core, frame, plate, outline, ids);
     if (standard) return { rooms: standard, sealed: [], changes: [] };
-    const damaged = planDamagedResidential(request, floor, core, frame, plate, outline, ids);
+    const damaged = (sizing ? planDamagedResidential(request, floor, core, frame, plate, outline, ids, sizing.references) : null)
+      ?? planDamagedResidential(request, floor, core, frame, plate, outline, ids);
     if (damaged) return { rooms: damaged, sealed: [], changes: [] };
     const diagnostics: string[] = [];
     const complete = planPerimeterResidential(request, floor, core, frame, corridor, plate, outline, ids, diagnostics, sizing);
