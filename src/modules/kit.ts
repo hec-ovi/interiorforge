@@ -1,5 +1,7 @@
 import { MeshBuilder, type UvMode, type UvScale, type Vec3, type BoxFace } from "../glb/mesh-builder.js";
 import type { Point } from "../core/geom.js";
+import { triangulate } from "../core/triangulate.js";
+import { tube, turned } from "../styles/luxury/model-geometry.js";
 import type { Vector3 } from "./types.js";
 
 /** How a material wants its map laid on a face. */
@@ -33,18 +35,127 @@ export class Kit {
     this.box(slot, [cx - w / 2, y, cz - d / 2], [w, h, d], uv, faces);
   }
 
-  /** Regular polygon prism around (cx, cz): eight sides read as a cylinder at room scale. */
-  cylinder(slot: string, [cx, y, cz]: Vector3, radius: number, height: number, sides = 8, uv?: UvMode): void {
+  /** Upright cylinder around (cx, cz): smooth sides (one normal per ring vertex) under flat
+   *  caps, so a round object reads round at any side count. Sixteen sides by default. */
+  cylinder(slot: string, [cx, y, cz]: Vector3, radius: number, height: number, sides = 16, uv?: UvMode): void {
     const corners: Point[] = [];
     for (let i = 0; i < sides; i++) {
       const a = (i / sides) * Math.PI * 2;
       corners.push([cx + Math.cos(a) * radius, cz + Math.sin(a) * radius]);
     }
-    this.mesh.addPrism(slot, corners, y, y + height, this.mode(slot, uv), "both");
+    const unitUv = this.mode(slot, uv) === "unit", positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
+    const around = 2 * Math.PI * radius;
+    for (let i = 0; i <= sides; i++) {
+      const a = (i / sides) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+      for (const [yy, v] of [[y, 0], [y + height, 1]] as const) {
+        positions.push(cx + c * radius, yy, cz + s * radius);
+        normals.push(c, 0, s);
+        uvs.push(unitUv ? 1 - i / sides : around * (1 - i / sides), unitUv ? 1 - v : v * height);
+      }
+    }
+    for (let i = 0; i < sides; i++) {
+      const a = i * 2, b = a + 2;
+      // The side quad as a prism draws it: bottom a, top a, top b, bottom b.
+      indices.push(a, a + 1, b + 1, a, b + 1, b);
+    }
+    this.mesh.addSurface(slot, { positions, normals, uvs, indices });
+    this.mesh.addHorizontalPolygon(slot, corners, y + height, "up", this.mode(slot, uv));
+    this.mesh.addHorizontalPolygon(slot, corners, y, "down", this.mode(slot, uv));
   }
 
-  /** Square-section rod between two points, e.g. a leg, a rail, a stem. */
-  rod(slot: string, a: Vector3, b: Vector3, thickness: number): void {
+  /** Box from its minimum corner with every edge rounded to `radius` (two facets per quarter
+   *  round, normals of the true round, so edges catch light like a machined or moulded
+   *  part). 108 triangles; a radius under a millimetre falls back to a plain box. */
+  bevelBox(slot: string, [x, y, z]: Vector3, [w, h, d]: Vector3, radius = .004, uv?: UvMode): void {
+    const half: Vec3 = [w / 2, h / 2, d / 2], centre: Vec3 = [x + w / 2, y + h / 2, z + d / 2];
+    const r = Math.min(radius, w * .45, h * .45, d * .45);
+    if (r < .0008) { this.box(slot, [x, y, z], [w, h, d], uv); return; }
+    const unitUv = this.mode(slot, uv) === "unit";
+    const axis = half.map(a => a - r > 1e-6 ? [-a, -(a - r), a - r, a] : [-a, 0, a]);
+    const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
+    // Face axes are ordered so du x dv points outward (as the upholstered soft box).
+    for (const [fixed, sign, a, b] of [[1, 1, 2, 0], [1, -1, 0, 2], [0, 1, 1, 2], [0, -1, 2, 1], [2, 1, 0, 1], [2, -1, 1, 0]] as const) {
+      const us = axis[a]!, vs = axis[b]!, base = positions.length / 3;
+      for (const v of vs) for (const u of us) {
+        const p: Vec3 = [0, 0, 0]; p[fixed] = half[fixed]! * sign; p[a] = u; p[b] = v;
+        const inner = p.map((c, j) => Math.max(-half[j]! + r, Math.min(half[j]! - r, c))) as Vec3;
+        const n = unit(p.map((c, j) => c - inner[j]!) as Vec3);
+        positions.push(...inner.map((c, j) => c + n[j]! * r + centre[j]!));
+        normals.push(...n);
+        uvs.push(unitUv ? (u + half[a]!) / (2 * half[a]!) : u + half[a]!, unitUv ? 1 - (v + half[b]!) / (2 * half[b]!) : v + half[b]!);
+      }
+      for (let j = 0; j < vs.length - 1; j++) for (let i = 0; i < us.length - 1; i++) {
+        const q = base + j * us.length + i;
+        indices.push(q, q + 1, q + us.length + 1, q, q + us.length + 1, q + us.length);
+      }
+    }
+    this.mesh.addSurface(slot, { positions, normals, uvs, indices });
+  }
+
+  /** `bevelBox` centred in XZ, standing on y. */
+  cbevel(slot: string, [cx, y, cz]: Vector3, [w, h, d]: Vector3, radius = .004, uv?: UvMode): void {
+    this.bevelBox(slot, [cx - w / 2, y, cz - d / 2], [w, h, d], radius, uv);
+  }
+
+  /** A constant (y, z) section swept along x from x0 to x1: worktop noses, trims, housings.
+   *  Consecutive section edges meeting under `crease` degrees share a normal (a rounded nose
+   *  reads round); sharper corners stay crisp. UVs: u along the sweep, v along the section,
+   *  in metres (tiled) or 0..1 (exact), so a stretched sweep keeps its section. `axis: 'z'`
+   *  sweeps an (x, y) section along z instead (an end nose). */
+  sweep(slot: string, section: readonly Point[], x0: number, x1: number, options: { caps?: boolean; crease?: number; uv?: UvMode; axis?: "x" | "z" } = {}): void {
+    // The z sweep is the x sweep with its axes turned cyclically (x, y, z) -> (z, x, y).
+    const along = options.axis === "z", put = (s: number, a: number, b: number): Vec3 => along ? [a, b, s] : [s, a, b];
+    const area = section.reduce((s, p, i) => { const q = section[(i + 1) % section.length]!; return s + p[0] * q[1] - q[0] * p[1]; }, 0);
+    const p = area < 0 ? [...section].reverse() : [...section], n = p.length;
+    const unitUv = this.mode(slot, options.uv) === "unit", cos = Math.cos((options.crease ?? 40) * Math.PI / 180);
+    // Outward normal of edge i (p[i] -> p[i+1]) in (y, z): the quad order below faces it.
+    const edge = (i: number): [number, number] => {
+      const a = p[i]!, b = p[(i + 1) % n]!, dy = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dy, dz) || 1;
+      return [dz / l, -dy / l];
+    };
+    const at = (i: number, e: number): [number, number] => {
+      // The normal at vertex i seen from edge e: averaged with the neighbour edge when smooth.
+      const self = edge(e), other = edge(e === i ? (i - 1 + n) % n : (i + 1) % n);
+      if (self[0] * other[0] + self[1] * other[1] < cos) return self;
+      const s = [self[0] + other[0], self[1] + other[1]], l = Math.hypot(s[0]!, s[1]!) || 1;
+      return [s[0]! / l, s[1]! / l];
+    };
+    const perimeter: number[] = [0];
+    for (let i = 0; i < n; i++) perimeter.push(perimeter[i]! + Math.hypot(p[(i + 1) % n]![0] - p[i]![0], p[(i + 1) % n]![1] - p[i]![1]));
+    const total = perimeter[n]! || 1, length = x1 - x0 || 1;
+    const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, base = positions.length / 3, na = at(i, i), nb = at(j, i);
+      for (const [x, pt, nn, s] of [[x0, p[i]!, na, perimeter[i]!], [x0, p[j]!, nb, perimeter[i + 1]!], [x1, p[j]!, nb, perimeter[i + 1]!], [x1, p[i]!, na, perimeter[i]!]] as const) {
+        positions.push(...put(x, pt[0], pt[1])); normals.push(...put(0, nn[0], nn[1]));
+        uvs.push(unitUv ? (x - x0) / length : x - x0, unitUv ? s / total : s);
+      }
+      indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    this.mesh.addSurface(slot, { positions, normals, uvs, indices });
+    if (options.caps === false) return;
+    const triangles = triangulate(p);
+    for (const [x, sign] of [[x0, -1], [x1, 1]] as const) this.mesh.addSurface(slot, {
+      positions: p.flatMap(([yy, zz]) => put(x, yy, zz)), normals: p.flatMap(() => put(sign, 0, 0)),
+      uvs: p.flatMap(([yy, zz]) => [zz, yy]), indices: triangles.flatMap(([a, b, c]) => sign > 0 ? [a, b, c] : [a, c, b]),
+    });
+  }
+
+  /** Round tube through points (smooth, closed ends): taps, rails, bar pulls, frames. */
+  tube(slot: string, points: Vec3[], radius: number, closed = false, sides = 12): void {
+    tube(this, slot, points, radius, closed, sides);
+  }
+
+  /** Closed turned (lathe) vessel from an (r, y) profile tracing outside, rim, inside and
+   *  underside: vases, bowls, bottles, glasses, knobs. */
+  turned(slot: string, at: Vec3, profile: [number, number][], sides = 32): void {
+    turned(this, slot, at, profile, sides);
+  }
+
+  /** Square-section rod between two points, e.g. a leg, a rail, a stem; `round` draws a
+   *  smooth round section of the same thickness instead. */
+  rod(slot: string, a: Vector3, b: Vector3, thickness: number, round = false): void {
+    if (round) { tube(this, slot, [[...a], [...b]], thickness / 2, false, 12); return; }
     const axis = [b[0] - a[0], b[1] - a[1], b[2] - a[2]] as Vector3;
     const length = Math.hypot(...axis) || 1;
     const n = axis.map((v) => v / length) as Vector3;
