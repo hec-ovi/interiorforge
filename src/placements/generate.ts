@@ -16,6 +16,7 @@ import { publishStairSoffits } from './stair-soffits.js';
 import { publishStairSpaces } from './stair-spaces.js';
 import { publishApartmentEntrances } from './apartment-doors.js';
 import { seatPits } from './plenum.js';
+import { templateTurns } from '../layout/templates/registry.js';
 import { duplexAssignments } from '../layout/duplex/assignments.js';
 import { applyDuplexPairs } from '../layout/duplex/apply.js';
 import { capsuleProfile } from '../styles/capsule/profile.js';
@@ -51,7 +52,10 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
     // does not fit falls back onto one of them.
     const plainKeys = new Map<number, string>(), plainLayouts = new Map<string, LayoutId>();
     for (const [index, floor] of floors.entries()) {
-        const plainKey = signature(floor, assignments.find(a => a.floor === floor.index)!.kind);
+        const program = assignments.find(a => a.floor === floor.index)!.kind;
+        // A kind whose floors take their reference homes in turn keeps one layout per turn.
+        const turns = templateTurns(request, program as FloorKind);
+        const plainKey = signature(floor, program) + (turns > 1 ? `:turn:${floor.index % turns}` : '');
         const key = plainKey + (pairedFloors.has(floor.index) ? `:duplex:${floor.index}` : '');
         plainKeys.set(floor.index, plainKey);
         let name: LayoutId;

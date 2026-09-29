@@ -11,6 +11,8 @@ import { roomArea, roomClearance, roomCoversRect, roomPolygon, sharedRoomEdges, 
 import { BAND_CLEAR, doorBetween, doorWidthOn, MIN_STRETCH, type IdGen } from './rooms.js';
 import { makeFrame, snap, toUvPolygon, toWorldPolygon, uvRectCorners, worldToUv, type UvRect } from './uv.js';
 import type { UnitSizing } from './templates/registry.js';
+import { BAND_MAX } from './templates/band.js';
+import { templateTrace } from './templates/fit.js';
 
 interface Part extends RoomShape { kind: RoomKind }
 interface Seat { rect: UvRect; shape: RoomShape }
@@ -101,9 +103,19 @@ export function planPerimeterResidential(request: InteriorRequest, floor: Bluepr
     [{ u: bounds.x, v: core.vFace, lu: bounds.w, lv: bounds.z + bounds.d - core.vFace }, cuts.north],
   ];
   const allocated: (Dwelling & { seat: Seat })[] = [];
+  const amenities: UvRect[] = [];
   for (const [strip, legal] of strips) {
     if (strip.lv < 10) return null;
     const ends = [...new Set([strip.u, ...legal.filter(cut => cut > strip.u && cut < strip.u + strip.lu), strip.u + strip.lu])].sort((a, b) => a - b);
+    // A kind building composes a strip the core leaves whole from its reference homes at
+    // their own frontage; what no home takes becomes a residents' lounge on the corridor.
+    const packed = sizing?.references.length ? referencePack(strip, ends, sizing, floor.index, solids, publicRooms, plate,
+      seat => fitDwelling(seat, whole, cuts, solids, publicRooms)) : null;
+    if (packed) {
+      allocated.push(...packed.homes);
+      amenities.push(...packed.amenities);
+      continue;
+    }
     const seats = new Map<string, Seat>();
     const rejected = new Set<string>();
     const fittedSeats = new Map<string, Dwelling>();
@@ -155,13 +167,20 @@ export function planPerimeterResidential(request: InteriorRequest, floor: Bluepr
     diagnostics.push(`${allocated.length} complete homes cover only ${privateArea.toFixed(2)}/${plateArea.toFixed(2)}m²`); return null;
   }
   // Full ownership must leave no unexplained public lounge or sealed remainder.
-  const assigned = new RoomRegion(plate).subtract([...solids, fullCorridor.rect, ...allocated.map(unit => unit.seat.rect)]);
+  const assigned = new RoomRegion(plate).subtract([...solids, fullCorridor.rect, ...allocated.map(unit => unit.seat.rect), ...amenities]);
   if (assigned.reduce((sum, shape) => sum + roomArea(shape), 0) > 1) {
     diagnostics.push('complete home allocations leave unexplained residual floor outside the core and circulation'); return null;
   }
   doorBetween(utility, fullCorridor.id, fullCorridor, ids, 1, .9);
   for (const branch of publicRooms.slice(1)) doorBetween(branch, fullCorridor.id, fullCorridor, ids, 2, 2.4);
   const rooms: PlanRoom[] = [...publicRooms, utility];
+  for (const [index, rect] of amenities.entries()) {
+    const lounge: PlanRoom = { id: `f${floor.index}-amenity-${index + 1}`, kind: 'lounge', rect,
+      polygon: clipPolygonToRect(plate, toRect(rect)), doors: [] };
+    const target = publicRooms.find(room => sharedRoomEdges(lounge, room).some(edge => edge.hi - edge.lo >= 2.2)) ?? fullCorridor;
+    doorBetween(lounge, target.id, target, ids, 2, 1.8);
+    rooms.push(lounge);
+  }
   for (const [index, allocation] of allocated.entries()) {
     const unit = `f${floor.index}-home-${index + 1}`;
     const main: PlanRoom = { ...allocation.main, id: ids.room(), kind: 'living', unit, doors: [],
@@ -418,3 +437,79 @@ function overlap(a: UvRect, b: UvRect): boolean {
 }
 function toRect(rect: UvRect) { return { x: rect.u, z: rect.v, w: rect.lu, d: rect.lv }; }
 
+
+/** Frontage a residents' lounge may take where no reference home fits, metres. */
+const AMENITY_WIDTH: [number, number] = [3, 9.5];
+/** Lounges one strip may hold (one at each end at most). */
+const AMENITIES = 2;
+
+/** Covers one whole strip with reference homes at their own frontage (the kind's templates,
+ *  the floor's own in turn first) and at most two residents' lounges, over the legal cuts:
+ *  the least deviation from the reference widths wins. Every home still holds the complete
+ *  generic program its template replaces. Null when the strip is notched by the core or no
+ *  cover exists; the strip then packs its generic homes. */
+function referencePack(strip: UvRect, ends: number[], sizing: UnitSizing, turn: number, solids: readonly UvRect[],
+  publicRooms: PlanRoom[], plate: Point[], fit: (seat: Seat) => Dwelling | null): { homes: (Dwelling & { seat: Seat })[]; amenities: UvRect[] } | null {
+  if (solids.some(solid => overlap(solid, strip))) return null;
+  const references = sizing.references.filter(ref => strip.lv >= ref.depth[0] - 1e-6 && strip.lv <= ref.depth[2] + BAND_MAX + 1e-6);
+  if (!references.length) return null;
+  const own = sizing.references[turn % sizing.references.length]!.key;
+  const whole = (low: number, high: number): Seat | null => {
+    const rect = { ...strip, u: low, lu: high - low };
+    const shapes = new RoomRegion(clipPolygonToRect(plate, toRect(rect))).subtract([...solids]);
+    if (shapes.length !== 1 || Math.abs(roomArea(shapes[0]!) - rect.lu * rect.lv) > .05) return null;
+    return { rect, shape: shapes[0]! };
+  };
+  const reaches = (seat: Seat, min: number) => publicRooms.some(room => sharedRoomEdges(seat.shape, room).some(edge => edge.hi - edge.lo >= min));
+  const homeCost = (width: number): number => Math.min(...references.map(ref => width < ref.width[0] - 1e-6 || width > ref.width[2] + 1e-6 ? Infinity
+    : 20 * ((width - ref.width[1]) / ref.width[1]) ** 2 + (ref.key === own ? 0 : 2)));
+  const rejected = new Set<string>();
+  for (let attempt = 0; attempt < 8; attempt++) {
+    // best[i][a]: least cost covering ends[0..i] with a lounges
+    const best: ({ cost: number; from: number; amenity: boolean } | null)[][] = ends.map(() => Array(AMENITIES + 1).fill(null));
+    best[0]![0] = { cost: 0, from: -1, amenity: false };
+    for (let j = 1; j < ends.length; j++) for (let i = 0; i < j; i++) for (let used = 0; used <= AMENITIES; used++) {
+      const previous = best[i]![used];
+      if (!previous) continue;
+      const low = ends[i]!, high = ends[j]!, width = high - low, key = `${low}:${high}`;
+      const home = rejected.has(key) ? Infinity : homeCost(width);
+      if (Number.isFinite(home)) {
+        const seat = whole(low, high);
+        if (seat && reaches(seat, 4)) {
+          const cost = previous.cost + home;
+          if (!best[j]![used] || cost < best[j]![used]!.cost - 1e-9) best[j]![used] = { cost, from: i, amenity: false };
+        }
+      }
+      if (used < AMENITIES && width >= AMENITY_WIDTH[0] - 1e-6 && width <= AMENITY_WIDTH[1] + 1e-6) {
+        const seat = whole(low, high);
+        if (seat && reaches(seat, 2.2)) {
+          const cost = previous.cost + .6 + .05 * width;
+          if (!best[j]![used + 1] || cost < best[j]![used + 1]!.cost - 1e-9) best[j]![used + 1] = { cost, from: i, amenity: true };
+        }
+      }
+    }
+    const last = ends.length - 1;
+    const end = best[last]!.map((item, used) => ({ item, used })).filter(entry => entry.item)
+      .sort((a, b) => a.item!.cost - b.item!.cost)[0];
+    if (!end) return null;
+    const slots: { low: number; high: number; amenity: boolean }[] = [];
+    for (let j = last, used = end.used; j > 0;) {
+      const step = best[j]![used]!;
+      slots.unshift({ low: ends[step.from]!, high: ends[j]!, amenity: step.amenity });
+      if (step.amenity) used--;
+      j = step.from;
+    }
+    templateTrace(`strip ${strip.lu.toFixed(2)}x${strip.lv.toFixed(2)} turn ${own}: ${slots.map(slot => `${slot.amenity ? 'lounge' : 'home'} ${(slot.high - slot.low).toFixed(2)}`).join(', ')} cost ${end.item!.cost.toFixed(3)} cuts ${ends.map(n => (n - strip.u).toFixed(1)).join(',')}`);
+    const homes: (Dwelling & { seat: Seat })[] = [];
+    let failed = false;
+    for (const slot of slots) {
+      if (slot.amenity) continue;
+      const seat = whole(slot.low, slot.high)!, fitted = fit(seat);
+      if (!fitted) { rejected.add(`${slot.low}:${slot.high}`); failed = true; break; }
+      homes.push({ seat, ...fitted });
+    }
+    if (failed) continue;
+    return { homes, amenities: slots.filter(slot => slot.amenity).map(slot => ({ ...strip, u: slot.low, lu: slot.high - slot.low })) };
+  }
+  return null;
+}

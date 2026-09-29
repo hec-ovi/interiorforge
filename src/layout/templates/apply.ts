@@ -101,8 +101,13 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
       const target: TemplateTarget = { ...unit.target, seatLegal: (point: Point) => seatLegal(point), gridOrigin: origin, ...(ceiling ? { ceiling } : {}) };
       let fit: TemplateFit | null = null;
       let key = "";
-      for (let k = 0; k < dwellings.length && !fit; k++) {
-        const template = dwellings[(index + k) % dwellings.length]!;
+      // the reference whose own frontage the unit was cut to goes first, then the rest in turn
+      const [width] = widthDepth(unit.target);
+      const order = dwellings.map((_, k) => dwellings[(index + k) % dwellings.length]!)
+        .map((template, turn) => ({ template, turn, off: Math.abs(width - template.envelope.width) / template.envelope.width }))
+        .sort((a, b) => a.off - b.off || a.turn - b.turn).map(item => item.template);
+      for (let k = 0; k < order.length && !fit; k++) {
+        const template = order[k]!;
         if (!allowed(template)) continue;
         fit = safeFit(template, target, unit.id, ctx.ids, (candidate) =>
           probe(candidate, candidate.filter(room => room.unit === unit.id)));
