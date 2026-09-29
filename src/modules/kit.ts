@@ -141,6 +141,60 @@ export class Kit {
     });
   }
 
+  /** A plan outline (x, z) standing from y0 to y1 with its top edge rounded to `radius`
+   *  and its bottom edge eased by `bottom` (two facets per quarter round each): tabletops,
+   *  nightstands, seats, plinths of any plan shape. Sides meeting under 35 degrees share a
+   *  normal, so a curved plan reads round and a corner stays crisp. */
+  slab(slot: string, outline: readonly Point[], y0: number, y1: number, radius = .006, bottom = 0): void {
+    const area = outline.reduce((s, p, i) => { const q = outline[(i + 1) % outline.length]!; return s + p[0] * q[1] - q[0] * p[1]; }, 0);
+    const p = area < 0 ? [...outline].reverse() : [...outline], n = p.length;
+    const r = Math.min(radius, (y1 - y0) * .45), b = Math.min(bottom, (y1 - y0) * .45);
+    const edge = (i: number): [number, number] => {
+      const a = p[i]!, c = p[(i + 1) % n]!, dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz) || 1;
+      return [dz / l, -dx / l];
+    };
+    const cosCrease = Math.cos(35 * Math.PI / 180);
+    // Miter direction at a vertex (for insets) and the side normal seen from edge e.
+    const miter = (i: number): [number, number] => {
+      const e0 = edge((i - 1 + n) % n), e1 = edge(i), m = [e0[0] + e1[0], e0[1] + e1[1]], l = Math.hypot(m[0]!, m[1]!) || 1;
+      const u: [number, number] = [m[0]! / l, m[1]! / l], c = Math.max(.35, u[0] * e1[0] + u[1] * e1[1]);
+      return [u[0] / c, u[1] / c];
+    };
+    const sideNormal = (i: number, e: number): [number, number] => {
+      const self = edge(e), other = edge(e === i ? (i - 1 + n) % n : (i + 1) % n);
+      if (self[0] * other[0] + self[1] * other[1] < cosCrease) return self;
+      const m = [self[0] + other[0], self[1] + other[1]], l = Math.hypot(m[0]!, m[1]!) || 1;
+      return [m[0]! / l, m[1]! / l];
+    };
+    // Rings from the bottom: (height, inset, lift of the normal towards +y).
+    const s45 = Math.SQRT1_2;
+    const rings: [number, number, number][] = [
+      ...(b > 0 ? [[y0, b, -1], [y0 + b * (1 - s45), b * (1 - s45), -s45], [y0 + b, 0, 0]] as [number, number, number][] : [[y0, 0, 0]] as [number, number, number][]),
+      ...(r > 0 ? [[y1 - r, 0, 0], [y1 - r * (1 - s45), r * (1 - s45), s45], [y1, r, 1]] as [number, number, number][] : [[y1, 0, 0]] as [number, number, number][]),
+    ];
+    const at = (i: number, inset: number): [number, number] => { const m = miter(i); return [p[i]![0] - m[0] * inset, p[i]![1] - m[1] * inset]; };
+    const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
+    let along = 0;
+    for (let e = 0; e < n; e++) {
+      const i = e, j = (e + 1) % n, length = Math.hypot(p[j]![0] - p[i]![0], p[j]![1] - p[i]![1]);
+      for (let k = 0; k + 1 < rings.length; k++) {
+        const base = positions.length / 3;
+        for (const [v, ring] of [[i, rings[k]!], [j, rings[k]!], [j, rings[k + 1]!], [i, rings[k + 1]!]] as const) {
+          const [x, z] = at(v, ring[1]), side = sideNormal(v, e), lift = ring[2], flat = Math.sqrt(Math.max(0, 1 - lift * lift));
+          positions.push(x, ring[0], z); normals.push(side[0] * flat, lift, side[1] * flat);
+          uvs.push(along + (v === j ? length : 0), ring[0] - y0);
+        }
+        // Wound like a prism's side (bottom a, top a, top b, bottom b), outward.
+        indices.push(base, base + 3, base + 2, base, base + 2, base + 1);
+      }
+      along += length;
+    }
+    this.mesh.addSurface(slot, { positions, normals, uvs, indices });
+    const top = p.map((_, i) => at(i, r > 0 ? r : 0)), foot = p.map((_, i) => at(i, b > 0 ? b : 0));
+    this.mesh.addHorizontalPolygon(slot, top, y1, "up", this.mode(slot));
+    this.mesh.addHorizontalPolygon(slot, foot, y0, "down", this.mode(slot));
+  }
+
   /** Round tube through points (smooth, closed ends): taps, rails, bar pulls, frames. */
   tube(slot: string, points: Vec3[], radius: number, closed = false, sides = 12): void {
     tube(this, slot, points, radius, closed, sides);

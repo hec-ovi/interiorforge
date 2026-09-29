@@ -82,6 +82,18 @@ describe('kit shapes', () => {
     expect(g.max).toEqual([.03, .08, .25].map(v => expect.closeTo(v, 9)));
   });
 
+  it('stands a D-shaped slab with a rounded top edge inside its plan', () => {
+    const kit = new Kit(() => [1, 1]);
+    const plan: [number, number][] = [[-.25, 0], [.25, 0], [.25, .17]];
+    for (let i = 1; i < 16; i++) { const a = i / 16 * Math.PI; plan.push([.25 * Math.cos(a), .17 + .25 * Math.sin(a)]); }
+    plan.push([-.25, .17]);
+    kit.slab(SLOT, plan, .42, .5, .012, .004);
+    outward(kit);
+    const g = geometry(kit);
+    expect(g.min).toEqual([-.25, .42, 0].map(v => expect.closeTo(v, 6)));
+    expect(g.max).toEqual([.25, .5, .42].map(v => expect.closeTo(v, 6)));
+  });
+
   it('draws a round rod on request', () => {
     const kit = new Kit(() => [1, 1]);
     kit.rod(SLOT, [0, 0, 0], [0, .5, 0], .02, true);
