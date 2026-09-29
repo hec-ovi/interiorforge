@@ -1,3 +1,4 @@
+import { dressFloor } from './dressing.js';
 import { assertDoorwaysClear, floorDoorways, openFrontClearances } from '../geometry/door-clear.js';
 import type { BlueprintFloor, FloorKind, InteriorRequest, RoomKind } from '../core/types.js';
 import type { RoofAccessPlan } from '../layout/roof-access.js';
@@ -199,6 +200,8 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
             if (housing) floor.lights.push(...placeHousings(context, housing));
         }
     }
+    // The furniture's tops take the small things people keep on them, counters their stools.
+    dressFloor(builder, floor, { seed: `${request.seed}|${floor.floor}`, models, tier: request.building.tier });
     // Every record the room publishes is in now, so each luminaire takes the share that
     // lands the room in its kind's illuminance band.
     balanceIllumination(uv.rooms.map(room => ({ id: room.id, kind: room.kind, area: roomArea(room, plate) })), floor.lights, request.building.tier);
