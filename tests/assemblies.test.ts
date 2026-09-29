@@ -175,6 +175,8 @@ describe('the E6 kitchen wall', () => {
     placeAssembly(builder, floorOf(3.1), { ...record, fit: 'asm-e6-kitchen' }, ALL['asm-e6-kitchen']!, 3.1);
     expect(builder.placements.some(p => /^fit-e6-kitchen-upper-a/.test(p.module!))).toBe(true);
     expect(builder.placements.some(p => p.module === 'fit-e6-kitchen-bulkhead')).toBe(true);
+    // It stands off the record's back by its inset, clear of the suite's wall bays.
+    for (const { v } of vertices(builder.placements, meshes)) expect(v[2]).toBeGreaterThanOrEqual(-.375 + .1 - 1e-6);
     const windowed = floorOf(3.1, { openingReservations: [{ opening: 'w', kind: 'window', position: [0, -.375 - .2], angleDeg: 0, inward: [0, 1], width: 1.2, sill: .9, height: 1.4, depth: .2 }] as FloorInterior['openingReservations'] });
     const under = new FreeBuilder();
     placeAssembly(under, windowed, { ...record, fit: 'asm-e6-kitchen' }, ALL['asm-e6-kitchen']!, 3.1);

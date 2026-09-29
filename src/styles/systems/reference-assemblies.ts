@@ -84,7 +84,9 @@ export const E1_KITCHEN_WINDOW = kitchenSpec('e1', 'e1', ['drawers', 'sink', 'di
 export const B3_BAR = kitchenSpec('b3', 'bar', ['drawers', 'door', 'sink', 'door', 'display', 'drawers'], undefined, true);
 /** The E6 kitchen: an ivory moulded wall on the E1 carcass, a honed stone top, a grooved
  *  splash, cream uppers and a column with a tablet screen, whatever the record's height. */
-export const E6_KITCHEN: KitchenWallSpec = { ...kitchenSpec('e6', 'e1', ['sink', 'door', 'drawers', 'hob', 'door', 'drawers'], undefined, true), fullWall: true };
+export const E6_KITCHEN: KitchenWallSpec = { ...kitchenSpec('e6', 'e1', ['sink', 'door', 'drawers', 'hob', 'door', 'drawers'], undefined, true), fullWall: true,
+  // Off the timber wall bays, which stand up to 95 mm proud of the room outline.
+  inset: .1 };
 
 const E1_LOOK: KitchenLook = {
   carcass: LOOK.e1Housing, front: LOOK.e1Housing, toe: LOOK.black, kick: LOOK.e1Steel, top: LOOK.e1Steel, splash: LOOK.e1Splash, upper: LOOK.e1Housing,

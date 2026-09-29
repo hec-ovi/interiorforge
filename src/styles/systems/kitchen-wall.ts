@@ -99,7 +99,7 @@ export function windowAnchor(floor: FloorInterior, item: Furniture, frame: Local
 
 export function placeKitchenWall(builder: PlacementBuilder, floor: FloorInterior, item: Furniture, spec: KitchenWallSpec,
   ceilingY: number): LightFixture[] {
-  const frame = itemFrame(item), room = item.room, w = item.size[0], back = -item.size[1] / 2;
+  const frame = itemFrame(item), room = item.room, w = item.size[0], back = -item.size[1] / 2 + (spec.inset ?? 0);
   const floorY = item.elevation ?? 0, ceiling = ceilingY - floorY;
   const windows = windowsBehind(floor, item, frame);
   // A reservation lower than the room (a bar counter) keeps the assembly under its top: no

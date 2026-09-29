@@ -257,6 +257,9 @@ export interface KitchenWallSpec {
     /** stand the whole wall (uppers, bulkhead, column) whatever the record's height, unless a
      *  window is behind the run: a style's kitchen on a generic counter-height record */
     fullWall?: boolean;
+    /** metres the wall stands off the record's back edge: a generic record's back is the
+     *  room outline, and a style's wall panels stand proud of it */
+    inset?: number;
 }
 
 export interface HousingSpec {
