@@ -26,8 +26,9 @@ it('closes landing undersides, connected stair bodies and rear stairwell walls b
     try {
         for (const [id, geometry] of geometries) {
             const mesh = new Mesh(geometry, material); mesh.updateMatrixWorld();
-            // Level-zone slabs stand on the storey's structural slab (a pit's tray hangs below it): they are not plates of their own.
-            if (id.startsWith('floor-slab-') && !/-(platform|tread|sunken)$/.test(id)) {
+            // Level-zone slabs stand on the storey's structural slab (a pit's tray hangs below it), and
+            // a glass rock pit's walking glass spans its lit tray: neither is a plate of its own.
+            if (id.startsWith('floor-slab-') && !/-(platform|tread|sunken|pit(-[a-z0-9-]+)?)$/.test(id)) {
                 expect(hits([mesh], [.071, -.16, .037], [0, 1, 0], .02), `${id} underside`).toHaveLength(1);
                 // A support under separate finish skins shows its edge below the skin.
                 expect(hits([mesh], [.26, id.endsWith('-support') ? -.03 : -.01, .037], [-1, 0, 0], .02), `${id} finished edge`).toHaveLength(1);

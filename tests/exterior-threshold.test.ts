@@ -94,7 +94,9 @@ it.each([0, 37])('keeps the actual Meridian shell and room finish continuous wit
                 if (clipped) { geometries.push(clipped); meshes.push(new Mesh(clipped, material)); }
             }
         }
-        for (const placement of interior.layouts.ground!.placements.filter(p => p.module?.startsWith('floor-slab-'))) {
+        // A reference style's floor system lays its finish tiles on a support 2 mm below the walking
+        // surface, so the finish the threshold meets is the tile, not the slab.
+        for (const placement of interior.layouts.ground!.placements.filter(p => p.module?.startsWith('floor-slab-') || p.module?.startsWith('floor-finish-'))) {
             const positions: number[] = [], indices: number[] = [], recipe = recipes.get(placement.module!)!;
             for (const slot of recipe.mesh.materials()) {
                 const group = recipe.mesh.getGroup(slot)!, base = positions.length / 3;
