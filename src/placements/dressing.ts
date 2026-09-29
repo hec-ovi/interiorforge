@@ -135,7 +135,9 @@ export function dressFloor(builder: PlacementBuilder, floor: FloorInterior, opti
       return recipe ? { id, module: id, size: [recipe.size[0], recipe.size[2], recipe.size[1]] } : null;
     }
     const asset = catalog.get(id);
-    if (!asset?.dimensionsMeters || !options.models.present.has(id)) return null;
+    if (!asset?.dimensionsMeters) return null;
+    // A model the runtime lacks is reported like any furniture model found absent.
+    if (!options.models.present.has(id)) { options.models.missing.add(id); return null; }
     return { id, prop: asset, size: asset.dimensionsMeters };
   };
   const added: Placement[] = [], used = new Map<string, Set<string>>();

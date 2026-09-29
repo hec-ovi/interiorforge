@@ -119,7 +119,7 @@ function binder(k: Kit, x: number, y: number, dark: boolean): void {
     // label window on the spine.
     k.bevelBox(dark ? R1.ink : R1.white, [x - .028, y, .03], [.056, h, .24], .006);
     k.bevelBox(R1.paper, [x - .016, y + h * .55, .268], [.032, h * .25, .003], .002);
-    k.tube(R1.black, Array.from({ length: 13 }, (_, i) => { const a = i / 12 * Math.PI * 2; return [x + Math.cos(a) * .011, y + h * .25 + Math.sin(a) * .011, .2705] as [number, number, number]; }), .0022, true, 6);
+    k.tube(R1.black, Array.from({ length: 8 }, (_, i) => { const a = i / 8 * Math.PI * 2; return [x + Math.cos(a) * .011, y + h * .25 + Math.sin(a) * .011, .2705] as [number, number, number]; }), .0022, true, 4);
 }
 
 /** A bronze lip under the front of the lowest board, where a bay does not fit. */

@@ -36,7 +36,7 @@ const bevel = (k: Kit, slot: string, x0: number, x1: number, y0: number, y1: num
     k.bevelBox(slot, [x0, y0, z0], [x1 - x0, y1 - y0, z1 - z0], r);
 /** Tight upholstery: rounded, crowned, with small tension folds at the seams. */
 const cushion = (k: Kit, x: number, y: number, z: number, w: number, h: number, d: number, extra: SoftOptions = {}) =>
-    softBox(k, E1_SLOT.upholstery, [x, y, z], [w, h, d], { radius: .035, crown: .01, wrinkles: .0012, detail: 10, ...extra });
+    softBox(k, E1_SLOT.upholstery, [x, y, z], [w, h, d], { radius: .035, crown: .01, wrinkles: .0012, detail: 7, ...extra });
 
 const T = E1_BUILT_INS.terrarium;
 /** A (y, z) section with rounded front corners, for stretched cells (swept along x). */
