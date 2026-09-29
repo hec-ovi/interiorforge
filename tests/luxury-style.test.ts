@@ -6,7 +6,8 @@ import type { LuxuryGroup } from '../src/layout/luxury/schema.js';
 import { Kit } from '../src/modules/kit.js';
 import { luxuryFurnitureRecipes } from '../src/styles/luxury/modules.js';
 import { LUXURY_REFERENCE_FITS } from '../src/styles/luxury/profile.js';
-import { generate, makePlacementFixture } from '../src/index.js';
+import { generate, makePlacementFixture, type PlacementResult } from '../src/index.js';
+import { templateSwitch } from '../src/layout/templates/registry.js';
 import { assembly } from './fixtures.js';
 
 it('keeps authored luxury furniture geometry inside the reserved width/depth and on the floor', () => {
@@ -79,8 +80,15 @@ it('furnishes every bedroom in the six-floor translated luxury review shell', as
       buildingGrid: { origin: [81.5, 34], angle: 0, spacing: 0.5 } },
     building: { type: 'residential', tier: 'high_rich', floors: 6 },
     theme: 'cyberpunk', options: { architecture: 'mirror-frame', glb: 'merged' } }, { textures: { mode: 'keys' } });
-  const result = await generate({ seed: 'luxury-reference-review', building: { id: 'p0', type: 'residential', tier: 'high_rich' },
-    blueprint, materialTheme: 'cyberpunk' });
+  // Kind A homes now take the reference apartments with their own beds; the full luxury bed is the generic program they fall back to.
+  templateSwitch.enabled = false;
+  let result: PlacementResult;
+  try {
+    result = await generate({ seed: 'luxury-reference-review', building: { id: 'p0', type: 'residential', tier: 'high_rich' },
+      blueprint, materialTheme: 'cyberpunk' });
+  } finally {
+    templateSwitch.enabled = true;
+  }
   // The residential arrival seats its waiting bays in the lounges beside the reception.
   const arrival = new Set(result.layouts.ground!.floor.rooms.filter(room => room.kind === 'reception' || room.kind === 'lounge').map(room => room.id));
   const receptionFurniture = result.layouts.ground!.floor.furniture.filter(piece => arrival.has(piece.room));
