@@ -6,6 +6,8 @@ import type { PlanRoom } from '../src/layout/plan-types.js';
 import { privacyReturns } from '../src/layout/privacy-returns.js';
 import { constructionPlate, facadeDepth } from '../src/layout/shell.js';
 import { makeFrame, uvRectCorners } from '../src/layout/uv.js';
+import { generate } from '../src/index.js';
+import { expectBuildingLevels } from './building-levels.js';
 
 const blueprint: Blueprint = JSON.parse(readFileSync(new URL('./kit-plans/balcony-grid-review-05.blueprint.json', import.meta.url), 'utf8'));
 const room = (id: string, unit: string | undefined, u: number, v: number, lu: number, lv: number): PlanRoom => ({
@@ -44,4 +46,13 @@ it('keeps the same authoritative facade anchors for a rotated building frame', (
     expect(part.axis).toBe(original[index]!.axis);
     for (const key of ['a', 'b', 'c'] as const) expect(part[key]).toBeCloseTo(original[index]![key], 6);
   });
+});
+
+it('leaves out a return whose elbow would run into the facade wall of a corner, rather than breaching the shell', { timeout: 240000 }, async () => {
+  // The 5 by 10 bay high rich mirror-shutters kit plan furnished as mid homes: one corridor's
+  // elbow on its first floor once stood inside the wall depth of the adjoining facade edge.
+  const id = 'mirror-shutters-commercial-high_rich-5x10x3f';
+  const plan: Blueprint = JSON.parse(readFileSync(new URL(`./kit-plans/${id}.blueprint.json`, import.meta.url), 'utf8'));
+  const built = await generate({ seed: id, building: { id, type: 'residential', tier: 'mid' }, blueprint: plan, materialTheme: 'cyberpunk' });
+  expectBuildingLevels(built, plan.floors.length);
 });

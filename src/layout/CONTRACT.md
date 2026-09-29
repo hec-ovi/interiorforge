@@ -91,7 +91,10 @@ the floor. The pier check reads only walls the floor builds: an edge on the plat
 is open perimeter and needs no seat. The floor's own spine, where every route starts,
 never degrades: an unreachable spine is still `E_UNREACHABLE_SPACE`. A further corridor
 or concourse that a stair or lift shaft cuts off the spine, with no wall a repair door can
-open, is dropped like any other room. Core feasibility
+open, is dropped like any other room. Where a public/private partition ends facing glass,
+an elbow along the construction envelope closes its bypass at an opaque facade pier; near
+a facade corner, where that elbow would stand inside another edge's wall depth, the return
+is left out rather than breaching the shell. Core feasibility
 reserves the 1.6 m minimum room depth. Service programs shrink rooms by 0.5 m to
 2 m square, then omit them, in this order: executive office, meeting, storage,
 locker room, kitchen, toilets. Each attempt retains room space and corridor contact.

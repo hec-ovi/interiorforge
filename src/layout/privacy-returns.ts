@@ -1,4 +1,4 @@
-import { distanceToSegment, type Point } from '../core/geom.js';
+import { boundaryDistance, distanceToSegment, type Point } from '../core/geom.js';
 import type { BlueprintFloor, Facade as FacadeDefinition, RoomKind } from '../core/types.js';
 import { commonTransit } from './architecture-access.js';
 import { Facade } from './openings.js';
@@ -71,6 +71,9 @@ export function privacyReturns(rooms: readonly PlanRoom[], plate: readonly Point
       // segment 2cm at the joint, so retain a further 5mm fit seam at that face.
       const inset = shellWallDepth(definition) + .025;
       const landing: Point = [anchor[0] - outward[0] * inset, anchor[1] - outward[1] * inset];
+      // Near a facade corner the elbow can run inside another edge's wall: that return
+      // is left out rather than pushed into the shell.
+      if (!clearOfShell(tip, bend, outline, inset - .025) || !clearOfShell(bend, landing, outline, inset - .025)) continue;
       add(tip, bend, shared);
       add(bend, landing, shared);
       tips.add(key);
@@ -94,6 +97,17 @@ export function privacyReturns(rooms: readonly PlanRoom[], plate: readonly Point
       a: Math.min(a[horizontal ? 0 : 1], b[horizontal ? 0 : 1]),
       b: Math.max(a[horizontal ? 0 : 1], b[horizontal ? 0 : 1]), room: owner.id, kind: owner.kind });
   }
+}
+
+/** Whether a return segment, as the walls emit it (2 cm past each end, 5 cm either side
+ *  of its line), keeps out of every facade edge's wall depth. */
+function clearOfShell(a: Point, b: Point, outline: readonly Point[], wallDepth: number): boolean {
+  const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (length < .01) return true;
+  const along: Point = [(b[0] - a[0]) / length, (b[1] - a[1]) / length], side: Point = [-along[1], along[0]];
+  return [[a, -.02], [b, .02]].every(([end, reach]) => [-.05, .05].every(offset => boundaryDistance(
+    [(end as Point)[0] + along[0] * (reach as number) + side[0] * offset, (end as Point)[1] + along[1] * (reach as number) + side[1] * offset],
+    outline) >= wallDepth - 1e-6));
 }
 
 function rayFacade(origin: Point, direction: Point, outline: Point[]): { point: Point; distance: number } | null {
