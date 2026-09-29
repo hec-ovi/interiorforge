@@ -1,6 +1,6 @@
 import type { Rect } from "../core/geom.js";
 import type { Point } from "../core/geom.js";
-import type { RoomKind, FurnitureKind } from "../core/types.js";
+import type { RoomKind, FurnitureKind, StyleId } from "../core/types.js";
 import type { UvRect } from "./uv.js";
 
 /** Working representation while planning one floor, all in uv space. */
@@ -62,7 +62,7 @@ export interface PlanRoom {
   };
   doors: PlanDoor[];
   /** reference style id of the room (`e1`…`r1`), stamped by templates and kind policy */
-  style?: string;
+  style?: StyleId;
   /** `<template key>/<template room id>` for rooms an authored SpaceTemplate produced */
   template?: string;
   /** reference meaning inside the closed room kind: foyer, dressing, bar, study, … */

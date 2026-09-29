@@ -1039,7 +1039,12 @@ const DEFINING: Partial<Record<string, readonly FurnitureKind[]>> = {
   reception: ['reception_desk'], bar: ['bar_counter'],
 };
 
+/** Public rooms whose authored pieces add to the family's own furnishing. */
+const ADDITIVE: ReadonlySet<string> = new Set(['reception', 'office_open', 'lounge', 'corridor', 'elevator_lobby',
+  'concourse', 'dining_area', 'sales_floor', 'mechanical_room', 'storage', 'toilets']);
+
 function authoredComplete(room: PlanRoom, placed: readonly PlanFurniture[]): boolean {
+  if (ADDITIVE.has(room.kind)) return false;
   const defining = DEFINING[room.kind];
   return !defining || placed.some(item => item.room === room.id && defining.includes(item.kind));
 }

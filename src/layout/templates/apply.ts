@@ -1,6 +1,6 @@
 import type { Point } from "../../core/geom.js";
 import { boundaryDistance, clipPolygonToRect, polygonArea, polygonBounds } from "../../core/geom.js";
-import type { BlueprintFloor, FloorKind, InteriorRequest } from "../../core/types.js";
+import type { BlueprintFloor, FloorKind, InteriorRequest, RoomKind } from "../../core/types.js";
 import { commonTransit } from "../architecture-access.js";
 import { WALL } from "../constants.js";
 import type { CorePlan } from "../core-plan.js";
@@ -14,10 +14,10 @@ import { MIN_STRETCH, type IdGen } from "../rooms.js";
 import type { ProgramChange } from "../service-program.js";
 import { facadeDepth } from "../shell.js";
 import { gridOrigin } from "../tile-fit.js";
-import { toWorldPolygon, uvToWorld, type UvRect } from "../uv.js";
+import { toWorldPolygon, uvToWorld, worldToUv, type UvRect } from "../uv.js";
 import { fitTemplate } from "./fit.js";
 import { dwellingTemplates, publicTemplates } from "./registry.js";
-import type { SpaceTemplate, TemplateFit, TemplateTarget } from "./schema.js";
+import type { PublicSlot, SpaceTemplate, TemplateFit, TemplateTarget } from "./schema.js";
 
 export interface TemplateContext {
   request: InteriorRequest;
@@ -52,8 +52,10 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
   const changes: ProgramChange[] = [];
   let rooms = ctx.rooms;
   const dwellings = ctx.templates?.dwellings ?? dwellingTemplates(ctx.request, ctx.kind);
-  const hall = ctx.templates?.hall ?? publicTemplates(ctx.request, ctx.kind, "hall");
-  if (!dwellings.length && !hall.length) return { rooms, changes, templated };
+  const slots = SLOT_TARGETS.map(item => ({ ...item,
+    templates: item.slot === "hall" && ctx.templates?.hall ? ctx.templates.hall : publicTemplates(ctx.request, ctx.kind, item.slot) }))
+    .filter(item => item.templates.length);
+  if (!dwellings.length && !slots.length) return { rooms, changes, templated };
   const facade = new Facade(ctx.floor, ctx.request.blueprint.facade);
   const reach = facadeDepth(ctx.request.blueprint.facade) + WALL / 2;
   const seatCache = new Map<string, boolean>();
@@ -101,22 +103,31 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
     });
   }
 
-  if (hall.length) {
-    const halls = rooms.filter(room => !room.unit && room.kind === "office_open" && !ctx.exclude?.has(room.id))
-      .sort((a, b) => roomArea(b) - roomArea(a) || a.id.localeCompare(b.id)).slice(0, 2);
-    halls.forEach((room, index) => {
-      const template = hall[index % hall.length]!;
+  // Common rooms an authored public template refines in place: it keeps the room's id and
+  // doors and carves its own rooms out of it (office halls, lobbies, restrooms, plant rooms).
+  const street = streetDoor(ctx);
+  for (const slot of slots) {
+    const targets = rooms.filter(room => !room.unit && slot.kinds.includes(room.kind) && !ctx.exclude?.has(room.id))
+      .sort((a, b) => roomArea(b) - roomArea(a) || a.id.localeCompare(b.id)).slice(0, slot.count);
+    targets.forEach((room, index) => {
+      const fitting = slot.templates.filter(t => remainderKind(t) === room.kind || slot.slot === "hall");
+      if (!fitting.length) return;
+      const template = fitting[index % fitting.length]!;
       const facadeEdges = facadeEdgesOf(room.rect, ctx.plate);
-      for (const entryEdge of ["v0", "v1", "u0", "u1"] as EdgeName[]) {
-        if (!facadeEdges.includes(opposite(entryEdge))) continue;
+      for (const entryEdge of entryEdges(slot.slot, room, facadeEdges, template, street)) {
         const target: TemplateTarget = { rect: room.rect, polygon: roomPolygon(room, ctx.outline),
           ...(room.holes?.length ? { holes: room.holes } : {}), entryEdge, publicRoom: room, facadeEdges,
           seatLegal, gridOrigin: origin };
         const fit = safeFit(template, target, undefined, ctx.ids, (candidate) => {
           const kept = candidate.find(item => item.id === room.id)!;
-          // every room that opened onto the hall still shares a wall with what is left of it
+          const reaches = (a: PlanRoom, b: PlanRoom) => sharedRoomEdges(a, b).some(edge => edge.hi - edge.lo >= MIN_STRETCH);
+          // every room that opened onto it still shares a wall with what is left of it, and so
+          // does every room its own doors lead to
           const stillReached = rooms.every(other => other === room || !other.doors.some(door => door.to === room.id)
-            || sharedRoomEdges(other, kept).some(edge => edge.hi - edge.lo >= MIN_STRETCH));
+            || reaches(other, kept)) && kept.doors.every(door => {
+              const other = rooms.find(item => item.id === door.to);
+              return !other || reaches(kept, other);
+            });
           return stillReached && probe(candidate, candidate.filter(item => item.id !== room.id));
         }, room);
         if (!fit) continue;
@@ -138,6 +149,43 @@ function safeFit(template: SpaceTemplate, target: TemplateTarget, unit: string |
     // a template problem refuses the template, never the building
     return null;
   }
+}
+
+const SPINE = new Set(["corridor", "elevator_lobby", "concourse"]);
+
+/** Which common rooms each public slot refines, and how many per floor. */
+const SLOT_TARGETS: { slot: PublicSlot; kinds: RoomKind[]; count: number }[] = [
+  { slot: "hall", kinds: ["office_open"], count: 2 },
+  { slot: "ground-front", kinds: ["reception"], count: 1 },
+  { slot: "service", kinds: ["toilets", "mechanical_room"], count: 4 },
+];
+
+function remainderKind(template: SpaceTemplate): RoomKind | undefined {
+  return template.rooms.find(room => room.remainder && room.level !== "upper")?.kind;
+}
+
+/** Local entry edges to try for a refined common room: a hall looks out of its far wall,
+ *  a lobby turns its front to the street door, a service room to its own door. */
+function entryEdges(slot: PublicSlot, room: PlanRoom, facade: EdgeName[], template: SpaceTemplate,
+  street: Point | null): EdgeName[] {
+  const all: EdgeName[] = ["v0", "v1", "u0", "u1"];
+  if (slot === "hall" || template.daylight.length) return all.filter(edge => facade.includes(opposite(edge)));
+  const r = room.rect;
+  const at = slot === "ground-front" ? street : room.doors[0] ? doorUvPoint(room.doors[0], room) : null;
+  if (!at) return all;
+  const distance = (edge: EdgeName) => edge === "v0" ? Math.abs(at[1] - r.v) : edge === "v1" ? Math.abs(at[1] - r.v - r.lv)
+    : edge === "u0" ? Math.abs(at[0] - r.u) : Math.abs(at[0] - r.u - r.lu);
+  return [...all].sort((a, b) => distance(a) - distance(b));
+}
+
+/** The main street door of the floor, in uv, when it has one. */
+function streetDoor(ctx: TemplateContext): Point | null {
+  const openings = ctx.floor.openings.filter(o => o.kind !== "window");
+  const main = openings.find(o => (o as { doorRole?: string }).doorRole === "main") ?? openings[0];
+  if (!main) return null;
+  const a = ctx.floor.outline[main.edge]!, b = ctx.floor.outline[(main.edge + 1) % ctx.floor.outline.length]!;
+  const length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = (main.offset + main.width / 2) / length;
+  return worldToUv([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], ctx.core.frame);
 }
 
 interface Unit { id: string; rooms: PlanRoom[]; target: Omit<TemplateTarget, "seatLegal" | "gridOrigin">; angle: number; at: Point }
@@ -172,8 +220,10 @@ function discoverUnits(rooms: PlanRoom[], ctx: TemplateContext): Unit[] {
     for (const other of rooms) if (commonTransit(other)) for (const door of other.doors) {
       if (own.some(room => room.id === door.to)) entries.push({ door, owner: other, common: other });
     }
-    if (entries.length !== 1 || entries[0]!.door.openFront) continue;
-    const { door, owner, common } = entries[0]!;
+    // one public door; a unit that also opens onto a lounge keeps its corridor door
+    const spine = entries.length > 1 ? entries.filter(entry => SPINE.has(entry.common.kind)) : entries;
+    if (spine.length !== 1 || spine[0]!.door.openFront) continue;
+    const { door, owner, common } = spine[0]!;
     const at = doorUvPoint(door, owner);
     const edge = edgeAt(rect, at);
     if (!edge) continue;

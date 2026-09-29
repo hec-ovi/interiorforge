@@ -10,6 +10,7 @@ import { RoomRegion } from './room-region.js';
 import { roomArea, roomClearance, roomCoversRect, roomPolygon, sharedRoomEdges, type RoomShape } from './room-shape.js';
 import { BAND_CLEAR, doorBetween, doorWidthOn, MIN_STRETCH, type IdGen } from './rooms.js';
 import { makeFrame, snap, toUvPolygon, toWorldPolygon, uvRectCorners, worldToUv, type UvRect } from './uv.js';
+import { unitSizing } from './templates/registry.js';
 
 interface Part extends RoomShape { kind: RoomKind }
 interface Seat { rect: UvRect; shape: RoomShape }
@@ -124,7 +125,11 @@ export function planPerimeterResidential(request: InteriorRequest, floor: Bluepr
     };
     let completed = false;
     for (let attempt = 0; attempt < 12 && !completed; attempt++) {
-      const slots = facadeSlots(ends, 150 / strip.lv, accepts);
+      // A kind building aims its homes at its reference apartment's frontage, within the
+      // same complete-home area window.
+      const sizing = unitSizing(request, 'apartment');
+      const preferred = sizing ? Math.max(135 / strip.lv, Math.min(sizing.preferred[0], 290 / strip.lv)) : 150 / strip.lv;
+      const slots = facadeSlots(ends, preferred, accepts);
       if (!slots.length || Math.abs(slots.reduce((sum, [low, high]) => sum + high - low, 0) - strip.lu) > 1e-5) {
         if (maximumArea === 300) { maximumArea = gridPhaseArea; continue; }
         diagnostics.push(`strip ${strip.lu.toFixed(2)}×${strip.lv.toFixed(2)}m at ${strip.u.toFixed(2)},${strip.v.toFixed(2)} cannot cover its full frontage with complete 135–${maximumArea.toFixed(2)}m² homes; legal cuts ${ends.map(n => n.toFixed(2)).join(',')}`);

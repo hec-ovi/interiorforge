@@ -4,7 +4,7 @@
   "scope": "dwelling",
   "style": "c6",
   "use": { "floorKinds": ["apartment", "residence_studio", "hotel_rooms"], "kinds": ["C"] },
-  "envelope": { "width": 5.5, "depth": 6.5, "min": [4.6, 5.8], "max": [11.0, 13.0] },
+  "envelope": { "width": 5.5, "depth": 6.5, "min": [4.6, 5.8], "max": [16.5,  19.5] },
   "entry": { "room": "studio", "door": "entry" },
   "daylight": ["v1"],
   "mirror": "allow",

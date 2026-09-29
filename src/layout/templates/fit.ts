@@ -40,8 +40,9 @@ export function fitTemplate(t: SpaceTemplate, target: TemplateTarget, unit: stri
   let best: (TemplateFit & { frame: LocalFrame }) | null = null;
   for (const mirrored of mirrors) {
     const frame = localFrame(target.rect, target.entryEdge, mirrored);
+    // a hall's remainder absorbs any size above the minimum; a dwelling stays within its envelope
     if (frame.width < t.envelope.min[0] - EPS || frame.depth < t.envelope.min[1] - EPS
-      || frame.width > t.envelope.max[0] + EPS || frame.depth > t.envelope.max[1] + EPS)
+      || !keepRemainder && (frame.width > t.envelope.max[0] + EPS || frame.depth > t.envelope.max[1] + EPS))
       return refuse(`${t.id}: target ${frame.width.toFixed(2)}x${frame.depth.toFixed(2)} outside the envelope`);
     if (!t.daylight.every(edge => target.facadeEdges.includes(edgeToUv(frame, edge)))) {
       trace?.(`${t.id}: no daylight on ${t.daylight.join(',')} (facade ${target.facadeEdges.join(',')}, entry ${target.entryEdge})`);

@@ -8,6 +8,9 @@ import type { PublicSlot, SpaceTemplate, TemplateKey } from "./schema.js";
 export const TEMPLATES: ReadonlyMap<TemplateKey, SpaceTemplate> = new Map(
   (TEMPLATE_DATA as SpaceTemplate[]).map(template => [template.id, template]));
 
+/** Test and review switch: false plans every floor with its generic program alone. */
+export const templateSwitch = { enabled: true };
+
 /** The reference kind of a request (plan §2.2, `styles/reference/kinds.ts`). */
 export const templateKind = referenceKind;
 
@@ -15,7 +18,7 @@ export const templateKind = referenceKind;
  *  floor kind. */
 export function floorPolicy(request: InteriorRequest, kind: FloorKind): FloorPolicy | null {
   const policy = kindFloorPolicy(request, kind);
-  if (!policy) return null;
+  if (!policy || !templateSwitch.enabled) return null;
   const allowed = (key: TemplateKey) => TEMPLATES.has(key) && TEMPLATES.get(key)!.use.floorKinds.includes(kind);
   return { ...policy, dwellings: policy.dwellings.filter(allowed),
     public: policy.public.map(slot => ({ ...slot, templates: slot.templates.filter(allowed) })).filter(slot => slot.templates.length) };

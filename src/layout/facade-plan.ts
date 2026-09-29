@@ -24,6 +24,7 @@ import { planCapsuleResidential } from '../styles/capsule/layout.js';
 import { absorbDamagedSlivers, damagedCorridorRect, isDamagedResidential, planDamagedResidential } from '../styles/damaged/layout.js';
 import { damagedDwellingProgram } from '../styles/damaged/dwelling-program.js';
 import { fitDamagedGroundPublicDoors, planDamagedGround } from '../styles/damaged/ground-program.js';
+import { unitSizing } from './templates/registry.js';
 
 const UNIT_PROGRAM: Partial<Record<FloorKind, { main: RoomKind; service: RoomKind }>> = {
   apartment: { main: "studio_main", service: "bathroom" },
@@ -105,8 +106,12 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
       [{ u: bounds.x, v: bounds.z, lu: bounds.w, lv: frame.corridor.v - bounds.z }, "v1"],
       [{ u: bounds.x, v: core.vFace, lu: bounds.w, lv: bounds.z + bounds.d - core.vFace }, "v0"],
     ];
+    // A kind building sizes its homes toward its reference apartments and accepts the
+    // shallower strips its smallest template still furnishes.
+    const sizing = residential ? unitSizing(request, kind) : null;
+    const minDepth = sizing ? Math.min(MIN_UNIT.depth, sizing.depth[0]) : MIN_UNIT.depth;
     for (const [strip, side] of strips) {
-      if (strip.lv < MIN_UNIT.depth) continue;
+      if (strip.lv < minDepth) continue;
       const cuts = seats.cuts(strip, side, MIN_UNIT.endCommon);
       const frontage = interiorRecipe(request)?.frontage ?? [8, 12];
       const envelope = (low: number, high: number) => {
@@ -114,10 +119,11 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
         return residential ? residentialEnvelope(available, side) : available;
       };
       const targetArea = residentialTarget(request.building.tier);
-      const preferred = residential ? targetArea / Math.min(10, strip.lv) : rng.range(frontage[0]!, frontage[1]!);
+      const preferred = residential ? sizing ? sizing.preferred[0] : targetArea / Math.min(10, strip.lv)
+        : rng.range(frontage[0]!, frontage[1]!);
       const fits = (minimum: number) => (low: number, high: number): boolean => {
         const rect = envelope(low, high);
-        if (rect.lu < MIN_UNIT.width || rect.lv < MIN_UNIT.depth || occupied.some(cut => overlaps(rect, cut))) return false;
+        if (rect.lu < MIN_UNIT.width || rect.lv < minDepth || occupied.some(cut => overlaps(rect, cut))) return false;
         const polygon = clipPolygonToRect(plate, toRect(rect));
         return Math.abs(polygonArea(polygon)) >= minimum
           && Math.abs(polygonArea(polygon)) >= rect.lu * rect.lv * 0.9

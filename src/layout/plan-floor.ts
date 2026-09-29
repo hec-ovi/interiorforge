@@ -80,7 +80,7 @@ export function planFloor(
   isSpanUpper: boolean, spaceHeight: number, fallback: ProgramFallback = 0,
 ): PlannedFloor {
   const offered = !isSpanUpper && (dwellingTemplates(request, kind).length > 0
-    || publicTemplates(request, kind, "hall").length > 0);
+    || (["hall", "ground-front", "service"] as const).some(slot => publicTemplates(request, kind, slot).length > 0));
   if (!offered) return planFloorWith(request, core, floor, kind, isSpanUpper, spaceHeight, fallback, null);
   const run: TemplateRun = { exclude: new Set(), templated: new Map() };
   for (let attempt = 0; attempt < 6; attempt++) {
