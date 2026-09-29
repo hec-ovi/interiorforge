@@ -53,8 +53,9 @@ export function placeTallRun(builder: PlacementBuilder, floor: FloorInterior, it
     { furniture: item.id })];
 }
 
-/** A kitchen island or bar block: a top slab over the whole record, a recessed base (the E1
- *  caustic glass block, a walnut pedestal) and a plinth, with a glow record per long side. */
+/** A kitchen island or bar block: a top slab over the whole record at its height, a recessed
+ *  base (the E1 caustic glass block, a walnut pedestal; a plain block, so it may stretch in
+ *  y) and a plinth, with a glow record per long side. */
 export interface IslandSpec {
   /** one cell square in plan, stretched x and z; its height is the slab */
   top: string;
@@ -68,17 +69,19 @@ export interface IslandSpec {
 
 export function placeIsland(builder: PlacementBuilder, floor: FloorInterior, item: Furniture, spec: IslandSpec,
   _ceilingY: number): LightFixture[] {
-  const frame = itemFrame(item), room = item.room, [w, d] = item.size;
+  const frame = itemFrame(item), room = item.room, [w, d, h] = item.size;
   const top = moduleSize(spec.top), base = moduleSize(spec.base);
   const bw = Math.max(.2, w - 2 * spec.overhang), bd = Math.max(.2, d - 2 * spec.overhang);
+  // The top stands at the record's height; the base (a plain block) takes up the difference.
+  const baseH = h > top[1] + .3 ? h - top[1] : base[1];
   if (spec.plinth) {
     const plinth = moduleSize(spec.plinth);
     frame.place(builder, spec.plinth, room, 0, 0, 0, [(bw - .04) / plinth[0], 1, (bd - .04) / plinth[2]]);
   }
-  frame.place(builder, spec.base, room, 0, 0, 0, [bw / base[0], 1, bd / base[2]]);
-  frame.place(builder, spec.top, room, 0, base[1], 0, [w / top[0], 1, d / top[2]]);
+  frame.place(builder, spec.base, room, 0, 0, 0, [bw / base[0], baseH / base[1], bd / base[2]]);
+  frame.place(builder, spec.top, room, 0, baseH, 0, [w / top[0], 1, d / top[2]]);
   if (!spec.glow) return [];
-  return [1, -1].map((side, i) => lensRecord(frame, room, `${item.id}-lens-${i}`, 0, base[1] / 2, side * bd / 2, bw, floor.elevation,
+  return [1, -1].map((side, i) => lensRecord(frame, room, `${item.id}-lens-${i}`, 0, baseH / 2, side * bd / 2, bw, floor.elevation,
     { lumensPerMetre: spec.glow!.lumensPerMetre, kelvin: spec.glow!.kelvin, color: spec.glow!.color, facing: 'down', beamDeg: 160, range: 1.2 },
     { furniture: item.id }, [0, -1, 0]));
 }

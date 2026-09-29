@@ -247,6 +247,14 @@ export const E1_DISPLAY: TallRunSpec = {
     filler: 'fit-e1-display-back', height: 2.4, depth: .4 },
   bulkhead: 'fit-e1-display-bulkhead',
 };
+export const B3_MEDIA: RunSpec = {
+  start: 'fit-b3-media-end', end: 'fit-b3-media-end', mid: 'fit-b3-media-top', repeat: { module: 'fit-b3-media-bay', pitch: .75 },
+  filler: 'fit-b3-media-filler', height: .6, depth: .45,
+};
+export const E5_BAR: RunSpec = {
+  start: 'fit-e5-bar-end', end: 'fit-e5-bar-end', mid: 'fit-e5-bar-top', repeat: { module: 'fit-e5-bar-bay', pitch: .6 },
+  filler: 'fit-e5-bar-filler', height: 1.1, depth: .45,
+};
 export const R1_LIBRARY: RunSpec = {
   mid: 'fit-r1-library-boards', repeat: { module: 'fit-r1-library-bay', pitch: .9 }, filler: 'fit-r1-library-gap', height: .9, depth: .3,
 };
@@ -283,6 +291,15 @@ const HOUSING: Point[] = [[0, 0], [.35, 0], [.35, .45], [.12, .45],
 
 const kindA: RecipeSet = add => {
   kitchenRecipes('e1', E1_LOOK, E1_KITCHEN)(add);
+  // E5 back bar storage: ivory door bays between mineral ends, a mineral top, a dark plinth.
+  add('fit-e5-bar-end', k => box(k, LOOK.e5Mineral, -.02, .02, 0, 1.1, 0, .45));
+  add('fit-e5-bar-top', k => { box(k, LOOK.e5Stone, -.25, .25, 1.06, 1.1, 0, .45); box(k, LOOK.black, -.25, .25, 0, .08, .03, .41); });
+  add('fit-e5-bar-filler', k => box(k, LOOK.e5Ivory, -.25, .25, .08, 1.06, 0, .44));
+  add('fit-e5-bar-bay', k => {
+    box(k, LOOK.e5Ivory, -.2985, .2985, .08, 1.06, 0, .43);
+    box(k, LOOK.e5Ivory, -.297, .297, .083, 1.057, .43, .445);
+    box(k, LOOK.bronze, .22, .232, .5, .9, .445, .449);
+  });
   add('fit-e1-island-top', k => box(k, LOOK.e1IslandTop, -.25, .25, 0, .08, -.25, .25));
   add('fit-e1-island-base', k => { box(k, LOOK.e1Caustic, -.25, .25, 0, .94, -.25, .25); box(k, LOOK.black, -.25, .25, .925, .94, -.252, .252); });
   add('fit-e1-planter-body', k => { yzPrism(k, LOOK.e1Cream, TROUGH, -.25, .25, false); box(k, LOOK.black, -.25, .25, .5, .516, .36, .362); });
@@ -342,6 +359,17 @@ const kindA: RecipeSet = add => {
 
 const kindB: RecipeSet = add => {
   kitchenRecipes('b3', B3_LOOK, B3_BAR)(add);
+  // Media console under the TV wall: walnut drawer bays on a gold plinth, a stone top.
+  add('fit-b3-media-end', k => box(k, LOOK.b3Walnut, -.015, .015, 0, .6, 0, .45));
+  add('fit-b3-media-top', k => { box(k, LOOK.b3Stone, -.25, .25, .57, .6, 0, .45); box(k, LOOK.gold, -.25, .25, 0, .04, .03, .42); });
+  add('fit-b3-media-filler', k => box(k, LOOK.b3Walnut, -.25, .25, .04, .57, 0, .44));
+  add('fit-b3-media-bay', k => {
+    box(k, LOOK.b3Walnut, -.374, .374, .04, .57, 0, .43);
+    for (const [y0, y1] of [[.045, .3], [.305, .565]] as const) {
+      box(k, LOOK.b3Walnut, -.372, .372, y0, y1, .43, .45);
+      box(k, LOOK.gold, -.1, .1, y1 - .05, y1 - .038, .45, .453);
+    }
+  });
   add('fit-b3-counter-top', k => box(k, LOOK.b3Stone, -.25, .25, 0, .05, -.25, .25));
   add('fit-b3-counter-base', k => {
     box(k, LOOK.gold, -.25, .25, 0, .04, -.25, .25);
@@ -411,6 +439,7 @@ export const BUILT_INS_A: { assemblies: Record<string, AssemblySpec>; housings: 
     'asm-e1-bamboo': { type: 'custom', place: (b, f, i, c) => placeGlassPlanter(b, f, i, E1_BAMBOO, c) },
     'asm-e1-wardrobe': { type: 'custom', place: (b, f, i, c) => placeTallRun(b, f, i, E1_WARDROBE, c) },
     'asm-e1-display': { type: 'custom', place: (b, f, i, c) => placeTallRun(b, f, i, E1_DISPLAY, c) },
+    'asm-e5-bar': { type: 'run', spec: E5_BAR },
   },
   housings: [E1_HOUSING_DOORS, E1_HOUSING_PORTALS],
   recipes: [kindA],
@@ -420,6 +449,7 @@ export const BUILT_INS_B: typeof BUILT_INS_A = {
     'asm-b3-bar': { type: 'kitchen', spec: B3_BAR },
     'asm-b3-counter': { type: 'custom', place: (b, f, i, c) => placeIsland(b, f, i, B3_COUNTER, c) },
     'asm-b3-bamboo': { type: 'custom', place: (b, f, i, c) => placeGlassPlanter(b, f, i, B3_BAMBOO, c) },
+    'asm-b3-media': { type: 'run', spec: B3_MEDIA },
   },
   housings: [],
   recipes: [kindB],

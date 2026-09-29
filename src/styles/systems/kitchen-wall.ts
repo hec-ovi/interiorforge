@@ -57,8 +57,13 @@ export interface KitchenLayout {
 }
 
 /** Bay layout along a run of width `w`, given the window anchor (local x) if any. */
-export function kitchenLayout(spec: KitchenWallSpec, w: number, anchorX?: number): KitchenLayout {
-  const endW = spec.base.endWidth, colW = spec.column && w >= 2 * endW + spec.bay + spec.column.width ? spec.column.width : 0;
+/** Carcass bays a run must keep beside its service column: shorter runs (an L's return,
+ *  a counter) stand without one. */
+export const COLUMN_MIN_BAYS = 3;
+
+export function kitchenLayout(spec: KitchenWallSpec, w: number, anchorX?: number, column = true): KitchenLayout {
+  const endW = spec.base.endWidth;
+  const colW = column && spec.column && w - endW - spec.column.width >= COLUMN_MIN_BAYS * spec.bay - 1e-9 ? spec.column.width : 0;
   const a = -w / 2 + endW, b = w / 2 - (colW || endW);
   const n = Math.max(0, Math.floor((b - a) / spec.bay + 1e-9)), rest = b - a - n * spec.bay;
   const anchor = anchorX === undefined ? undefined
@@ -97,7 +102,10 @@ export function placeKitchenWall(builder: PlacementBuilder, floor: FloorInterior
   const frame = itemFrame(item), room = item.room, w = item.size[0], back = -item.size[1] / 2;
   const floorY = item.elevation ?? 0, ceiling = ceilingY - floorY;
   const windows = windowsBehind(floor, item, frame);
-  const layout = kitchenLayout(spec, w, windows[0]?.x);
+  // A reservation lower than the room (a bar counter) keeps the assembly under its top: no
+  // uppers, bulkhead or column, the splash cut at the record's height.
+  const fullHeight = item.size[2] >= ceiling - .05;
+  const layout = kitchenLayout(spec, w, windows[0]?.x, fullHeight);
   const put = (module: string, x: number, y: number, sx = 1, sy = 1, z = 0) =>
     frame.place(builder, module, room, x, y, back + z, [sx, sy, 1]);
   const cell = (module: string) => moduleSize(module)[0];
@@ -127,7 +135,7 @@ export function placeKitchenWall(builder: PlacementBuilder, floor: FloorInterior
   // closer than the splash minimum to the worktop); else without its top tier, and so on.
   const heights = spec.uppers.tiers.map(t => moduleSize(t.bays[0]!)[1]);
   const stack = (k: number) => heights.slice(0, k).reduce((s, h) => s + h, 0);
-  let tiers = spec.uppers.tiers.length, bottom = spec.uppers.bottom;
+  let tiers = fullHeight ? spec.uppers.tiers.length : 0, bottom = spec.uppers.bottom;
   for (; tiers > 0; tiers--) {
     if (spec.uppers.bottom + stack(tiers) <= ceiling + 1e-6) break;
     const lowered = ceiling - stack(tiers);
@@ -137,7 +145,7 @@ export function placeKitchenWall(builder: PlacementBuilder, floor: FloorInterior
 
   // Backsplash: the style's panel widths from the run start, the last one cut to fit; a
   // window behind the run stays open (its glass is the splash there).
-  const splashTop = tiers ? bottom : Math.min(ceiling, top + spec.backsplash.height);
+  const splashTop = tiers ? bottom : Math.min(ceiling, top + spec.backsplash.height, fullHeight ? Infinity : item.size[2]);
   if (splashTop - top > .05) {
     const gap = .004, h = splashTop - top, open = windows.map(o => [o.x - o.width / 2, o.x + o.width / 2] as [number, number]);
     let x = r0, i = 0;
@@ -173,7 +181,7 @@ export function placeKitchenWall(builder: PlacementBuilder, floor: FloorInterior
   }
   // Bulkhead from the uppers (or the splash) to the ceiling.
   const bulkheadFrom = tiers ? uppersTop : splashTop;
-  if (ceiling - bulkheadFrom > .01) {
+  if (fullHeight && ceiling - bulkheadFrom > .01) {
     const module = spec.bulkhead.module;
     put(module, (r0 + r1) / 2, bulkheadFrom, (r1 - r0) / cell(module), (ceiling - bulkheadFrom) / moduleSize(module)[1]);
   }

@@ -30,6 +30,10 @@ export const LOOK = {
   e1Shelf: 'cyberpunk/wood/high_rich#1',
   // kind A, E2 public floor: dark lacquer and bronze
   e2Lacquer: 'cyberpunk/interior-composite/rich#satin',
+  // kind A, E5 lobby: ivory panels, mineral stone
+  e5Ivory: 'cyberpunk/ivory-panel/rich#meridian-satin',
+  e5Mineral: 'cyberpunk/meridian-wall-mineral/rich#field',
+  e5Stone: 'cyberpunk/meridian-lobby-stone/rich#honed',
   // kind B, B3 apartment: smoked walnut, gold trims, polished stone
   b3Walnut: 'cyberpunk/corpo-plaza-veneer/rich#smoked',
   b3Stone: 'cyberpunk/corpo-plaza-stone/rich#polished',

@@ -39,11 +39,12 @@ function place(fit: string, size: V3, ceiling: number, rotationDeg = 0, floor = 
 const tris = (placements: { module?: string }[]) => placements.reduce((s, p) => s + meshes.get(p.module!)!.triangles, 0);
 
 describe('kitchen wall assembly', () => {
-  it.each([[2.4, 2, .26], [3, 3, .26], [3.6, 4, .26], [4.2, 5, .26]])('fills a %s m run with %s fixed bays and a %s m filler beside the column', (w, n, fill) => {
+  it.each([[2.4, 3, .52, false], [3, 3, .26, true], [3.6, 4, .26, true], [4.2, 5, .26, true]])('fills a %s m run with %s fixed bays and a %s m filler (column: %s)', (w, n, fill, column) => {
     const layout = kitchenLayout(E1_KITCHEN, w);
     expect(layout.bays).toHaveLength(n);
     expect(layout.filler![1] - layout.filler![0]).toBeCloseTo(fill, 6);
-    expect(layout.column![1] - layout.column![0]).toBeCloseTo(.9, 9);
+    if (column) expect(layout.column![1] - layout.column![0]).toBeCloseTo(.9, 9);
+    else expect(layout.column).toBeUndefined();
     expect(layout.bays.map(b => b.role)).toContain('sink');
     const { builder } = place('asm-e1-kitchen', [w, .65, 3], 3);
     const bays = builder.placements.filter(p => /kitchen-(door|drawers|sink|hob|display)$/.test(p.module!));
@@ -79,6 +80,19 @@ describe('kitchen wall assembly', () => {
     let top = -Infinity;
     for (const { v } of vertices(builder.placements, meshes)) top = Math.max(top, v[1]);
     expect(top).toBeCloseTo(2.8, 6);
+  });
+
+  it('keeps a counter-height reservation under its top: no uppers, bulkhead or column', () => {
+    const { builder, lights } = place('asm-b3-bar', [3.2, .7, 1.1], 3.1);
+    let top = -Infinity, tap = -Infinity;
+    for (const { p, v } of vertices(builder.placements, meshes)) {
+      if (/top-sink$/.test(p.module!)) tap = Math.max(tap, v[1]); else top = Math.max(top, v[1]);
+    }
+    expect(top).toBeLessThanOrEqual(1.1 + 1e-6);
+    // Only the tap stands over the worktop.
+    expect(tap).toBeLessThanOrEqual(1.2);
+    expect(lights).toHaveLength(0);
+    expect(builder.placements.some(p => /upper|bulkhead|column/.test(p.module!))).toBe(false);
   });
 
   it('drops the set-back tier under a low ceiling and keeps the worktop clear', () => {
@@ -120,7 +134,7 @@ describe('kitchen wall assembly', () => {
   it('stays inside its reservation: nothing behind the back edge, nothing over 5 mm past the front', () => {
     for (const [fit, size] of [['asm-e1-kitchen', [3.6, .65, 3]], ['asm-b3-bar', [3, .65, 3]], ['asm-e1-wardrobe', [2.7, .6, 3]], ['asm-e1-display', [1.4, .4, 3]],
       ['asm-e1-planter', [3, .4, .8]], ['asm-e1-island', [2.4, 1, 1.02]], ['asm-e1-bamboo', [1.2, .7, 3]], ['asm-r1-library', [2.4, .3, .9]],
-      ['asm-c1-niche', [1.8, .38, 2.2]], ['asm-c4-stall', [2.7, 1.5, 2]]] as const) {
+      ['asm-c1-niche', [1.8, .38, 2.2]], ['asm-c4-stall', [2.7, 1.5, 2]], ['asm-b3-media', [3, .45, .6]], ['asm-e5-bar', [3.6, .45, 1.1]]] as const) {
       const { builder } = place(fit, [...size] as V3, 3);
       for (const { p, v } of vertices(builder.placements, meshes)) {
         expect(Math.abs(v[0]), `${fit} ${p.module} x`).toBeLessThanOrEqual(size[0] / 2 + 1e-6);
@@ -145,7 +159,7 @@ describe('kitchen wall assembly', () => {
     const leg = place('asm-e1-kitchen-window', [2.4, .65, 3], 3).builder;
     expect(leg.placements.some(p => /column/.test(p.module!))).toBe(false);
     expect(leg.placements.filter(p => /kitchen-(door|drawers|sink|hob|display)$/.test(p.module!))).toHaveLength(3);
-    const bar = place('asm-b3-bar', [3.6, .65, 3], 3).builder;
+    const bar = place('asm-b3-bar', [4.2, .65, 3], 3).builder;
     expect(tris(bar.placements)).toBeLessThanOrEqual(8000);
     expect(bar.placements.some(p => p.module === B3_BAR.column!.modules.screen)).toBe(true);
   });
@@ -209,10 +223,10 @@ describe('runs, planters and enclosures', () => {
     for (const pane of low.builder.placements.filter(p => p.module === E1_BAMBOO.pane)) expect(worldBox(pane, meshes).max[1]).toBeCloseTo(1.05, 6);
   });
 
-  it('stands the island top over its caustic block with a glow record per long side', () => {
-    const { builder, lights } = place('asm-e1-island', [2.4, 1, 1.02], 3);
+  it('stands the island top at the record height over its caustic block with a glow record per long side', () => {
+    const { builder, lights } = place('asm-e1-island', [2.4, 1, .95], 3);
     const top = builder.placements.find(p => p.module === 'fit-e1-island-top')!;
-    expect(worldBox(top, meshes).max[1]).toBeCloseTo(1.02, 6);
+    expect(worldBox(top, meshes).max[1]).toBeCloseTo(.95, 6);
     expect(lights).toHaveLength(2);
     expect(lights.every(l => l.furniture === 'item-1')).toBe(true);
   });
