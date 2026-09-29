@@ -188,22 +188,14 @@ function stampPublishedStyles(result: GeneratedInterior, request: InteriorReques
         if (style) room.style = style;
     }
 }
-/** Requested pairs must hold a loft; a derived pair no unit holds leaves its two floors
- *  single and records the loft it could not fit on the upper floor's program. Returns the
- *  pairs that fell back. */
+/** A pair no unit holds keeps its two ordinary storeys. A derived (optional) one also
+ *  records the loft it could not fit on the upper floor's program and is returned, so its
+ *  floors fall back onto the shared middle layout. */
 function applyLoftPairs(plan: BuildingPlan, pairs: readonly DuplexPair[], request: InteriorRequest): DuplexPair[] {
-    applyDuplexPairs(plan, pairs.filter(pair => !pair.optional), request);
-    const failed: DuplexPair[] = [];
-    for (const pair of pairs.filter(pair => pair.optional)) {
-        try {
-            applyDuplexPairs(plan, [pair], request);
-        }
-        catch (error) {
-            if (!(error instanceof InteriorError) || error.code !== 'E_FLOOR_TOO_SMALL') throw error;
-            const uv = plan.uvFloors.get(pair.upper);
-            if (uv) (uv.programChanges ??= []).push({ kind: 'living', requested: [15, 10], fitted: null });
-            failed.push(pair);
-        }
+    const failed = applyDuplexPairs(plan, pairs, request).filter(pair => pair.optional);
+    for (const pair of failed) {
+        const uv = plan.uvFloors.get(pair.upper);
+        if (uv) (uv.programChanges ??= []).push({ kind: 'living', requested: [15, 10], fitted: null });
     }
     return failed;
 }

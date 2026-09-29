@@ -25,9 +25,12 @@ interface UnitFrame { origin: Point; turn: number; width: number; depth: number;
 /** Replace only real matching private allocations. No common room, public core,
  * or unrelated upper home is removed. A pair with no legal complete candidate keeps
  * its two ordinary apartment storeys and publishes no duplex, so the building never
- * pretends the requested duplex was generated and never loses its floors to it. */
-export function applyDuplexPairs(plan: BuildingPlan, pairs: DuplexPair[], request: InteriorRequest): void {
+ * pretends the requested duplex was generated and never loses its floors to it.
+ * Returns the pairs that converted no home. */
+export function applyDuplexPairs(plan: BuildingPlan, pairs: readonly DuplexPair[], request: InteriorRequest): DuplexPair[] {
+  const unconverted: DuplexPair[] = [];
   for (const pair of pairs) {
+    let converted = 0;
     const lower = plan.floors.find(floor => floor.floor === pair.lower);
     const upper = plan.floors.find(floor => floor.floor === pair.upper);
     const lowerUv = plan.uvFloors.get(pair.lower), upperUv = plan.uvFloors.get(pair.upper);
@@ -72,12 +75,15 @@ export function applyDuplexPairs(plan: BuildingPlan, pairs: DuplexPair[], reques
           furniture.carpets.lower.map(carpet => ({ ...carpet, rect: mapRect(carpet.rect, local) })), slices[0], routes.lower, local);
         install(plan, request, upper, peer, mapped.upper, furniture.upper.map(piece => mapFurniture(piece, local)),
           furniture.carpets.upper.map(carpet => ({ ...carpet, rect: mapRect(carpet.rect, local) })), slices[1], routes.upper, local);
+        converted++;
       } catch (error) {
         // A candidate that fails before anything is installed leaves its home as it was.
         if (committing || !(error instanceof InteriorError)) throw error;
       }
     }
+    if (!converted) unconverted.push(pair);
   }
+  return unconverted;
 }
 
 function unitsOf(rooms: PlanRoom[]): Unit[] {
