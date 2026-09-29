@@ -18,6 +18,25 @@
       "type": "string",
       "description": "Exterior architecture selecting the paired interior recipe."
     },
+    "kind": {
+      "enum": [
+        "A",
+        "B",
+        "C",
+        "R"
+      ],
+      "description": "Resolved reference building kind, when the building furnishes as one."
+    },
+    "references": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+-[a-z0-9-]+$"
+      },
+      "description": "Space template keys the request restricted this building to."
+    },
     "version": {
       "const": 1
     },

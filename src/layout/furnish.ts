@@ -45,6 +45,7 @@ const SIZES: Record<FurnitureKind, Size3> = {
   crate: [0.62, 0.62, 0.55], floor_clutter: [0.8, 0.8, 0.8],
   sleeping_pod: [2.5, 1.5, 2.0],
   ornament_wall: [3.0, 0.5, 2.0], room_divider: [2.5, 0.5, 2.0],
+  bathtub: [1.7, 0.8, 0.6], urinal: [0.4, 0.35, 0.6],
 };
 const LUXURY_SIZES: Record<FurnitureKind, Size3> = {
   ...SIZES,

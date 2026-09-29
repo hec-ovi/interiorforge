@@ -60,6 +60,19 @@
           "enum": ["h10", "japantown", "sandra-dorsett", "apartment-1702"],
           "description": "Reference identity independent of exterior and seed: standard residential/hotel, or rich residential paired-storey Apartment 1702."
         },
+        "kind": {
+          "enum": ["A", "B", "C", "R"],
+          "description": "Reference building kind: A high-tech luxury tower, B rich glass building, C poor capsule building, R rich office. Derived from type, tier and architecture when omitted."
+        },
+        "references": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["e1-apartment", "e2-floor", "e5-lobby2", "e6-apartment2", "b1-floor", "b2-suite", "b3-apartment", "b4-loft", "c1-capsule", "c2-corridors", "c3-poor", "c4-bathroom", "c5-machine", "c6-studio", "c7-room", "r1-office"]
+          },
+          "description": "Restricts the space templates the building may fit to these keys, which must belong to its kind."
+        },
         "tier": {
           "enum": [
             "poor",

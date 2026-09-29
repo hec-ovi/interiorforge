@@ -25,6 +25,19 @@ export type FloorKind =
   | "retail" | "mall_floor"
   | "residence_studio" | "apartment" | "hotel_rooms" | "mechanical" | "parking" | "terrace";
 
+/** Reference building kinds: A high-tech luxury tower, B rich glass building (with its
+ *  two-floor loft), C poor capsule building, R rich office. */
+export type ReferenceKind = "A" | "B" | "C" | "R";
+
+/** One reference style: the look and program of one reference interior. */
+export type StyleId = "e1" | "e2" | "e5" | "e6" | "b1" | "b2" | "b3" | "b4"
+  | "c1" | "c2" | "c3" | "c4" | "c5" | "c6" | "c7" | "r1";
+
+/** A space template: one reference interior compiled into a fitted room program. */
+export type TemplateKey = "e1-apartment" | "e2-floor" | "e5-lobby2" | "e6-apartment2" | "b1-floor" | "b2-suite"
+  | "b3-apartment" | "b4-loft" | "c1-capsule" | "c2-corridors" | "c3-poor" | "c4-bathroom" | "c5-machine"
+  | "c6-studio" | "c7-room" | "r1-office";
+
 export interface FloorAssignment {
   floor: number;
   kind: FloorKind;
@@ -34,7 +47,13 @@ export interface FloorAssignment {
 export interface InteriorRequest {
   /** uint32, or any string (hashed internally, e.g. the exterior seed) */
   seed: number | string;
-  building: { id: string; type: BuildingType; tier: Tier; interiorStyle?: InteriorStyle };
+  building: {
+    id: string; type: BuildingType; tier: Tier; interiorStyle?: InteriorStyle;
+    /** forces the reference kind; derived from type, tier and architecture when omitted */
+    kind?: ReferenceKind;
+    /** restricts template choice to these keys of the building's kind */
+    references?: TemplateKey[];
+  };
   shellGlb?: string;
   blueprint: Blueprint;
   /** optional: derived from blueprint floor kind slugs when omitted */
@@ -225,7 +244,7 @@ export type FurnitureKind =
   | "toilet" | "sink" | "shower" | "gym_machine" | "bench" | "reception_desk" | "plant"
   | "bar_counter" | "stool" | "display_rack"
   | "wall_shelf" | "display_screen" | "wall_art" | "crate"
-  | "ornament_wall" | "room_divider" | "sleeping_pod" | "floor_clutter";
+  | "ornament_wall" | "room_divider" | "sleeping_pod" | "floor_clutter" | "bathtub" | "urinal";
 
 interface RoomConnection {
   id: string;
@@ -253,6 +272,24 @@ export interface OpenFrontConnection extends RoomConnection {
 
 export type Door = RoomDoor | OpenFrontConnection;
 
+/** A raised or sunken zone inside one room, in world XZ. */
+export interface LevelZone {
+  polygon: Point[];
+  /** walking height relative to the floor, -0.45..1.5 m */
+  delta: number;
+  edge: "step" | "guard" | "open";
+  stair?: { at: Point; axis: "u" | "v"; width: number };
+}
+
+/** A building-level open void (atrium), published on every floor it crosses; world XZ. */
+export interface FloorVoid {
+  id: string;
+  polygon: Point[];
+  lower: number;
+  upper: number;
+  guards: [Point, Point][];
+}
+
 export interface Room {
   id: string;
   kind: RoomKind;
@@ -261,6 +298,15 @@ export interface Room {
   holes?: Point[][];
   unit?: string;
   doors: Door[];
+  /** reference style the room is finished and furnished in */
+  style?: StyleId;
+  /** `<template key>/<template room id>` this room was fitted from */
+  template?: string;
+  /** part the room plays in its template (foyer, bar, study...) */
+  role?: string;
+  /** metres the finished ceiling hangs below the floor's ceiling plane */
+  ceilingDrop?: number;
+  levels?: LevelZone[];
 }
 
 export interface Furniture {
@@ -272,6 +318,8 @@ export interface Furniture {
   size: [number, number, number];
   /** base height above the floor; wall pieces hang, everything else stands at 0 */
   elevation?: number;
+  /** built-in assembly (`asm-<style>-<name>`) or fitted module (`fit-<module>`) it stands as */
+  fit?: string;
 }
 
 export type LightKind = "strip" | "spot" | "cove";
@@ -344,6 +392,8 @@ export interface FloorInterior {
   duplexes?: FloorDuplex[];
   /** Private mezzanine fitted into this double-height floor. */
   loft?: LoftPlan;
+  /** Building-level voids crossing this floor. */
+  voids?: FloorVoid[];
   /** Lower floor owning this partial platform; global core has no stop here. */
   mezzanineOf?: number;
   floor: number;

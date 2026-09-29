@@ -1,4 +1,4 @@
-import type { FloorInterior, FloorKind, InteriorStyle, NpcSupport, Opening } from '../core/types.js';
+import type { FloorInterior, FloorKind, InteriorStyle, NpcSupport, Opening, ReferenceKind, TemplateKey } from '../core/types.js';
 import type { Vector3 } from '../modules/types.js';
 import type { ProgramChange } from '../layout/service-program.js';
 import type { ApartmentEntrance } from '../styles/luxury/apartment-doors.js';
@@ -30,6 +30,10 @@ export interface FloorPlacement {
 export interface BuildingManifest {
     interiorStyle?: InteriorStyle;
     architecture?: string;
+    /** resolved reference building kind, when the building furnishes as one */
+    kind?: ReferenceKind;
+    /** template keys the request restricted this building to */
+    references?: TemplateKey[];
     version: 1;
     generatorVersion: string;
     buildingId: string;

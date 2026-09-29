@@ -26,6 +26,11 @@
     },
     "loft": { "$ref": "#/$defs/loft" },
     "mezzanineOf": { "type": "integer" },
+    "voids": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/floorVoid" },
+      "description": "Building-level open voids (atria) crossing this floor, in world XZ. Rooms of an upper floor take the void as a hole; guards stand on its open edges."
+    },
     "floor": {
       "type": "integer",
       "description": "negative = basement"
@@ -220,6 +225,32 @@
             "type": "string",
             "description": "groups rooms of one dwelling/venue, e.g. apartment_2"
           },
+          "style": {
+            "type": "string",
+            "pattern": "^[a-z][0-9]$",
+            "description": "reference style the room is finished and furnished in, e.g. e1"
+          },
+          "template": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+/[a-z0-9-]+$",
+            "description": "space template and template room this room was fitted from, <key>/<room>"
+          },
+          "role": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$",
+            "description": "part the room plays inside its template, e.g. foyer or bar"
+          },
+          "ceilingDrop": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "description": "metres this room's finished ceiling hangs below the floor's ceiling plane"
+          },
+          "levels": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/levelZone" },
+            "description": "raised or sunken zones inside the room, in world XZ"
+          },
           "doors": {
             "type": "array",
             "items": {
@@ -341,7 +372,9 @@
               "ornament_wall",
               "room_divider",
               "sleeping_pod",
-              "floor_clutter"
+              "floor_clutter",
+              "bathtub",
+              "urinal"
             ]
           },
           "room": {
@@ -375,6 +408,11 @@
             "type": "number",
             "minimum": 0,
             "description": "base height above the floor; wall pieces hang, everything else stands at 0"
+          },
+          "fit": {
+            "type": "string",
+            "pattern": "^(asm|fit)-[a-z0-9-]+$",
+            "description": "built-in assembly (asm-<style>-<name>) or fitted module (fit-<module>) the piece stands as"
           }
         }
       }
@@ -471,6 +509,38 @@
     }
   },
   "$defs": {
+    "levelZone": {
+      "type": "object", "additionalProperties": false,
+      "required": ["polygon", "delta", "edge"],
+      "properties": {
+        "polygon": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point2" } },
+        "delta": { "type": "number", "minimum": -0.45, "maximum": 1.5, "description": "walking height relative to the floor, metres" },
+        "edge": { "enum": ["step", "guard", "open"] },
+        "stair": {
+          "type": "object", "additionalProperties": false,
+          "required": ["at", "axis", "width"],
+          "properties": {
+            "at": { "$ref": "#/$defs/point2" },
+            "axis": { "enum": ["u", "v"] },
+            "width": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    },
+    "floorVoid": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "polygon", "lower", "upper", "guards"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "polygon": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point2" } },
+        "lower": { "type": "integer", "description": "lowest floor index the void opens from" },
+        "upper": { "type": "integer", "description": "highest floor index the void reaches" },
+        "guards": {
+          "type": "array",
+          "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/point2" } }
+        }
+      }
+    },
     "duplexRing": {
       "type": "array", "minItems": 4,
       "items": { "$ref": "#/$defs/point2" }

@@ -24,6 +24,7 @@ const FURNITURE_ANCHORS: Record<string, { kind: AnchorKind; side: "front" | "beh
   sleeping_pod: { kind: "bed", side: "front" },
   bed_single: { kind: "bed", side: "on" },
   toilet: { kind: "toilet", side: "front" },
+  urinal: { kind: "toilet", side: "front" },
   gym_machine: { kind: "machine_spot", side: "front" },
   display_rack: { kind: "work_spot", side: "front" },
   // seat anchors use the seat surface and its facing

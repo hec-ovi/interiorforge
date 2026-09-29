@@ -1,4 +1,4 @@
-import type { BuildingType, FloorKind, RoomKind, Tier } from "../core/types.js";
+import type { BuildingType, FloorKind, RoomKind, StyleId, Tier } from "../core/types.js";
 import { VENUE_KINDS } from "../layout/frame.js";
 import { capsuleRoomFinish } from '../styles/capsule/finish.js';
 import { damagedRoomFinish } from '../styles/damaged/finish.js';
@@ -24,6 +24,14 @@ export interface RoomFinish {
   services?: string;
   cove: string;
   spot: string;
+  /** reference style the finish belongs to, when the room wears one */
+  style?: StyleId;
+  /** casing suffix of door jambs and headers (`door-jamb-<casing>`); the family otherwise */
+  casing?: string;
+  /** PortalSpec id framing this room's wide public openings */
+  portal?: string;
+  /** GlazingSystem id of this room's glazed partitions */
+  glazing?: string;
 }
 
 const INDUSTRIAL: ReadonlySet<BuildingType> = new Set(["factory", "military"]);

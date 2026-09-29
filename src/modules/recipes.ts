@@ -32,6 +32,7 @@ import { loftBathroomRecipes } from "../styles/luxury/loft-bathroom.js";
 import { luxuryRugRecipes } from "../styles/luxury/rugs.js";
 import { luxuryDiningRecipes } from "../styles/luxury/dining.js";
 import { loft1702FinishRecipes } from "../styles/luxury/loft-finish.js";
+import { referenceRecipes } from "../styles/reference/recipes.js";
 
 export type { ModuleRecipe } from "./types.js";
 
@@ -39,7 +40,8 @@ export type { ModuleRecipe } from "./types.js";
 export type RecipeSet = (add: (id: string, draw: (kit: Kit) => void) => void) => void;
 
 const SETS: RecipeSet[] = [surfaceRecipes, lightRecipes, coreRecipes, doorRecipes, liftRecipes, capsuleArchitecturalRecipes, sandraRecipes, corpoBathroomRecipes, loftBathroomRecipes, luxuryRugRecipes, luxuryDiningRecipes, loft1702FinishRecipes,
-  stairGuardRecipes, stairFinishRecipes, furnitureRecipes, capsuleRecipes, damagedRecipes, industrialRecipes, corporateRecipes, luxuryPortalRecipes, luxurySurfaceRecipes, luxuryFurnitureRecipes, luxuryCeilingRecipes, apartmentDoorRecipes, capsuleApartmentDoorRecipes, luxuryBathroomRecipes, luxuryAccessoryRecipes, referenceFurnitureRecipes, referenceBotanicalRecipes];
+  stairGuardRecipes, stairFinishRecipes, furnitureRecipes, capsuleRecipes, damagedRecipes, industrialRecipes, corporateRecipes, luxuryPortalRecipes, luxurySurfaceRecipes, luxuryFurnitureRecipes, luxuryCeilingRecipes, apartmentDoorRecipes, capsuleApartmentDoorRecipes, luxuryBathroomRecipes, luxuryAccessoryRecipes, referenceFurnitureRecipes, referenceBotanicalRecipes,
+  referenceRecipes];
 
 /** Every shared module, authored in metres. `tile` gives UV units per metre per material
  *  slot, so tiled faces wear one UV unit per map repeat; without it metres stay. `alignment`
