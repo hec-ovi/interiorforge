@@ -37,6 +37,9 @@ const BUILT_IN: Record<string, string> = {
     [LOOK.e1IslandTop]: E1_SLOT.graphite,
     [LOOK.e1Caustic]: E1_SLOT.caustic,
     [LOOK.e1Screen]: E1_SLOT.vending,
+    // The diamond mesh of the kitchen uppers and AC housings: the published grille, fitted
+    // once over each framed grille panel.
+    [LOOK.e1Mesh]: E1_SLOT.grille,
 };
 
 export const e1SlotRule: SlotRule = (module, slot) => {
@@ -44,5 +47,7 @@ export const e1SlotRule: SlotRule = (module, slot) => {
         return slot;
     if (slot === F.lensCool && (module.startsWith('fit-e1-kitchen') || module.includes('pit'))) return E1_SLOT.cyan;
     if (module.includes('-e1-lounge-pit') && slot === PIT_ROCK) return E1_SLOT.tile;
+    // The kitchen's dark parts (channels, toe, hob glass, bezels) are the suite's gloss black.
+    if (slot === LOOK.black && module.startsWith('fit-e1-kitchen')) return E1_SLOT.gloss;
     return BUILT_IN[slot] ?? slot;
 };

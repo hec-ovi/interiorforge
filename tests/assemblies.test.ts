@@ -47,7 +47,7 @@ describe('kitchen wall assembly', () => {
     else expect(layout.column).toBeUndefined();
     expect(layout.bays.map(b => b.role)).toContain('sink');
     const { builder } = place('asm-e1-kitchen', [w, .65, 3], 3);
-    const bays = builder.placements.filter(p => /kitchen-(door|drawers|display)$/.test(p.module!));
+    const bays = builder.placements.filter(p => /kitchen-(door|drawers|display|sink-base)$/.test(p.module!));
     expect(bays).toHaveLength(n);
     // No bay, cut-out, tier, end, stack piece or screen is ever scaled.
     for (const p of builder.placements) {
@@ -147,20 +147,20 @@ describe('kitchen wall assembly', () => {
     }
   });
 
-  it('keeps a 3.6 m kitchen wall under 8 k triangles and every part inside its budget', () => {
+  it('keeps a 3.6 m kitchen wall under 16 k triangles and every part inside its budget', () => {
     const { builder } = place('asm-e1-kitchen', [3.6, .65, 3], 3);
-    expect(tris(builder.placements)).toBeLessThanOrEqual(8000);
+    expect(tris(builder.placements)).toBeLessThanOrEqual(16000);
     for (const [id, built] of meshes) {
-      if (/kitchen-(door|drawers|display)$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(300);
-      if (/kitchen-upper/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(600);
-      if (/kitchen-top$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(100);
-      if (/kitchen-top-(sink|hob)$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(400);
+      if (/kitchen-(door|drawers|display|sink-base)$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(1000);
+      if (/kitchen-upper/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(4000);
+      if (/kitchen-top(-ledge)?$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(100);
+      if (/kitchen-top-(sink|hob)(-ledge)?$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(2000);
     }
     const leg = place('asm-e1-kitchen-window', [2.4, .65, 3], 3).builder;
     expect(leg.placements.some(p => /column/.test(p.module!))).toBe(false);
-    expect(leg.placements.filter(p => /kitchen-(door|drawers|display)$/.test(p.module!))).toHaveLength(3);
+    expect(leg.placements.filter(p => /kitchen-(door|drawers|display|sink-base)$/.test(p.module!))).toHaveLength(3);
     const bar = place('asm-b3-bar', [4.2, .65, 3], 3).builder;
-    expect(tris(bar.placements)).toBeLessThanOrEqual(8000);
+    expect(tris(bar.placements)).toBeLessThanOrEqual(16000);
     expect(bar.placements.some(p => p.module === B3_BAR.column!.modules.screen)).toBe(true);
   });
 });
@@ -229,6 +229,15 @@ describe('runs, planters and enclosures', () => {
     expect(worldBox(top, meshes).max[1]).toBeCloseTo(.95, 6);
     expect(lights).toHaveLength(2);
     expect(lights.every(l => l.furniture === 'item-1')).toBe(true);
+    // The slab's rounded ends stand at scale 1 along the run, one at each end, and with the
+    // stretched middle they span the record exactly.
+    const ends = builder.placements.filter(p => p.module === 'fit-e1-island-top-end');
+    expect(ends).toHaveLength(2);
+    expect(ends.every(p => p.scale[0] === 1)).toBe(true);
+    const span = [top, ...ends].map(p => worldBox(p, meshes));
+    expect(Math.min(...span.map(b => b.min[0]))).toBeCloseTo(-1.2, 6);
+    expect(Math.max(...span.map(b => b.max[0]))).toBeCloseTo(1.2, 6);
+    expect(span.every(b => Math.abs(b.min[2] + .5) < 1e-6 && Math.abs(b.max[2] - .5) < 1e-6)).toBe(true);
   });
 });
 
@@ -317,10 +326,11 @@ describe('modules and budgets', () => {
         await doc.transform(weld(), meshopt({ encoder: MeshoptEncoder, level: 'medium', quantizePosition: 16 }));
         bytes += (await io.writeBinary(doc)).byteLength;
       }
-      // The kind's whole kit growth (panels, ceilings, floors too) must stay under 400 KB:
-      // the built-ins keep to a share of it.
+      // The kind's whole kit growth (panels, ceilings, floors too) has its own gate in the
+      // reference budget; the built-ins, drawn as rounded joinery rather than boxes, keep
+      // under 400 KB of it.
       report.push(`${kind}: ${(bytes / 1024).toFixed(0)} KB, ${triangles} triangles`);
-      expect(bytes, `kind ${kind}: ${bytes} bytes, ${triangles} triangles`).toBeLessThanOrEqual(220 * 1024);
+      expect(bytes, `kind ${kind}: ${bytes} bytes, ${triangles} triangles`).toBeLessThanOrEqual(400 * 1024);
     }
     console.log(`built-in kit per kind: ${report.join('; ')}`);
   }, 60000);

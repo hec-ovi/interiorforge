@@ -59,6 +59,10 @@ export function placeTallRun(builder: PlacementBuilder, floor: FloorInterior, it
 export interface IslandSpec {
   /** one cell square in plan, stretched x and z; its height is the slab */
   top: string;
+  /** the rounded end of the slab: a module from local x = 0 to `width` (its nose at +x),
+   *  one cell deep, stretched in z; stood at both ends (turned half round at -x) while the
+   *  top stretches between them, so the end rounding keeps its radius at any length */
+  topEnd?: { module: string; width: number };
   /** one cell square in plan, stretched x and z; its height is the base */
   base: string;
   plinth?: string;
@@ -79,7 +83,13 @@ export function placeIsland(builder: PlacementBuilder, floor: FloorInterior, ite
     frame.place(builder, spec.plinth, room, 0, 0, 0, [(bw - .04) / plinth[0], 1, (bd - .04) / plinth[2]]);
   }
   frame.place(builder, spec.base, room, 0, 0, 0, [bw / base[0], baseH / base[1], bd / base[2]]);
-  frame.place(builder, spec.top, room, 0, baseH, 0, [w / top[0], 1, d / top[2]]);
+  const end = spec.topEnd && w > 4 * spec.topEnd.width ? spec.topEnd : undefined, inner = w - 2 * (end?.width ?? 0);
+  frame.place(builder, spec.top, room, 0, baseH, 0, [inner / top[0], 1, d / top[2]]);
+  if (end) {
+    const cell = moduleSize(end.module)[2];
+    frame.place(builder, end.module, room, inner / 2, baseH, 0, [1, 1, d / cell]);
+    frame.turned(Math.PI).place(builder, end.module, room, inner / 2, baseH, 0, [1, 1, d / cell]);
+  }
   if (!spec.glow) return [];
   return [1, -1].map((side, i) => lensRecord(frame, room, `${item.id}-lens-${i}`, 0, baseH / 2, side * bd / 2, bw, floor.elevation,
     { lumensPerMetre: spec.glow!.lumensPerMetre, kelvin: spec.glow!.kelvin, color: spec.glow!.color, facing: 'down', beamDeg: 160, range: 1.2 },
