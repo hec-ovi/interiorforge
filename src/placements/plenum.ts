@@ -4,6 +4,8 @@ import type { BuildingPlan } from '../layout/index.js';
 import { zoneUvRect } from '../layout/levels.js';
 import type { PlanRoom } from '../layout/plan-types.js';
 import { roomPolygon } from '../layout/room-shape.js';
+import type { UvRect } from '../layout/uv.js';
+import type { Point } from '../core/geom.js';
 import { constructionPlate, shellWallDepth } from '../layout/shell.js';
 import { PIT_MAX, TRAY_HANG } from '../styles/systems/levels.js';
 
@@ -11,6 +13,10 @@ import { PIT_MAX, TRAY_HANG } from '../styles/systems/levels.js';
 const CLEAR = .015;
 /** Lowest clear height a room keeps when it lowers its ceiling under a pit above. */
 const MIN_CLEAR = 2.6;
+/** Lowest clear height under a bulkhead. */
+const BULKHEAD_CLEAR = 2.3;
+/** Distance a bulkhead keeps from the facade, whose glass rises to the ceiling. */
+const FACADE_KEEP = .6;
 /** Shallowest pit worth building; a zone the storey cannot hold deeper stays a finish. */
 const PIT_MIN = .1;
 
@@ -20,9 +26,9 @@ export type LayoutSource = (floor: number) => number | undefined;
 /** A pit hangs its tray into the depth between its storey and the ceiling of the room
  *  under it, on every floor that shares its layout. Where that depth is short, the room
  *  under the pit lowers its finished ceiling (the plenum a reference storey has under a
- *  sunken lounge), unless the room is at a window head or would drop below a habitable
- *  clear height; then the pit itself is made as shallow as the storey holds, with the
- *  pieces standing in it. Runs once per building, after every sampled floor is planned
+ *  sunken lounge); a room held at its window heads hangs a bulkhead under the pit instead,
+ *  where the pit stands clear of the facade; failing both, the pit itself is made as
+ *  shallow as the storey holds, with the pieces standing in it. Runs once per building, after every sampled floor is planned
  *  and before any is placed. Returns the zones it made shallower, for diagnostics. */
 export function seatPits(plan: BuildingPlan, request: InteriorRequest, floors: readonly BlueprintFloor[],
   sourceOf: LayoutSource): { floor: number; room: string; from: number; to: number }[] {
@@ -66,8 +72,17 @@ export function seatPits(plan: BuildingPlan, request: InteriorRequest, floors: r
         if (gap >= needed - 1e-6) continue;
         const wanted = effective + needed - gap;
         const limit = Math.min(facade ? ceilingY - head : Infinity, Math.max(effective, ceilingY - MIN_CLEAR));
-        if (wanted <= limit + 1e-6) setDrop(plan, under, other, Math.ceil(wanted * 100) / 100);
-        else hold = Math.min(hold, below.height - ceilingY + Math.max(effective, Math.min(limit, wanted)));
+        if (wanted <= limit + 1e-6) { setDrop(plan, under, other, Math.ceil(wanted * 100) / 100); continue; }
+        // A room at the window heads keeps its ceiling and hangs a bulkhead under the pit
+        // instead, where the pit stands clear of the facade.
+        const box = clipRect(pit, other.rect), extra = Math.ceil((needed - gap) * 100) / 100;
+        if (box && !touchesFacade(box, plateOf(under)) && ceilingY - effective - extra >= BULKHEAD_CLEAR - 1e-6) {
+          const same = (other.bulkheads ??= []).find(item => Math.abs(item.rect.u - box.u) + Math.abs(item.rect.v - box.v)
+            + Math.abs(item.rect.lu - box.lu) + Math.abs(item.rect.lv - box.lv) < 1e-6);
+          if (same) same.drop = Math.max(same.drop, extra); else other.bulkheads.push({ rect: box, drop: extra });
+          continue;
+        }
+        hold = Math.min(hold, below.height - ceilingY + Math.max(effective, Math.min(limit, wanted)));
       }
       if (!Number.isFinite(hold)) continue;
       const deepest = Math.floor(Math.max(0, hold - CLEAR) / TRAY_HANG * 100) / 100;
@@ -105,4 +120,15 @@ function lift(plan: BuildingPlan, source: number, room: PlanRoom, zone: NonNulla
   }
   for (const piece of floor.furniture) if (moved.has(piece.id)) piece.elevation = to;
   for (const light of floor.lights) if (light.furniture && moved.has(light.furniture)) light.position[1] += shift;
+}
+
+function clipRect(a: UvRect, b: UvRect): UvRect | null {
+  const u0 = Math.max(a.u, b.u), u1 = Math.min(a.u + a.lu, b.u + b.lu), v0 = Math.max(a.v, b.v), v1 = Math.min(a.v + a.lv, b.v + b.lv);
+  return u1 - u0 > .05 && v1 - v0 > .05 ? { u: u0, v: v0, lu: u1 - u0, lv: v1 - v0 } : null;
+}
+
+function touchesFacade(rect: UvRect, plate: Point[]): boolean {
+  const corners: Point[] = [[rect.u, rect.v], [rect.u + rect.lu, rect.v], [rect.u + rect.lu, rect.v + rect.lv], [rect.u, rect.v + rect.lv]];
+  const edges: [Point, Point][] = corners.map((corner, i) => [corner, corners[(i + 1) % 4]!]);
+  return edges.some(([a, b]) => [0, .25, .5, .75, 1].some(t => boundaryDistance([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], plate) < FACADE_KEEP));
 }

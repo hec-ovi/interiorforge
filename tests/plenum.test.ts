@@ -14,11 +14,13 @@ const floor = (index: number, head = 2.6): BlueprintFloor => ({ index, elevation
   openings: [{ id: `w${index}`, kind: 'window', edge: 0, offset: 2, width: 3, sill: .3, height: head - .3 }] } as unknown as BlueprintFloor);
 const room = (id: string, rect: UvRect, extra: Partial<PlanRoom> = {}): PlanRoom =>
   ({ id, kind: 'living', rect, polygon: uvRectCorners(rect), doors: [], ...extra });
-const pit = (delta: number): LevelZone => ({ polygon: uvRectCorners({ u: 8, v: 8, lu: 4, lv: 4 }), delta, edge: 'step' });
+const PIT: UvRect = { u: 8, v: 8, lu: 4, lv: 4 };
+const pit = (delta: number, rect = PIT): LevelZone => ({ polygon: uvRectCorners(rect), delta, edge: 'step' });
 
-function building(delta: number, below: Partial<PlanRoom>, head = 2.6) {
-  const lounge = room('m-lounge', { u: 5, v: 5, lu: 10, lv: 10 }, { levels: [pit(delta)], ceilingDrop: .5 });
-  const sofa: PlanFurniture = { id: 'sofa', kind: 'sofa', room: 'm-lounge', at: [10, 10], rotationDeg: 0, size: [2, .9, .8], elevation: delta };
+function building(delta: number, below: Partial<PlanRoom>, head = 2.6, rect = PIT) {
+  const lounge = room('m-lounge', { u: .12, v: .12, lu: 15, lv: 15 }, { levels: [pit(delta, rect)], ceilingDrop: .5 });
+  const sofa: PlanFurniture = { id: 'sofa', kind: 'sofa', room: 'm-lounge', at: [rect.u + rect.lu / 2, rect.v + rect.lv / 2], rotationDeg: 0,
+    size: [2, .9, .8], elevation: delta };
   const hall = room('g-hall', { u: .12, v: .12, lu: 19.76, lv: 19.76 }, below);
   const interior = (index: number, rooms: PlanRoom[], furniture: PlanFurniture[]): FloorInterior => ({
     floor: index, kind: 'apartment', elevation: index * HEIGHT, height: HEIGHT, ceilingElevation: index * HEIGHT + CEILING,
@@ -58,10 +60,23 @@ describe('pits and the plenum below them', () => {
     expect(lounge.ceilingDrop).toBe(.5);
   });
 
-  it('makes the pit shallower, with the pieces in it, where the room below keeps its window heads', () => {
+  it('hangs a bulkhead under a pit clear of the facade where the room below keeps its window heads', () => {
     // a facade room whose ceiling cannot drop below the 4.1 m window heads
-    const { plan, changed, hall, lounge, sofa } = building(-.54, {}, 4.1);
+    const { changed, hall, lounge } = building(-.54, {}, 4.1);
+    expect(changed).toEqual([]);
+    expect(lounge.levels![0]!.delta).toBe(-.54);
+    expect(hall.ceilingDrop ?? 0).toBe(0);
+    expect(hall.bulkheads).toHaveLength(1);
+    const [bulkhead] = hall.bulkheads!;
+    expect(bulkhead!.rect).toEqual(PIT);
+    expect(HEIGHT - CEILING + bulkhead!.drop).toBeGreaterThanOrEqual(.54 * TRAY_HANG);
+  });
+
+  it('makes a pit at the facade shallower, with the pieces in it, where the room below keeps its window heads', () => {
+    const facade: UvRect = { u: .12, v: 8, lu: 4, lv: 4 };
+    const { plan, changed, hall, lounge, sofa } = building(-.54, {}, 4.1, facade);
     expect(hall.ceilingDrop ?? 0).toBeLessThanOrEqual(CEILING - 4.1 + 1e-9);
+    expect(hall.bulkheads ?? []).toEqual([]);
     const to = lounge.levels![0]!.delta;
     expect(to).toBeGreaterThan(-.54);
     expect(-to * TRAY_HANG).toBeLessThanOrEqual(HEIGHT - 4.1);

@@ -382,3 +382,19 @@ export function levelRecipes(sid: string, profile: LevelProfile): RecipeSet {
         });
     };
 }
+
+/** The sides of a bulkhead hung under a pit of the storey above (`placements/plenum.ts`):
+ *  a fascia of the room's level look, `drop` deep, along every side of `bulkhead.rect` that
+ *  faces the room, from the room's ceiling `ceilingY` down. */
+export function placeBulkheadSides(builder: PlacementBuilder, room: SurfaceRoom, bulkhead: { rect: UvRect; drop: number }, ceilingY: number, frame: Frame): void {
+    const look = room.style && PROFILES.has(room.style) ? room.style : SHARED_LEVEL_LOOK;
+    const id = levelIds(look).nosing, z = bulkhead.rect, open = exposedSides(z, [room.polygon, ...(room.holes ?? [])]);
+    // the nosing strip is 12 mm tall with its top 1 mm above its origin
+    const scaleY = bulkhead.drop / .012;
+    for (const side of SIDE_LIST) for (const [s0, s1] of open[side]) {
+        if (s1 - s0 < .05) continue;
+        const e = edgeAt(side, z, s0, s1, 0);
+        const [x, zz] = uvToWorld([(e.a[0] + e.b[0]) / 2, (e.a[1] + e.b[1]) / 2], frame);
+        builder.module(id, room.id, [x, ceilingY - bulkhead.drop / 12, zz], [(s1 - s0) / CELL, scaleY, 1], facingRotation(e.out, frame));
+    }
+}

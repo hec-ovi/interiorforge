@@ -75,6 +75,9 @@ export interface PlanRoom {
   /** Planning-only pieces the template authored at exact places; furnishing commits them
    *  before the family dispatch. */
   authored?: AuthoredPiece[];
+  /** Placement-only: lowered ceiling boxes under a pit of the storey above, uv, each `drop`
+   *  metres below the room's own ceiling (`placements/plenum.ts`). */
+  bulkheads?: { rect: UvRect; drop: number }[];
 }
 
 /** One authored piece of a templated room, in uv. */

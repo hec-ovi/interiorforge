@@ -36,6 +36,8 @@ import { worldToUv } from '../layout/uv.js';
 import type { LevelZone, LightFixture, Room, StyleId } from '../core/types.js';
 import type { PlanRoom } from '../layout/plan-types.js';
 import { gridOrigin } from '../layout/tile-fit.js';
+import { placeBulkheadSides } from '../styles/systems/levels.js';
+import { subtractAll } from '../styles/systems/surface-grid.js';
 import { isLoftRequest } from '../styles/reference/kinds.js';
 import { HOUSINGS, STYLES } from '../styles/reference/registry.js';
 import { placeHousings } from '../styles/systems/housing.js';
@@ -102,7 +104,15 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
             if (loftRooms.has(room.id) && room.kind === 'living')
                 placeDuplexLivingFloor(builder, room.id, rect, uv.carpets.filter(carpet => carpet.room === room.id).map(carpet => carpet.rect), core.frame);
             else floor.lights.push(...slabs(builder, finish.floor, room.id, rect, 0, core.frame, whole));
-            for (const part of duplexCeilingRects(floor, core.frame, rect)) floor.lights.push(...ceiling(builder, finish, room.id, part, ceilingY, core.frame, whole, own));
+            const bulkheads = planned.get(room.id)?.bulkheads ?? [];
+            for (const part of duplexCeilingRects(floor, core.frame, rect)) {
+                for (const open of subtractAll(part, bulkheads.map(item => item.rect)))
+                    floor.lights.push(...ceiling(builder, finish, room.id, open, ceilingY, core.frame, whole, own));
+                for (const bulkhead of bulkheads) {
+                    const under = clipUv(part, bulkhead.rect);
+                    if (under) floor.lights.push(...ceiling(builder, finish, room.id, under, ceilingY - bulkhead.drop, core.frame, whole, []));
+                }
+            }
         }
     }
     const plain = finishOf(common.id);
@@ -123,7 +133,17 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     if (['steel', 'graphite'].includes(interiorRecipe(request)?.frame ?? '')) {
         for (const light of plannedLights) { light.colorTemperatureK = 4000; delete light.color; }
     }
+    // A bulkhead under a pit above: its sides face the room, and the lights under it hang lower.
+    for (const room of uv.rooms) for (const bulkhead of room.bulkheads ?? []) {
+        const whole = surfaceRooms.get(room.id);
+        if (whole) placeBulkheadSides(builder, whole, bulkhead, ceilingY - (whole.ceilingDrop ?? 0), core.frame);
+    }
     for (const light of plannedLights) {
+        const bulkhead = uv.rooms.find(room => room.id === light.room)?.bulkheads?.find(item => {
+            const [u, v] = worldToUv([light.position[0], light.position[2]], core.frame);
+            return u > item.rect.u && u < item.rect.u + item.rect.lu && v > item.rect.v && v < item.rect.v + item.rect.lv;
+        });
+        if (bulkhead) light.position[1] -= bulkhead.drop;
         const style = styleOfRoom(light.room)?.lights, drop = surfaceRooms.get(light.room)?.ceilingDrop ?? 0;
         if (style?.kelvin) light.colorTemperatureK = style.kelvin;
         if (style?.color) light.color = [...style.color];
@@ -242,4 +262,9 @@ function sharedSide(a: UvRect, b: UvRect): number {
     const touchU = Math.abs(a.u + a.lu - b.u) < 1e-6 || Math.abs(b.u + b.lu - a.u) < 1e-6;
     const touchV = Math.abs(a.v + a.lv - b.v) < 1e-6 || Math.abs(b.v + b.lv - a.v) < 1e-6;
     return Math.max(touchU ? along(a.v, a.v + a.lv, b.v, b.v + b.lv) : 0, touchV ? along(a.u, a.u + a.lu, b.u, b.u + b.lu) : 0);
+}
+
+function clipUv(a: UvRect, b: UvRect): UvRect | null {
+    const u0 = Math.max(a.u, b.u), u1 = Math.min(a.u + a.lu, b.u + b.lu), v0 = Math.max(a.v, b.v), v1 = Math.min(a.v + a.lv, b.v + b.lv);
+    return u1 - u0 > 1e-3 && v1 - v0 > 1e-3 ? { u: u0, v: v0, lu: u1 - u0, lv: v1 - v0 } : null;
 }
