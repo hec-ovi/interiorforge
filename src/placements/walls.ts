@@ -1,4 +1,4 @@
-import { boundaryDistance, polygonBounds } from '../core/geom.js';
+import { polygonBounds } from '../core/geom.js';
 import type { Point } from '../core/geom.js';
 import type { BlueprintFloor, FloorInterior, InteriorRequest, LightFixture, RoomKind } from '../core/types.js';
 import type { CorePlan } from '../layout/core-plan.js';
@@ -6,7 +6,7 @@ import type { UvFloorData } from '../layout/plan-floor.js';
 import { doorUvPoint } from '../layout/plan-floor.js';
 import type { PlanRoom } from '../layout/plan-types.js';
 import { Facade } from '../layout/openings.js';
-import { constructionPlate, facadeDepth } from '../layout/shell.js';
+import { constructionPlate, facadeDepth, faceSteps } from '../layout/shell.js';
 import type { Frame, UvRect } from '../layout/uv.js';
 import { uvToWorld, worldToUv } from '../layout/uv.js';
 import { edgeFrame, edgePoint } from '../geometry/shell-fit.js';
@@ -60,11 +60,11 @@ export function walls(
     // Rooms reach the shell's face once the building is planned; the planned plate remains
     // what the privacy returns close against where a room did not reach it.
     const planned = constructionPlate(bp, frame, depth), buildable = uv.face ?? planned, plate = polygonBounds(buildable);
-    const outline = uv.outline, faceDepth = uv.face ? Math.min(...uv.face.map(point => boundaryDistance(point, outline))) : 0;
     // A curved or chamfered facade keeps its own face: the steps the rooms reach it by are
     // no wall of their own.
-    const stepped = (segment: { axis: 'H' | 'V'; c: number; a: number; b: number }) => !!uv.face && boundaryDistance(
-        segment.axis === 'H' ? [(segment.a + segment.b) / 2, segment.c] : [segment.c, (segment.a + segment.b) / 2], outline) > faceDepth + 1e-3;
+    const steps = uv.face ? faceSteps(uv.face, uv.outline) : undefined;
+    const stepped = (segment: { axis: 'H' | 'V'; c: number; a: number; b: number }) => !!steps && (segment.axis === 'H'
+        ? steps.edge([segment.a, segment.c], [segment.b, segment.c]) : steps.edge([segment.c, segment.a], [segment.c, segment.b]));
     const height = floor.ceilingElevation - floor.elevation;
     const ceilingHoles = duplexVoids(floor, frame, 'lower');
     const grid = gridOrigin(uv.outline);
