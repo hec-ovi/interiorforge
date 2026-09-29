@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { BufferAttribute, BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three';
-import { generate, expandBuilding, findPath } from '../src/index.js';
+import { generate, expandBuilding, findPath, type PlacementResult } from '../src/index.js';
+import { templateSwitch } from '../src/layout/templates/registry.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
 import { expectBuildingLevels } from './building-levels.js';
 
@@ -10,8 +11,15 @@ it('closes a tapered-floor door into a thin leftover and preserves the useful re
         parcel: { footprint: [[0, 0], [52, 0], [52, 42], [0, 42]], accessPoint: [0, 21], maxHeight: 22 },
         building: { type: 'residential', tier: 'high_rich', floors: 4 }, options: { architecture: 'garden-taper', glb: 'merged' } },
         { textures: { mode: 'keys' } });
-    const result = await generate({ seed: blueprint.seed, building: { id: 'garden-access', type: 'residential', tier: 'high_rich' },
-        blueprint, materialTheme: 'cyberpunk' });
+    // Kind A homes now take the reference apartments; the tapered-floor studios are the generic program they fall back to.
+    templateSwitch.enabled = false;
+    let result: PlacementResult;
+    try {
+        result = await generate({ seed: blueprint.seed, building: { id: 'garden-access', type: 'residential', tier: 'high_rich' },
+            blueprint, materialTheme: 'cyberpunk' });
+    } finally {
+        templateSwitch.enabled = true;
+    }
     expectBuildingLevels(result, 4);
     const crown = result.layouts.crown!;
     expect(crown.floor.rooms.filter(room => room.kind === 'studio_main')).toHaveLength(2);
