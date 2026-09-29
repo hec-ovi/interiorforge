@@ -156,7 +156,8 @@ export const loft1702FinishRecipes:RecipeSet=add=>{
 export function loft1702Intervals(start:number,end:number,pitch:number,phase=0):[number,number][]{
   if(!(end>start)||!(pitch>0))return[];
   const points=[start];
-  for(let n=Math.floor((start-phase)/pitch)+1;phase+n*pitch<end-1e-8;n++)points.push(phase+n*pitch);
+  // a lattice line within rounding of either face cuts no piece
+  for(let n=Math.floor((start-phase)/pitch)+1;phase+n*pitch<end-1e-8;n++)if(phase+n*pitch>start+1e-8)points.push(phase+n*pitch);
   points.push(end);return points.slice(0,-1).map((a,i)=>[a,points[i+1]!]);
 }
 
