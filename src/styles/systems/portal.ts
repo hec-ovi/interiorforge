@@ -194,10 +194,23 @@ function slotPiece(k: Kit, spec: PortalSpec, bands: PortalBand[], sign: number):
   for (const p of strips) for (const side of [1, -1]) xyPrism(k, face.slot, t(p), side > 0 ? core : -face.da, side > 0 ? face.da : -core);
 }
 
+/** Specs whose modules the catalog draws, by passage header id and by spec id: the dress
+ *  passes (housings over portals) find a portal from the header placement they meet. */
+const DRAWN = new Map<string, PortalSpec>();
+
+/** The spec of a portal header module drawn by `portalRecipes`, and its resolved layers. */
+export function portalOfHeaderModule(module: string): { spec: PortalSpec; layers: PortalSpec[] } | undefined {
+  const spec = DRAWN.get(module);
+  if (!spec) return undefined;
+  return { spec, layers: (spec.layers ?? []).map(id => DRAWN.get(`id:${id}`)).filter((l): l is PortalSpec => !!l) };
+}
+
 /** Every module of one spec. Corners, slots and fillers are drawn at their size and must
  *  never be scaled; jambs and headers are one cell along their stretch axis. */
 export function portalRecipes(spec: PortalSpec): RecipeSet {
   const bands = portalProfile(spec), ids = portalModules(spec);
+  DRAWN.set(ids.header, spec);
+  DRAWN.set(`id:${spec.id}`, spec);
   return add => {
     for (const [name, sign] of [['left', -1], ['right', 1]] as const) {
       add(ids.jamb(name), k => sweep(k, bands, straightRail('y', sign, CELL)));
