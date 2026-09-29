@@ -1,5 +1,6 @@
 import type { Point } from "../../core/geom.js";
-import type { FloorKind, FurnitureKind, RoomKind } from "../../core/types.js";
+import type { FloorKind, FurnitureKind, ReferenceKind, RoomKind, StyleId, TemplateKey } from "../../core/types.js";
+import type { PublicSlot } from "../../styles/reference/kinds.js";
 import type { EdgeName, PlanRoom } from "../plan-types.js";
 import type { ProgramChange } from "../service-program.js";
 import type { UvRect } from "../uv.js";
@@ -11,8 +12,6 @@ import type { UvRect } from "../uv.js";
  *  Local frame: v = 0 is the entry wall (the public side), v grows into the space and
  *  u runs along the entry wall. Values are metres. */
 
-import type { ReferenceKind, StyleId, TemplateKey } from "../../core/types.js";
-import type { PublicSlot } from "../../styles/reference/kinds.js";
 export type { PublicSlot, ReferenceKind, StyleId, TemplateKey };
 export type Axis = "u" | "v";
 
