@@ -217,17 +217,44 @@ export function walls(
             const face = new Face(builder, l, run, frame, runHeight, floor.elevation, finish, nextLineId, lights, ceilingHoles, { ceilingY: height, grid, panel });
             const legacy = finish.family === 'luxury' || finish.family === 'corporate' || !!finish.frame;
             const glass = finish.glazing ? GLAZING.get(finish.glazing) : undefined;
-            const acrossFinish = across ? finishOf(across.room, across.kind) : undefined;
-            const acrossGlass = acrossFinish?.glazing ? GLAZING.get(acrossFinish.glazing) : undefined;
-            const glazed = !!across && (glass ? glass.rooms.includes(run.kind) && glass.onto.includes(kinds.get(across.room)!)
-                : legacy && GLAZED_ROOMS.has(run.kind) && GLAZED_ONTO.has(kinds.get(across.room)!));
-            const mirror = !!across && (acrossGlass ? acrossGlass.rooms.includes(across.kind) && acrossGlass.onto.includes(run.kind)
-                : legacy && GLAZED_ROOMS.has(across.kind) && GLAZED_ONTO.has(run.kind));
-            const build = (a: number, b: number) => {
+            // Whether a stretch of this run is glass, judged by the room across that stretch:
+            // a long run can face an office's glass along one part and a lift core along the
+            // next, and only the part facing the glass is the glazed room's plate.
+            const glazing = (other: Run | undefined) => {
+                const acrossFinish = other ? finishOf(other.room, other.kind) : undefined;
+                const acrossGlass = acrossFinish?.glazing ? GLAZING.get(acrossFinish.glazing) : undefined;
+                const glazed = !!other && (glass ? glass.rooms.includes(run.kind) && glass.onto.includes(kinds.get(other.room)!)
+                    : legacy && GLAZED_ROOMS.has(run.kind) && GLAZED_ONTO.has(kinds.get(other.room)!));
+                const mirror = !!other && (acrossGlass ? acrossGlass.rooms.includes(other.kind) && acrossGlass.onto.includes(run.kind)
+                    : legacy && GLAZED_ROOMS.has(other.kind) && GLAZED_ONTO.has(run.kind));
+                return { glazed, mirror, acrossGlass: !!acrossGlass };
+            };
+            const opposite = l.runs.filter(other => other.side !== run.side && other.a < run.b - 1e-6 && other.b > run.a + 1e-6);
+            const place = (a: number, b: number, other: Run | undefined) => {
+                const { glazed, mirror, acrossGlass } = glazing(other);
                 if (run.air !== undefined) face.plain(a, b, -run.air, runHeight);
                 else if (glass && glazed) placeGlazing(face, glass, a, b);
                 // Glass is one plate seen from both rooms: the glazed room's system owns it.
                 else if (!(acrossGlass && mirror)) face.build(a, b, glazed, mirror);
+            };
+            const build = (a: number, b: number) => {
+                // Split a fragment where the room across it changes, and build each stretch by
+                // the glass it faces; a fragment that agrees with the run's own neighbour
+                // throughout is built whole, as before.
+                const ends = [a, ...opposite.flatMap(other => [other.a, other.b]).filter(t => t > a + 1e-6 && t < b - 1e-6).sort((x, y) => x - y), b]
+                    .filter((t, k, all) => k === 0 || t > all[k - 1]! + 1e-6);
+                const parts = ends.slice(1).map((to, k) => {
+                    const from = ends[k]!, other = opposite.find(o => o.a < to - 1e-6 && o.b > from + 1e-6);
+                    return { from, to, other, key: JSON.stringify(glazing(other)) };
+                });
+                const own = JSON.stringify(glazing(across));
+                if (parts.every(part => part.key === own)) return place(a, b, across);
+                for (let k = 0; k < parts.length;) {
+                    let last = k;
+                    while (last + 1 < parts.length && parts[last + 1]!.key === parts[k]!.key) last++;
+                    place(parts[k]!.from, parts[last]!.to, parts[k]!.other);
+                    k = last + 1;
+                }
             };
             // Glass is one plate seen from both rooms: the office side owns it, the public side keeps its frame.
             let cursor = run.a;
