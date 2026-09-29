@@ -1,10 +1,14 @@
-# Interior 0.38.1
+# Interior 0.39.0
 
 A TypeScript generator for furnished buildings made from shared room modules.
 One building stores ground, middle and crown layouts. Every middle floor references
 the same table, including rooms, furniture, lights and NPC navigation. Five families
 furnish it (luxury, corporate, capsule, damaged, industrial), each from its own module
 kit, with numbered apartment entrances, rideable 3.5 m lifts and generous public stairs.
+Rich towers, glass buildings, offices and poor capsule blocks furnish as reference kinds:
+authored space templates fitted into the floor's own units, finished by parametric panel
+walls, grid ceilings, tiled floors, layered portals and built-in kitchens, bars and
+libraries.
 
 ## Run
 

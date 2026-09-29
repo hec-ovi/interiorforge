@@ -51,6 +51,23 @@ furniture light records, before the room's luminaires are balanced. Only models 
 beside the catalog) are placed, so furniture with no present model leaves with its anchors;
 `missingModels` lists the absent ones furniture wanted.
 
+A room wearing a registered reference style ([registry](../styles/reference/registry.ts))
+is finished through the style instead of its family: `style.finish` names the marker ids
+its walls, floor and ceiling route to (`wall-field-<sid>` to a `PanelSystem`,
+`floor-slab-<sid>` to a `FloorSystem`, `ceiling-field-<sid>` to a `CeilingSystem`), and its
+casing, portal and glazing ids; the architecture palette never overwrites it. Walls place
+the panel system on every fragment of the room's runs (a common room's `frontage` system on
+runs it shares with a dwelling, the plain marker on stair runs), glazing where the system
+names both rooms, and one layered portal where both sides name it and its headroom holds.
+Floors lay the floor system per rectangle with level zones cut out and raised on a closed
+support; ceilings hang at the room's `ceilingDrop`, never below the highest opening head
+of a room at the plate edge, and planned lights follow the drop. A piece whose `fit` names a
+registered `asm-*` assembly is built as that assembly, whose lens records replace the
+plan's for that piece; a `fit-*` piece, or one the style fits, stands as that module at its
+canonical size. Each style's dress pass and housings run before the room lights are
+balanced, so every lens record counts. A style may also name its lift surround and
+apartment entrance kit.
+
 Transforms apply positive XYZ scale, radians about positive Y, position, then floor
 elevation. A stretched placement publishes `uvRepeat`, the factor its module's tile-unit
 UVs multiply by, so a fitted piece never stretches its map past the material's own size. No geometry is serialized here. Temporary transformed vertices prove shell,

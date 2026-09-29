@@ -3,7 +3,7 @@ name: urbe-interior
 description: Generate shared Interior modules and reusable placement layouts from an assembled Exterior blueprint.
 ---
 
-# Interior 0.38.1
+# Interior 0.39.0
 
 Use this box to publish the room module kit once, then placement JSON per building.
 Run commands from Interior. The consumer supplies an assembled Exterior blueprint.
@@ -18,7 +18,13 @@ with `id`, Atlas `type` and `tier`, `blueprint`, and `materialTheme`.
 `assignments` is optional and derives from blueprint kinds. Each assignment covers
 one floor, except an `apartment` assignment with `spans: 2` under
 `building.interiorStyle: 'apartment-1702'`, which pairs two storeys into private duplexes.
-`interiorStyle` may also name a mid capsule profile, `h10`, `japantown` or `sandra-dorsett`. Equal middle floors share geometry and program; distinct plates or programmes
+`interiorStyle` may also name a mid capsule profile, `h10`, `japantown` or `sandra-dorsett`.
+Rich and high rich homes, hotels, offices and corpo parcels, and poor homes and hotels,
+furnish as a reference kind (`A`, `B`, `C`, `R`), derived from type, tier and architecture
+or forced by `building.kind`; `building.references` narrows the space templates the
+building fits (`e1-apartment` … `r1-office`). The manifest publishes `kind`, and kind rooms
+publish `style`, `template`, `role` and `ceilingDrop`; a kind `B` home pairs its top two
+storeys into a loft unless the assignments are explicit. Equal middle floors share geometry and program; distinct plates or programmes
 publish an additional `floor-<index>` layout. `shellGlb` is optional metadata.
 
 ```ts

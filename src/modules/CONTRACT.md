@@ -16,6 +16,14 @@ lift car and doors), [furniture](recipes/furniture.ts) (built-in pieces at their
 canonical sizes), and [sanitary](recipes/sanitary.ts) (recessed ceramic toilet and
 basin bodies, rounded seats, taps and drains). Every slot is a [finish](finishes.ts)
 key, `theme/kind/tier#variant`.
+The reference kinds ([ref-a](../styles/ref-a/index.ts) … [ref-r](../styles/ref-r/index.ts))
+add their recipe sets through [reference recipes](../styles/reference/recipes.ts): each
+system draws its pieces from a spec and a profile (panel columns and tops per pitch width,
+grid ceiling and floor sub-blocks named `<block>-<a>x<b>`, portal corners, jambs and
+headers, built-in bays, planters and housings). A module id is registered once across the
+kit, and a second registration throws; a kind registers only the casings and portals it
+draws. Repeating detail under 0.5 m is baked into bay modules, so a kind's modules stay
+within its kit budget however long its walls run.
 The [terminal stair guard](recipes/stair-guards.ts) closes the unused half-flight
 mouth at crown and roof arrivals. Its width follows the lane; its 1.1 m height and
 0.06 m depth remain fixed, with posts mounted beside the landing slab.

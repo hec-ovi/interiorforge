@@ -73,6 +73,28 @@ with 3.5 m bathrooms; legacy luxury studios and hotel rooms use 8–10 m frontag
 All luxury bathrooms must fit the complete fixture recipe rather than silently
 dropping a fixture when their door or circulation reservations are too restrictive.
 
+A building of a reference kind ([kinds](../styles/reference/kinds.ts)) fits
+[space templates](templates/schema.ts) after allocation: every dwelling with one corridor
+door, the office hall (a reference office per facade side it can take), and the slots its
+kind's floor policy names (`ground-front` reception, `service` restrooms and plant rooms,
+`corridor`), refining a common room in place with its id and doors kept. A template is
+solved per axis ([solve](templates/solve.ts)): rigid spans keep their reference size where
+the target allows, weighted spans grow and shrink within their bounds, optional rooms drop
+in order, and partitions meeting the facade snap to legal seats (a refined common room's
+lines are judged where they reach the outline). The fit is framed into the target at any
+rotation or mirror ([frame](templates/frame.ts)), keeps the allocator's entry door, keeps
+door approaches off level zones, and is kept only when its required fixtures furnish
+([fit](templates/fit.ts)); authored pieces furnish first, hung ones only on solid walls, and
+the rest of the room follows its program. Allocators size a kind's homes toward its first
+template's envelope and accept strips as shallow as its smallest template. A refused fit
+keeps the generic unit and records `{kind: 'living', requested, fitted: null}`; a floor that
+fails after fitting is planned again without that unit's template, then without templates.
+Fitted rooms carry `style`, `template`, `role`, `ceilingDrop` (from the template room's
+reference ceiling, clamped to the glass head on facade rooms) and `levels`; every other room
+of a kind building takes its floor policy's private or public style. Templates hold
+dimensions only; `compile.ts` turns a blueprint `plan.json` (with an optional overlay) into
+`templates/data/<key>.json`.
+
 Luxury enclosed plans reserve 3.5×3.5 m and 3×3.5 m gross bathrooms for a full
 vanity, shower and toilet, without floor planters. Primary bedrooms prefer 5.5×5 m
 and guest rooms at least 4.5×4.5 m, subject to real facade partition seats; the

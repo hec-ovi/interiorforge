@@ -1,4 +1,4 @@
-# Interior 0.38.1
+# Interior 0.39.0
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
@@ -11,7 +11,8 @@ its preferred frontage widths, wall/frame palette, floor finish and ceiling trea
 the common planner still enforces the exact shell openings, circulation and core.
 The building output publishes optional `architecture`, identifying the chosen recipe.
 Unlabelled legacy shells keep their existing generic interiors. Tier, office and
-industrial-use rules remain authoritative: a recipe's palette dresses luxury rooms only.
+industrial-use rules remain authoritative: a recipe's palette dresses luxury rooms only,
+and never a room wearing a reference style (below).
 
 ## Calls
 
@@ -75,7 +76,80 @@ seed, and the building output publishes the resolved one. `h10` and `japantown` 
 capsule profiles of a mid home or hotel (Japantown on white-grid and mirror-shutters
 shells, H10 otherwise, when none is named); `sandra-dorsett` furnishes a mid interior with
 its tatami capsule kit; `apartment-1702` turns `apartment` assignments with `spans: 2` into
-private duplexes. Any other assignment spans one storey.
+private duplexes, as it does for a kind `B` building. Any other assignment spans one storey.
+
+## Reference kinds
+
+A building may furnish as one of four reference kinds: `A` a high-tech luxury tower, `B` a
+rich glass building with a two-storey crown loft, `C` a poor capsule building and `R` a rich
+office. `building.kind` forces one; otherwise [kinds.ts](src/styles/reference/kinds.ts)
+derives it from type, tier and architecture: rich and high rich offices and corpo parcels
+are `R`; a residential or hotel building whose architecture pairs with a kind that allows
+its tier is that kind (`A` mirror-frame, corporate-sectors, white-grid; `B` balcony-grid,
+mirror-shutters, faceted-bays; `C` residential-serviced, residential-megablock,
+residential-courtyard), and any other architecture follows the tier: high rich `A`, rich
+`B`, poor `C`. Mid tiers and a named `interiorStyle` keep their family look. An explicit
+kind must allow the building's type and tier (`A`, `B` and `R` rich or high rich, `C` poor
+or mid; `A` and `B` homes, hotels, offices and corpo, `C` homes and hotels, `R` offices and
+corpo), and `references` must belong to the building's kind; either mismatch is
+`E_BLUEPRINT_INVALID`. The manifest publishes the resolved `kind`, and `references` when
+the request named them.
+
+A kind building furnishes every home floor as apartments (hotels keep hotel rooms). A kind
+`B` home with at least three apartment storeys above the ground and no explicit
+assignments pairs its crown with the floor below into an optional loft: the pair converts
+every home it can into a two-storey dwelling, as an `apartment-1702` pair does, and a pair
+that converts none keeps its two storeys on the shared middle layout and records
+`{kind: 'living', requested: [15, 10], fitted: null}` in the upper floor's program.
+Explicit single-storey assignments keep every floor single.
+
+### Space templates
+
+Each kind owns space templates, one per reference interior
+([data](src/layout/templates/data/)): `e1-apartment`, `e2-floor`, `e5-lobby2`,
+`e6-apartment2` (A), `b1-floor`, `b2-suite`, `b3-apartment`, `b4-loft` (B), `c1-capsule`,
+`c2-corridors`, `c3-poor`, `c4-bathroom`, `c5-machine`, `c6-studio`, `c7-room` (C) and
+`r1-office` (R). `building.references` restricts a building to some of its kind's keys.
+A template is a dimensioned local plan: wall lines and the spans between them (rigid
+spans keep their reference size, weighted ones grow and shrink within their bounds),
+rooms, doors, fixtures and level zones. The planner fits it into the rectangle a floor
+allocated: every dwelling with one corridor door, a reference office per facade side of an
+office hall, the ground floor's reception, restrooms and plant rooms, and a poor floor's
+corridors. The fit keeps the unit's own entrance, seats every partition that meets the
+facade on a legal pier (a refined common room's lines are followed out to the outline), and
+proves its required fixtures furnish before it is kept; hung pieces stand only on solid
+walls. A template that cannot fit leaves the generic unit and records
+`{kind: 'living', requested, fitted: null}`, and a floor that fails downstream is planned
+again without it, then without templates, so a template never fails a building. Kind
+buildings size their homes toward their first template's reference envelope.
+
+Rooms fitted from a template publish `template` (`<key>/<template room>`), `role`,
+`ceilingDrop` (the metres the room's reference ceiling hangs below the floor's, never below
+the glass head of a facade room) and `levels`. Pieces a template names publish `fit`: an
+`asm-<style>-<name>` built-in assembly or a `fit-<module>` exact module. Every room of a
+kind building publishes its `style`: its template's, the loft style inside a paired storey,
+else the floor policy's private or public default.
+
+### Reference styles
+
+Each style (`e1` … `r1`, [registry](src/styles/reference/registry.ts)) is data for the
+parametric systems in [src/styles/systems/](src/styles/systems/types.ts), registered by its
+kind ([ref-a](src/styles/ref-a/index.ts), [ref-b](src/styles/ref-b/index.ts),
+[ref-c](src/styles/ref-c/index.ts), [ref-r](src/styles/ref-r/index.ts)). The nine-slice rule
+becomes the panel system: a wall face is baked columns on the half-metre construction grid,
+a stretched top to the head band, fills and bevelled edges where a run is cut, head and foot
+bands, and lit joints whose modules and `cove` records share an id, on every fragment of
+every run the room owns, lintels and sills included. Stair walls, leftovers, sealed voids
+and thresholds wear the style's markers (`wall-field-<sid>`, `floor-slab-<sid>`,
+`ceiling-field-<sid>`), each itself a plain fitted piece. Glazing, ceilings (a grid of baked
+blocks phased to the building grid or the room centre, steps, coffers, luminous fields and
+lenses at the room's own height), floors (tile blocks over one support per rectangle,
+borders, inlays and the walk-on glass pit), layered portals and casings, built-in runs, the
+embedded kitchen wall, bars, libraries, planters, enclosures, housings and level zones
+(raised platforms and sunken pits of nested slabs one riser apart, with steps, guards and a
+closed support beneath) follow the same rule: fixed bays and baked pieces repeat, only their
+straight spans stretch, and every lens publishes its light record under its own placement
+id before the room is balanced.
 
 ## Files and frames
 
@@ -102,6 +176,14 @@ duplicate placements, and only the roof housing's interior is published as a roo
 (`stair-a`). Six occupied storeys and a served roof publish seven floor references; count
 occupied storeys by the layouts whose kind is not `roof`.
 Each layout contains floor metadata, source openings, placements and NPC data.
+Layout rooms may carry `style`, `template`, `role`, `ceilingDrop` and `levels`, and
+furniture may carry `fit` ([Reference kinds](#reference-kinds)). A level zone is a raised or
+sunken polygon of the room in world XZ with its walking `delta` (-0.45 to 1.5 m), an `edge`
+(`step`, `guard` or `open`) and an optional stair. A finished ceiling stands `ceilingDrop`
+below the floor's ceiling plane. `bathtub` and `urinal` are furniture kinds; a person uses a
+urinal as a toilet, and a bathtub has no anchor. `floor.voids` names building-level open
+voids crossing a floor in world XZ, with their floor range and guarded edges; no generated
+building publishes one yet.
 
 Placements name exactly one `module` or `prop`, an instance `id`, `room`, XYZ
 `position`, positive XYZ `scale` and `rotationY` in radians. Apply scale, then
@@ -138,8 +220,10 @@ reads the car's controls from `LIFT_CAR`; generated landing reveals and threshol
 clear body passage. Internal room apertures retain clear framed passages; they publish no
 moving leaves, and an apartment's entrance is the only door that does (below).
 
-Every wall face a room owns is finished by its family, its own face on the shell included.
-A capsule public room keeps the nine-slice panel frame: one fitted field over the whole run
+Every wall face a room owns is finished by its family, its own face on the shell included;
+a room wearing a reference style is finished by its style's systems instead
+([Reference styles](#reference-styles)), and the family rules below apply to every other
+room. A capsule public room keeps the nine-slice panel frame: one fitted field over the whole run
 as the backing, four one-cell corners, a rail along the head and the foot, a stile up each
 end, and a lit joint at the top and bottom, published as `cove` light records; each member
 is 12 mm short of its cell, so the joints between them show field, and the ivory band
@@ -379,9 +463,13 @@ home. Only a floor that holds no room at any step fails, with its first error.
 CLI argument and file errors exit nonzero. The modules command takes only `--out`.
 Budget tests use Exterior `planAssembly` for a 40 m by 40 m, 6-floor mirror-frame
 residence and a 56 m by 56 m, 12-floor corporate-sectors office. Each building's export
-stays under 2 MB, the complete shared module kit (about 17 MB, published once per city)
-under 20 MB, and a building with the kit under 30 seconds. Existing prop geometry and
-Exterior assets are city resources, outside the building export.
+stays under 2.5 MB and generates within 30 seconds; the complete shared module kit (about
+19 MB, published once per city) stays under 20 MB and exports within 30 seconds. Each
+reference kind adds at most 400 KB of modules to the kit (kind A 720 KB for now, its E1
+kitchen wall and layered portals), none over 10 k triangles, and a 40 m by 40 m six-floor
+kind building is held to 3000 placements and 400 k module triangles per layout; the ratchet
+in `tests/reference-budget.test.ts` records where a kind is still above them. Existing prop
+geometry and Exterior assets are city resources, outside the building export.
 
 ## Dependencies
 
