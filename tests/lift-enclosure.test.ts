@@ -11,7 +11,7 @@ import { elevatorDoorHole } from '../src/geometry/core-geo.js';
 import { makeFrame, uvRectToFrameRect } from '../src/layout/uv.js';
 import type { CorePlan } from '../src/layout/core-plan.js';
 import type { Placement } from '../src/placements/types.js';
-import { LIFT_CAR } from '../src/geometry/lift-spec.js';
+import { LIFT_CAR, LIFT_SHAFT_FRONT } from '../src/geometry/lift-spec.js';
 
 const recipes = new Map(moduleRecipes().map(recipe => [recipe.id, recipe]));
 const plan = { frame: makeFrame(0), vFace: 10,
@@ -106,6 +106,37 @@ it('closes every view out of the travelling car on its walls, its shut leaves, i
                 expect(Math.abs(hit!.point.z - cz)).toBeLessThan(ELEVATOR.shaft / 2);
             }
         }
+    }
+});
+
+it('closes the shaft side of every landing wall line from the floor to the next, except the landing doorway', () => {
+    for (const storey of [3.4, 4.5, 6.2]) {
+        const builder = new PlacementBuilder();
+        lifts(builder, plan, 'floor-slab-stone', 'lobby', 3.4, storey, 0);
+        const rect = plan.elevators[0]!.rect, passage = elevatorDoorHole(plan, 0, 0).hole;
+        // What stands still in the wall line: shaft walls, the landing's frame and its shut leaves.
+        const boxes = builder.placements.filter(p => /^(elevator-shaft-wall|lift-landing-|lift-doors)/.test(p.module!)).map(p => {
+            const box = new THREE.Box3();
+            for (const mesh of placedMeshes(p)) { mesh.geometry.computeBoundingBox(); box.union(mesh.geometry.boundingBox!.clone().applyMatrix4(mesh.matrixWorld)); }
+            return box;
+        });
+        // The wall line's shaft side, a hair behind the landing leaves.
+        const v = rect.v + LIFT_SHAFT_FRONT.depth / 2;
+        for (let u = rect.u + 0.005; u < rect.u + rect.lu; u += 0.05) {
+            for (let y = 0.005; y < storey; y += 0.05) {
+                const point = new THREE.Vector3(u, y, v);
+                if (Math.abs(u - passage.at) < passage.width / 2 && y < 2.20) continue;
+                expect(boxes.some(box => box.containsPoint(point)), `open wall line at u ${u.toFixed(3)}, y ${y.toFixed(3)}, storey ${storey}`).toBe(true);
+            }
+        }
+        // And nothing standing in it reaches the car's leaves.
+        const reach = Math.max(...builder.placements.filter(p => p.module === 'elevator-shaft-wall').map(p => {
+            const box = new THREE.Box3();
+            for (const mesh of placedMeshes(p)) { mesh.geometry.computeBoundingBox(); box.union(mesh.geometry.boundingBox!.clone().applyMatrix4(mesh.matrixWorld)); }
+            // The members of the wall line, not the side linings running the shaft's depth.
+            return box.min.z < rect.v + 0.2 && box.max.z - box.min.z < 1 ? box.max.z : -Infinity;
+        }));
+        expect(reach).toBeLessThan(rect.v + 0.10 - 0.042);
     }
 });
 

@@ -225,11 +225,18 @@ authored physical sizes. Family furniture publishes its own dimensions and diffu
 positions. Material UVs use the selected variant's physical repeat when present, then the
 entry's repeat; material maps stay shared outside the GLBs.
 
-Lift cars, moving leaves, stationary landing members and full-height shaft walls are
-separate modules. A lift shaft is 3.5 m square and holds a 3.3 m car, about 3.07 m clear
-inside, with a 1.58 m clear doorway. The Engine owns cab movement and floor selection and
-reads the car's controls from `LIFT_CAR`; generated landing reveals and thresholds keep a
-clear body passage. Internal room apertures retain clear framed passages; they publish no
+Lift cars, the car's own front (`lift-car-doors`, `lift-car-head`), moving landing leaves,
+stationary landing members and full-height shaft walls are separate modules. A lift shaft is
+3.5 m square and holds a 3.3 m car, about 3.07 m clear inside, with a 1.58 m clear doorway.
+The Engine owns cab movement and floor selection and reads the car's controls from
+`LIFT_CAR`; generated landing reveals and thresholds keep a clear body passage. The car's
+leaves, head and sill stand at the car front, scaled across the car only, in the clearance
+between the landing's leaves and the car, so the car is closed whenever it travels. Both
+pairs of leaves meet at their module's zero with no seam and are wider than their doorway,
+each closing behind its jamb or the car's cheek (`LIFT_LANDING`, `LIFT_CAR.door`). The shaft
+side of every landing's wall line is closed from inside the landing head to the next floor,
+its cheeks stop short of the car's leaves (`LIFT_SHAFT_FRONT`), and the landing's threshold
+runs to the car's sill. Internal room apertures retain clear framed passages; they publish no
 moving leaves, and an apartment's entrance is the only door that does (below).
 
 Every wall face a room owns is finished by its family, its own face on the shell included;

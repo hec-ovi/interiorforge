@@ -49,9 +49,9 @@ export function lifts(builder: PlacementBuilder, core: CorePlan, floorModule: st
             builder.module(surround.jamb, elevator.id, [jx, 0, jz], [1, 1, 1], angle);
         }
         builder.module(surround.header, elevator.id, [dx, 2.20, dz], doorScale, angle);
-        const solid = (u: number, v: number, w: number, d: number) => {
+        const solid = (u: number, v: number, w: number, d: number, y0 = 0) => {
             const [sx, sz] = uvToWorld([u, v], core.frame);
-            builder.module('elevator-shaft-wall', elevator.id, [sx, 0, sz], [w, storeyHeight, d], angle);
+            builder.module('elevator-shaft-wall', elevator.id, [sx, y0, sz], [w, storeyHeight - y0, d], angle);
         };
         // The consumer carries the car floor but gives its walls no collision.
         // Solid shaft linings follow 40 mm behind the car's inner skins, keeping
@@ -64,10 +64,14 @@ export function lifts(builder: PlacementBuilder, core: CorePlan, floorModule: st
             rect.lu - 2 * sideLining, rearLining);
         // Front cheeks cannot rely on an adjacent room drawing a partition:
         // service-only neighbours and shaft voids also need a solid enclosure. They
-        // stand in the wall line, short of the car's leaves.
+        // stand in the wall line, short of the car's leaves, and a face closes the
+        // wall line from the landing head to the next floor, so the lining of the
+        // corridor or lobby, finished on its room side only, is never seen from the
+        // shaft and no slot opens under the slab above.
         const cheek = (rect.lu - passage.width) / 2, front = LIFT_SHAFT_FRONT.depth;
         for (const u of [rect.u + cheek / 2, rect.u + rect.lu - cheek / 2])
             solid(u, rect.v + front / 2, cheek, front);
+        solid(passage.at, rect.v + front / 2, passage.width + 0.02, front, LIFT_SHAFT_FRONT.faceFrom);
         const gap = carFront - core.vFace;
         if (gap > 1e-6) {
             // No exposed shaft gap between the corridor slab and the car floor: the
