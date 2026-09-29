@@ -13,10 +13,10 @@ import { R1 } from './look.js';
  *  - the drawer chest by the door: 1.35 × 0.5 × 1.25 m, four stacked burl trays of two
  *    white inset drawers each, a finger notch cut in every front;
  *  - the drawer towers flanking the desk: 0.5 × 0.45 × 1.2 m, four white drawers in an ink
- *    carcass, a vase on top;
+ *    carcass, a vase on top to 1.44 m;
  *  - the fixed corner bench under the wall library: navy upholstery on a black plinth, seat
  *    at 0.49 m, a stepped low back to 0.72 m, laid in 0.5 m cells along the wall;
- *  - the potted plant by the bench: a dark pot 0.4 m across with a leafy plant to 1.3 m;
+ *  - the potted plant by the bench: a dark pot 0.4 m across, its leaves spreading 0.9 m, to 1.3 m;
  *  - the wall library over it: three dark timber boards 0.3 m deep at 1.45, 1.85 and 2.25 m
  *    along the whole run, binder bays baked at 0.9 m pitch, bare boards where none fits. */
 
@@ -24,8 +24,8 @@ const box = (k: Kit, slot: string, [x0, x1]: [number, number], [y0, y1]: [number
     k.box(slot, [x0, y0, z0], [x1 - x0, y1 - y0, z1 - z0]);
 
 export const CHEST = { size: [1.35, .5, 1.25] as const, module: 'fit-r1-chest' };
-export const TOWER = { size: [.5, .45, 1.2] as const, module: 'fit-r1-tower' };
-export const PLANT = { size: [.5, .5, 1.3] as const, module: 'fit-r1-plant' };
+export const TOWER = { size: [.5, .45, 1.44] as const, module: 'fit-r1-tower' };
+export const PLANT = { size: [.9, .9, 1.3] as const, module: 'fit-r1-plant' };
 /** Depth of the bench (its record) and of the library boards over it. */
 export const BENCH_DEPTH = .7;
 export const SHELF_DEPTH = .3;
@@ -61,7 +61,7 @@ function chest(k: Kit): void {
 }
 
 function tower(k: Kit): void {
-    const [w, d] = TOWER.size, hw = w / 2, hd = d / 2;
+    const [w, d] = TOWER.size, hw = w / 2, hd = d / 2; // 1.2 m carcass, the vase to 1.44 m
     box(k, R1.black, [-hw + .03, hw - .03], [0, .05], [-hd + .03, hd - .03]);
     box(k, R1.ink, [-hw, hw], [.05, 1.16], [-hd, hd - .02]);
     for (let row = 0; row < 4; row++) {
@@ -149,7 +149,7 @@ export const R1_ASSEMBLIES: Record<string, AssemblySpec> = {
     'asm-r1-library-return': { type: 'custom', place: benchLibrary(BENCH_DEPTH - SHELF_DEPTH + .1) },
 };
 
-/** The potted plant by the bench, on its 0.5 m record. */
+/** The potted plant by the bench, on its 0.9 m record. */
 function plant(k: Kit): void {
     k.cylinder(R1.ink, [0, 0, 0], .2, .42, 12);
     k.cylinder(R1.soil, [0, .42, 0], .185, .01, 12);

@@ -34,11 +34,12 @@ export const R1_PANEL = panelPreset('R', 'r1', {
     },
 });
 
-/** Ceiling: continuous warm timber in large 1.5 × 3 m panels with 3 mm joints, laid from the
- *  room's centre so the joints stay symmetric, a black 25 mm shadow gap along the walls. */
+/** Ceiling: continuous warm timber in large 1.5 × 3 m panels with 3 mm joints (the reference
+ *  ceiling shows none), phased to the building grid so a cut panel stays timber up to the
+ *  black 25 mm shadow gap along the walls. */
 export const R1_CEILING = ceilingPreset('R', 'r1', {
     system: {
-        grid: { pitch: [1.5, 3], block: 'ceiling-r1-panel', blockCells: [1, 1], joint: .003, phase: 'room-centre' },
+        grid: { pitch: [1.5, 3], block: 'ceiling-r1-panel', blockCells: [1, 1], joint: .003, phase: 'grid' },
         perimeter: { width: .025, drop: -.02, edge: 'ceiling-r1-shadow', corner: 'ceiling-r1-shadow-corner' }, snapSpots: false,
     },
     profile: { panel: R1.ceiling, backing: R1.black, perimeter: R1.black },
@@ -58,7 +59,7 @@ export const R1_GLAZING = { system: { ...GLAZING.system, id: 'r1-glass' }, recip
 const OFFICE: RoomKind[] = ['executive_office', 'office_private', 'office_open', 'meeting', 'corridor', 'reception', 'lounge', 'elevator_lobby'];
 
 /** The layered doorway: a square ink frame lined with polished brass on its returns, inside a
- *  broader dark veneer frame with a bronze reveal, both square cornered. */
+ *  broader honed graphite stone frame with a bronze reveal, both square cornered. */
 export const R1_PORTALS: PortalSpec[] = [
     {
         id: 'r1-layered', radius: 0, band: .1, depth: [.1, .14], layers: ['r1-layered-outer'],

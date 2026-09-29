@@ -21,6 +21,8 @@ export const R1 = {
     burl: 'cyberpunk/wood/high_rich#1',
     /** white inset drawer fronts, binders and boxes */
     white: 'cyberpunk/ivory-panel/rich#meridian-satin',
+    /** honed graphite stone of the layered doorway's outer frame */
+    portal: 'cyberpunk/r1-portal/rich#stone',
     /** pale blue-grey timber of the pier beside the door */
     pier: 'cyberpunk/district-panel-blue/rich#clean',
     /** navy upholstery of the fixed corner bench */
