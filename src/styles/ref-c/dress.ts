@@ -42,7 +42,7 @@ const LAMP_ROOMS = new Set(['corridor', 'elevator_lobby', 'concourse', 'receptio
 export function dressPublic(ctx: DressContext, sid: 'c2' | 'c3'): LightFixture[] {
     const lights: LightFixture[] = [];
     const rooms = new Map(ctx.rooms.filter(room => !/^(stair|elev)-/.test(room.id)).map(room => [room.id, room]));
-    const backing = `ceiling-${sid === 'c3' ? 'c2' : sid}-backing`;
+    const backing = 'ceiling-field-c2';
     const doors = ctx.floor.rooms.flatMap(room => room.doors.map(door => ({ at: door.position, width: door.width })));
     if (ctx.ceilingY >= 2.75) for (const p of ctx.builder.placements.filter(q => q.module === backing && rooms.has(q.room))) {
         const room = rooms.get(p.room)!;

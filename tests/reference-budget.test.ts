@@ -35,7 +35,7 @@ const GENERATION_SECONDS = 30;
 const PRE_REFERENCE: Partial<Record<ReferenceKind, { placements?: number; triangles?: number; seconds?: number; bytes?: number }>> = {
     A: { placements: 4020, triangles: 2_050_000, seconds: 60 },
     B: { placements: 7000, triangles: 1_557_000, seconds: 45, bytes: 3_700_000 },
-    C: { triangles: 875_000, seconds: 200 },
+    C: { triangles: 600_000, seconds: 200 },
 };
 
 describe('kit growth per reference kind', () => {

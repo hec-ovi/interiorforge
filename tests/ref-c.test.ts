@@ -50,8 +50,8 @@ beforeAll(async () => {
 describe('kind C styles', () => {
     it('registers the seven C styles with systems whose modules the catalog holds', () => {
         for (const sid of ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7']) expect(STYLES.get(sid)?.kind, sid).toBe('C');
-        for (const id of ['wall-field-c1', 'wall-field-c7', 'wall-field-c2', 'wall-field-c4', 'ceiling-field-c1', 'ceiling-field-c2',
-            'floor-slab-c1', 'floor-slab-c2', 'floor-slab-c7', 'floor-slab-c4', 'door-jamb-c1', 'door-header-c2', 'door-header-c1-bath',
+        for (const id of ['wall-field-c1', 'wall-field-c7', 'wall-field-c2', 'wall-panel-c4-paint', 'ceiling-field-c1', 'ceiling-field-c2',
+            'floor-slab-c1', 'floor-slab-c7', 'floor-slab-c4', 'door-header-c1-bath',
             'housing-c1-beam-body', 'housing-c7-duct-grille', 'trim-c2-trunk-bay', 'trim-c2-wall-lamp', 'fit-c4-urinal', 'fit-c1-vending'])
             expect(catalog.has(id), id).toBe(true);
     });

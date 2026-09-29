@@ -60,15 +60,15 @@ const housings: RecipeSet = add => {
  *  it, a cable tray, and one hanger frame with its rods; y = 0 is the ceiling, the bay hangs
  *  0.55 m. `-run` is the same pipes and tray without the hanger, stretched over the rest. */
 function trunk(k: Kit, x0: number, x1: number, hanger: boolean) {
-    pipe(k, C.ochre, x0, x1, -.26, -.18, .1, 12);
-    pipe(k, C.zinc, x0, x1, -.22, .1, .055, 10);
+    pipe(k, C.ochre, x0, x1, -.26, -.18, .1, 10);
+    pipe(k, C.zinc, x0, x1, -.22, .1, .055, 8);
     box(k, C.gunmetal, x0, x1, -.47, -.455, -.2, .2);
     for (const z of [-.2, .19]) box(k, C.gunmetal, x0, x1, -.47, -.41, z, z + .01);
-    box(k, C.black, x0, x1, -.455, -.43, -.17, .05);
+    box(k, C.gunmetal, x0, x1, -.455, -.43, -.17, .05);
     if (!hanger) return;
-    for (const z of [-.24, .22]) box(k, C.steel, -.012, .012, -.5, 0, z, z + .024);
-    box(k, C.steel, -.02, .02, -.5, -.47, -.25, .25);
-    box(k, C.steel, -.02, .02, -.39, -.37, -.25, .25);
+    for (const z of [-.24, .22]) box(k, C.zinc, -.012, .012, -.5, 0, z, z + .024);
+    box(k, C.zinc, -.02, .02, -.5, -.47, -.25, .25);
+    box(k, C.zinc, -.02, .02, -.39, -.37, -.25, .25);
     for (const x of [-.7, .7]) for (const z of [-.28, .0]) box(k, C.gunmetal, x - .03, x + .03, -.28, -.1, z - .005, z + .005);
 }
 
@@ -109,7 +109,7 @@ const fixtures: RecipeSet = add => {
         const front: Point[] = [[-.17, .6], [-.17, .2], ...arc(0, .2, .17, Math.PI, Math.PI * 2, 8).slice(1, -1), [.17, .2], [.17, .6]];
         xyPrism(k, C.ceramic, front, -.165, .12);
         box(k, C.black, -.13, .13, .22, .52, .12, .122);
-        k.cylinder(C.zinc, [0, .6, -.13], .012, .12, 6);
+        k.cylinder(C.steel, [0, .6, -.13], .012, .12, 6);
     });
     // The H10 vending machine beside the bathroom portal: 0.9 x 0.6 x 2.1, an ivory case,
     // a lit red menu screen, a product window and a dispenser slot.
@@ -117,10 +117,9 @@ const fixtures: RecipeSet = add => {
         box(k, C.ivory, -.45, .45, 0, 2.1, -.3, .26);
         box(k, C.black, -.4, .4, .95, 1.95, .26, .27);
         box(k, 'cyberpunk/ad-screen/rich#noir-amber', -.37, .37, 1.35, 1.9, .27, .275);
-        box(k, C.glass, -.37, .1, 1.0, 1.3, .27, .274);
         box(k, C.black, .15, .37, 1.05, 1.25, .27, .28);
         box(k, C.black, -.2, .2, .45, .62, .26, .275);
-        box(k, C.charcoal, -.45, .45, 0, .1, .26, .27);
+        box(k, C.black, -.45, .45, 0, .1, .26, .27);
     });
 };
 
@@ -133,10 +132,10 @@ const extras: RecipeSet = add => {
         box(k, C.gunmetal, -.45, .45, 0, 2.1, -.3, .25);
         box(k, C.black, -.4, .4, 1.9, 2.05, .25, .32);
         box(k, C.screen, -.34, .34, 1.25, 1.85, .25, .258);
-        box(k, C.charcoal, -.34, .34, .95, 1.2, .25, .3);
-        box(k, 'cyberpunk/light-fixture/rich#loft-red', -.08, .08, 1.05, 1.1, .3, .305);
+        box(k, C.black, -.34, .34, .95, 1.2, .25, .3);
+        box(k, C.screen, -.08, .08, 1.05, 1.1, .3, .305);
         box(k, C.black, -.2, .2, .5, .62, .25, .31);
-        box(k, C.steel, -.45, .45, 0, .1, .25, .27);
+        box(k, C.gunmetal, -.45, .45, 0, .1, .25, .27);
     });
     // Low corridor lamp at the foot of the wall: a warm lens under a small hood.
     add('trim-c3-low-lamp', k => {
@@ -148,10 +147,10 @@ const extras: RecipeSet = add => {
         box(k, C.ivory, -1.2, 1.2, .72, .9, -.275, .275);
         box(k, C.black, -1.14, 1.14, .8, .9, -.2, .2);
         for (const x of [-.9, -.3, .3, .9]) {
-            box(k, C.zinc, x - .015, x + .015, .9, 1.08, -.26, -.23);
-            box(k, C.zinc, x - .015, x + .015, 1.05, 1.08, -.26, -.14);
+            box(k, C.black, x - .015, x + .015, .9, 1.08, -.26, -.23);
+            box(k, C.black, x - .015, x + .015, 1.05, 1.08, -.26, -.14);
         }
-        for (const x of [-1.1, 0, 1.1]) box(k, C.steel, x - .02, x + .02, .2, .72, -.275, -.2);
+        for (const x of [-1.1, 0, 1.1]) box(k, C.black, x - .02, x + .02, .2, .72, -.275, -.2);
         box(k, C.black, -1.2, 1.2, 1.28, 2.0, -.275, -.265);
         box(k, C.mirror, -1.16, 1.16, 1.32, 1.96, -.265, -.258);
     });

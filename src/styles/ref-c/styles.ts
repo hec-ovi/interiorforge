@@ -33,7 +33,7 @@ function capsuleFit(profile: CapsuleProfile) {
 }
 
 const home = (base: RoomFinish, field: string, floor: string, ceiling: string): RoomFinish =>
-    ({ ...base, field, floor, ceiling, frame: undefined, band: undefined, services: undefined, casing: 'c1' });
+    ({ ...base, field, floor, ceiling, frame: undefined, band: undefined, services: undefined });
 
 const c1: StyleSpec = {
     id: 'c1', kind: 'C', tier: 'poor',
@@ -63,14 +63,14 @@ const c7: StyleSpec = {
     dress: ctx => dressCapsuleHome(ctx, 'japantown'),
 };
 
-const publicFinish = (base: RoomFinish, field: string, floor = 'floor-slab-c2', ceiling = 'ceiling-field-c2', casing = 'c2'): RoomFinish =>
-    ({ ...base, field, floor, ceiling, frame: undefined, band: undefined, casing });
+const publicFinish = (base: RoomFinish, field: string, floor = 'floor-slab-damaged', ceiling = 'ceiling-field-c2'): RoomFinish =>
+    ({ ...base, field, floor, ceiling, frame: undefined, band: undefined, services: undefined });
 
 const c2: StyleSpec = {
     id: 'c2', kind: 'C', tier: 'poor',
     finish(room, _floorKind: FloorKind, base) {
-        if (WET.has(room)) return publicFinish(base, 'wall-field-c4', 'floor-slab-c4');
-        if (SERVICE.has(room)) return publicFinish(base, 'wall-field-c4');
+        if (WET.has(room)) return publicFinish(base, 'wall-panel-c4-paint', 'floor-slab-c4');
+        if (SERVICE.has(room)) return publicFinish(base, 'wall-panel-c4-paint');
         return publicFinish(base, 'wall-field-c2');
     },
     lights: { plannedCoves: false, kelvin: 3100 },
@@ -81,7 +81,7 @@ const c2: StyleSpec = {
 const c3: StyleSpec = {
     id: 'c3', kind: 'C', tier: 'poor',
     finish(room, _floorKind: FloorKind, base) {
-        if (WET.has(room)) return publicFinish(base, 'wall-field-c4', 'floor-slab-c4');
+        if (WET.has(room)) return publicFinish(base, 'wall-panel-c4-paint', 'floor-slab-c4');
         return publicFinish(base, 'wall-field-c2');
     },
     lights: { plannedCoves: false, kelvin: 3300 },
@@ -90,14 +90,14 @@ const c3: StyleSpec = {
 
 const c4: StyleSpec = {
     id: 'c4', kind: 'C', tier: 'poor',
-    finish: (_room, _floorKind, base) => publicFinish(base, 'wall-field-c4', 'floor-slab-c4'),
+    finish: (_room, _floorKind, base) => publicFinish(base, 'wall-panel-c4-paint', 'floor-slab-c4'),
     fit: item => item.kind === 'urinal' ? 'fit-c4-urinal' : null,
     lights: { plannedCoves: false, kelvin: 5200 },
 };
 
 const c5: StyleSpec = {
     id: 'c5', kind: 'C', tier: 'poor',
-    finish: (_room, _floorKind, base) => publicFinish(base, 'wall-field-c4'),
+    finish: (_room, _floorKind, base) => publicFinish(base, 'wall-panel-c4-paint'),
     lights: { plannedCoves: false, kelvin: 5600 },
     housings: ['housing-c2-duct'],
 };
