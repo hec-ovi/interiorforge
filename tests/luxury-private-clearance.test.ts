@@ -3,7 +3,8 @@ import { expect, it } from 'vitest';
 import { validateRequest, resolveAssignments } from '../src/blueprint/validate.js';
 import { pointInPolygon } from '../src/core/geom.js';
 import { segmentDistance } from '../src/core/segment-sweep.js';
-import { planBuilding } from '../src/layout/index.js';
+import { planBuilding, type BuildingPlan } from '../src/layout/index.js';
+import { templateSwitch } from '../src/layout/templates/registry.js';
 import { doorUvPoint } from '../src/layout/plan-floor.js';
 import { roomCoversRect } from '../src/layout/room-shape.js';
 import { uvRectCorners, worldToUv } from '../src/layout/uv.js';
@@ -12,7 +13,15 @@ it('keeps the actual luxury floor wide after room fitting, pocket reservations a
   const blueprint = JSON.parse(readFileSync(new URL('./kit-plans/balcony-grid-review-05.blueprint.json', import.meta.url), 'utf8'));
   const request = validateRequest({ seed: 'luxury-reference-review', building: { id: 'p0', type: 'residential', tier: 'high_rich' },
     blueprint, materialTheme: 'cyberpunk' });
-  const plan = planBuilding(request, resolveAssignments(request), new Set([1])), uv = plan.uvFloors.get(1)!;
+  // Kind B homes now take the reference apartments and their authored salons; this floor certifies the generic homes they fall back to.
+  templateSwitch.enabled = false;
+  let plan: BuildingPlan;
+  try {
+    plan = planBuilding(request, resolveAssignments(request), new Set([1]));
+  } finally {
+    templateSwitch.enabled = true;
+  }
+  const uv = plan.uvFloors.get(1)!;
   const publicSpine = uv.rooms.find(room => room.id === 'f1-corridor')!;
   expect(publicSpine.rect.lv).toBe(3.5);
   expect(publicSpine.rect.lv - .2).toBeGreaterThanOrEqual(3); // two conservative 100mm finished faces
