@@ -10,6 +10,7 @@ import { liftRecipes } from "./recipes/lifts.js";
 import { stairFinishRecipes } from "./recipes/stair-finishes.js";
 import { stairGuardRecipes } from "./recipes/stair-guards.js";
 import { furnitureRecipes } from "./recipes/furniture.js";
+import { decorRecipes } from "./recipes/decor.js";
 import { capsuleRecipes } from "../styles/capsule/recipes.js";
 import { capsuleArchitecturalRecipes } from "../styles/capsule/architecture.js";
 import { sandraRecipes } from "../styles/sandra/recipes.js";
@@ -40,7 +41,7 @@ export type { ModuleRecipe } from "./types.js";
 export type RecipeSet = (add: (id: string, draw: (kit: Kit) => void) => void) => void;
 
 const SETS: RecipeSet[] = [surfaceRecipes, lightRecipes, coreRecipes, doorRecipes, liftRecipes, capsuleArchitecturalRecipes, sandraRecipes, corpoBathroomRecipes, loftBathroomRecipes, luxuryRugRecipes, luxuryDiningRecipes, loft1702FinishRecipes,
-  stairGuardRecipes, stairFinishRecipes, furnitureRecipes, capsuleRecipes, damagedRecipes, industrialRecipes, corporateRecipes, luxuryPortalRecipes, luxurySurfaceRecipes, luxuryFurnitureRecipes, luxuryCeilingRecipes, apartmentDoorRecipes, capsuleApartmentDoorRecipes, luxuryBathroomRecipes, luxuryAccessoryRecipes, referenceFurnitureRecipes, referenceBotanicalRecipes,
+  stairGuardRecipes, stairFinishRecipes, furnitureRecipes, decorRecipes, capsuleRecipes, damagedRecipes, industrialRecipes, corporateRecipes, luxuryPortalRecipes, luxurySurfaceRecipes, luxuryFurnitureRecipes, luxuryCeilingRecipes, apartmentDoorRecipes, capsuleApartmentDoorRecipes, luxuryBathroomRecipes, luxuryAccessoryRecipes, referenceFurnitureRecipes, referenceBotanicalRecipes,
   referenceRecipes];
 
 /** Every shared module, authored in metres. `tile` gives UV units per metre per material
