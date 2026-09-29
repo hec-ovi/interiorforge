@@ -5,6 +5,7 @@ import { placeIsland, placeTallRun, type IslandSpec, type TallRunSpec } from './
 import { registerModuleSizes, xyPrism, yzPrism } from './built-ins.js';
 import { placeGlassPlanter, type GlassPlanterSpec } from './planter.js';
 import { LOOK } from './reference-looks.js';
+import { referenceCasings } from './reference-portals.js';
 import type { AssemblySpec, HousingSpec, KitchenWallSpec, PlanterSpec, RunSpec } from './types.js';
 
 /** The built-in assemblies of the reference interiors, as data plus their modules. A kind
@@ -32,7 +33,7 @@ const CYAN: [number, number, number] = [.08, .78, 1];
 
 /** A diamond mesh over a dark void inside an outline (xy), on the plane z: two families of
  *  diagonal bars at a fixed pitch, clipped to the outline, baked into the module. */
-function diamondMesh(k: Kit, outline: Point[], z: number, void_: string, bar: string, pitch = .035): void {
+function diamondMesh(k: Kit, outline: Point[], z: number, void_: string, bar: string, pitch = .05): void {
   xyPrism(k, void_, outline, z - .0015, z, false);
   const xs = outline.map(p => p[0]), ys = outline.map(p => p[1]);
   const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
@@ -88,8 +89,6 @@ function kitchenRecipes(sid: string, look: KitchenLook, spec: KitchenWallSpec): 
     add(id('toe'), k => box(k, look.toe, -.25, .25, 0, spec.toe.height, 0, d - spec.toe.setback));
     add(id('door'), k => bayFront(k, look, w, h, d, [h]));
     add(id('drawers'), k => bayFront(k, look, w, h, d, [.2, .24, h - .44]));
-    add(id('sink'), k => bayFront(k, look, w, h, d, [.12, h - .12], true));
-    add(id('hob'), k => bayFront(k, look, w, h, d, [.33, h - .33]));
     add(id('display'), k => {
       bayFront(k, look, w, h, d, [h]);
       box(k, look.line, -.235, .235, .39, .64, d, d + .002);
@@ -121,7 +120,6 @@ function kitchenRecipes(sid: string, look: KitchenLook, spec: KitchenWallSpec): 
       k.cylinder(look.top, [0, t + .004, .33], .17, .003, 24);
     });
     add(id('splash'), k => box(k, look.splash, -.25, .25, 0, .5, 0, .012));
-    add(id('pull'), k => box(k, look.line, -.006, .006, 0, .1, 0, .004));
     add(id('lens'), k => box(k, look.lens, -.25, .25, -.008, 0, -.015, .015));
     if (look.uppers === 'e1') {
       // Lower tier: projects over the worktop with a dog-leg step and a glossy underside.
@@ -131,7 +129,6 @@ function kitchenRecipes(sid: string, look: KitchenLook, spec: KitchenWallSpec): 
         box(k, look.line, -w / 2 + .0015, w / 2 - .0015, .066, .07, .36, .52);
       };
       add(id('upper-a'), tierA);
-      add(id('upper-a-vent'), k => { tierA(k); box(k, look.line, .12, .22, .3, .315, .52, .523); });
       add(id('upper-a-grille'), k => {
         tierA(k);
         diamondMesh(k, [[-.24, .17], [.08, .17], [.13, .24], [.24, .24], [.24, .35], [-.24, .35]], .5215, look.line, look.grille);
@@ -167,7 +164,6 @@ function kitchenRecipes(sid: string, look: KitchenLook, spec: KitchenWallSpec): 
       box(k, look.upper, -half, half, .454, .9, 0, td);
       box(k, look.line, -half + .002, half - .002, .45, .454, 0, td - .002);
     });
-    add(id('column-step'), k => { box(k, look.upper, -half, half, 0, .5, 0, td - .12); box(k, look.upper, -half, half, .25, .5, td - .12, td); });
     add(id('column-top'), k => box(k, look.upper, -half, half, 0, .5, 0, td - .15));
     // Mounted on the column front (the record's front edge), 5 mm proud.
     add(`wall-screen-${sid}-kitchen`, k => { box(k, look.line, -.13, .13, 0, .34, 0, .003); box(k, look.panel, -.12, .12, .01, .33, .003, .005); });
@@ -180,17 +176,18 @@ function kitchenSpec(sid: string, look: 'e1' | 'bar', pattern: KitchenWallSpec['
   return {
     bay: .6,
     toe: { height: .07, setback: .06, module: id('toe') },
-    base: { height: .73, depth: .62, bays: { door: id('door'), drawers: id('drawers'), sink: id('sink'), hob: id('hob'), display: id('display') },
+    // The sink stands over door fronts, the hob over drawers: their worktop cut-outs make them.
+    base: { height: .73, depth: .62, bays: { door: id('door'), drawers: id('drawers'), sink: id('door'), hob: id('drawers'), display: id('display') },
       filler: id('filler'), endPanel: id('end'), endWidth: .04 },
     pattern,
     worktop: { top: .9, thickness: .1, depth: .65, lip: .1, slab: id('top'), sinkCut: id('top-sink'), hobCut: id('top-hob') },
-    backsplash: { height: 1, panels: look === 'e1' ? [.95, 1.25, .7, 1.1] : [1.2], module: id('splash'), ...(look === 'e1' ? { pull: id('pull') } : {}) },
+    backsplash: { height: 1, panels: look === 'e1' ? [.95, 1.25, .7, 1.1] : [1.2], module: id('splash') },
     uppers: look === 'e1'
-      ? { bottom: 1.9, height: .73, tiers: [{ depth: .52, bays: [id('upper-a'), id('upper-a-grille'), id('upper-a-vent'), id('upper-a-screen'), id('upper-a-grille')] },
+      ? { bottom: 1.9, height: .73, tiers: [{ depth: .52, bays: [id('upper-a'), id('upper-a-grille'), id('upper-a'), id('upper-a-screen'), id('upper-a-grille')] },
         { depth: .4, bays: [id('upper-b'), id('upper-b-vent')] }], underLens: id('lens') }
       : { bottom: 1.5, height: .9, tiers: [{ depth: .35, bays: [id('upper-a'), id('upper-a-shelf'), id('upper-a-screen'), id('upper-a-shelf')] }], underLens: id('lens') },
     bulkhead: { module: id('bulkhead') },
-    ...(column ? { column: { width: .9, depth: .65, modules: { stack: [id('column-base'), id('column-mid'), id('column-step'), id('column-top')], screen: `wall-screen-${sid}-kitchen` } } } : {}),
+    ...(column ? { column: { width: .9, depth: .65, modules: { stack: [id('column-base'), id('column-mid'), id('column-top')], screen: `wall-screen-${sid}-kitchen` } } } : {}),
     lens: { y: look === 'e1' ? 1.9 : 1.5, z: look === 'e1' ? .3 : .2, lumensPerMetre: look === 'e1' ? 110 : 80, ...(color ? { color } : {}) },
   };
 }
@@ -239,13 +236,13 @@ export const B3_BAMBOO: GlassPlanterSpec = {
 export const E1_WARDROBE: TallRunSpec = {
   run: { start: 'fit-e1-wardrobe-end', end: 'fit-e1-wardrobe-end', mid: 'fit-e1-wardrobe-back', repeat: { module: 'fit-e1-wardrobe-bay', pitch: .9 },
     filler: 'fit-e1-wardrobe-filler', height: 2.4, depth: .6 },
-  bulkhead: 'fit-e1-wardrobe-bulkhead',
+  bulkhead: 'fit-e1-shelf-bulkhead',
   line: { module: 'fit-e1-wardrobe-line', y: .012, z: .56, lumensPerMetre: 45, kelvin: 2700, color: RED, facing: 'up' },
 };
 export const E1_DISPLAY: TallRunSpec = {
   run: { start: 'fit-e1-display-side', end: 'fit-e1-display-side', mid: 'fit-e1-display-back', repeat: { module: 'fit-e1-display-bay', pitch: .45 },
     filler: 'fit-e1-display-back', height: 2.4, depth: .4 },
-  bulkhead: 'fit-e1-display-bulkhead',
+  bulkhead: 'fit-e1-shelf-bulkhead',
 };
 export const B3_MEDIA: RunSpec = {
   start: 'fit-b3-media-end', end: 'fit-b3-media-end', mid: 'fit-b3-media-top', repeat: { module: 'fit-b3-media-bay', pitch: .75 },
@@ -305,31 +302,18 @@ const kindA: RecipeSet = add => {
   add('fit-e1-planter-body', k => { yzPrism(k, LOOK.e1Cream, TROUGH, -.25, .25, false); box(k, LOOK.black, -.25, .25, .5, .516, .36, .362); });
   add('fit-e1-planter-end', k => yzPrism(k, LOOK.e1Cream, TROUGH, -.02, .02));
   add('fit-e1-planter-soil', k => box(k, LOOK.soil, -.25, .25, .73, .75, .04, .27));
-  // Seven broad-leaved tufts per metre leaning out of the bed towards the room, never back
+  // Six broad-leaved tufts per metre leaning out of the bed towards the room, never back
   // into the window.
   add('fit-e1-planter-bay', k => {
-    for (let i = 0; i < 7; i++) {
-      const x = -.43 + i * .143, z = .12 + (i % 2) * .07, h = .55 + (i % 3) * .1;
+    for (let i = 0; i < 6; i++) {
+      const x = -.42 + i * .168, z = .12 + (i % 2) * .07, h = .55 + (i % 3) * .1;
       k.rod(LOOK.stem, [x, .75, z], [x, .75 + h * .4, z], .016);
-      for (let j = 0; j < 9; j++) {
+      for (let j = 0; j < 7; j++) {
         const heading = -.15 + ((j * 2.399 + i * .7) % 3.44), length = h * (.4 + .08 * ((j + i) % 3));
         k.leaf(LOOK.leaf, [x, .75 + h * (.15 + .04 * j), z], heading, Math.min(length, .26), h * .16, .3 + .05 * (j % 4));
       }
     }
   });
-  add('fit-e1-bamboo-base', k => { box(k, LOOK.e1Housing, -.25, .25, 0, .3, -.25, .25); box(k, LOOK.black, -.25, .25, 0, .04, -.252, .252); });
-  add('fit-e1-bamboo-soil', k => box(k, LOOK.soil, -.25, .25, .3, .31, -.25, .25));
-  // A dense metre of bamboo: fourteen culms in two staggered lines, leaf clusters up top.
-  add('fit-e1-bamboo-bay', k => {
-    for (let i = 0; i < 14; i++) {
-      const x = -.45 + i * .069, z = (i % 2 ? .04 : -.04) + ((i * 37) % 5 - 2) * .01, h = 2 + (i % 4) * .12;
-      k.cylinder(LOOK.stem, [x, 0, z], .015, h, 6);
-      for (let j = 0; j < 8; j++) k.leaf(LOOK.leaf, [x, h * (.45 + j * .07), z], i * 1.7 + j * 2.1, .1, .035, .12);
-    }
-  });
-  add('fit-e1-bamboo-pane', k => box(k, LOOK.glass, -.25, .25, 0, .5, -.005, .005));
-  add('fit-e1-bamboo-post', k => box(k, LOOK.black, -.015, .015, 0, .5, -.015, .015));
-  add('ceiling-cove-e1-bamboo-frame', k => box(k, LOOK.lensCool, -.25, .25, -.01, 0, -.02, .02));
   // Open wardrobe: black steel frames on dark timber, a red line on the floor.
   add('fit-e1-wardrobe-back', k => box(k, LOOK.e1Shelf, -.25, .25, 0, 2.4, 0, .02));
   add('fit-e1-wardrobe-end', k => box(k, LOOK.e1Shelf, -.02, .02, 0, 2.4, 0, .6));
@@ -340,8 +324,31 @@ const kindA: RecipeSet = add => {
     box(k, LOOK.e1Shelf, -.445, .445, 2.2, 2.23, .02, .6);
   });
   add('fit-e1-wardrobe-filler', k => box(k, LOOK.e1Shelf, -.25, .25, 2.2, 2.23, .02, .6));
-  add('fit-e1-wardrobe-bulkhead', k => box(k, LOOK.e1Shelf, -.25, .25, 0, .5, 0, .6));
+  // One timber soffit closes both the wardrobe and the display shelving to the ceiling.
+  add('fit-e1-shelf-bulkhead', k => box(k, LOOK.e1Shelf, -.25, .25, 0, .5, 0, .4));
   add('fit-e1-wardrobe-line', k => box(k, LOOK.lensRed, -.25, .25, 0, .006, -.006, .006));
+  // Cream AC housing over doors and portals.
+  add('housing-e1-ac-body', k => yzPrism(k, LOOK.e1Cream, HOUSING, -.25, .25, false));
+  add('housing-e1-ac-cap', k => yzPrism(k, LOOK.e1Cream, HOUSING, -.015, .015));
+  add('housing-e1-ac-grille', k => diamondMesh(k, [[-.2, .15], [.2, .15], [.2, .28], [-.2, .28]], .4515, LOOK.black, LOOK.e1Mesh));
+};
+
+/** Kind A pieces a kind registers when its templates place them (they cost kit bytes): the
+ *  bamboo glass enclosure and the display shelving beside the kitchen. */
+const kindAExtra: RecipeSet = add => {
+  add('fit-e1-bamboo-base', k => { box(k, LOOK.e1Housing, -.25, .25, 0, .3, -.25, .25); box(k, LOOK.black, -.25, .25, 0, .04, -.252, .252); });
+  add('fit-e1-bamboo-soil', k => box(k, LOOK.soil, -.25, .25, .3, .31, -.25, .25));
+  // A dense metre of bamboo: twelve culms in two staggered lines, leaves up top.
+  add('fit-e1-bamboo-bay', k => {
+    for (let i = 0; i < 12; i++) {
+      const x = -.44 + i * .08, z = (i % 2 ? .04 : -.04) + ((i * 37) % 5 - 2) * .01, h = 2 + (i % 4) * .12;
+      k.cylinder(LOOK.stem, [x, 0, z], .015, h, 5);
+      for (let j = 0; j < 5; j++) k.leaf(LOOK.leaf, [x, h * (.5 + j * .1), z], i * 1.7 + j * 2.1, .11, .04, .12);
+    }
+  });
+  add('fit-e1-bamboo-pane', k => box(k, LOOK.glass, -.25, .25, 0, .5, -.005, .005));
+  add('fit-e1-bamboo-post', k => box(k, LOOK.black, -.015, .015, 0, .5, -.015, .015));
+  add('ceiling-cove-e1-bamboo-frame', k => box(k, LOOK.lensCool, -.25, .25, -.01, 0, -.02, .02));
   // Dark display shelving beside the kitchen.
   add('fit-e1-display-back', k => box(k, LOOK.black, -.25, .25, 0, 2.4, 0, .02));
   add('fit-e1-display-side', k => box(k, LOOK.e1Shelf, -.02, .02, 0, 2.4, 0, .4));
@@ -350,11 +357,6 @@ const kindA: RecipeSet = add => {
     for (const y of [1.25, 1.6, 1.95, 2.3]) box(k, LOOK.e1Shelf, -.2225, .2225, y, y + .025, .02, .38);
     box(k, LOOK.e1Shelf, .2125, .225, .9, 2.4, .02, .38);
   });
-  add('fit-e1-display-bulkhead', k => box(k, LOOK.e1Shelf, -.25, .25, 0, .5, 0, .4));
-  // Cream AC housing over doors and portals.
-  add('housing-e1-ac-body', k => yzPrism(k, LOOK.e1Cream, HOUSING, -.25, .25, false));
-  add('housing-e1-ac-cap', k => yzPrism(k, LOOK.e1Cream, HOUSING, -.015, .015));
-  add('housing-e1-ac-grille', k => diamondMesh(k, [[-.2, .15], [.2, .15], [.2, .28], [-.2, .28]], .4515, LOOK.black, LOOK.e1Mesh));
 };
 
 const kindB: RecipeSet = add => {
@@ -426,8 +428,8 @@ const kindR: RecipeSet = add => {
   add('fit-r1-library-gap', k => box(k, LOOK.black, -.12, .12, .03, .2, .04, .26));
 };
 
-export const assemblyRecipesA = kindA, assemblyRecipesB = kindB, assemblyRecipesC = kindC, assemblyRecipesR = kindR;
-registerModuleSizes(kindA, kindB, kindC, kindR);
+export const assemblyRecipesA = kindA, assemblyRecipesAExtra = kindAExtra, assemblyRecipesB = kindB, assemblyRecipesC = kindC, assemblyRecipesR = kindR;
+registerModuleSizes(kindA, kindAExtra, kindB, kindC, kindR);
 
 /** Kind A built-ins: assemblies by fit id, housings, and the modules they draw. */
 export const BUILT_INS_A: { assemblies: Record<string, AssemblySpec>; housings: HousingSpec[]; recipes: RecipeSet[] } = {
@@ -436,13 +438,20 @@ export const BUILT_INS_A: { assemblies: Record<string, AssemblySpec>; housings: 
     'asm-e1-kitchen-window': { type: 'kitchen', spec: E1_KITCHEN_WINDOW },
     'asm-e1-island': { type: 'custom', place: (b, f, i, c) => placeIsland(b, f, i, E1_ISLAND, c) },
     'asm-e1-planter': { type: 'planter', spec: E1_PLANTER },
-    'asm-e1-bamboo': { type: 'custom', place: (b, f, i, c) => placeGlassPlanter(b, f, i, E1_BAMBOO, c) },
     'asm-e1-wardrobe': { type: 'custom', place: (b, f, i, c) => placeTallRun(b, f, i, E1_WARDROBE, c) },
-    'asm-e1-display': { type: 'custom', place: (b, f, i, c) => placeTallRun(b, f, i, E1_DISPLAY, c) },
     'asm-e5-bar': { type: 'run', spec: E5_BAR },
   },
   housings: [E1_HOUSING_DOORS, E1_HOUSING_PORTALS],
-  recipes: [kindA],
+  recipes: [kindA, referenceCasings('e1')],
+};
+/** Opt-in kind A built-ins (see `kindAExtra`). */
+export const BUILT_INS_A_EXTRA: typeof BUILT_INS_A = {
+  assemblies: {
+    'asm-e1-bamboo': { type: 'custom', place: (b, f, i, c) => placeGlassPlanter(b, f, i, E1_BAMBOO, c) },
+    'asm-e1-display': { type: 'custom', place: (b, f, i, c) => placeTallRun(b, f, i, E1_DISPLAY, c) },
+  },
+  housings: [],
+  recipes: [kindAExtra],
 };
 export const BUILT_INS_B: typeof BUILT_INS_A = {
   assemblies: {
@@ -452,7 +461,7 @@ export const BUILT_INS_B: typeof BUILT_INS_A = {
     'asm-b3-media': { type: 'run', spec: B3_MEDIA },
   },
   housings: [],
-  recipes: [kindB],
+  recipes: [kindB, referenceCasings('b3')],
 };
 export const BUILT_INS_C: typeof BUILT_INS_A = {
   assemblies: {
@@ -460,10 +469,10 @@ export const BUILT_INS_C: typeof BUILT_INS_A = {
     'asm-c4-stall': { type: 'run', spec: C4_STALLS },
   },
   housings: [C2_DUCT, C7_AC],
-  recipes: [kindC],
+  recipes: [kindC, referenceCasings('c1', 'c2')],
 };
 export const BUILT_INS_R: typeof BUILT_INS_A = {
   assemblies: { 'asm-r1-library': { type: 'run', spec: R1_LIBRARY } },
   housings: [],
-  recipes: [kindR],
+  recipes: [kindR, referenceCasings('r1')],
 };

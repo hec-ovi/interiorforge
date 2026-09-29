@@ -12,16 +12,16 @@ import { placeHousings } from '../src/styles/systems/housing.js';
 import { kitchenBayRoles, kitchenLayout } from '../src/styles/systems/kitchen-wall.js';
 import { plantedBays } from '../src/styles/systems/planter.js';
 import {
-  BUILT_INS_A, BUILT_INS_B, BUILT_INS_C, BUILT_INS_R, B3_BAR, C4_STALLS, E1_BAMBOO, E1_HOUSING_DOORS, E1_KITCHEN, R1_LIBRARY, C2_DUCT,
-  assemblyRecipesA, assemblyRecipesB, assemblyRecipesC, assemblyRecipesR,
+  BUILT_INS_A, BUILT_INS_A_EXTRA, BUILT_INS_B, BUILT_INS_C, BUILT_INS_R, B3_BAR, C4_STALLS, E1_BAMBOO, E1_HOUSING_DOORS, E1_KITCHEN, R1_LIBRARY, C2_DUCT,
+  assemblyRecipesA, assemblyRecipesAExtra, assemblyRecipesB, assemblyRecipesC, assemblyRecipesR,
 } from '../src/styles/systems/reference-assemblies.js';
 import { runLayout } from '../src/styles/systems/run.js';
 import type { AssemblySpec, DressContext } from '../src/styles/systems/types.js';
 import { FreeBuilder, buildSet, vertices, worldBox, type V3 } from './built-ins-harness.js';
 
-const SETS = { A: assemblyRecipesA, B: assemblyRecipesB, C: assemblyRecipesC, R: assemblyRecipesR };
+const SETS = { A: assemblyRecipesA, 'A extra': assemblyRecipesAExtra, B: assemblyRecipesB, C: assemblyRecipesC, R: assemblyRecipesR };
 const meshes = buildSet(...Object.values(SETS));
-const ALL: Record<string, AssemblySpec> = { ...BUILT_INS_A.assemblies, ...BUILT_INS_B.assemblies, ...BUILT_INS_C.assemblies, ...BUILT_INS_R.assemblies };
+const ALL: Record<string, AssemblySpec> = { ...BUILT_INS_A.assemblies, ...BUILT_INS_A_EXTRA.assemblies, ...BUILT_INS_B.assemblies, ...BUILT_INS_C.assemblies, ...BUILT_INS_R.assemblies };
 const ELEVATION = 7.2;
 
 function floorOf(ceiling: number, extra: Partial<FloorInterior> = {}): FloorInterior {
@@ -47,11 +47,11 @@ describe('kitchen wall assembly', () => {
     else expect(layout.column).toBeUndefined();
     expect(layout.bays.map(b => b.role)).toContain('sink');
     const { builder } = place('asm-e1-kitchen', [w, .65, 3], 3);
-    const bays = builder.placements.filter(p => /kitchen-(door|drawers|sink|hob|display)$/.test(p.module!));
+    const bays = builder.placements.filter(p => /kitchen-(door|drawers|display)$/.test(p.module!));
     expect(bays).toHaveLength(n);
     // No bay, cut-out, tier, end, stack piece or screen is ever scaled.
     for (const p of builder.placements) {
-      if (/-(door|drawers|sink|hob|display|end|top-sink|top-hob|upper-[ab]-\w+|column-(base|mid|step)|pull)$|wall-screen-/.test(p.module!))
+      if (/-(door|drawers|display|end|top-sink|top-hob|upper-[ab]-\w+|column-(base|mid|step))$|wall-screen-/.test(p.module!))
         expect(p.scale, p.module).toEqual([1, 1, 1]);
       else expect(p.scale[2], p.module).toBe(1);
       if (/-(toe|filler|lens|upper-[ab])$|kitchen-top$/.test(p.module!)) expect(p.scale[1], p.module).toBe(1);
@@ -117,10 +117,10 @@ describe('kitchen wall assembly', () => {
     const w = 3.6, anchorX = -.3;
     const floor = floorOf(3, { openingReservations: [{ opening: 'w1', kind: 'window', position: [anchorX, -.33 - .2], angleDeg: 0, inward: [0, 1], width: 1.2, sill: .9, height: 1.4, depth: .2 }] });
     const { builder } = place('asm-e1-kitchen', [w, .65, 3], 3, 0, floor);
-    const sink = builder.placements.find(p => p.module === 'fit-e1-kitchen-sink')!;
-    expect(Math.abs(sink.position[0] - anchorX)).toBeLessThanOrEqual(E1_KITCHEN.bay / 2 + 1e-9);
     const cut = builder.placements.find(p => p.module === 'fit-e1-kitchen-top-sink')!;
-    expect(cut.position[0]).toBeCloseTo(sink.position[0], 9);
+    expect(Math.abs(cut.position[0] - anchorX)).toBeLessThanOrEqual(E1_KITCHEN.bay / 2 + 1e-9);
+    // The sink bay below it stands on door fronts.
+    expect(builder.placements.some(p => p.module === E1_KITCHEN.base.bays.sink && Math.abs(p.position[0] - cut.position[0]) < 1e-9)).toBe(true);
     // The window stays open: no splash panel stands in front of it.
     const window = floor.openingReservations[0]!;
     for (const p of builder.placements.filter(p => p.module === E1_KITCHEN.backsplash.module)) {
@@ -151,14 +151,14 @@ describe('kitchen wall assembly', () => {
     const { builder } = place('asm-e1-kitchen', [3.6, .65, 3], 3);
     expect(tris(builder.placements)).toBeLessThanOrEqual(8000);
     for (const [id, built] of meshes) {
-      if (/kitchen-(door|drawers|sink|hob|display)$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(300);
+      if (/kitchen-(door|drawers|display)$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(300);
       if (/kitchen-upper/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(600);
       if (/kitchen-top$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(100);
       if (/kitchen-top-(sink|hob)$/.test(id)) expect(built.triangles, id).toBeLessThanOrEqual(400);
     }
     const leg = place('asm-e1-kitchen-window', [2.4, .65, 3], 3).builder;
     expect(leg.placements.some(p => /column/.test(p.module!))).toBe(false);
-    expect(leg.placements.filter(p => /kitchen-(door|drawers|sink|hob|display)$/.test(p.module!))).toHaveLength(3);
+    expect(leg.placements.filter(p => /kitchen-(door|drawers|display)$/.test(p.module!))).toHaveLength(3);
     const bar = place('asm-b3-bar', [4.2, .65, 3], 3).builder;
     expect(tris(bar.placements)).toBeLessThanOrEqual(8000);
     expect(bar.placements.some(p => p.module === B3_BAR.column!.modules.screen)).toBe(true);
@@ -290,7 +290,7 @@ describe('modules and budgets', () => {
       if (typeof value === 'string' && /^(fit|housing|wall-screen|ceiling-cove)-/.test(value)) named.add(value);
       else if (value && typeof value === 'object') Object.entries(value).forEach(([key, v]) => { if (key !== 'id') walk(v); });
     };
-    for (const kind of [BUILT_INS_A, BUILT_INS_B, BUILT_INS_C, BUILT_INS_R]) walk({ assemblies: kind.assemblies, housings: kind.housings });
+    for (const kind of [BUILT_INS_A, BUILT_INS_A_EXTRA, BUILT_INS_B, BUILT_INS_C, BUILT_INS_R]) walk({ assemblies: kind.assemblies, housings: kind.housings });
     walk([E1_KITCHEN, B3_BAR, E1_BAMBOO]);
     for (const id of named) expect(meshes.has(id), id).toBe(true);
     for (const fit of Object.keys(ALL)) expect(fit).toMatch(/^asm-(e1|e2|e5|e6|b1|b2|b3|b4|c1|c2|c3|c4|c5|c6|c7|r1)-[a-z0-9-]+$/);
@@ -307,6 +307,7 @@ describe('modules and budgets', () => {
   it('keeps every module under 10 k triangles and each kind under 400 KB of kit', async () => {
     await MeshoptEncoder.ready;
     const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
+    const report: string[] = [];
     for (const [kind, set] of Object.entries(SETS)) {
       let bytes = 0, triangles = 0;
       for (const built of buildSet(set).values()) {
@@ -316,7 +317,11 @@ describe('modules and budgets', () => {
         await doc.transform(weld(), meshopt({ encoder: MeshoptEncoder, level: 'medium', quantizePosition: 16 }));
         bytes += (await io.writeBinary(doc)).byteLength;
       }
-      expect(bytes, `kind ${kind}: ${bytes} bytes, ${triangles} triangles`).toBeLessThanOrEqual(400 * 1024);
+      // The kind's whole kit growth (panels, ceilings, floors too) must stay under 400 KB:
+      // the built-ins keep to a share of it.
+      report.push(`${kind}: ${(bytes / 1024).toFixed(0)} KB, ${triangles} triangles`);
+      expect(bytes, `kind ${kind}: ${bytes} bytes, ${triangles} triangles`).toBeLessThanOrEqual(220 * 1024);
     }
+    console.log(`built-in kit per kind: ${report.join('; ')}`);
   }, 60000);
 });

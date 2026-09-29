@@ -99,7 +99,15 @@ export function placeHousings(ctx: DressContext, spec: HousingSpec): LightFixtur
   if (!styled.length) return lights;
   if (spec.over === 'runs') return placeRunHousings(ctx, spec, styled);
   const want = spec.over === 'portals' ? isPortalHeader : (m: string | undefined) => isHeader(m) && !isPortalHeader(m);
-  const headers = ctx.builder.placements.filter(p => want(p.module));
+  // A layered portal stacks one header per layer over the same passage: the case goes once,
+  // over the tallest surround.
+  const stacked = new Map<string, Placement>();
+  for (const p of ctx.builder.placements.filter(p => want(p.module))) {
+    const key = `${p.position[0].toFixed(3)}:${p.position[2].toFixed(3)}:${(((p.rotationY % Math.PI) + Math.PI) % Math.PI).toFixed(3)}`;
+    const other = stacked.get(key);
+    if (!other || headerSpan(p).top > headerSpan(other).top) stacked.set(key, p);
+  }
+  const headers = [...stacked.values()];
   for (const header of headers) {
     const span = headerSpan(header);
     for (const side of [1, -1]) {

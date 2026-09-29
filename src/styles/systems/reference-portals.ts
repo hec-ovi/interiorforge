@@ -98,12 +98,21 @@ export const REFERENCE_CASINGS: Record<string, CasingLook> = {
 
 for (const spec of REFERENCE_PORTALS) validatePortal(spec, referencePortal);
 
-/** The casing modules of the reference styles. Portal modules are not here: the catalog
- *  draws one family per registered spec (`referenceRecipes`), so a kind lists the specs it
- *  uses in `portals` (with their layers) and this set in `recipes`. */
-export const referenceCasingRecipes: RecipeSet = add => {
-  for (const [sid, look] of Object.entries(REFERENCE_CASINGS)) casingRecipes(sid, look)(add);
-};
+/** The casing modules of some reference styles (each kind draws its own). Portal modules are
+ *  not here: the catalog draws one family per registered spec (`referenceRecipes`), so a kind
+ *  lists the specs it uses in `portals` (with their layers) and its casings in `recipes`. */
+export function referenceCasings(...sids: string[]): RecipeSet {
+  return add => {
+    for (const sid of sids) {
+      const look = REFERENCE_CASINGS[sid];
+      if (!look) throw new Error(`no reference casing ${sid}`);
+      casingRecipes(sid, look)(add);
+    }
+  };
+}
+
+/** Every reference casing (tests and previews). */
+export const referenceCasingRecipes: RecipeSet = referenceCasings(...Object.keys(REFERENCE_CASINGS));
 
 /** The specs a kind registers: these ids and every layer they name. */
 export function portalsWithLayers(...ids: string[]): PortalSpec[] {

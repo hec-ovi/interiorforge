@@ -33,6 +33,8 @@ describe('portal specs', () => {
     for (const spec of REFERENCE_PORTALS) expect(() => validatePortal(spec, lookup)).not.toThrow();
     const broken: PortalSpec = { ...referencePortal('e1-inner')!, layers: ['e1-block'] };
     expect(() => validatePortal(broken, lookup)).toThrow(/does not continue/);
+    const squareOverRound: PortalSpec = { ...referencePortal('e1-inner')!, layers: ['r1-layered-outer'] };
+    expect(() => validatePortal(squareOverRound, lookup)).toThrow(/cannot follow/);
   });
 
   it.each(cases)('%s keeps a %s m aperture clear with constant radii and no box across the passage', (id, width) => {
@@ -113,10 +115,13 @@ describe('portal specs', () => {
     const corners = builder.placements.filter(p => p.module === ids.corner('right') || p.module === outer.corner('right'));
     // Both arcs share one centre: concentric bands, radii 0.26 and 0.5.
     expect(new Set(corners.map(p => `${p.position[0].toFixed(6)}:${p.position[1].toFixed(6)}`)).size).toBe(1);
-    expect(builder.placements.filter(p => p.module === ids.header)).toHaveLength(1);
-    expect(builder.placements.filter(p => p.module === outer.layerHeader)).toHaveLength(1);
-    expect(builder.placements.some(p => p.module === outer.header)).toBe(false);
-    // Only the outermost layer closes the square cut.
+    // Each layer places its own header over the one inside it; the passage header is lowest.
+    const inner = builder.placements.filter(p => p.module === ids.header), over = builder.placements.filter(p => p.module === outer.header);
+    expect(inner).toHaveLength(1);
+    expect(over).toHaveLength(1);
+    expect(over[0]!.position[1]).toBeGreaterThan(inner[0]!.position[1]);
+    // Only the outermost layer closes the square cut; a spec with layers has no fill at all.
+    expect(meshes.has(ids.fill('left'))).toBe(false);
     expect(builder.placements.some(p => p.module === ids.fill('left'))).toBe(false);
     expect(builder.placements.filter(p => p.module === outer.fill('left'))).toHaveLength(1);
     expect(builder.placements.filter(p => p.module === ids.slot('left'))).toHaveLength(1);
@@ -150,10 +155,10 @@ describe('portal specs', () => {
     }
   });
 
-  it('stays inside the triangle budget: corners about 1.1 k, no portal module above 10 k', () => {
+  it('stays inside the triangle budget: corners under 800, no portal module above 10 k', () => {
     for (const spec of [...REFERENCE_PORTALS, LUXURY_PUBLIC_PORTAL]) {
       const ids = portalModules(spec);
-      for (const side of ['left', 'right'] as const) expect(meshes.get(ids.corner(side))!.triangles).toBeLessThanOrEqual(1200);
+      for (const side of ['left', 'right'] as const) expect(meshes.get(ids.corner(side))!.triangles).toBeLessThanOrEqual(800);
     }
     for (const built of meshes.values()) expect(built.triangles, built.id).toBeLessThanOrEqual(10000);
     expect(meshes.get('wall-portal-luxury-left-corner')!.triangles).toBeLessThan(4552 / 3);

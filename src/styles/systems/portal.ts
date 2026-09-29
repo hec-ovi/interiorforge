@@ -18,9 +18,11 @@ import type { PortalSpec } from './types.js';
  *    engine collides a module as its bounding box;
  *  - layers are further specs placed concentrically around the inner one, each band
  *    starting where the previous one ends.
- *  Module ids: `wall-portal-<stem>-{left,right}-{jamb,slot,corner,fill}`, the passage header
- *  `door-header-<pid>` (thresholds find it), an outer layer's header `wall-portal-<stem>-header`,
- *  lenses `ceiling-cove-<stem>-{reveal,slot}` (uncollided, one record each). */
+ *  Module ids: `wall-portal-<stem>-{left,right}-{jamb,slot,corner,fill}`, the header
+ *  `door-header-<pid>` (thresholds find it; each layer places its own over the one inside),
+ *  lenses `ceiling-cove-<stem>-{reveal,slot}` (uncollided, one record each). The fill (the
+ *  square corner of the wall cut) exists only for specs without layers, which may stand
+ *  outermost. */
 
 /** Wall datum: plain fields and panel skins end 95 mm off the partition line. */
 export const PORTAL_WALL_DEPTH = .095;
@@ -30,7 +32,9 @@ export const slotMargin = (spec: PortalSpec): number => spec.id === 'luxury-publ
 /** The recess of a jamb slot: its floor sits this far behind the face. */
 export const SLOT_RECESS = .03;
 /** Arc segments of a rounded corner (a quarter). */
-export const CORNER_SEGMENTS = 16;
+export const CORNER_SEGMENTS = 12;
+/** Quarter-sine steps of the rounded nose between the lining and the face. */
+export const NOSE_STEPS = 2;
 const DEFAULT_LENS = 'cyberpunk/light-fixture/mid#strip';
 const REVEAL_LUMENS_PER_METRE = 45;
 
@@ -58,7 +62,6 @@ export function portalModules(spec: PortalSpec) {
     corner: (side: 'left' | 'right') => `wall-portal-${stem}-${side}-corner`,
     fill: (side: 'left' | 'right') => `wall-portal-${stem}-${side}-fill`,
     header: `door-header-${spec.id}`,
-    layerHeader: `wall-portal-${stem}-header`,
     reveal: `ceiling-cove-${stem}-reveal`,
     slotLens: `ceiling-cove-${stem}-slot`,
   };
@@ -78,9 +81,9 @@ export function portalProfile(spec: PortalSpec): PortalBand[] {
   const lip = Math.min(.052, B * .18), gap = .008, chamfer = round(lip * .35, 1e4);
   const faceEnd = B - lip - gap, lipDepth = d0 + (d1 - d0) * .625;
   const bands: PortalBand[] = [{ a: 0, b: lining, da: d0, db: d0, slot: ret }];
-  for (let i = 0; i < 3; i++) {
-    const depth = (j: number) => d0 + (d1 - d0) * Math.sin(j / 3 * Math.PI / 2);
-    bands.push({ a: lining + nose * i / 3, b: lining + nose * (i + 1) / 3, da: depth(i), db: depth(i + 1), slot: face, smooth: true });
+  for (let i = 0; i < NOSE_STEPS; i++) {
+    const depth = (j: number) => d0 + (d1 - d0) * Math.sin(j / NOSE_STEPS * Math.PI / 2);
+    bands.push({ a: lining + nose * i / NOSE_STEPS, b: lining + nose * (i + 1) / NOSE_STEPS, da: depth(i), db: depth(i + 1), slot: face, smooth: true });
   }
   bands.push({ a: lining + nose, b: faceEnd, da: d1, db: d1, slot: face });
   bands.push({ a: faceEnd, b: faceEnd + gap, da: d0 + .002, db: d0 + .002, slot: reveal });
@@ -89,8 +92,8 @@ export function portalProfile(spec: PortalSpec): PortalBand[] {
   return bands.map(b => ({ ...b, a: round(b.a, 1e6), b: round(b.b, 1e6) }));
 }
 
-/** The flat face band (the one a slot is cut into): after the lining and the three nose steps. */
-const faceBand = (bands: PortalBand[]): PortalBand => bands[4]!;
+/** The flat face band (the one a slot is cut into): after the lining and the nose steps. */
+const faceBand = (bands: PortalBand[]): PortalBand => bands[1 + NOSE_STEPS]!;
 
 // A rail is where the profile is swept: stations with a point function of the profile
 // offset r and the unit direction in which r grows there (for normals).
@@ -189,8 +192,8 @@ function slotPiece(k: Kit, spec: PortalSpec, bands: PortalBand[], sign: number):
   const t = (p: Point[]) => p.map(([x, y]) => [sign * x, y] as Point);
   xyPrism(k, spec.skin.reveal, t([[x0, 0], [x1, 0], [x1, height], [x0, height]]), -core, core);
   const strips: Point[][] = [[[x0, 0], [cx - r, 0], [cx - r, height], [x0, height]], [[cx + r, 0], [x1, 0], [x1, height], [cx + r, height]]];
-  strips.push([[cx - r, 0], [cx + r, 0], ...arc(cx, lo + r, r, 0, -Math.PI, 12)]);
-  strips.push([[cx + r, height], [cx - r, height], ...arc(cx, hi - r, r, Math.PI, 0, 12)]);
+  strips.push([[cx - r, 0], [cx + r, 0], ...arc(cx, lo + r, r, 0, -Math.PI, 6)]);
+  strips.push([[cx + r, height], [cx - r, height], ...arc(cx, hi - r, r, Math.PI, 0, 6)]);
   for (const p of strips) for (const side of [1, -1]) xyPrism(k, face.slot, t(p), side > 0 ? core : -face.da, side > 0 ? face.da : -core);
 }
 
@@ -219,10 +222,10 @@ export function portalRecipes(spec: PortalSpec): RecipeSet {
         sweep(k, bands, cornerRail(sign, spec.radius), { inner: true, outer: !bakedFiller(spec) });
         if (bakedFiller(spec)) filler(k, spec, sign);
       });
-      if (spec.radius > 0 && !bakedFiller(spec)) add(ids.fill(name), k => filler(k, spec, sign));
+      // Only a spec that can stand outermost (it has no layers of its own) closes the square cut.
+      if (spec.radius > 0 && !bakedFiller(spec) && !spec.layers?.length) add(ids.fill(name), k => filler(k, spec, sign));
     }
     add(ids.header, k => sweep(k, bands, straightRail('x', 1, CELL)));
-    if (!bakedFiller(spec)) add(ids.layerHeader, k => sweep(k, bands, straightRail('x', 1, CELL)));
     if (spec.reveal?.lit) {
       const g = Math.min(.03, spec.depth[0] * .35);
       add(ids.reveal, k => k.cbox(lensSlot(spec), [0, -.004, 0], [CELL, .004, 2 * g]));
@@ -252,6 +255,8 @@ export function validatePortal(spec: PortalSpec, lookup: PortalLookup): void {
     const previous = chain[chain.indexOf(layer) - 1]!;
     if (layer.radius > 0 && (previous.radius === 0 || Math.abs(layer.radius - edge) > 1e-3))
       throw new Error(`portal ${spec.id}: layer ${layer.id} radius ${layer.radius} does not continue ${previous.id} (outer radius ${round(edge)})`);
+    if (layer.radius === 0 && previous.radius > 0)
+      throw new Error(`portal ${spec.id}: square layer ${layer.id} cannot follow the rounded ${previous.id} (its corner would need a filler)`);
     edge = layer.radius > 0 ? layer.radius + layer.band : edge + layer.band;
   }
   for (const layer of chain) {
@@ -314,7 +319,7 @@ export function placePortal(builder: PlacementBuilder, spec: PortalSpec, room: s
   chain.forEach((layer, k) => {
     const ids = portalModules(layer), W = width + 2 * reach, r = layer.radius;
     const H = height + spec.radius + reach - r, next = chain[k + 1];
-    const fill = !bakedFiller(layer) && r > 0 && (!next || next.radius === 0);
+    const fill = !bakedFiller(layer) && r > 0 && !layer.layers?.length && (!next || next.radius === 0);
     const margin = slotMargin(layer);
     const slot = layer.slot && layer.slot.base - margin >= 0 && layer.slot.base + layer.slot.height + margin <= H - .01
       ? layer.slot : undefined;
@@ -342,7 +347,7 @@ export function placePortal(builder: PlacementBuilder, spec: PortalSpec, room: s
     }
     const straight = W - 2 * r;
     if (straight > 1e-6) {
-      local.place(builder, k === 0 ? ids.header : ids.layerHeader, room, 0, H + r, 0, [straight / CELL, 1, 1]);
+      local.place(builder, ids.header, room, 0, H + r, 0, [straight / CELL, 1, 1]);
       if (k === 0 && layer.reveal?.lit) {
         const lens = local.place(builder, ids.reveal, room, 0, H + r, 0, [straight / CELL, 1, 1]);
         lights.push(lensRecord(local, room, lens.id, 0, H + r - .004, 0, straight, elevation,
