@@ -44,9 +44,10 @@ const PRE_REFERENCE: Partial<Record<ReferenceKind, { placements?: number; triang
  *  with a pressed bowl, mixer and glass hob rather than boxes) and layered E1 portals (about
  *  100 KB) carry
  *  the per-file GLB overhead of their many small bays; kind B's back bar is the same
- *  joinery with baked bottles. The engine loads only the modules a building's floors
+ *  joinery with baked bottles, kind C's rounded vending, kiosk and stalls and kind R's
+ *  lever-arch binders the same. The engine loads only the modules a building's floors
  *  place, so kit size is not paid by every world. */
-const KIT_GROWTH_ALLOWANCE: Partial<Record<ReferenceKind, number>> = { A: 1_350_000, B: 520_000, C: 520_000 };
+const KIT_GROWTH_ALLOWANCE: Partial<Record<ReferenceKind, number>> = { A: 1_350_000, B: 520_000, C: 520_000, R: 440_000 };
 
 describe('kit growth per reference kind', () => {
     const theme = loadTheme('cyberpunk')?.library.themeIndex ?? null;
