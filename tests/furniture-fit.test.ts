@@ -4,6 +4,7 @@ import { generate, makePlacementFixture } from '../src/index.js';
 import type { FloorPlacement, InteriorRequest, Tier } from '../src/index.js';
 import { fitAssetBounds, loadAssetCatalog } from '../src/assets/catalog.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
+import { STYLES } from '../src/styles/reference/registry.js';
 
 const catalog = loadAssetCatalog();
 const asset = (id: string) => catalog.assets.find(entry => entry.id === id)!;
@@ -40,7 +41,9 @@ it('stands every bed along its frame, a family wardrobe where no model fills one
         expect(pieces.some(({ item }) => item.kind === 'wardrobe'), tier).toBe(true);
         for (const { item, placed, layout } of pieces) {
             if (item.kind === 'wardrobe') {
-                expect(placed.module, `${tier} ${item.id}`).toBe(wardrobe);
+                // A poor home is reference kind C: a capsule style (c1, c7) stands its own wardrobe where the reservation is that piece's size.
+                const room = layout.floor.rooms.find(room => room.id === item.room)!;
+                expect(placed.module, `${tier} ${item.id}`).toBe((room.style ? STYLES.get(room.style)?.fit?.(item, room) : null) ?? wardrobe);
                 // A retained wardrobe occupies its full storage reservation, with actual
                 // closed geometry and a height appropriate for standing clothing storage.
                 const recipe = modules.get(placed.module!)!;
