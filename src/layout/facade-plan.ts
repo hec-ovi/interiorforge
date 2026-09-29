@@ -110,19 +110,28 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
       const cuts = seats.cuts(strip, side, MIN_UNIT.endCommon);
       const frontage = interiorRecipe(request)?.frontage ?? [8, 12];
       const envelope = (low: number, high: number) => {
-        const available = access.unit(strip, side, low, high);
+        const available = behindCore(access.unit(strip, side, low, high), side, coreRectsOf(core));
         return residential ? residentialEnvelope(available, side) : available;
       };
       const targetArea = residentialTarget(request.building.tier);
       const preferred = residential ? targetArea / Math.min(10, strip.lv) : rng.range(frontage[0]!, frontage[1]!);
-      const slots = facadeSlots(cuts, preferred, (low, high) => {
+      const fits = (minimum: number) => (low: number, high: number): boolean => {
         const rect = envelope(low, high);
         if (rect.lu < MIN_UNIT.width || rect.lv < MIN_UNIT.depth || occupied.some(cut => overlaps(rect, cut))) return false;
         const polygon = clipPolygonToRect(plate, toRect(rect));
-        return Math.abs(polygonArea(polygon)) >= (residential ? Math.min(targetArea * 0.85, strip.lu * strip.lv * 0.6) : MIN_UNIT.area)
+        return Math.abs(polygonArea(polygon)) >= minimum
           && Math.abs(polygonArea(polygon)) >= rect.lu * rect.lv * 0.9
           && fittedServices(rect, side, polygon, serviceSize).length > 0;
-      });
+      };
+      const slots = facadeSlots(cuts, preferred,
+        fits(residential ? Math.min(targetArea * 0.85, strip.lu * strip.lv * 0.6) : MIN_UNIT.area));
+      // Frontage no generous home can take still holds smaller homes: a tapered or broken
+      // strip keeps its dwellings instead of turning into one long lounge.
+      if (residential) {
+        for (const run of uncoveredRuns(cuts, slots))
+          slots.push(...facadeSlots(run, (frontage[0]! + frontage[1]!) / 2, fits(MIN_UNIT.area)));
+        slots.sort((a, b) => a[0] - b[0]);
+      }
       for (const [low, high] of slots) {
         const rect = envelope(low, high);
         const polygon = clipPolygonToRect(plate, toRect(rect));
@@ -225,6 +234,32 @@ function absorbSlivers(occupied: readonly UvRect[]): UvRect[] {
     return { u: rect.u - uLow, v: rect.v - vLow,
       lu: rect.lu + uLow + gap(rect, true, false), lv: rect.lv + vLow + gap(rect, false, false) };
   });
+}
+
+/** A bay starts behind the core solids it runs past: a lift shaft deeper than the stair
+ *  beside it pushes the bay's inboard wall back instead of costing the whole bay. */
+function behindCore(rect: UvRect, side: "v0" | "v1", solids: readonly UvRect[]): UvRect {
+  let { v, lv } = rect;
+  for (const solid of solids) {
+    if (Math.min(rect.u + rect.lu, solid.u + solid.lu) - Math.max(rect.u, solid.u) <= 1e-6) continue;
+    if (Math.min(v + lv, solid.v + solid.lv) - Math.max(v, solid.v) <= 1e-6) continue;
+    if (side === "v0") { lv -= solid.v + solid.lv - v; v = solid.v + solid.lv; } else lv = solid.v - v;
+  }
+  return { ...rect, v, lv: Math.max(0, lv) };
+}
+
+/** The legal cuts of each stretch of a strip no chosen slot covers, ends included. */
+function uncoveredRuns(cuts: readonly number[], slots: readonly [number, number][]): number[][] {
+  const runs: number[][] = [];
+  let from = cuts[0];
+  for (const [low, high] of [...slots, [Infinity, Infinity] as [number, number]]) {
+    if (from === undefined) break;
+    const to = Math.min(low, cuts.at(-1)!);
+    const run = cuts.filter(cut => cut >= from! - 1e-6 && cut <= to + 1e-6);
+    if (run.length > 1) runs.push(run);
+    from = high;
+  }
+  return runs;
 }
 
 function fittedServices(rect: UvRect, side: "v0" | "v1", polygon: Point[], size = MIN_UNIT.serviceSize): UvRect[] {
