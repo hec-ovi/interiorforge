@@ -101,10 +101,12 @@ export class Kit {
    *  Consecutive section edges meeting under `crease` degrees share a normal (a rounded nose
    *  reads round); sharper corners stay crisp. UVs: u along the sweep, v along the section,
    *  in metres (tiled) or 0..1 (exact), so a stretched sweep keeps its section. `axis: 'z'`
-   *  sweeps an (x, y) section along z instead (an end nose). */
-  sweep(slot: string, section: readonly Point[], x0: number, x1: number, options: { caps?: boolean; crease?: number; uv?: UvMode; axis?: "x" | "z" } = {}): void {
-    // The z sweep is the x sweep with its axes turned cyclically (x, y, z) -> (z, x, y).
-    const along = options.axis === "z", put = (s: number, a: number, b: number): Vec3 => along ? [a, b, s] : [s, a, b];
+   *  sweeps an (x, y) section along z instead (an end nose), `axis: 'y'` a (z, x) section
+   *  up y (a frame's stile). */
+  sweep(slot: string, section: readonly Point[], x0: number, x1: number, options: { caps?: boolean; crease?: number; uv?: UvMode; axis?: "x" | "y" | "z" } = {}): void {
+    // The other sweeps are the x sweep with its axes turned cyclically: along z an (x, y)
+    // section, along y a (z, x) section.
+    const put = (s: number, a: number, b: number): Vec3 => options.axis === "z" ? [a, b, s] : options.axis === "y" ? [b, s, a] : [s, a, b];
     const area = section.reduce((s, p, i) => { const q = section[(i + 1) % section.length]!; return s + p[0] * q[1] - q[0] * p[1]; }, 0);
     const p = area < 0 ? [...section].reverse() : [...section], n = p.length;
     const unitUv = this.mode(slot, options.uv) === "unit", cos = Math.cos((options.crease ?? 40) * Math.PI / 180);

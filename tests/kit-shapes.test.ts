@@ -94,6 +94,15 @@ describe('kit shapes', () => {
     expect(g.max).toEqual([.25, .5, .42].map(v => expect.closeTo(v, 6)));
   });
 
+  it('sweeps a (z, x) section up y for a frame stile', () => {
+    const kit = new Kit(() => [1, 1]);
+    kit.sweep(SLOT, [[0, 0], [.03, 0], [.03, .02], [.01, .04], [0, .04]], 0, 1, { axis: 'y' });
+    outward(kit);
+    const g = geometry(kit);
+    expect(g.min).toEqual([0, 0, 0].map(v => expect.closeTo(v, 9)));
+    expect(g.max).toEqual([.04, 1, .03].map(v => expect.closeTo(v, 9)));
+  });
+
   it('draws a round rod on request', () => {
     const kit = new Kit(() => [1, 1]);
     kit.rod(SLOT, [0, 0, 0], [0, .5, 0], .02, true);
