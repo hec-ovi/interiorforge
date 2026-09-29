@@ -120,27 +120,34 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
       if (!fitting.length) return;
       const template = fitting[index % fitting.length]!;
       const facadeEdges = facadeEdgesOf(room.rect, ctx.plate);
+      // an office hall takes one reference office per facade side it can, the rest one each
+      const perRoom = slot.slot === "hall" ? 2 : 1;
+      let current = room, placed = 0;
       for (const entryEdge of entryEdges(slot.slot, room, facadeEdges, template, street)) {
-        const target: TemplateTarget = { rect: room.rect, polygon: roomPolygon(room, ctx.outline),
-          ...(room.holes?.length ? { holes: room.holes } : {}), entryEdge, publicRoom: room, facadeEdges,
+        if (placed >= perRoom) break;
+        const shape = current;
+        const target: TemplateTarget = { rect: shape.rect, polygon: roomPolygon(shape, ctx.outline),
+          ...(shape.holes?.length ? { holes: shape.holes } : {}), entryEdge, publicRoom: shape, facadeEdges,
           seatLegal, gridOrigin: origin, ...(ceiling ? { ceiling } : {}) };
         const fit = safeFit(template, target, undefined, ctx.ids, (candidate) => {
-          const kept = candidate.find(item => item.id === room.id)!;
+          const kept = candidate.find(item => item.id === shape.id)!;
           const reaches = (a: PlanRoom, b: PlanRoom) => sharedRoomEdges(a, b).some(edge => edge.hi - edge.lo >= MIN_STRETCH);
           // every room that opened onto it still shares a wall with what is left of it, and so
           // does every room its own doors lead to
-          const stillReached = rooms.every(other => other === room || !other.doors.some(door => door.to === room.id)
+          const stillReached = rooms.every(other => other === shape || !other.doors.some(door => door.to === shape.id)
             || reaches(other, kept)) && kept.doors.every(door => {
               const other = rooms.find(item => item.id === door.to);
               return !other || reaches(kept, other);
             });
-          return stillReached && probe(candidate, candidate.filter(item => item.id !== room.id));
-        }, room);
+          return stillReached && probe(candidate, candidate.filter(item => item.id !== shape.id));
+        }, shape);
         if (!fit) continue;
-        rooms = replaceRooms(rooms, [room], fit.rooms);
-        templated.set(room.id, { key: template.id, rooms: fit.rooms.map(item => item.id) });
+        rooms = replaceRooms(rooms, [shape], fit.rooms);
+        const previous = templated.get(room.id);
+        templated.set(room.id, { key: template.id, rooms: [...previous?.rooms ?? [], ...fit.rooms.map(item => item.id)] });
         changes.push(...fit.changes);
-        break;
+        current = fit.rooms.find(item => item.id === room.id) ?? current;
+        placed++;
       }
     });
   }
