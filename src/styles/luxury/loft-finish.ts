@@ -75,6 +75,17 @@ function cove(k:Kit,lens:string=M.red):void{
   for(const y of[-.022,.016])k.cbox(M.bronze,[0,y,0],[CELL,.003,.004]);
   k.cbox(lens,[0,-.007,-.001],[CELL,.014,.002]);
 }
+/** n ribs at the 50 mm pitch, centred on x = 0. */
+function ribs(k:Kit,n:number):void{
+  for(let i=0;i<n;i++){
+    const x=(i-(n-1)/2)*LOFT1702_FINISH.ribPitch;
+    k.mesh.addPrism(M.darkTimber,[[x-.015,.060],[x+.015,.060],[x+.015,.077],[x+.010,.085],[x-.010,.085],[x-.015,.077]],0,CELL);
+  }
+}
+/** Boards 0.25 m wide with 2 mm joints, n side by side along x, 0.5 m long along z. */
+function boards(k:Kit,n:number):void{
+  for(let i=0;i<n;i++)k.cbox(M.timber,[(i-(n-1)/2)*.25,0,0],[.248,.036,CELL]);
+}
 function wave(k:Kit):void{
   // Closed flat metal ribbons rather than hundreds of individual square rods.
   // Eight stations per 500mm wave keep chord error below0.31mm.
@@ -116,7 +127,9 @@ export const loft1702FinishRecipes:RecipeSet=add=>{
   add('loft1702-wall-backing',k=>field(k,M.black,.04));
   add('loft1702-wall-panel',k=>k.cbox(M.panel,[0,0,.058],[CELL,CELL,.032]));
   add('loft1702-wall-flute-backing',k=>k.cbox(M.darkTimber,[0,0,.051],[CELL,CELL,.018]));
-  add('loft1702-wall-rib',k=>k.mesh.addPrism(M.darkTimber,[[-.015,.060],[.015,.060],[.015,.077],[.010,.085],[-.010,.085],[-.015,.077]],0,CELL));
+  add('loft1702-wall-rib',k=>ribs(k,1));
+  add('loft1702-wall-flutes',k=>ribs(k,10));
+  add('loft1702-wall-flutes-bay',k=>ribs(k,30));
   add('loft1702-wall-joint',k=>k.cbox(M.bronze,[0,0,.080],[.004,CELL,.004]));
   add('loft1702-wall-skirt',k=>{
     k.cbox(M.black,[0,0,.047],[CELL,.082,.094]);
@@ -127,6 +140,7 @@ export const loft1702FinishRecipes:RecipeSet=add=>{
   add(LOFT1702_FINISH.wetCeiling,k=>k.cbox(M.panel,[0,0,0],[CELL,.047,CELL]));
   add('loft1702-ceiling-backing',k=>k.cbox(M.black,[0,.035,0],[CELL,.030,CELL]));
   add('loft1702-ceiling-board',k=>k.cbox(M.timber,[0,0,0],[CELL,.036,CELL]));
+  add('loft1702-ceiling-boards',k=>boards(k,8));
   add('loft1702-ceiling-dark-panel',k=>k.cbox(M.panel,[0,0,0],[CELL,.036,CELL]));
   add('loft1702-soffit-edge',k=>{
     k.cbox(M.darkTimber,[0,-.040,0],[CELL,.108,.055]);
@@ -178,10 +192,17 @@ export function placeLoft1702Wall(builder:Sink,room:string,at:Vec3,width:number,
     const inset=Math.min(JOINT/2,(hi-lo)/8),bottom=skirt ? .084 : 0;
     place(fluted?'loft1702-wall-flute-backing':'loft1702-wall-panel',(lo+hi)/2,bottom,hi-lo-inset*2,height-bottom);
     if(fluted){
-      for(let n=Math.ceil((a+.015-.025)/LOFT1702_FINISH.ribPitch);.025+n*LOFT1702_FINISH.ribPitch<=b-.015+1e-8;n++){
-        const x=.025+n*LOFT1702_FINISH.ribPitch-phase-width/2;
-        // Rib X/Z are never scaled: only its vertical length follows the opening cut.
-        builder.module('loft1702-wall-rib',room,[at[0]+x*c,at[1]+bottom,at[2]-x*s],[1,(height-bottom)/CELL,1],rotationY);
+      // Ribs stand at 25 mm + n·50 mm. Whole 1.5 m bays and 0.5 m cells of ribs are baked
+      // groups (30 and 10 ribs); only a cut cell places single ribs. X/Z are never scaled:
+      // only the vertical length follows the opening cut.
+      const rib=(id:string,centre:number)=>{const x=centre-phase-width/2;
+        builder.module(id,room,[at[0]+x*c,at[1]+bottom,at[2]-x*s],[1,(height-bottom)/CELL,1],rotationY);};
+      let n=Math.ceil((a+.015-.025)/LOFT1702_FINISH.ribPitch);
+      while(.025+n*LOFT1702_FINISH.ribPitch<=b-.015+1e-8){
+        const start=.025+n*LOFT1702_FINISH.ribPitch-.025,group=[30,10].find(g=>Math.abs(start/(g*LOFT1702_FINISH.ribPitch)-Math.round(start/(g*LOFT1702_FINISH.ribPitch)))<1e-6
+          &&start>=a-1e-8&&start+g*LOFT1702_FINISH.ribPitch<=b+1e-8);
+        if(group){rib(group===30?'loft1702-wall-flutes-bay':'loft1702-wall-flutes',start+group*LOFT1702_FINISH.ribPitch/2);n+=group;}
+        else{rib('loft1702-wall-rib',.025+n*LOFT1702_FINISH.ribPitch);n++;}
       }
     }else if(mode==='pattern'){
       for(const[x0,x1]of loft1702Intervals(a,b,CELL))for(const[y0,y1]of loft1702Intervals(bottom,height,CELL)){
@@ -205,7 +226,19 @@ export function placeLoft1702Ceiling(builder:Sink,room:string,rect:UvRect,y:numb
   const longV=options.grainAxis!=='u';
   const us=loft1702Intervals(rect.u,rect.u+rect.lu,options.dark ? 1.5 : longV ? .25 : 2.4,phase[0]);
   const vs=loft1702Intervals(rect.v,rect.v+rect.lv,options.dark ? 2.4 : longV ? 2.4 : .25,phase[1]);
+  // Eight whole boards side by side are one baked piece (their joints inside it).
+  const across=longV?us:vs,runs=options.dark?[]:boardRuns(across,.25,8);
+  const grouped=new Set(runs.flatMap(run=>run.members));
+  for(const run of runs)for(const[a0,a1]of longV?vs:us){
+    const lo=run.from,hi=run.to,len=a1-a0,gap=Math.min(.002,len/4);
+    const back=a0>(longV?rect.v:rect.u)+1e-8?gap/2:0,front=a1<(longV?rect.v+rect.lv:rect.u+rect.lu)-1e-8?gap/2:0;
+    if(len-back-front<MIN_PIECE)continue;
+    const mid=(lo+hi)/2,along=(a0+back+a1-front)/2;
+    const[x,z]=uvToWorld(longV?[mid,along]:[along,mid],frame);
+    builder.module('loft1702-ceiling-boards',room,[x,y,z],[1,1,(len-back-front)/CELL],rotation+(longV?0:Math.PI/2));
+  }
   for(const[u0,u1]of us)for(const[v0,v1]of vs){
+    if(grouped.has(longV?u0:v0))continue;
     const w=u1-u0,d=v1-v0,gapU=Math.min(.002,w/4),gapV=Math.min(.002,d/4);
     const left=u0>rect.u+1e-8?gapU/2:0,right=u1<rect.u+rect.lu-1e-8?gapU/2:0;
     const back=v0>rect.v+1e-8?gapV/2:0,front=v1<rect.v+rect.lv-1e-8?gapV/2:0;
@@ -219,6 +252,19 @@ export function placeLoft1702Ceiling(builder:Sink,room:string,rect:UvRect,y:numb
     const[x,z]=uvToWorld(point,frame);
     builder.module('loft1702-soffit-edge',room,[x,y,z],[length/CELL,1,1],rotation+(horizontal?0:Math.PI/2));
   }
+}
+
+/** Runs of `size` consecutive whole intervals of width `pitch`, never touching the
+ *  containing rectangle's ends (their boards keep the plain joint logic). */
+function boardRuns(intervals:[number,number][],pitch:number,size:number):{from:number;to:number;members:number[]}[]{
+  const out:{from:number;to:number;members:number[]}[]=[];let run:number[]=[];
+  const flush=()=>{while(run.length>=size){const members=run.splice(0,size);out.push({from:members[0]!,to:members[size-1]!+pitch,members});}run=[];};
+  for(const[i,[a,b]]of intervals.entries()){
+    const whole=Math.abs(b-a-pitch)<1e-6&&i>0&&i<intervals.length-1;
+    if(whole&&(!run.length||Math.abs(run[run.length-1]!+pitch-a)<1e-6))run.push(a);
+    else{flush();if(whole)run.push(a);}
+  }
+  flush();return out;
 }
 
 /** Gallery edge endpoints are core-frame UV, already cut around the stair arrival.

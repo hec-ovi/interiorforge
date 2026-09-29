@@ -32,9 +32,14 @@ it('keeps50mmflute pitch and cross-section fixed as wall widths/heights/rotation
  for(const width of[1.07,3.3,8.17])for(const height of[2.3,6.3]){
   const r=new Recorder(),angle=.645,at:Vec3=[7,0,11],phase=.17;
   placeLoft1702Wall(r,'loft',at,width,height,angle,{phase,mode:'fluted'});
-  const ribs=r.placements.filter(p=>p.module==='loft1702-wall-rib');expect(ribs.length).toBeGreaterThan(10);
-  const coordinates=ribs.map(p=>(p.position[0]-at[0])*Math.cos(angle)-(p.position[2]-at[2])*Math.sin(angle)+phase+width/2);
+  // Whole 0.5 m cells and 1.5 m bays of ribs are baked groups of 10 and 30 ribs.
+  const group:Record<string,number>={'loft1702-wall-rib':1,'loft1702-wall-flutes':10,'loft1702-wall-flutes-bay':30};
+  const ribs=r.placements.filter(p=>group[p.module!]);
+  const coordinates=ribs.flatMap(p=>{const c=(p.position[0]-at[0])*Math.cos(angle)-(p.position[2]-at[2])*Math.sin(angle)+phase+width/2,n=group[p.module!]!;
+   return Array.from({length:n},(_,i)=>c+(i-(n-1)/2)*.05);}).sort((a,b)=>a-b);
+  expect(coordinates.length).toBeGreaterThan(10);
   for(let i=1;i<coordinates.length;i++)expect(coordinates[i]!-coordinates[i-1]!).toBeCloseTo(.05,8);
+  for(const c of coordinates)expect(Math.abs(((c-.025)/.05)-Math.round((c-.025)/.05))).toBeLessThan(1e-6);
   for(const p of ribs){expect(p.scale[0]).toBe(1);expect(p.scale[2]).toBe(1);}
   for(const p of r.placements)for(const v of points(p)){
    const x=(v[0]-at[0])*Math.cos(angle)-(v[2]-at[2])*Math.sin(angle),z=(v[0]-at[0])*Math.sin(angle)+(v[2]-at[2])*Math.cos(angle);
