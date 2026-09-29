@@ -836,7 +836,7 @@ export function furnish(
     switch (room.kind) {
       case "studio_main":
         // clipped wedge rooms often have no straight wall for the bed: fall back to open floor
-        if (!suite && !(tier === "mid" && interiorStyle !== 'sandra-dorsett' && area >= 14 && p.wallPiece("sleeping_pod"))) {
+        if (!suite && !(podStyle(room, tier, interiorStyle) && area >= 14 && p.wallPiece("sleeping_pod"))) {
           if (!p.anyEdge("bed_double") && !p.grid("bed_double", 0.6, 1).length) p.looseBed("bed_double");
         }
         if (!luxury && family !== 'industrial' && family !== 'corporate') {
@@ -859,7 +859,7 @@ export function furnish(
         break;
       case "bedroom": {
         const bed = area >= 9 ? "bed_double" as const : "bed_single" as const;
-        if (!suite && !(tier === "mid" && interiorStyle !== 'sandra-dorsett' && area >= 14 && p.wallPiece("sleeping_pod"))) {
+        if (!suite && !(podStyle(room, tier, interiorStyle) && area >= 14 && p.wallPiece("sleeping_pod"))) {
           if (!p.anyEdge(bed) && !p.grid(bed, 0.6, 1).length) p.looseBed(bed);
         }
         p.anyEdge("wardrobe");
@@ -1026,6 +1026,13 @@ export function furnish(
   if (strict && incomplete.length) throw new InteriorError('E_FLOOR_TOO_SMALL',
     `${incomplete.join(', ')} cannot fit a bed and a toilet in the rooms that carry them`);
   return out;
+}
+
+/** Homes that sleep in a niche: the mid capsule identities, and the rooms of the reference
+ *  capsule and compact home templates (c1, c7) whatever their tier. */
+function podStyle(room: PlanRoom, tier: string, interiorStyle?: InteriorStyle): boolean {
+  return tier === "mid" && interiorStyle !== 'sandra-dorsett'
+    || !!room.template && (room.style === 'c1' || room.style === 'c7');
 }
 
 /** Direction away from the back wall of a piece at each rotation (it faces that way). */
