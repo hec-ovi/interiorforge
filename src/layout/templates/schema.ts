@@ -97,6 +97,9 @@ export interface SpaceTemplate {
   twoLevel?: { voids: { u: [string, string]; v: [string, string] }[];
     stair: { u: [string, string]; v: [string, string]; run: Axis } };
   source?: { key: string; revision: string };
+  /** set by the fit on a template it deepened with an entry band of service rooms
+   *  (`band.ts`); never authored */
+  band?: { line: string; depth: number; remainderEnters: boolean };
 }
 
 export type { AuthoredPiece } from "../plan-types.js";

@@ -13,6 +13,7 @@ import { axisToUv, edgeToUv, localFrame, rectToUv, rotationToUv, toLocal, toUv, 
 import type { FitProbe, SpaceTemplate, TemplateDoor, TemplateFit, TemplateLine, TemplateRoom, TemplateSpan,
   TemplateTarget } from "./schema.js";
 import { positionsOf, snapAxis, solveAxis, type AxisSpan, type SnapCandidate } from "./solve.js";
+import { BAND_MAX, BAND_MIN, withEntryBand } from "./band.js";
 
 const GRID = 0.5;
 const EPS = 1e-6;
@@ -38,6 +39,15 @@ interface Solved { pos: Map<string, number>; exact: boolean }
  *  (the caller keeps its generic program). Never throws for geometry. */
 export function fitTemplate(t: SpaceTemplate, target: TemplateTarget, unit: string | undefined, ids: IdGen,
   probe: FitProbe, keepRemainder?: PlanRoom): TemplateFit | null {
+  // A dwelling deeper than its envelope keeps its rooms within their authored spans: the
+  // rest of the depth becomes a band of service rooms along the entry wall (`band.ts`).
+  const depth = localFrame(target.rect, target.entryEdge, false).depth, extra = depth - t.envelope.max[1];
+  if (!keepRemainder && !t.band && t.scope === "dwelling" && extra > EPS) {
+    const band = Math.round(Math.max(BAND_MIN, extra) * 1000) / 1000;
+    if (band > BAND_MAX + EPS || depth - band < t.envelope.min[1] - EPS)
+      return refuse(`${t.id}: target ${depth.toFixed(2)} deep is no entry band away from its envelope`);
+    return fitTemplate(withEntryBand(t, band), target, unit, ids, probe);
+  }
   const mirrors = t.mirror === "allow" ? [false, true] : [false];
   let best: (TemplateFit & { frame: LocalFrame }) | null = null;
   for (const mirrored of mirrors) {
@@ -206,17 +216,30 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
     const a = byId.get(door.between[0]), b = byId.get(door.between[1]);
     if (!a || !b) continue;
     const owner = door.owner === door.between[1] ? b : a, other = owner === a ? b : a;
-    placeInternal(owner, other, door, doorIds);
+    placeInternal(owner, other, door, doorIds, frame);
   }
   const entryRoom = keepRemainder ? rest : rooms.find(room => room.doors.some(door => door.to === publicRoom.id));
   if (!entryRoom || !connectAll(rooms, entryRoom, doorIds, keepRemainder)) return refuse(`${t.id}: rooms cannot all be reached`);
 
-  // fixtures become authored pieces of their rooms
+  // fixtures become authored pieces of their rooms; a free piece keeps its place among the
+  // lines around it, however the spans between them scaled
+  const solvedLines = (axis: "u" | "v") => t.lines.filter(line => line.axis === axis && at(axis, line.id) !== undefined)
+    .map(line => [line.ref, at(axis, line.id)!] as [number, number]).sort((a, b) => a[0] - b[0]);
+  const lineMaps = { u: solvedLines("u"), v: solvedLines("v") };
+  const refToFit = (axis: "u" | "v", value: number): number => {
+    const pairs = lineMaps[axis];
+    if (pairs.length < 2) return value;
+    let k = pairs.findIndex(([ref]) => ref >= value);
+    if (k <= 0) k = k === 0 ? 1 : pairs.length - 1;
+    const [r0, s0] = pairs[k - 1]!, [r1, s1] = pairs[k]!;
+    return r1 - r0 > 1e-9 ? s0 + (value - r0) * (s1 - s0) / (r1 - r0) : s0;
+  };
   for (const fixture of t.fixtures) {
     const room = byId.get(fixture.room);
     const spec = active.find(item => item.id === fixture.room);
     if (!room || !spec) continue;
-    const piece = placeFixture(fixture, spec, room, frame, at, lineRef);
+    const piece = placeFixture(fixture, spec, room, frame, at, lineRef, t.band && !t.band.remainderEnters ? at("v", t.band.line) : undefined,
+      refToFit, t.band && !t.band.remainderEnters ? lineRef.get(`v:${t.band.line}`) : undefined);
     if (piece) (room.authored ??= []).push(piece);
     else if (fixture.required) delete room.authored;
   }
@@ -407,7 +430,7 @@ function placeEntry(owner: PlanRoom, publicRoom: PlanRoom, door: TemplateDoor, t
     if (!interval) continue;
     const alongU = edge.startsWith("v");
     const wanted = target.entryDoor ? target.entryDoor.at[alongU ? 0 : 1] : undefined;
-    const preferred = [wanted, stretch.lo + (stretch.hi - stretch.lo) * door.along, (interval[0] + interval[1]) / 2,
+    const preferred = [wanted, stretch.lo + (stretch.hi - stretch.lo) * alongUv(frame, stretch, door.along), (interval[0] + interval[1]) / 2,
       interval[0], interval[1]].filter((value): value is number => value !== undefined);
     for (const raw of preferred) {
       const centre = Math.min(interval[1], Math.max(interval[0], raw));
@@ -430,13 +453,13 @@ function placeEntry(owner: PlanRoom, publicRoom: PlanRoom, door: TemplateDoor, t
 /** A private door on the stretch two rooms share, at the authored place when its approach
  *  is clear, else at the usual fallback fractions. */
 function placeInternal(owner: PlanRoom, other: PlanRoom, door: Pick<TemplateDoor, "width" | "leaves" | "kind" | "along">,
-  nextId: () => string): boolean {
+  nextId: () => string, frame?: LocalFrame): boolean {
   const stretches = sharedRoomEdges(owner, other).filter(s => s.hi - s.lo >= MIN_STRETCH);
   for (const stretch of stretches) {
     const w = doorWidthOn(stretch.hi - stretch.lo, door.width);
     const leaves = (w < door.width - 1e-6 ? Math.max(1, Math.min(door.leaves, Math.round(w / 0.9))) : door.leaves) as 1 | 2 | 3 | 4;
     const span = stretch.hi - stretch.lo - w - 2 * BAND_CLEAR;
-    for (const fraction of [door.along, 0.5, 0.25, 0.75, 0.1, 0.9]) {
+    for (const fraction of [frame ? alongUv(frame, stretch, door.along) : door.along, 0.5, 0.25, 0.75, 0.1, 0.9]) {
       const at = span > 0 ? stretch.lo + w / 2 + BAND_CLEAR + span * fraction : (stretch.lo + stretch.hi) / 2;
       if (!doorApproachFits(owner, other, stretch.edge, stretch.c, at, w)) continue;
       const placed = internalDoor("", other.id, w, leaves, stretch, at, door.kind);
@@ -448,6 +471,14 @@ function placeInternal(owner: PlanRoom, other: PlanRoom, door: Pick<TemplateDoor
     }
   }
   return false;
+}
+
+/** A template door's place along its stretch is authored in the local frame; the stretch
+ *  runs along a uv axis, which a mirrored or turned frame may reverse. */
+function alongUv(frame: LocalFrame, stretch: RoomStretch, along: number): number {
+  const uvAxis = stretch.edge.startsWith("v") ? 0 : 1;
+  const local = (["u", "v"] as const).map(axis => axisToUv(frame, axis)).find(item => item.uvAxis === uvAxis)!;
+  return local.sign > 0 ? along : 1 - along;
 }
 
 /** Whether a door's approach overlaps a level zone of any of the given rooms. */
@@ -497,11 +528,12 @@ function connectAll(rooms: PlanRoom[], entry: PlanRoom, nextId: () => string, ke
 }
 
 function placeFixture(fixture: SpaceTemplate["fixtures"][number], spec: TemplateRoom, room: PlanRoom, frame: LocalFrame,
-  at: (axis: "u" | "v", id: string) => number | undefined, lineRef: Map<string, number>): AuthoredPiece | null {
+  at: (axis: "u" | "v", id: string) => number | undefined, lineRef: Map<string, number>, bandLine?: number,
+  refToFit?: (axis: "u" | "v", value: number) => number, bandRef?: number): AuthoredPiece | null {
   let bounds: [number, number, number, number];
   if (spec.remainder) {
-    // the remainder's own local bounds: the whole target
-    bounds = [0, frame.width, 0, frame.depth];
+    // the remainder's own local bounds: the whole target, behind an entry band it does not enter
+    bounds = [0, frame.width, bandLine ?? 0, frame.depth];
   } else {
     const b = [at("u", spec.u![0]), at("u", spec.u![1]), at("v", spec.v![0]), at("v", spec.v![1])];
     if (b.some(value => value === undefined)) return null;
@@ -536,7 +568,13 @@ function placeFixture(fixture: SpaceTemplate["fixtures"][number], spec: Template
     case "u0": rect = [x0 + WALL_GAP, x0 + WALL_GAP + d, start, start + a]; break;
     case "u1": rect = [x1 - WALL_GAP - d, x1 - WALL_GAP, start, start + a]; break;
     default: {
-      const cx = x0 + (fixture.at?.[0] ?? (x1 - x0) / 2), cy = y0 + (fixture.at?.[1] ?? (y1 - y0) / 2);
+      let cx = x0 + (fixture.at?.[0] ?? (x1 - x0) / 2), cy = y0 + (fixture.at?.[1] ?? (y1 - y0) / 2);
+      if (fixture.at && refToFit) {
+        // the authored offset is from the room's corner in reference metres
+        const rx = spec.remainder ? 0 : lineRef.get(`u:${spec.u![0]}`)!, ry = spec.remainder ? bandRef ?? 0 : lineRef.get(`v:${spec.v![0]}`)!;
+        cx = refToFit("u", rx + fixture.at[0]);
+        cy = refToFit("v", ry + fixture.at[1]);
+      }
       const quarter = fixture.rotationDeg === 90 || fixture.rotationDeg === 270;
       const [fu, fv] = quarter ? [d, a] : [a, d];
       rect = [cx - fu / 2, cx + fu / 2, cy - fv / 2, cy + fv / 2];
