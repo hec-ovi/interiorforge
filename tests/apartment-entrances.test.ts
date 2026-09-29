@@ -205,8 +205,11 @@ it('publishes distinct floor numbers and supported plates on the actual six-stor
     building: { type: 'residential', tier: 'high_rich', floors: 6 },
     options: { architecture: 'balcony-grid', glb: 'merged' },
   }, { textures: {mode:'keys'} });
+  // A high rich home on balcony-grid is a kind B building, whose derived crown loft leaves its
+  // upper storey unnumbered; single-storey assignments keep one numbered entrance per home.
+  const assignments = blueprint.floors.map((floor: { index: number }) => ({ floor: floor.index, kind: floor.index === 0 ? 'lobby' : 'apartment' }));
   const result = await generate({ seed: 'luxury-reference-review', building: {id:'p0',type:'residential',tier:'high_rich'},
-    blueprint, materialTheme:'cyberpunk' }, {models:new Set()});
+    blueprint, assignments, materialTheme:'cyberpunk' }, {models:new Set()});
   const validator = new Ajv2020({strict:false});
   for (const name of ['floor','npc','blueprint','modules','floor-placement','building']) {
     validator.addSchema(JSON.parse(readFileSync(new URL(`../schemas/${name}.schema.json`, import.meta.url),'utf8')),

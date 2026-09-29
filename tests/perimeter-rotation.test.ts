@@ -17,8 +17,10 @@ it('fully regenerates complete luxury homes at a translated 37-degree facade/gri
     options: { architecture: 'balcony-grid', glb: 'named', roofArtifacts: 'off', facadeServices: 'off' } },
   { textures: { mode: 'keys' } });
   const blueprint: Blueprint = shell.blueprint;
+  // Single storeys: as a kind B building its derived crown loft would pair the top two.
+  const assignments = blueprint.floors.map(floor => ({ floor: floor.index, kind: floor.index === 0 ? 'lobby' as const : 'apartment' as const }));
   const result = await generate({ seed: 'duplex-1702', building: { id: 'rotation-proof', type: 'residential', tier: 'high_rich' },
-    blueprint, materialTheme: 'cyberpunk' });
+    blueprint, assignments, materialTheme: 'cyberpunk' });
   const area = (room: { polygon: [number, number][]; holes?: [number, number][][] }) => Math.abs(polygonArea(room.polygon))
     - (room.holes ?? []).reduce((sum, ring) => sum + Math.abs(polygonArea(ring)), 0);
   for (const name of ['middle', 'crown'] as const) {

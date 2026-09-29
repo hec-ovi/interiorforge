@@ -7,6 +7,10 @@ import { polygonArea } from '../src/core/geom.js';
 const area = (room: Room) => Math.abs(polygonArea(room.polygon))
   - (room.holes ?? []).reduce((sum, ring) => sum + Math.abs(polygonArea(ring)), 0);
 
+/** One storey per home floor: a high rich home on balcony-grid is a kind B building, whose
+ *  derived crown loft would pair its top storeys; these plates certify the perimeter homes. */
+const storeys = (blueprint: Blueprint) => blueprint.floors.map(floor => ({ floor: floor.index, kind: floor.index === 0 ? 'lobby' as const : 'apartment' as const }));
+
 function certify(layout: FloorPlacement, blueprint: Blueprint): number[] {
   const floor = layout.floor, shell = blueprint.floors.find(item => item.index === floor.floor)!;
   const plateArea = Math.abs(polygonArea(shell.roomEnvelope!.corners));
@@ -79,7 +83,7 @@ function certify(layout: FloorPlacement, blueprint: Blueprint): number[] {
 it('fills the EXACT published review05 upper plate with four complete homes instead of a 689m² shared lounge', async () => {
   const blueprint: Blueprint = JSON.parse(readFileSync(new URL('./kit-plans/balcony-grid-review-05.blueprint.json', import.meta.url), 'utf8'));
   const result = await generate({ seed: 'luxury-reference-review', building: { id: 'p0', type: 'residential', tier: 'high_rich' },
-    blueprint, materialTheme: 'cyberpunk' });
+    blueprint, assignments: storeys(blueprint), materialTheme: 'cyberpunk' });
   for (const name of ['middle', 'crown'] as const) {
     const areas = certify(result.layouts[name]!, blueprint);
     expect(areas).toHaveLength(4);
@@ -99,7 +103,7 @@ it('splits additional legal bays on a 60m set while preserving coverage and comp
     building: { type: 'residential', tier: 'high_rich', floors: 6 }, theme: 'cyberpunk',
     options: { architecture: 'balcony-grid', glb: 'merged' } }, { textures: { mode: 'keys' } });
   const result = await generate({ seed: 'luxury-reference-review', building: { id: 'wide', type: 'residential', tier: 'high_rich' },
-    blueprint, materialTheme: 'cyberpunk' });
+    blueprint, assignments: storeys(blueprint), materialTheme: 'cyberpunk' });
   for (const name of ['middle', 'crown'] as const) {
     const areas = certify(result.layouts[name]!, blueprint);
     expect(areas).toHaveLength(5);
