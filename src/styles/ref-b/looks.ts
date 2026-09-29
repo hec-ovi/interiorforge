@@ -1,3 +1,5 @@
+import type { RecipeSet } from '../../modules/recipes.js';
+
 /** Material slots of kind B, the rich glass building, grouped by look so every module names
  *  a look and never a raw key. Every key resolves in the Materials theme today. */
 export const B_LOOK = {
@@ -30,3 +32,21 @@ export const B_LOOK = {
 
 /** Warm white of the B coves and step lines. */
 export const B_WARM = 2900;
+
+/** A recipe set whose flat pieces (a single-face backing, a soffit or a fascia plane) gain
+ *  a hidden back face 1 mm behind, so every module publishes a size above zero on each
+ *  axis, as the module schema requires. Visible faces are unchanged. */
+export const thickened = (set: RecipeSet): RecipeSet => add => set((id, draw) => add(id, k => {
+    draw(k);
+    const slots = k.mesh.materials();
+    if (!slots.length) return;
+    const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+    for (const slot of slots) {
+        const p = k.mesh.getGroup(slot)!.positions;
+        for (let i = 0; i < p.length; i++) { min[i % 3] = Math.min(min[i % 3]!, p[i]!); max[i % 3] = Math.max(max[i % 3]!, p[i]!); }
+    }
+    const slot = slots[0]!, [x0, y0, z0] = min as [number, number, number], [x1, y1, z1] = max as [number, number, number];
+    if (y1 - y0 < 1e-6) k.box(slot, [x0, y1, z0], [Math.max(x1 - x0, 1e-3), .001, Math.max(z1 - z0, 1e-3)], undefined, ['top']);
+    else if (z1 - z0 < 1e-6) k.box(slot, [x0, y0, z0 - .001], [Math.max(x1 - x0, 1e-3), y1 - y0, .001], undefined, ['south']);
+    else if (x1 - x0 < 1e-6) k.box(slot, [x0 - .001, y0, z0], [.001, y1 - y0, Math.max(z1 - z0, 1e-3)], undefined, ['west']);
+}));

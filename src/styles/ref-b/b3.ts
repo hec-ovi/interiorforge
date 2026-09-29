@@ -10,7 +10,7 @@ import { uvToWorld } from '../../layout/uv.js';
 import { exposedSides, zoneRect } from '../systems/levels.js';
 import { facingRotation } from '../systems/surface-grid.js';
 import type { DressContext, StyleSpec } from '../systems/types.js';
-import { B_LOOK, B_WARM } from './looks.js';
+import { B_LOOK, B_WARM, thickened } from './looks.js';
 
 /** B3, the rich glass building's apartment with the raised bar: smoked walnut fields in
  *  1.2 m panels with fine gold joints and a gold reveal under the ceiling in the living
@@ -117,5 +117,5 @@ export const b3 = {
     floors: [livingFloor.system, bedFloor.system, wetFloor.system],
     ceilings: [ceiling.system],
     recipes: [wall.recipes, bedWall.recipes, livingFloor.recipes, bedFloor.recipes, wetFloor.recipes,
-        ceiling.recipes, levelRecipes('b3', B3_LEVEL)],
+        thickened(ceiling.recipes), levelRecipes('b3', B3_LEVEL)],
 };

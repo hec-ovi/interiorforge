@@ -5,7 +5,7 @@ import { floorPreset } from '../systems/floor-recipes.js';
 import type { LevelProfile } from '../systems/levels.js';
 import { panelPreset } from '../systems/panel-recipes.js';
 import type { StyleSpec } from '../systems/types.js';
-import { B_LOOK, B_WARM } from './looks.js';
+import { B_LOOK, B_WARM, thickened } from './looks.js';
 
 /** B1, the glass building's public rooms (the split lobby, its lounges, every floor's
  *  corridor and stairwells): polished stone to 1.2 m under a bronze course with warm walnut
@@ -42,5 +42,5 @@ export const b1 = {
     panels: [wall.system],
     floors: [floor.system],
     ceilings: [ceiling.system],
-    recipes: [wall.recipes, floor.recipes, ceiling.recipes],
+    recipes: [wall.recipes, floor.recipes, thickened(ceiling.recipes)],
 };
