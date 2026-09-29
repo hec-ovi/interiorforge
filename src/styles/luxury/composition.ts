@@ -175,9 +175,12 @@ export function fitLuxuryComposition(kind: LuxuryComposition, room: PlanRoom, bo
         // metres away in a concave lobby's distant rear arm.
         score = Math.abs(centre[along]! - entry[along]!) * 3
           + Math.abs((centre[cross]! - entry[cross]!) * inward - arrivalDepth) + rank * (kind === 'display' ? .1 : 1.5);
-        if (kind === 'display') {
-          const facing = [Math.sin(rotation * Math.PI / 180), Math.cos(rotation * Math.PI / 180)];
-          score += (1 - facing[along]! * Math.sign(entry[along]! - centre[along]!)) * 8;
+        const facing = [Math.sin(rotation * Math.PI / 180), Math.cos(rotation * Math.PI / 180)];
+        if (kind === 'display') score += (1 - facing[along]! * Math.sign(entry[along]! - centre[along]!)) * 8;
+        else {
+          // Beside the arrival it may turn its front to the aisle, never its back to the door.
+          const [du, dv] = turn(recipe.pieces[0]!.at, rotation);
+          if (facing[0]! * (entry[0]! - centre[0]! - du) + facing[1]! * (entry[1]! - centre[1]! - dv) <= 0) score += 100;
         }
       }
       candidates.push({ rotation, rect, score, rank });
