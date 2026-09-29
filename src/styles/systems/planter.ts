@@ -89,8 +89,10 @@ export function placeGlassPlanter(builder: PlacementBuilder, floor: FloorInterio
   if (spec.frame && spec.glass === 'ceiling') {
     const lens = moduleSize(spec.frame.lens), y = top;
     for (const side of sides) {
-      const placed = side.frame.place(builder, spec.frame.lens, room, 0, y, side.offset, [side.length / lens[0], 1, 1]);
-      lights.push(lensRecord(side.frame, room, placed.id, 0, y, side.offset, round(side.length), floor.elevation,
+      // The frame runs over the glass, inside the footprint.
+      const offset = side.offset + inset - lens[2] / 2, length = side.length - lens[2];
+      const placed = side.frame.place(builder, spec.frame.lens, room, 0, y, offset, [length / lens[0], 1, 1]);
+      lights.push(lensRecord(side.frame, room, placed.id, 0, y, offset, round(length), floor.elevation,
         { kind: 'strip', lumensPerMetre: spec.frame.lumensPerMetre, kelvin: spec.frame.kelvin, color: spec.frame.color, facing: 'down', beamDeg: 140, range: 2.2 }));
     }
   }

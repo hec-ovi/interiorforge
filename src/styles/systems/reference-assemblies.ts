@@ -137,13 +137,16 @@ function kitchenRecipes(sid: string, look: KitchenLook, spec: KitchenWallSpec): 
     // Stepped service column (0.9 wide): cabinet, screen body, stepped box, top to ceiling.
     const cw = spec.column?.width ?? .9, half = cw / 2 - .0015;
     add(id('column-base'), k => bayFront(k, look, cw, spec.worktop.top, .65, [spec.worktop.top], true));
+    // The column stays inside the worktop depth: the record reserves no more.
     add(id('column-mid'), k => {
-      box(k, look.upper, -half, half, 0, .9, 0, .75);
-      box(k, look.line, -half, half, .45, .454, .75, .751);
+      box(k, look.upper, -half, half, 0, .45, 0, td);
+      box(k, look.upper, -half, half, .454, .9, 0, td);
+      box(k, look.line, -half + .002, half - .002, .45, .454, 0, td - .002);
     });
-    add(id('column-step'), k => { box(k, look.upper, -half, half, 0, .5, 0, .6); box(k, look.upper, -half, half, .25, .5, .6, .7); });
-    add(id('column-top'), k => box(k, look.upper, -half, half, 0, .5, 0, .55));
-    add(`wall-screen-${sid}-kitchen`, k => { box(k, look.line, -.13, .13, 0, .34, 0, .006); box(k, look.panel, -.12, .12, .01, .33, .006, .009); });
+    add(id('column-step'), k => { box(k, look.upper, -half, half, 0, .5, 0, td - .12); box(k, look.upper, -half, half, .25, .5, td - .12, td); });
+    add(id('column-top'), k => box(k, look.upper, -half, half, 0, .5, 0, td - .15));
+    // Mounted on the column front (the record's front edge), 5 mm proud.
+    add(`wall-screen-${sid}-kitchen`, k => { box(k, look.line, -.13, .13, 0, .34, 0, .003); box(k, look.panel, -.12, .12, .01, .33, .003, .005); });
   };
 }
 
@@ -163,7 +166,7 @@ function kitchenSpec(sid: string, look: 'e1' | 'bar', pattern: KitchenWallSpec['
         { depth: .4, bays: [id('upper-b'), id('upper-b-vent')] }], underLens: id('lens') }
       : { bottom: 1.5, height: .9, tiers: [{ depth: .35, bays: [id('upper-a'), id('upper-a-shelf'), id('upper-a-screen'), id('upper-a-shelf')] }], underLens: id('lens') },
     bulkhead: { module: id('bulkhead') },
-    ...(column ? { column: { width: .9, depth: .75, modules: { stack: [id('column-base'), id('column-mid'), id('column-step'), id('column-top')], screen: `wall-screen-${sid}-kitchen` } } } : {}),
+    ...(column ? { column: { width: .9, depth: .65, modules: { stack: [id('column-base'), id('column-mid'), id('column-step'), id('column-top')], screen: `wall-screen-${sid}-kitchen` } } } : {}),
     lens: { y: look === 'e1' ? 1.9 : 1.5, z: look === 'e1' ? .3 : .2, lumensPerMetre: look === 'e1' ? 110 : 80, ...(color ? { color } : {}) },
   };
 }
@@ -259,8 +262,16 @@ const kindA: RecipeSet = add => {
   add('fit-e1-planter-body', k => { yzPrism(k, LOOK.e1Cream, TROUGH, -.25, .25, false); box(k, LOOK.black, -.25, .25, .5, .516, .36, .362); });
   add('fit-e1-planter-end', k => yzPrism(k, LOOK.e1Cream, TROUGH, -.02, .02));
   add('fit-e1-planter-soil', k => box(k, LOOK.soil, -.25, .25, .73, .75, .04, .27));
+  // Five tufts per metre leaning out of the bed towards the room, never back into the window.
   add('fit-e1-planter-bay', k => {
-    for (let i = 0; i < 5; i++) k.plant(LOOK.leaf, LOOK.stem, [-.4 + i * .2, .75, .1 + (i % 2) * .08], .55 + (i % 3) * .08, 31 + i * 7, 7);
+    for (let i = 0; i < 5; i++) {
+      const x = -.4 + i * .2, z = .12 + (i % 2) * .06, h = .5 + (i % 3) * .08;
+      k.rod(LOOK.stem, [x, .75, z], [x, .75 + h * .45, z], .018);
+      for (let j = 0; j < 7; j++) {
+        const heading = -.15 + ((j * 2.399 + i) % 3.44), length = h * (.42 + .1 * ((j + i) % 3));
+        k.leaf(LOOK.leaf, [x, .75 + h * (.18 + .05 * j), z], heading, Math.min(length, .26), h * .11, .3 + .05 * (j % 4));
+      }
+    }
   });
   add('fit-e1-bamboo-base', k => { box(k, LOOK.e1Housing, -.25, .25, 0, .3, -.25, .25); box(k, LOOK.black, -.25, .25, 0, .04, -.252, .252); });
   add('fit-e1-bamboo-soil', k => box(k, LOOK.soil, -.25, .25, .3, .31, -.25, .25));
@@ -268,7 +279,7 @@ const kindA: RecipeSet = add => {
     for (let i = 0; i < 8; i++) {
       const x = -.42 + i * .12, z = ((i * 37) % 7 - 3) * .03, h = 2 + (i % 3) * .15;
       k.cylinder(LOOK.stem, [x, 0, z], .017, h, 6);
-      for (let j = 0; j < 4; j++) k.leaf(LOOK.leaf, [x, h * (.55 + j * .12), z], i * 1.7 + j * 2.1, .22, .05, .15);
+      for (let j = 0; j < 4; j++) k.leaf(LOOK.leaf, [x, h * (.55 + j * .12), z], i * 1.7 + j * 2.1, .15, .045, .15);
     }
   });
   add('fit-e1-bamboo-pane', k => box(k, LOOK.glass, -.25, .25, 0, .5, -.005, .005));

@@ -111,6 +111,22 @@ describe('kitchen wall assembly', () => {
     expect(kitchenBayRoles(['sink', 'door', 'hob'], 3, 2)).toEqual(['door', 'hob', 'sink']);
   });
 
+  it('stays inside its reservation: nothing behind the back edge, nothing over 5 mm past the front', () => {
+    for (const [fit, size] of [['asm-e1-kitchen', [3.6, .65, 3]], ['asm-b3-bar', [3, .65, 3]], ['asm-e1-wardrobe', [2.7, .6, 3]], ['asm-e1-display', [1.4, .4, 3]],
+      ['asm-e1-planter', [3, .4, .8]], ['asm-e1-island', [2.4, 1, 1.02]], ['asm-e1-bamboo', [1.2, .7, 3]], ['asm-r1-library', [2.4, .3, .9]],
+      ['asm-c1-niche', [1.8, .38, 2.2]], ['asm-c4-stall', [2.7, 1.5, 2]]] as const) {
+      const { builder } = place(fit, [...size] as V3, 3);
+      for (const { p, v } of vertices(builder.placements, meshes)) {
+        expect(Math.abs(v[0]), `${fit} ${p.module} x`).toBeLessThanOrEqual(size[0] / 2 + 1e-6);
+        expect(v[2], `${fit} ${p.module} back`).toBeGreaterThanOrEqual(-size[1] / 2 - 1e-6);
+        // Foliage may lean a little over the trough front; nothing else passes the front edge.
+        const spill = /-bay$/.test(p.module!) && /planter|bamboo/.test(p.module!) ? .12 : .005;
+        expect(v[2], `${fit} ${p.module} front`).toBeLessThanOrEqual(size[1] / 2 + spill + 1e-6);
+        expect(v[1], `${fit} ${p.module} floor`).toBeGreaterThanOrEqual(-1e-6);
+      }
+    }
+  });
+
   it('keeps a 3.6 m kitchen wall under 8 k triangles and every part inside its budget', () => {
     const { builder } = place('asm-e1-kitchen', [3.6, .65, 3], 3);
     expect(tris(builder.placements)).toBeLessThanOrEqual(8000);
