@@ -12,18 +12,44 @@ function lens(k: Kit, [cx, cy, cz]: Vector3, length: number, along: "x" | "z" = 
   k.cbox(slot, [cx, cy - section / 2, cz], size);
 }
 
+/** A plan rectangle w x d centred on the origin with rounded corners of radius r. */
+function rounded(w: number, d: number, r: number, segments = 4): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [sx, sz, start] of [[1, 1, 0], [-1, 1, 90], [-1, -1, 180], [1, -1, 270]] as const)
+    for (let i = 0; i <= segments; i++) {
+      const a = (start + i * 90 / segments) * Math.PI / 180;
+      out.push([sx * (w / 2 - r) + Math.cos(a) * r, sz * (d / 2 - r) + Math.sin(a) * r]);
+    }
+  return out;
+}
+
 /** n boxes evenly spaced across a span: timber slats, door leaves, panel runs. */
 function slats(k: Kit, slot: string, n: number, [cx, y, cz]: Vector3, [span, h, d]: Vector3, width: number, uv: UvMode = "world"): void {
   const pitch = span / n;
   for (let i = 0; i < n; i++) k.cbox(slot, [cx - span / 2 + pitch * (i + 0.5), y, cz], [width, h, d], uv);
 }
 
-/** Vessels standing on a shelf: glass and bronze alternating, three heights in rotation. */
+/** Vessels standing on a shelf: turned glass and bronze bottles alternating, three heights
+ *  in rotation. */
 function bottles(k: Kit, n: number, [cx, y, cz]: Vector3, span: number, radius = 0.035, base = 0.25): void {
   const pitch = span / n;
   for (let i = 0; i < n; i++) {
-    k.cylinder(i % 2 ? FINISH.bronze : FINISH.glass, [cx - span / 2 + pitch * (i + 0.5), y, cz], radius, base + (i % 3) * 0.035, 6);
+    const h = base + (i % 3) * 0.035, r = radius, neck = r * 0.36;
+    const profile: [number, number][] = [[0, 0], [r * .95, 0], [r, h * .04], [r, h * .6], [r * .7, h * .7], [neck, h * .78], [neck, h * .97], [neck * 1.15, h], [0, h]];
+    k.turned(i % 2 ? FINISH.bronze : FINISH.glass, [cx - span / 2 + pitch * (i + 0.5), y, cz], profile, 20);
   }
+}
+
+/** A moulded picture or screen frame on the wall plane: rails along x over the full width,
+ *  stiles up y between them, each a stepped profile with a rounded outer lip, `fw` wide and
+ *  `depth` proud of z0. */
+function frame(k: Kit, slot: string, w: number, h: number, fw: number, depth: number, z0 = 0, y0 = 0): void {
+  // (across from the outer edge, out from the wall)
+  const profile: [number, number][] = [[0, 0], [0, depth * .7], [fw * .12, depth * .96], [fw * .3, depth], [fw * .66, depth], [fw * .78, depth * .78], [fw, depth * .74], [fw, 0]];
+  k.sweep(slot, profile.map(([a, d]) => [y0 + a, z0 + d]), -w / 2, w / 2);
+  k.sweep(slot, profile.map(([a, d]) => [y0 + h - a, z0 + d]), -w / 2, w / 2);
+  k.sweep(slot, profile.map(([a, d]) => [z0 + d, -w / 2 + a]), y0 + fw, y0 + h - fw, { axis: "y" });
+  k.sweep(slot, profile.map(([a, d]) => [z0 + d, w / 2 - a]), y0 + fw, y0 + h - fw, { axis: "y" });
 }
 
 /** A tuft that keeps inside its planter: the leaves fan along x, their reach and rise capped
@@ -91,41 +117,45 @@ export const furnitureRecipes: RecipeSet = (add) => {
   });
 
   add("fit-bench", (k) => {
-    k.cbox(FINISH.black, [0, 0, -0.05], [1.6, 0.37, 0.3]);
-    k.cbox(FINISH.timber, [0, 0.37, 0], [1.8, 0.08, 0.4]);
+    k.cbevel(FINISH.black, [0, 0, -0.05], [1.6, 0.37, 0.3], 0.008);
+    k.slab(FINISH.timber, rounded(1.8, 0.4, 0.03), 0.37, 0.45, 0.012, 0.004);
     lens(k, [0, 0.35, 0.14], 1.6);
   });
 
   add("fit-low-table", (k) => {
-    for (const x of [-0.41, 0.41]) for (const z of [-0.21, 0.21]) k.rod(FINISH.bronze, [x, 0, z], [x, 0.36, z], 0.04);
+    for (const x of [-0.41, 0.41]) for (const z of [-0.21, 0.21]) k.rod(FINISH.bronze, [x, 0, z], [x, 0.36, z], 0.04, true);
     const rail: Vector3[] = [[-0.41, 0.1, -0.21], [0.41, 0.1, -0.21], [0.41, 0.1, 0.21], [-0.41, 0.1, 0.21]];
-    for (let i = 0; i < 4; i++) k.rod(FINISH.bronze, rail[i]!, rail[(i + 1) % 4]!, 0.03);
-    k.cbox(FINISH.obsidian, [0, 0.36, 0], [0.9, 0.04, 0.5]);
+    for (let i = 0; i < 4; i++) k.rod(FINISH.bronze, rail[i]!, rail[(i + 1) % 4]!, 0.03, true);
+    k.slab(FINISH.obsidian, rounded(0.9, 0.5, 0.04), 0.36, 0.4, 0.008, 0.003);
   });
 
   add("fit-table", (k) => {
     // legs stay at the corners: the same module is scaled to a 2.8 x 1.2 meeting table
-    for (const x of [-0.365, 0.365]) for (const z of [-0.365, 0.365]) k.cbox(FINISH.bronze, [x, 0, z], [0.05, 0.63, 0.05]);
-    k.cbox(FINISH.bronze, [0, 0.63, 0], [0.82, 0.08, 0.82]);
-    k.cbox(FINISH.obsidian, [0, 0.71, 0], [0.9, 0.04, 0.9]);
+    for (const x of [-0.365, 0.365]) for (const z of [-0.365, 0.365]) k.cbevel(FINISH.bronze, [x, 0, z], [0.05, 0.63, 0.05], 0.008);
+    k.cbevel(FINISH.bronze, [0, 0.63, 0], [0.82, 0.08, 0.82], 0.006);
+    k.slab(FINISH.obsidian, rounded(0.9, 0.9, 0.03), 0.71, 0.75, 0.01, 0.004);
   });
 
   add("fit-reception-desk", (k) => {
-    for (const x of [-1.27, 1.27]) k.cbox(FINISH.obsidian, [x, 0, 0], [0.06, 1.06, 0.9]);
-    k.cbox(FINISH.obsidian, [0, 0.04, 0.42], [2.48, 1.02, 0.06]);
-    k.cbox(FINISH.timber, [0, 0.75, -0.03], [2.48, 0.04, 0.84]);
-    k.cbox(FINISH.timber, [0, 1.06, 0.31], [2.6, 0.04, 0.28]);
-    k.cbox(FINISH.bronze, [0, 1.06, 0.44], [2.6, 0.04, 0.02]);
+    for (const x of [-1.27, 1.27]) k.cbevel(FINISH.obsidian, [x, 0, 0], [0.06, 1.06, 0.9], 0.008);
+    k.cbevel(FINISH.obsidian, [0, 0.04, 0.42], [2.48, 1.02, 0.06], 0.008);
+    k.cbevel(FINISH.timber, [0, 0.75, -0.03], [2.48, 0.04, 0.84], 0.006);
+    k.cbevel(FINISH.timber, [0, 1.06, 0.31], [2.6, 0.04, 0.28], 0.008);
+    k.cbevel(FINISH.bronze, [0, 1.06, 0.44], [2.6, 0.04, 0.02], 0.004);
     lens(k, [0, 0.02, 0.43], 2.3);
   });
 
   add("fit-bar-counter", (k) => {
-    k.cbox(FINISH.bronze, [0, 0, -0.09], [2.84, 0.08, 0.47]);
-    // the top overhangs the front 0.1, so the front panel stands back from the counter edge
-    k.cbox(FINISH.dark, [0, 0.12, 0.2], [3.0, 0.92, 0.05]);
-    k.cbox(FINISH.timber, [0, 0.85, -0.2125], [2.8, 0.04, 0.225]);
-    k.cbox(FINISH.obsidian, [0, 1.04, 0], [3.0, 0.06, 0.65]);
-    k.rod(FINISH.bronze, [-1.45, 0.22, 0.3], [1.45, 0.22, 0.3], 0.04);
+    k.cbevel(FINISH.bronze, [0, 0, -0.09], [2.84, 0.08, 0.47], 0.006);
+    // the top overhangs the front 0.1, so the front panel stands back from the counter edge;
+    // the panel is fluted, twelve rounded staves across it
+    k.cbevel(FINISH.dark, [0, 0.12, 0.2], [3.0, 0.92, 0.03], 0.006);
+    for (let i = 0; i < 24; i++) k.cbevel(FINISH.dark, [-1.4375 + i * 0.125, 0.14, 0.21], [0.11, 0.88, 0.035], 0.012);
+    k.cbevel(FINISH.timber, [0, 0.85, -0.2125], [2.8, 0.04, 0.225], 0.005);
+    k.slab(FINISH.obsidian, rounded(3.0, 0.65, 0.05), 1.04, 1.1, 0.014, 0.005);
+    // a round foot rail on three brackets
+    k.tube(FINISH.bronze, [[-1.45, 0.22, 0.3], [1.45, 0.22, 0.3]], 0.02, false, 16);
+    for (const x of [-1.2, 0, 1.2]) k.tube(FINISH.bronze, [[x, 0.22, 0.235], [x, 0.22, 0.3]], 0.012, false, 10);
     lens(k, [0, 0.09, 0.295], 2.7);
   });
 
@@ -283,29 +313,31 @@ export const furnitureRecipes: RecipeSet = (add) => {
   });
 
   add("wall-screen", (k) => {
-    for (const y of [0, 0.67]) k.cbox(FINISH.bronze, [0, y, -0.01], [1.2, 0.03, 0.06]);
-    for (const x of [-0.585, 0.585]) k.cbox(FINISH.bronze, [x, 0.03, -0.01], [0.03, 0.64, 0.06]);
+    // a moulded bronze frame round a screen set 10 mm back in it, a dark back plate
+    frame(k, FINISH.bronze, 1.2, 0.7, 0.03, 0.06, -0.04);
+    k.cbox(FINISH.black, [0, 0.03, -0.015], [1.14, 0.64, 0.05]);
     k.cbox(FINISH.screen, [0, 0.03, 0.03], [1.14, 0.64, 0.02]);
   });
 
   add("wall-art", (k) => {
-    for (const y of [0, 1.015]) k.cbox(FINISH.bronze, [0, y, -0.01], [0.7, 0.035, 0.04]);
-    for (const x of [-0.3325, 0.3325]) k.cbox(FINISH.bronze, [x, 0.035, -0.01], [0.035, 0.98, 0.04]);
-    k.cbox(FINISH.art, [0, 0.035, 0.02], [0.63, 0.98, 0.02]);
+    // a moulded bronze frame, a pale mat round the print, the print set back in it
+    frame(k, FINISH.bronze, 0.7, 1.05, 0.035, 0.06, -0.03);
+    k.cbox(FINISH.linen, [0, 0.035, -0.005], [0.63, 0.98, 0.05]);
+    k.cbox(FINISH.art, [0, 0.085, 0.0215], [0.53, 0.88, 0.003]);
     lens(k, [0, 1.008, 0.005], 0.6, "x", FINISH.lensWarm, 0.012);
   });
 
   add("fit-shelf", (k) => {
-    for (const x of [-0.885, 0.885]) k.cbox(FINISH.timber, [x, 0, 0], [0.03, 2.0, 0.5]);
+    for (const x of [-0.885, 0.885]) k.cbevel(FINISH.timber, [x, 0, 0], [0.03, 2.0, 0.5], 0.005);
     k.cbox(FINISH.timber, [0, 0, -0.235], [1.8, 2.0, 0.03]);
-    for (const y of [0.42, 0.9, 1.38, 1.89]) k.cbox(FINISH.timber, [0, y, 0.01], [1.74, 0.04, 0.48]);
+    for (const y of [0.42, 0.9, 1.38, 1.89]) k.cbevel(FINISH.timber, [0, y, 0.01], [1.74, 0.04, 0.48], 0.005);
     for (const y of [0.46, 0.94, 1.42]) bottles(k, 4, [0, y, 0], 1.5);
     lens(k, [0, 1.88, 0.15], 1.6);
   });
 
   add("wall-shelf", (k) => {
-    k.cbox(FINISH.timber, [0, 0.06, 0], [1.2, 0.04, 0.28]);
-    for (const x of [-0.4, 0.4]) k.cbox(FINISH.bronze, [x, 0, -0.06], [0.04, 0.06, 0.16]);
+    k.cbevel(FINISH.timber, [0, 0.06, 0], [1.2, 0.04, 0.28], 0.008);
+    for (const x of [-0.4, 0.4]) k.cbevel(FINISH.bronze, [x, 0, -0.06], [0.04, 0.06, 0.16], 0.006);
     bottles(k, 3, [0, 0.1, -0.02], 0.9, 0.04, 0.23);
     lens(k, [0, 0.04, 0.06], 1.0);
   });

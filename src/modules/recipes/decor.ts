@@ -20,6 +20,14 @@ export const BOOK_CLOTH = [
   "cyberpunk/corpo-plaza-leather/rich#cream", "cyberpunk/corpo-plaza-veneer/rich#walnut", "cyberpunk/gutierrez-lacquer/rich#ink",
 ] as const;
 
+/** A turned vase `height` tall and `width` across its belly, open at a flared lip; `neck`
+ *  narrows it into a bottle vase. */
+export function vase(k: Kit, slot: string, at: Vec3, height: number, width: number, neck = .45, sides = 32): void {
+  const r = width / 2, n = r * neck, h = height;
+  k.turned(slot, at, [[0, 0], [r * .55, 0], [r * .62, h * .02], [r * .92, h * .22], [r, h * .42], [r * .9, h * .62], [n * 1.05, h * .8],
+    [n, h * .9], [n * 1.2, h * .985], [n * 1.22, h], [n * 1.08, h], [n * .92, h * .92], [n * .9, h * .82], [0, h * .8]], sides);
+}
+
 const hash = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 /** A profile arc (r, y) about (0, cy) from angle a0 to a1 (radians, 0 = +r). */

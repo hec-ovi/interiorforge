@@ -289,21 +289,29 @@ const kindC: RecipeSet = add => {
     const area = plan.reduce((s, a, i) => { const b = plan[(i + 1) % plan.length]!; return s + a[0] * b[1] - b[0] * a[1]; }, 0);
     k.mesh.addPrism(LOOK.cEnamel, area < 0 ? [...plan].reverse() : plan, 0, 2.2, 'world', 'both');
   });
-  add('fit-c1-niche-back', k => { box(k, LOOK.cEnamel, -.25, .25, 0, 2.2, 0, .02); box(k, LOOK.cEnamel, -.25, .25, 2.1, 2.2, .02, .38); box(k, LOOK.cEnamel, -.25, .25, 0, .45, .02, .38); });
+  add('fit-c1-niche-back', k => {
+    box(k, LOOK.cEnamel, -.25, .25, 0, 2.2, 0, .02);
+    k.sweep(LOOK.cEnamel, roundedSection(2.1, 2.2, .02, .38, { bottomFront: .04 }, 4), -.25, .25);
+    k.sweep(LOOK.cEnamel, roundedSection(0, .45, .02, .38, { topFront: .03 }, 4), -.25, .25);
+  });
+  // Rounded gunmetal boards on a slim upright, a lit edge strip under the top board.
   add('fit-c1-niche-bay', k => {
-    for (const y of [.95, 1.4, 1.8]) box(k, LOOK.cGunmetal, -.295, .295, y, y + .025, .02, .34);
-    box(k, LOOK.cGunmetal, .285, .3, .45, 2.1, .02, .34);
+    for (const y of [.95, 1.4, 1.8]) k.sweep(LOOK.cGunmetal, roundedSection(y, y + .025, .02, .34, { topFront: .008, bottomFront: .008 }, 3), -.295, .295);
+    k.bevelBox(LOOK.cGunmetal, [.285, .45, .02], [.015, 1.65, .32], .004);
   });
-  add('fit-c1-niche-shelves', k => { for (const y of [.95, 1.4, 1.8]) box(k, LOOK.cGunmetal, -.25, .25, y, y + .025, .02, .34); });
-  // Restroom stalls: end partitions, a head rail, one stall per 0.9 m bay with its door.
-  add('fit-c4-stall-end', k => box(k, LOOK.cLaminate, -.015, .015, .15, 2, 0, 1.5));
-  add('fit-c4-stall-rail', k => box(k, LOOK.cGunmetal, -.25, .25, 1.96, 2, 1.46, 1.5));
+  add('fit-c1-niche-shelves', k => { for (const y of [.95, 1.4, 1.8]) k.sweep(LOOK.cGunmetal, roundedSection(y, y + .025, .02, .34, { topFront: .008, bottomFront: .008 }, 3), -.25, .25); });
+  // Restroom stalls: rounded laminate partitions, a head rail, one stall per 0.9 m bay with
+  // its door, a pull and a turn lock.
+  add('fit-c4-stall-end', k => k.bevelBox(LOOK.cLaminate, [-.015, .15, 0], [.03, 1.85, 1.5], .01));
+  add('fit-c4-stall-rail', k => k.tube(LOOK.cGunmetal, [[-.25, 1.98, 1.48], [.25, 1.98, 1.48]], .02, false, 12));
   add('fit-c4-stall-bay', k => {
-    box(k, LOOK.cLaminate, .435, .45, .15, 2, 0, 1.46);
-    box(k, LOOK.cLaminate, -.425, .425, .15, 1.95, 1.46, 1.49);
-    box(k, LOOK.cGunmetal, .3, .36, 1, 1.04, 1.49, 1.5);
+    k.bevelBox(LOOK.cLaminate, [.435, .15, 0], [.015, 1.85, 1.46], .006);
+    k.bevelBox(LOOK.cLaminate, [-.425, .15, 1.46], [.85, 1.8, .03], .008);
+    k.tube(LOOK.cGunmetal, [[.3, 1.0, 1.49], [.3, 1.0, 1.4955], [.36, 1.0, 1.4955], [.36, 1.0, 1.49]], .0045, false, 8);
+    k.tube(LOOK.cGunmetal, [[.25, 1.06, 1.49], [.25, 1.06, 1.498]], .013, false, 12);
+    for (const y of [.35, 1.6]) k.bevelBox(LOOK.cGunmetal, [-.43, y, 1.455], [.02, .08, .04], .004);
   });
-  add('fit-c4-stall-filler', k => box(k, LOOK.cLaminate, -.25, .25, .15, 1.95, 1.46, 1.49));
+  add('fit-c4-stall-filler', k => k.bevelBox(LOOK.cLaminate, [-.25, .15, 1.46], [.5, 1.8, .03], .006));
   // Corridor duct with ribs baked every metre, wall AC units over doors.
   add('housing-c2-duct-body', k => box(k, LOOK.cGunmetal, -.25, .25, 0, .28, 0, .3));
   add('housing-c2-duct-cap', k => box(k, LOOK.cGunmetal, -.01, .01, 0, .28, 0, .3));
@@ -320,7 +328,8 @@ const kindR: RecipeSet = add => {
     for (const [y, count] of [[.03, 9], [.45, 7], [.87, 8]] as const)
       for (let i = 0; i < count; i++) {
         const x = -.42 + i * .075 + (y > .4 && y < .5 ? .1 : 0), h = .3 + ((i * 7) % 3) * .02;
-        box(k, i % 4 === 3 ? LOOK.black : LOOK.e1Cream, x, x + .065, y, y + h, .02, .27);
+        k.bevelBox(i % 4 === 3 ? LOOK.black : LOOK.e1Cream, [x, y, .02], [.065, h, .25], .006);
+        k.bevelBox(LOOK.bronze, [x + .018, y + h * .56, .268], [.029, h * .22, .003], .0015);
       }
   });
   add('fit-r1-library-gap', k => box(k, LOOK.black, -.12, .12, .03, .2, .04, .26));

@@ -105,21 +105,35 @@ const fixtures: RecipeSet = add => {
     // Wall-hung urinal 0.4 x 0.35 x 0.6 over a steel splash plate: a ceramic body with a
     // rounded lower lip, a dark basin face and a flush pipe.
     add('fit-c4-urinal', k => {
-        box(k, C.steel, -.2, .2, 0, .6, -.175, -.165);
-        const front: Point[] = [[-.17, .6], [-.17, .2], ...arc(0, .2, .17, Math.PI, Math.PI * 2, 8).slice(1, -1), [.17, .2], [.17, .6]];
-        xyPrism(k, C.ceramic, front, -.165, .12);
-        box(k, C.black, -.13, .13, .22, .52, .12, .122);
-        k.cylinder(C.steel, [0, .6, -.13], .012, .12, 6);
+        k.bevelBox(C.steel, [-.2, 0, -.175], [.4, .6, .01], .003);
+        // The ceramic body swept front to back over its U outline, so its lower lip is round.
+        const front: Point[] = [[-.17, .6], [-.17, .2], ...arc(0, .2, .17, Math.PI, Math.PI * 2, 12).slice(1, -1), [.17, .2], [.17, .6]];
+        k.sweep(C.ceramic, front, -.165, .12, { axis: 'z' });
+        // The dark basin face set just into the body's front, a chrome flush valve and pipe.
+        k.bevelBox(C.black, [-.13, .22, .118], [.26, .3, .004], .012);
+        k.tube(C.zinc, [[0, .72, -.13], [0, .62, -.13], [0, .6, -.11], [0, .6, -.06]], .012, false, 12);
+        k.cylinder(C.zinc, [0, .6, -.13], .025, .07, 16);
     });
-    // The H10 vending machine beside the bathroom portal: 0.9 x 0.6 x 2.1, an ivory case,
-    // a lit red menu screen, a product window and a dispenser slot.
+    // The H10 vending machine beside the bathroom portal: 0.9 x 0.6 x 2.1, a rounded ivory
+    // case, a lit menu screen in a bezel, a glazed product window with three shelves of
+    // cans, a keypad, a coin slot and a recessed dispenser with its flap.
     add('fit-c1-vending', k => {
-        box(k, C.ivory, -.45, .45, 0, 2.1, -.3, .26);
-        box(k, C.black, -.4, .4, .95, 1.95, .26, .27);
-        box(k, 'cyberpunk/ad-screen/rich#noir-amber', -.37, .37, 1.35, 1.9, .27, .275);
-        box(k, C.black, .15, .37, 1.05, 1.25, .27, .28);
-        box(k, C.black, -.2, .2, .45, .62, .26, .275);
-        box(k, C.black, -.45, .45, 0, .1, .26, .27);
+        k.bevelBox(C.ivory, [-.45, .1, -.3], [.9, 2, .56], .03);
+        k.bevelBox(C.black, [-.45, 0, -.28], [.9, .1, .54], .01);
+        k.bevelBox(C.black, [-.4, .95, .24], [.8, 1.0, .03], .012);
+        k.box('cyberpunk/ad-screen/rich#noir-amber', [-.37, 1.35, .27], [.74, .55, .005], 'unit');
+        // product window: glass over three shelves of cans, left of the keypad
+        k.box(C.glass, [-.37, .98, .271], [.49, .34, .004]);
+        for (const [y, n] of [[1.0, 6], [1.11, 6], [1.22, 6]] as const) {
+            k.box(C.zinc, [-.37, y, .2], [.49, .006, .07]);
+            for (let i = 0; i < n; i++) k.cylinder(i % 3 ? C.cyan : C.amber, [-.33 + i * .075, y + .006, .235], .028, .1, 12);
+        }
+        k.bevelBox(C.gunmetal, [.15, 1.05, .265], [.22, .2, .015], .006);
+        for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) k.cbevel(C.black, [.2 + c * .06, 1.08 + r * .055, .277], [.04, .035, .006], .004);
+        k.cbevel(C.black, [.26, .8, .27], [.05, .012, .012], .004);
+        // dispenser: a dark recess with a hinged flap
+        k.bevelBox(C.black, [-.2, .42, .23], [.4, .22, .04], .01);
+        k.bevelBox(C.gunmetal, [-.18, .44, .258], [.36, .1, .012], .006);
     });
 };
 
@@ -129,13 +143,19 @@ const extras: RecipeSet = add => {
     // Pay-here kiosk of the atrium: a gunmetal cabinet 0.9 x 0.6 x 2.1, a lit screen under a
     // hood, a card slot and a dispenser tray.
     add('fit-c3-kiosk', k => {
-        box(k, C.gunmetal, -.45, .45, 0, 2.1, -.3, .25);
-        box(k, C.black, -.4, .4, 1.9, 2.05, .25, .32);
-        box(k, C.screen, -.34, .34, 1.25, 1.85, .25, .258);
-        box(k, C.black, -.34, .34, .95, 1.2, .25, .3);
-        box(k, C.screen, -.08, .08, 1.05, 1.1, .3, .305);
-        box(k, C.black, -.2, .2, .5, .62, .25, .31);
-        box(k, C.gunmetal, -.45, .45, 0, .1, .25, .27);
+        k.bevelBox(C.gunmetal, [-.45, .1, -.3], [.9, 2, .55], .025);
+        k.bevelBox(C.black, [-.45, 0, -.28], [.9, .1, .53], .01);
+        // a hood over the screen, the screen in a bezel, a sloped counter with a card slot
+        k.sweep(C.black, [[1.9, -.05], [1.9, .3], [1.96, .32], [2.05, .32], [2.05, -.05]], -.42, .42);
+        k.bevelBox(C.black, [-.37, 1.23, .24], [.74, .64, .02], .012);
+        k.box(C.screen, [-.34, 1.25, .26], [.68, .6, .004], 'unit');
+        k.sweep(C.gunmetal, [[.95, .25], [.95, .3], [1.2, .32], [1.2, .25]], -.38, .38);
+        k.bevelBox(C.black, [-.34, 1.08, .29], [.68, .09, .03], .01);
+        k.box(C.screen, [-.08, 1.12, .318], [.16, .04, .002], 'unit');
+        k.cbevel(C.black, [.2, 1.12, .3], [.09, .006, .02], .002);
+        // the dispenser tray
+        k.bevelBox(C.black, [-.2, .5, .22], [.4, .12, .09], .01);
+        k.bevelBox(C.zinc, [-.18, .5, .25], [.36, .015, .05], .004);
     });
     // Low corridor lamp at the foot of the wall: a warm lens under a small hood.
     add('trim-c3-low-lamp', k => {
@@ -144,15 +164,19 @@ const extras: RecipeSet = add => {
     });
     // Restroom wash trough 2.4 m: a cream trough on brackets, four taps, a mirror band above.
     add('fit-c4-trough', k => {
-        box(k, C.ivory, -1.2, 1.2, .72, .9, -.275, .275);
-        box(k, C.black, -1.14, 1.14, .8, .9, -.2, .2);
+        // A rounded ivory trough swept along the wall: a thick rim round a sunk basin.
+        k.sweep(C.ivory, [[.72, -.275], [.72, .245], [.75, .275], [.87, .275], [.9, .255], [.9, .2], [.84, .2], [.8, .17], [.8, -.2], [.9, -.2], [.9, -.275]], -1.2, 1.2);
+        k.box(C.black, [-1.18, .795, -.2], [2.36, .006, .37]);
         for (const x of [-.9, -.3, .3, .9]) {
-            box(k, C.black, x - .015, x + .015, .9, 1.08, -.26, -.23);
-            box(k, C.black, x - .015, x + .015, 1.05, 1.08, -.26, -.14);
+            // a gooseneck mixer on a round base
+            k.cylinder(C.zinc, [x, .9, -.245], .022, .01, 16);
+            k.tube(C.zinc, [[x, .91, -.245], [x, 1.02, -.245], [x, 1.07, -.21], [x, 1.06, -.16], [x, 1.03, -.14]], .01, false, 12);
+            k.cylinder(C.black, [x, .80, -.02], .02, .002, 16);
         }
-        for (const x of [-1.1, 0, 1.1]) box(k, C.black, x - .02, x + .02, .2, .72, -.275, -.2);
-        box(k, C.black, -1.2, 1.2, 1.28, 2.0, -.275, -.265);
-        box(k, C.mirror, -1.16, 1.16, 1.32, 1.96, -.265, -.258);
+        for (const x of [-1.1, 0, 1.1]) k.bevelBox(C.black, [x - .02, .2, -.275], [.04, .52, .075], .006);
+        // the mirror band in a dark frame
+        k.bevelBox(C.black, [-1.2, 1.28, -.275], [2.4, .72, .01], .004);
+        k.box(C.mirror, [-1.16, 1.32, -.265], [2.32, .64, .007]);
     });
     // Studio neon: a red outline sign on a dark back plate, 1.0 x 0.7.
     add('trim-c6-neon', k => {

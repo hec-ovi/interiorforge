@@ -4,7 +4,7 @@ import type { RecipeSet } from '../../modules/recipes.js';
 import type { Vector3 } from '../../modules/types.js';
 import { FINISH as F } from '../../modules/finishes.js';
 import { softBox, tube, welt } from '../luxury/model-geometry.js';
-import { vessel } from '../../modules/recipes/sanitary.js';
+import { vase } from '../../modules/recipes/decor.js';
 import { SANDRA_MATERIALS as M } from './materials.js';
 
 function timber(k: Kit, at: Vector3, size: Vector3): void {
@@ -23,9 +23,10 @@ function books(k: Kit, x: number, y: number, z: number, count: number, span: num
   for (let i = 0; i < count; i++) {
     const width = pitch * (0.56 + (i % 3) * 0.12), h = 0.21 + (i % 4) * 0.032;
     const at = x - span / 2 + pitch * (i + 0.5);
-    k.cbox(i % 4 === 0 ? M.red : i % 2 ? M.dark : M.panel, [at, y, z], [width, h, 0.20]);
-    k.cbox(F.paper, [at, y + 0.006, z + 0.103], [width - 0.006, h - 0.012, 0.004]);
-    for (const sy of [0.035, h - 0.04]) k.cbox(M.trim, [at, y + sy, z + 0.107], [width - 0.016, 0.004, 0.002]);
+    // A rounded cloth case, the page block showing at the head, two gilt bands on the spine.
+    k.cbevel(i % 4 === 0 ? M.red : i % 2 ? M.dark : M.panel, [at, y, z], [width, h, 0.20], Math.min(0.003, width * 0.25));
+    k.box(F.paper, [at - width / 2 + 0.0025, y + h, z - 0.098], [width - 0.005, 0.0005, 0.19], undefined, ["top"]);
+    for (const sy of [0.035, h - 0.04]) k.cbevel(M.trim, [at, y + sy, z + 0.1], [width - 0.012, 0.004, 0.0025], 0.001);
   }
 }
 
@@ -197,12 +198,7 @@ export const sandraRecipes: RecipeSet = add => {
     }
     for (const y of [0.10, 0.66, 1.24]) timber(k, [0.557, y, 0.01], [0.57, 0.035, 0.47]);
     for (const y of [0.71, 1.28]) {
-      vessel(k, F.ceramic, [{ x: 0.56, y, z: 0.015, rx: 0.012, rz: 0.012 },
-        { x: 0.56, y: y + 0.012, z: 0.015, rx: 0.085, rz: 0.085 },
-        { x: 0.56, y: y + 0.16, z: 0.015, rx: 0.10, rz: 0.10 },
-        { x: 0.56, y: y + 0.25, z: 0.015, rx: 0.042, rz: 0.042 },
-        { x: 0.56, y: y + 0.25, z: 0.015, rx: 0.032, rz: 0.032 },
-        { x: 0.56, y: y + 0.018, z: 0.015, rx: 0.035, rz: 0.035 }], 28);
+      vase(k, F.ceramic, [0.56, y - 0.015, 0.015], y > 1 ? 0.3 : 0.26, 0.2, y > 1 ? 0.3 : 0.5);
     }
     // One glazed display door beside the open book bays, with real bronze edging.
     k.cbox(F.glass, [0.557, 0.13, 0.234], [0.545, 1.76, 0.009]);

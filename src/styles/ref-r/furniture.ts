@@ -6,6 +6,8 @@ import { itemFrame, registerModuleSizes } from '../systems/built-ins.js';
 import { placeRun } from '../systems/run.js';
 import type { AssemblySpec, RunSpec } from '../systems/types.js';
 import { R1 } from './look.js';
+import { vase } from '../../modules/recipes/decor.js';
+import { tuft } from '../systems/foliage.js';
 
 /** The rich office's own furniture, measured on the reference office. Every piece is a
  *  module at its authored size (a template names it in `fit`), or an assembly of fixed bays
@@ -69,10 +71,8 @@ function tower(k: Kit): void {
         drawer(k, -hw + .04, hw - .04, y0, y0 + .23, hd);
     }
     box(k, R1.ink, [-hw, hw], [1.16, 1.2], [-hd, hd]);
-    // a slim vase on top
-    k.cylinder(R1.alloy, [0, 1.2, 0], .06, .02, 10);
-    k.cylinder(R1.alloy, [0, 1.22, 0], .075, .16, 10);
-    k.cylinder(R1.alloy, [0, 1.38, 0], .04, .06, 10);
+    // a slim turned vase on top
+    vase(k, R1.alloy, [0, 1.2, 0], .24, .15, .5);
 }
 
 /** One 0.5 m cell of the fixed bench, back on z = -0.35. */
@@ -101,7 +101,10 @@ function libraryBay(k: Kit): void {
         const y0 = y - base + BOARD;
         if (level === 0) {
             // two white file boxes and a run of binders
-            for (const x of [-.36, -.16]) box(k, R1.white, [x - .09, x + .09], [y0, y0 + .2], [.03, .28]);
+            for (const x of [-.36, -.16]) {
+                k.bevelBox(R1.white, [x - .09, y0, .03], [.18, .2, .25], .006);
+                k.bevelBox(R1.black, [x - .03, y0 + .13, .276], [.06, .025, .006], .006);
+            }
             for (let i = 0; i < 6; i++) binder(k, .02 + i * .065, y0, i === 4);
         } else {
             const count = level === 1 ? 11 : 9, start = level === 1 ? -.4 : -.3;
@@ -112,9 +115,11 @@ function libraryBay(k: Kit): void {
 
 function binder(k: Kit, x: number, y: number, dark: boolean): void {
     const h = .29 + ((Math.round(x * 100) % 3 + 3) % 3) * .012;
-    box(k, dark ? R1.ink : R1.white, [x - .028, x + .028], [y, y + h], [.03, .27]);
-    // spine label
-    box(k, R1.paper, [x - .016, x + .016], [y + h * .55, y + h * .8], [.27, .272]);
+    // A lever-arch binder: rounded board covers, a rounded spine, a finger ring and a
+    // label window on the spine.
+    k.bevelBox(dark ? R1.ink : R1.white, [x - .028, y, .03], [.056, h, .24], .006);
+    k.bevelBox(R1.paper, [x - .016, y + h * .55, .268], [.032, h * .25, .003], .002);
+    k.tube(R1.black, Array.from({ length: 13 }, (_, i) => { const a = i / 12 * Math.PI * 2; return [x + Math.cos(a) * .011, y + h * .25 + Math.sin(a) * .011, .2705] as [number, number, number]; }), .0022, true, 6);
 }
 
 /** A bronze lip under the front of the lowest board, where a bay does not fit. */
@@ -151,9 +156,13 @@ export const R1_ASSEMBLIES: Record<string, AssemblySpec> = {
 
 /** The potted plant by the bench, on its 0.9 m record. */
 function plant(k: Kit): void {
-    k.cylinder(R1.ink, [0, 0, 0], .2, .42, 12);
-    k.cylinder(R1.soil, [0, .42, 0], .185, .01, 12);
-    k.plant(R1.leaf, R1.stem, [0, .43, 0], .85, 7, 11);
+    // A turned ink pot with a rolled rim and a shadow foot, soil a little under the rim, and
+    // a broad-leaved plant of arching keeled blades.
+    k.turned(R1.ink, [0, 0, 0], [[0, 0], [.16, 0], [.17, .015], [.19, .12], [.205, .38], [.212, .415], [.206, .425], [.19, .418], [.188, .4], [0, .4]], 40);
+    k.cylinder(R1.soil, [0, .395, 0], .186, .012, 32);
+    const bounds = { x: [-.44, .44] as [number, number], y: [.4, 1.3] as [number, number], z: [-.44, .44] as [number, number] };
+    tuft(k, R1.leaf, R1.stem, [0, .405, 0], .95, 11, 11, undefined, bounds, 1.7);
+    tuft(k, R1.leaf, R1.stem, [.04, .405, -.03], .6, 23, 7, undefined, bounds, 1.4);
 }
 
 /** Pendant spot under the timber ceiling: a canopy, a stem and a satin cylinder with its warm
