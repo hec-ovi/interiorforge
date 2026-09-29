@@ -1,0 +1,41 @@
+{
+  "title": "Fixture apartment",
+  "summary": "placeholder summary",
+  "walkthrough": "placeholder walkthrough",
+  "rooms": [
+    { "id": "r-living", "name": "Living room", "polygon": [[-4, 0], [1.5, 0], [1.5, 2.4], [4, 2.4], [4, 10], [0.5, 10], [0.5, 6], [-4, 6]],
+      "ceilingHeight": 3.0, "images": ["view-01", "view-02"], "confidence": 0.8, "notes": "placeholder note" },
+    { "id": "r-bath", "name": "Bathroom", "polygon": [[1.5, 0], [4, 0], [4, 2.4], [1.5, 2.4]], "ceilingHeight": 2.6,
+      "images": ["view-03"], "confidence": 0.7 },
+    { "id": "r-bed", "name": "Master bedroom", "polygon": [[-4, 6], [0.5, 6], [0.5, 10], [-4, 10]], "ceilingHeight": 2.9,
+      "images": ["view-04"], "confidence": 0.75 },
+    { "id": "r-kitchen", "name": "Kitchen", "polygon": [[1.5, 7.4], [4, 7.4], [4, 10], [1.5, 10]], "ceilingHeight": 3.0,
+      "images": ["view-05"], "confidence": 0.6 }
+  ],
+  "openings": [
+    { "id": "o-entry", "kind": "door", "between": ["r-living", "corridor"], "center": [-2, 0], "width": 1.0, "height": 2.2, "confidence": 0.8, "images": ["view-01"] },
+    { "id": "o-bath", "kind": "sliding-door", "between": ["r-living", "r-bath"], "center": [2.75, 2.4], "width": 0.9, "height": 2.1, "confidence": 0.7 },
+    { "id": "o-bed", "kind": "door", "between": ["r-bed", "r-living"], "center": [0.5, 7], "width": 0.9, "height": 2.1, "confidence": 0.7 },
+    { "id": "o-window", "kind": "window-wall", "between": ["r-bed", "exterior"], "center": [-2, 10], "width": 3.5, "height": 2.4, "confidence": 0.9 },
+    { "id": "o-lift", "kind": "lift-door", "between": ["corridor", "lift"], "center": [-2, -3], "width": 1.2, "height": 2.2, "confidence": 0.9 },
+    { "id": "o-street", "kind": "door", "between": ["corridor", "exterior"], "center": [-6, -2], "width": 1.8, "height": 2.2, "confidence": 0.5 }
+  ],
+  "fixtures": [
+    { "id": "x-bed", "name": "Double bed", "room": "r-bed", "builtIn": false, "center": [-2, 8.95], "size": [1.8, 2.1, 0.5], "againstWall": "back", "confidence": 0.8, "images": ["view-04"] },
+    { "id": "x-night", "name": "Bedside table", "room": "r-bed", "builtIn": false, "center": [-3.3, 9.7], "size": [0.5, 0.4, 0.5], "confidence": 0.6 },
+    { "id": "x-kitchen", "name": "Kitchen run", "room": "r-kitchen", "builtIn": true, "center": [3.7, 8.7], "size": [0.6, 2.6, 0.9], "againstWall": "right", "confidence": 0.8 },
+    { "id": "x-sofa", "name": "Sofa", "room": "r-living", "builtIn": false, "center": [-2, 4], "size": [2.2, 0.9, 0.8], "rotationDeg": 0, "confidence": 0.7 },
+    { "id": "x-wc", "name": "WC", "room": "r-bath", "builtIn": false, "center": [3.7, 1], "size": [0.4, 0.65, 0.75], "againstWall": "right", "confidence": 0.7 }
+  ],
+  "levelChanges": [
+    { "where": "Living room", "deltaM": 0.3, "steps": 2 },
+    { "where": "r-bed", "deltaM": 3.6, "steps": 20 }
+  ],
+  "wallThickness": { "interior": 0.12, "exterior": 0.3 },
+  "dimensions": [
+    { "what": "bath depth", "valueM": 2.4, "basis": "tile count", "confidence": 0.8, "images": ["view-03"] },
+    { "what": "unit width", "valueM": 8.0, "basis": "panel count", "confidence": 0.6 }
+  ],
+  "unknowns": ["placeholder unknown"],
+  "detail": { "wallSystems": [{ "name": "placeholder panels", "images": ["view-02"] }], "signatureDetails": ["placeholder detail"] }
+}

@@ -61,6 +61,34 @@ export interface PlanRoom {
     routeClearance: number;
   };
   doors: PlanDoor[];
+  /** reference style id of the room (`e1`…`r1`), stamped by templates and kind policy */
+  style?: string;
+  /** `<template key>/<template room id>` for rooms an authored SpaceTemplate produced */
+  template?: string;
+  /** reference meaning inside the closed room kind: foyer, dressing, bar, study, … */
+  role?: string;
+  /** m below the floor ceiling, from the template's per-room reference height */
+  ceilingDrop?: number;
+  /** raised or sunken zones inside the room, uv polygons (consumed by the levels pass) */
+  levels?: { polygon: Point[]; delta: number; edge: "step" | "guard" | "open";
+    stair?: { at: Point; axis: "u" | "v"; width: number } }[];
+  /** Planning-only pieces the template authored at exact places; furnishing commits them
+   *  before the family dispatch. */
+  authored?: AuthoredPiece[];
+}
+
+/** One authored piece of a templated room, in uv. */
+export interface AuthoredPiece {
+  id: string;
+  kind: FurnitureKind;
+  /** 'asm-<sid>-<name>' built-in assembly or 'fit-<module>' exact module */
+  fit?: string;
+  at: Point;
+  rotationDeg: 0 | 90 | 180 | 270;
+  /** [along-u, along-v, height] at rotation 0 */
+  size: [number, number, number];
+  elevation?: number;
+  required: boolean;
 }
 
 export interface PlanFurniture {
@@ -75,6 +103,8 @@ export interface PlanFurniture {
   size: [number, number, number];
   /** base height above the floor; wall pieces hang, everything else stands at 0 */
   elevation?: number;
+  /** authored assembly or exact module ('asm-…' / 'fit-…') */
+  fit?: string;
 }
 
 export interface FloorFrame {
