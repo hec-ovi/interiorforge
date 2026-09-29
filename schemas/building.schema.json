@@ -424,7 +424,8 @@
         },
         "fixed": {
           "type": "array",
-          "minItems": 7,
+          "description": "The overhead track and its two end stops, then the numberplate and its digits where an opaque wall beside the doorway carries them.",
+          "minItems": 3,
           "maxItems": 8,
           "items": {
             "$ref": "#/$defs/apartmentDoorPart"

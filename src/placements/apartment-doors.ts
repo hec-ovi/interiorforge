@@ -1,4 +1,3 @@
-import { InteriorError } from '../core/errors.js';
 import { doorHeadHeight } from '../geometry/walls.js';
 import { placementRecipe } from './builder.js';
 import { apartmentEntrances, apartmentSlots, type ApartmentEntrance } from '../styles/luxury/apartment-doors.js';
@@ -18,15 +17,14 @@ export function publishApartmentEntrances(result: GeneratedInterior): void {
   }).sort((a,b)=>a.index-b.index);
   const slots = apartmentSlots(residential.map(entry => numberedRooms(result.layouts[entry.layout]!.floor)));
   const displayOffset = residential.some(entry => entry.index === 0) ? 1 : 0;
-  const carved = new Set<string>();
+  // A shared layout is carved once; the entrances it could carve hold on every floor using it.
+  const carved = new Map<string, Set<string>>();
   for (const entry of residential) {
     const layout = result.layouts[entry.layout]!, floor = layout.floor;
-    const entrances = apartmentEntrances(numberedRooms(floor), entry.index + displayOffset, slots,
+    const numbered = apartmentEntrances(numberedRooms(floor), entry.index + displayOffset, slots,
       Math.round(doorHeadHeight(1, floor.ceilingElevation - floor.elevation) * 1e6) / 1e6);
-    if (!carved.has(entry.layout)) {
-      carveApartmentPockets(entrances, layout.placements, floor.rooms);
-      carved.add(entry.layout);
-    }
+    if (!carved.has(entry.layout)) carved.set(entry.layout, carveApartmentPockets(numbered, layout.placements, floor.rooms));
+    const entrances = numbered.filter(entrance => carved.get(entry.layout)!.has(entrance.id));
     fitApartmentNumberplates(entrances, layout.placements);
     if (entrances.length) entry.apartmentEntrances = result.building.tier === 'poor' ? damagedApartmentEntrances(entrances)
       : result.building.tier === 'mid' ? capsuleApartmentEntrances(entrances) : entrances;
@@ -42,7 +40,8 @@ function numberedRooms(floor: FloorInterior) {
 
 /** Fit to actual opaque partition faces, not a guessed wall thickness. A plate
  * needs its entire width/height supported beyond a jamb; try the other side if a
- * corner or another doorway consumes the latch-side span. Small panel joints are
+ * corner or another doorway consumes the latch-side span, and leave the plate out
+ * where neither side has one. Small panel joints are
  * allowed, glass and the deeper backing behind panels are not mounting surfaces. */
 export function fitApartmentNumberplates(entrances: ApartmentEntrance[], placements: readonly Placement[]): void {
   if (!entrances.length) return;
@@ -88,7 +87,12 @@ export function fitApartmentNumberplates(entrances: ApartmentEntrance[], placeme
       }
       if (mounted) break;
     }
-    if (!mounted) throw new InteriorError('E_UNREACHABLE_SPACE', `${entrance.id} has no opaque wall span for its numberplate`);
+    // A doorway with no opaque span beside it keeps its number in the record and stands
+    // no plate: a plate never hangs on glass or in the air, and never costs the building.
+    if (!mounted) {
+      entrance.fixed = entrance.fixed.filter(part => !/^apartment-(numberplate|digit)/.test(part.module));
+      continue;
+    }
     const old = entrance.fixed[0]!.position;
     const target = [hx + along[0]! * mounted.x + inward[0] * mounted.z,
       hz + along[1]! * mounted.x + inward[1] * mounted.z];

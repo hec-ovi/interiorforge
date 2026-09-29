@@ -52,7 +52,7 @@ it('keeps wide sliding entry travel physically empty and conceals both pockets b
             placeLoft1702Wall(builder, room, [(a! + b!) / 2, 0, 8], b! - a!, 3.2, yaw, { phase: yaw ? -b! : a! });
         placeLoft1702Wall(builder, room, [9, 2.58, 8], 1.76, .62, yaw, { phase: yaw ? -9.88 : 8.12 });
     }
-    carveApartmentPockets([door], builder.placements, rooms);
+    expect(carveApartmentPockets([door], builder.placements, rooms)).toEqual(new Set([door.id]));
     const bounds = (part: Pick<Placement, 'module' | 'position' | 'scale' | 'rotationY'>) => {
         const m = catalog.get(part.module!)!, c = Math.cos(part.rotationY), s = Math.sin(part.rotationY), points: number[][] = [];
         for (const x of [-m.origin[0], m.size[0] - m.origin[0]]) for (const y of [-m.origin[1], m.size[1] - m.origin[1]])

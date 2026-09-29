@@ -1,4 +1,3 @@
-import { InteriorError } from '../core/errors.js';
 import { roomFootprintContains } from '../core/room-footprint.js';
 import type { Room } from '../core/types.js';
 import type { ModuleRecipe } from '../modules/recipes.js';
@@ -19,27 +18,28 @@ const pocketWall = (id: string): boolean => /^(?:wall-(?:field|panel|meridian)|l
 /** A cassette is a real void through the partition and jamb backing, bounded by
  * two opaque wall skins. Cuboid subtraction preserves the published renderer and
  * FloorBoxes contract: each remaining solid is still an ordinary scaled module.
- * No consumer exception, hidden full-wall collider or visible wall-running leaf. */
-export function carveApartmentPockets(entrances: readonly PocketEntrance[], placements: Placement[], rooms: readonly Room[]): void {
+ * No consumer exception, hidden full-wall collider or visible wall-running leaf.
+ * An entrance whose pockets would leave that wall (a corner, another apartment, glass
+ * or a second opening) is not carved: it stays a framed passage and its ID is left out
+ * of the returned set, so the building keeps every other entrance. */
+export function carveApartmentPockets(entrances: readonly PocketEntrance[], placements: Placement[], rooms: readonly Room[]): Set<string> {
   let result = placements;
+  const carved = new Set<string>();
   for (const door of entrances) {
     const root = door.leaves[0]!, c = Math.cos(root.rotationY), s = Math.sin(root.rotationY);
     const point = (x: number, z: number): [number, number] => [root.position[0] + x*c + z*s, root.position[2] - x*s + z*c];
     const common = rooms.find(room => room.id === door.corridorRoom)!;
     const privateRooms = rooms.filter(room => room.unit === door.unit);
-    for (const pocket of door.pockets) {
-      // Enough common/private wall on both sides of the real door opening, not an
-      // empty corner, another apartment, glass or a second opening's clearance.
-      for (const x of [pocket.min[0]+.10, (pocket.min[0]+pocket.max[0])/2, pocket.max[0]-.10]) {
-        if (!roomFootprintContains(common, point(x,-.16)) || !privateRooms.some(room => roomFootprintContains(room,point(x,.16)))) {
-          throw new InteriorError('E_UNREACHABLE_SPACE', `${door.id} needs an uninterrupted wall beside both sliding pockets`);
-        }
-        const probe = point(x,0);
-        const covering = result.filter(part => pocketWall(part.module ?? '') && !/glass|mirror/.test(part.module!)
-          && ownsPoint(part,placementRecipe(part.module!)!,[probe[0],1.2,probe[1]]));
-        if (!covering.length) throw new InteriorError('E_UNREACHABLE_SPACE', `${door.id} pocket crosses a wall opening at ${probe.map(v=>v.toFixed(3)).join(',')}`);
-      }
-    }
+    // Enough common/private wall on both sides of the real door opening, and opaque
+    // wall over every point the leaves retract through.
+    const walled = door.pockets.every(pocket => [pocket.min[0]+.10, (pocket.min[0]+pocket.max[0])/2, pocket.max[0]-.10].every(x => {
+      if (!roomFootprintContains(common, point(x,-.16)) || !privateRooms.some(room => roomFootprintContains(room,point(x,.16)))) return false;
+      const probe = point(x,0);
+      return result.some(part => pocketWall(part.module ?? '') && !/glass|mirror/.test(part.module!)
+        && ownsPoint(part,placementRecipe(part.module!)!,[probe[0],1.2,probe[1]]));
+    }));
+    if (!walled) continue;
+    carved.add(door.id);
     // The continuous overhead runner connects both chambers across the opening.
     const cuts = [...door.pockets, {min:[door.pockets[0]!.min[0],door.height,-.04] as V3,
       max:[door.pockets[1]!.max[0],door.height+.065,.04] as V3}];
@@ -71,6 +71,7 @@ export function carveApartmentPockets(entrances: readonly PocketEntrance[], plac
     }
   }
   placements.splice(0,placements.length,...result);
+  return carved;
 }
 
 function ownsPoint(part: Placement, model: ModuleRecipe, p: V3): boolean {

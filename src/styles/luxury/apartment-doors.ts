@@ -77,7 +77,9 @@ export function apartmentSlots(floors: readonly (readonly Room[])[], previous: A
     for (const [key, bounds] of bays) {
       const slot = result[key];
       if (slot === undefined) continue;
-      if (occupied.has(slot)) fail(`two apartments share position ${slot} on one floor`);
+      // Two bays matched to one position on different floors meet here: the later one
+      // takes its own position below.
+      if (occupied.has(slot)) continue;
       occupied.add(slot); assigned.add(key);
       if (!canonical.has(slot)) canonical.set(slot,bounds);
     }
@@ -102,7 +104,8 @@ export function apartmentSlots(floors: readonly (readonly Room[])[], previous: A
     for (const [key,bounds] of bays) {
       if (assigned.has(key)) continue;
       while (used.has(next)) next++;
-      if (next>99) fail('more than 99 apartment positions');
+      // Two digits address a position: a bay past the 99th stays unnumbered.
+      if (next>99) break;
       result[key]=next; canonical.set(next,bounds); occupied.add(next); used.add(next++);
     }
   }
@@ -123,12 +126,17 @@ function orderedBays(positions: Map<string, ReturnType<typeof unitBounds>>): [st
 
 /** Call after final room topology. `displayFloor` is explicit: 1 produces 101 etc,
  * independent of whether a ground lobby occupies generator floor index zero.
- * A duplicated corridor entrance is a layout error, not silently discarded metadata.
+ * Each dwelling takes one numbered entrance: of its doors onto public space, the one a
+ * dwelling room opens onto a corridor or lift lobby comes first, then the widest. Any
+ * other public door stays an ordinary framed passage, and a dwelling with no supported
+ * public door, no free position or a floor past the 99th stays unnumbered, so a plan
+ * never loses its building to its entrance record.
  * Internal living/kitchen/bathroom connections receive neither a leaf nor a number. */
 export function apartmentEntrances(rooms: readonly Room[], displayFloor: number, slots: ApartmentSlots,
   clearHeight = 2.5): ApartmentEntrance[] {
-  if (!Number.isInteger(displayFloor) || displayFloor < 0 || displayFloor > 99) fail('invalid display floor');
+  if (!Number.isInteger(displayFloor) || displayFloor < 0) fail('invalid display floor');
   if (!Number.isFinite(clearHeight) || clearHeight < 2.1 || clearHeight > 3) fail('invalid clear height');
+  if (displayFloor > 99) return [];
   const byId = new Map(rooms.map(room => [room.id, room]));
   const output: ApartmentEntrance[] = [], occupied = new Set<number>();
   for (const [unit, members] of dwellings(rooms)) {
@@ -136,15 +144,15 @@ export function apartmentEntrances(rooms: readonly Room[], displayFloor: number,
     for (const room of members) for (const door of room.doors) {
       const common = byId.get(door.to);
       if (door.kind === 'openFront' || !common || common.unit !== undefined || !COMMON.has(common.kind)) continue;
+      if (door.leaves > 2 || door.width < 0.7 || door.width > 2.4) continue;
       entrances.push({ room, common, door });
     }
-    if (entrances.length !== 1) fail(`${unit} has ${entrances.length} corridor entrances; expected exactly one`);
+    entrances.sort((a, b) => entranceRank(a) - entranceRank(b) || b.door.width - a.door.width
+      || a.door.id.localeCompare(b.door.id));
+    if (!entrances.length) continue;
     const { room, common, door } = entrances[0]!;
-    if (door.leaves > 2 || door.width < 0.7 || door.width > 2.4) fail(`${unit} needs a supported apartment opening`);
     const slot = slots[apartmentPositionKey(members)];
-    if (!slot || !Number.isInteger(slot) || slot > 99) fail(`missing stable position for ${unit}`);
-    if (occupied.has(slot)) fail(`two apartment entrances share position ${slot}`);
-    occupied.add(slot);
+    if (!slot || !Number.isInteger(slot) || slot > 99 || occupied.has(slot)) continue;
     const number = `${displayFloor}${String(slot).padStart(2, '0')}`;
     const radians = door.angleDeg * Math.PI / 180;
     let along: Point = [Math.cos(radians), Math.sin(radians)];
@@ -153,7 +161,8 @@ export function apartmentEntrances(rooms: readonly Room[], displayFloor: number,
     if (!roomFootprintContains(room, probe(inward))) {
       along = [-along[0], -along[1]]; inward = [-inward[0], -inward[1]];
     }
-    if (!roomFootprintContains(room, probe(inward))) fail(`${unit} entrance has no inward room face`);
+    if (!roomFootprintContains(room, probe(inward))) continue;
+    occupied.add(slot);
     const hinge: Point = [door.position[0] - along[0] * door.width / 2, door.position[1] - along[1] * door.width / 2];
     const rotationY = -Math.atan2(along[1], along[0]);
     const part = (module: string, x: number, y: number, z: number): ApartmentDoorPart => ({
@@ -187,6 +196,11 @@ export function apartmentEntrances(rooms: readonly Room[], displayFloor: number,
     });
   }
   return output.sort((a, b) => a.slot - b.slot);
+}
+
+/** A dwelling room's door onto a corridor or lift lobby before a service room's or a lounge's. */
+function entranceRank({ room, common }: { room: Room; common: Room }): number {
+  return (DWELLING.has(room.kind) ? 0 : 2) + (common.kind === 'corridor' || common.kind === 'elevator_lobby' ? 0 : 1);
 }
 
 function dwellings(rooms: readonly Room[]): Map<string, Room[]> {

@@ -74,10 +74,14 @@ it('keeps numbers when crown room counts change generated unit IDs and a corner 
   expect(apartmentEntrances(crown, 5, slots).map(door => door.number)).toEqual(['501', '502', '503', '504']);
 });
 
-it('rejects two public entrances into the same apartment rather than silently leaving an unclosable private boundary', () => {
+it('numbers the dwelling room\'s corridor door when a service room of the same apartment also opens onto public space', () => {
   const rooms = floor(1), slots = apartmentSlots([rooms]);
-  rooms[1]!.doors.push({ ...rooms[1]!.doors[0]!, id: 'second-public-entry' });
-  expect(() => apartmentEntrances(rooms, 1, slots)).toThrow('2 corridor entrances');
+  // A wider store-room door onto the corridor stays an ordinary passage; the building
+  // keeps its entrances instead of failing on the second one.
+  rooms.find(room => room.id === 'f1-position-0-bath')!.doors.push({ id: 'service-entry', to: 'corridor', width: 1.2, leaves: 1, position: [1, 4], angleDeg: 0 });
+  const entrances = apartmentEntrances(rooms, 1, slots);
+  expect(entrances.map(door => door.number)).toEqual(['101', '102', '103', '104']);
+  expect(entrances[0]!.connection).toBe('f1-position-0-living-entry');
 });
 
 it('authors thick sliding leaves with recessed pulls and a separate physical numberplate', () => {
@@ -109,7 +113,7 @@ it.each(['wall-field-meridian-mineral','wall-panel-field-charcoal'])('cuts real 
   }
   for(const x of [2.51,3.49])add('door-jamb-luxury','corridor',[x,0,4],[1,5,1]);
   add('door-header-luxury','corridor',[3,2.5,4],[1.06/.5,1,1]);
-  carveApartmentPockets([door],parts,rooms);
+  expect(carveApartmentPockets([door],parts,rooms)).toEqual(new Set([door.id]));
   const models=new Map(moduleRecipes().map(model=>[model.id,model]));
   const extent=(part:{module:string;position:number[];scale:number[];rotationY:number})=>{
     const model=models.get(part.module)!,c=Math.cos(part.rotationY),s=Math.sin(part.rotationY),points:number[][]=[];
@@ -144,6 +148,13 @@ it.each(['wall-field-meridian-mineral','wall-panel-field-charcoal'])('cuts real 
 });
 
 
+it('leaves an entrance uncarved, and its wall whole, where a pocket would run into glass', () => {
+  const rooms = floor(1), door = apartmentEntrances(rooms,1,apartmentSlots([rooms]))[0]!;
+  const parts: Placement[] = [{ id: 'glass', module: 'wall-panel-field-glass', room: 'corridor', position: [3, 0, 4], scale: [8 / .5, 3 / .5, 1], rotationY: 0 }];
+  const before = structuredClone(parts);
+  expect(carveApartmentPockets([door], parts, rooms)).toEqual(new Set());
+  expect(parts).toEqual(before);
+});
 it('mounts the full plate on opaque wall and uses the opposite jamb when a corner consumes its preferred span', () => {
   const rooms = floor(1), doors = apartmentEntrances(rooms, 1, apartmentSlots([rooms]));
   const door = doors[2]!; // +Z is inward, hinge X is 2.55
@@ -154,7 +165,11 @@ it('mounts the full plate on opaque wall and uses the opposite jamb when a corne
   const model = moduleRecipes().find(model => model.id === wall.module)!;
   const actualWallFront = 6 - (model.size[2] - model.origin[2]);
   expect(door.fixed[0]!.position[2] + 0.006).toBeCloseTo(actualWallFront - 0.0005, 5);
-  expect(() => fitApartmentNumberplates([door], [{ ...wall, module: 'wall-panel-field-glass' }])).toThrow('no opaque wall span');
+  // Beside glass alone the entrance keeps its number and track, and stands no plate.
+  const glazed = apartmentEntrances(rooms, 1, apartmentSlots([rooms]))[2]!;
+  fitApartmentNumberplates([glazed], [{ ...wall, module: 'wall-panel-field-glass' }]);
+  expect(glazed.number).toBe('103');
+  expect(glazed.fixed.map(part => part.module)).toEqual(['apartment-pocket-track-luxury', 'apartment-pocket-end-stop-luxury', 'apartment-pocket-end-stop-luxury']);
 });
 
 it('preserves unobstructed arrival clearance around private openings', () => {
