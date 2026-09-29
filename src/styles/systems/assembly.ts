@@ -10,7 +10,9 @@ import type { AssemblySpec, RunSpec } from './types.js';
  *  front, origin at the record centre). Returns the light records of its lenses, each
  *  carrying `furniture: item.id`. The record is a reservation: the assembly fills its width
  *  with fixed parts and stretches only fillers, so nothing is scaled per axis. */
-export function placeAssembly(builder: PlacementBuilder, floor: FloorInterior, item: Furniture, spec: AssemblySpec, ceilingY: number): LightFixture[] {
+export function placeAssembly(builder: PlacementBuilder, floor: FloorInterior, item: Furniture, spec: AssemblySpec, floorCeilingY: number): LightFixture[] {
+  // A room whose finished ceiling hangs lower (a template's ceilingDrop) bounds its built-ins.
+  const ceilingY = floorCeilingY - (floor.rooms.find(room => room.id === item.room)?.ceilingDrop ?? 0);
   switch (spec.type) {
     case 'kitchen': return placeKitchenWall(builder, floor, item, spec.spec, ceilingY);
     case 'planter': return placePlanter(builder, floor, item, spec.spec, ceilingY);

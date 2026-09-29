@@ -73,6 +73,14 @@ describe('kitchen wall assembly', () => {
     else expect(Math.max(...tiers.map(p => worldBox(p, meshes).max[1]))).toBeCloseTo(ceiling, 6);
   });
 
+  it('stops under a room whose finished ceiling hangs lower than the floor ceiling', () => {
+    const floor = floorOf(3.1, { rooms: [{ id: 'room-a', kind: 'kitchen', polygon: [[-3, -1], [3, -1], [3, 3], [-3, 3]], doors: [], ceilingDrop: .3 } as Room] });
+    const { builder } = place('asm-e1-kitchen', [3.6, .65, 3.1], 3.1, 0, floor);
+    let top = -Infinity;
+    for (const { v } of vertices(builder.placements, meshes)) top = Math.max(top, v[1]);
+    expect(top).toBeCloseTo(2.8, 6);
+  });
+
   it('drops the set-back tier under a low ceiling and keeps the worktop clear', () => {
     const { builder } = place('asm-e1-kitchen', [3, .65, 2.4], 2.4);
     expect(builder.placements.some(p => p.module!.includes('upper-b'))).toBe(false);

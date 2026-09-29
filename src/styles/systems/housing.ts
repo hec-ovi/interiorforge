@@ -90,21 +90,24 @@ export function placeHousingSpan(builder: PlacementBuilder, room: string, frame:
   return true;
 }
 
+/** Underside of a housing hung from a room's own finished ceiling. */
+const bottomIn = (ctx: DressContext, spec: HousingSpec, room: Room) => ctx.ceilingY - (room.ceilingDrop ?? 0) - spec.height;
+
 export function placeHousings(ctx: DressContext, spec: HousingSpec): LightFixture[] {
-  const lights: LightFixture[] = [], bottom = ctx.ceilingY - spec.height;
-  if (bottom < spec.minBottom - 1e-6) return lights;
-  const styled = ctx.rooms.filter(room => !room.id.startsWith('stair-'));
+  const lights: LightFixture[] = [];
+  const styled = ctx.rooms.filter(room => !room.id.startsWith('stair-') && bottomIn(ctx, spec, room) >= spec.minBottom - 1e-6);
   if (!styled.length) return lights;
-  if (spec.over === 'runs') return placeRunHousings(ctx, spec, styled, bottom);
+  if (spec.over === 'runs') return placeRunHousings(ctx, spec, styled);
   const want = spec.over === 'portals' ? isPortalHeader : (m: string | undefined) => isHeader(m) && !isPortalHeader(m);
   const headers = ctx.builder.placements.filter(p => want(p.module));
   for (const header of headers) {
     const span = headerSpan(header);
-    if (bottom < span.top + HEADER_GAP - 1e-6) continue;
     for (const side of [1, -1]) {
       const frame = new LocalFrame([header.position[0], 0, header.position[2]], header.rotationY + (side < 0 ? Math.PI : 0));
       const room = roomAt(styled, frame.at(0, 0, .4));
       if (!room) continue;
+      const bottom = bottomIn(ctx, spec, room);
+      if (bottom < span.top + HEADER_GAP - 1e-6) continue;
       const [lo, hi] = extentAlong(frame, room.polygon, WALL_FACE + spec.depth / 2);
       const half = span.width / 2 + OVERHANG;
       placeHousingSpan(ctx.builder, room.id, frame, Math.max(-half, lo + .01), Math.min(half, hi - .01), bottom, spec,
@@ -115,12 +118,12 @@ export function placeHousings(ctx: DressContext, spec: HousingSpec): LightFixtur
 }
 
 /** Housings along the partitions of the style's rooms. */
-function placeRunHousings(ctx: DressContext, spec: HousingSpec, rooms: Room[], bottom: number): LightFixture[] {
+function placeRunHousings(ctx: DressContext, spec: HousingSpec, rooms: Room[]): LightFixture[] {
   const lights: LightFixture[] = [], all = ctx.floor.rooms;
   const headers = ctx.builder.placements.filter(p => isHeader(p.module)).map(p => ({ p, span: headerSpan(p) }));
   const frameAxis = ctx.frame.angleDeg * Math.PI / 180;
   for (const room of rooms) {
-    const poly = room.polygon;
+    const poly = room.polygon, bottom = bottomIn(ctx, spec, room);
     for (let i = 0; i < poly.length; i++) {
       let a = poly[i]!, b = poly[(i + 1) % poly.length]!;
       const length = Math.hypot(b[0] - a[0], b[1] - a[1]);

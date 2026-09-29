@@ -17,7 +17,7 @@ export const LOOK = {
   /** emissive, unlit: glows without a light record */
   glowCyan: 'cyberpunk/interior-led-cyan/mid#plain',
   // kind A, E1 suite: warm cream moulded panels, cool grey service housings, tan splash
-  e1Cream: 'cyberpunk/ivory-panel/mid#native',
+  e1Cream: 'cyberpunk/ivory-panel/rich#meridian-satin',
   e1Housing: 'cyberpunk/ivory-panel/mid#cool-grey',
   e1Splash: 'cyberpunk/interior-luxury-wall/rich#field',
   e1Steel: 'cyberpunk/interior-alloy/rich#brushed',

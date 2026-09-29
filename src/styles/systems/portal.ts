@@ -308,7 +308,8 @@ export function placePortal(builder: PlacementBuilder, spec: PortalSpec, room: s
   const rotation = -frame.angleDeg * Math.PI / 180 + (axis === 'V' ? -Math.PI / 2 : 0);
   const [x, z] = uvToWorld(axis === 'H' ? [at, c] : [c, at], frame);
   const local = new LocalFrame([x, 0, z], rotation), lights: LightFixture[] = [];
-  const chain = options.layers ? [spec, ...options.layers] : portalChain(spec, options.lookup ?? (() => undefined));
+  // Without resolved layers (or a lookup) the spec stands alone: its layers are not placed.
+  const chain = options.layers ? [spec, ...options.layers] : options.lookup ? portalChain(spec, options.lookup) : [spec];
   let reach = 0;
   chain.forEach((layer, k) => {
     const ids = portalModules(layer), W = width + 2 * reach, r = layer.radius;
