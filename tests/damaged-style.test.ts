@@ -62,8 +62,9 @@ describe('worn residential architecture', () => {
     expect(ground.placements.some(p => p.module === 'fit-damaged-caretaker-desk')).toBe(true);
     expect(ground.placements.some(p => p.module === 'fit-damaged-sofa')).toBe(true);
     expect(result.layouts.middle!.placements.some(p => p.module === 'fit-damaged-kitchen')).toBe(true);
-    expect(result.layouts.middle!.placements.some(p => p.module === 'fit-damaged-bed')).toBe(true);
-    expect(ground.placements.some(p => p.module === 'ceiling-services-damaged-run')).toBe(true);
+    // A poor home is reference kind C: its capsule homes sleep in the capsule bed and its public rooms run the c2 exposed trunk instead of the family's services.
+    expect(result.layouts.middle!.placements.some(p => p.module === 'fit-capsule-bed')).toBe(true);
+    expect(ground.placements.some(p => p.module === 'trim-c2-trunk-bay')).toBe(true);
     expect(result.building.floors).toHaveLength(4);
     expect(result.building.connectors.some(c => c.kind === 'stair')).toBe(true);
   }, 180_000);
