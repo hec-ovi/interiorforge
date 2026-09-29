@@ -1,0 +1,44 @@
+{
+  "seed": "service-storage-service-reference-v2",
+  "buildingId": "service-storage-60",
+  "theme": "cyberpunk",
+  "parcel": {
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        60,
+        0
+      ],
+      [
+        60,
+        60
+      ],
+      [
+        0,
+        60
+      ]
+    ],
+    "accessPoint": [
+      30.0,
+      -1
+    ],
+    "maxHeight": 11.0
+  },
+  "building": {
+    "type": "factory",
+    "tier": "poor",
+    "floors": 2
+  },
+  "options": {
+    "architecture": "service-storage",
+    "glb": "named",
+    "balconies": "off",
+    "facadeServices": "off",
+    "roofArtifacts": "off",
+    "adScreens": "off",
+    "signage": null
+  }
+}
