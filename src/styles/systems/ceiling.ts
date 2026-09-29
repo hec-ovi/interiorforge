@@ -226,6 +226,12 @@ function fieldRecord(id: string, room: SurfaceRoom, rect: UvRect, y: number, fra
     };
 }
 
+/** Whether a ceiling system has already seated this planned record under its own ceiling,
+ *  its room's drop taken: the record must not be lowered again. */
+export function seatedUnderCeiling(light: LightFixture): boolean {
+    return moved.has(light);
+}
+
 /** Planned records of this room over this rectangle: each follows the room's ceiling drop
  *  once, and with `snapSpots` a spot moves to the centre of the cell it hangs in. */
 function moveRecords(spec: CeilingSystem, room: SurfaceRoom, rect: UvRect, y: number, frame: Frame, origin: Point, planned: LightFixture[]): void {

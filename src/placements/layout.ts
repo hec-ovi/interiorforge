@@ -41,6 +41,7 @@ import { subtractAll } from '../styles/systems/surface-grid.js';
 import { isLoftRequest } from '../styles/reference/kinds.js';
 import { CEILINGS, HOUSINGS, STYLES } from '../styles/reference/registry.js';
 import { placeHousings } from '../styles/systems/housing.js';
+import { seatedUnderCeiling } from '../styles/systems/ceiling.js';
 import type { DressContext, StyleSpec, SurfaceRoom } from '../styles/systems/types.js';
 
 /** Reference fields a planned room carries once the template layer stamps them. */
@@ -110,6 +111,9 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     const styledLights = (lights: LightFixture[]) => lights.filter(light => light.furniture || light.kind !== 'cove'
         || styleOfRoom(light.room)?.lights?.plannedCoves !== false);
     floor.lights = styledLights(floor.lights);
+    // The records the plan lit: the surface systems below add lenses of their own, placed and
+    // seated under their own ceilings, which must neither drop again nor stand twice.
+    const planRecords = new Set(floor.lights.filter(light => !light.furniture));
     for (const { room, rects } of floorRects) {
         const finish = finishOf(room.id, room.kind), whole = surfaceRooms.get(room.id)!;
         const own = floor.lights.filter(light => !light.furniture && light.room === room.id);
@@ -167,7 +171,8 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         const style = styleOfRoom(light.room)?.lights, drop = surfaceRooms.get(light.room)?.ceilingDrop ?? 0;
         if (style?.kelvin) light.colorTemperatureK = style.kelvin;
         if (style?.color) light.color = [...style.color];
-        if (drop > 0) light.position[1] -= drop;
+        // A ceiling system has seated its room's records under its own, already lowered, ceiling.
+        if (drop > 0 && planRecords.has(light) && !seatedUnderCeiling(light)) light.position[1] -= drop;
     }
     floor.lights.push(...walls(builder, floor, uv, core, bp, request, finishOf, tag, shared));
     for (const slice of floor.duplexes ?? []) if (slice.level === 'upper') {
@@ -250,7 +255,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     for (const item of (uv.openAir ?? []).filter(one => one.level === 'upper'))
         for (const part of rectangles(item.polygon)) floor.lights.push(...ceiling(builder, finishOf(`${item.slice}-air-0`, 'living'),
             `${item.slice}-air-0`, part, ceilingY, core.frame));
-    for (const light of plannedLights) {
+    for (const light of plannedLights.filter(one => planRecords.has(one))) {
         const finish = finishOf(light.room), position: [number, number, number] = [light.position[0], light.position[1] - floor.elevation, light.position[2]];
         const rotation = -light.angleDeg * Math.PI / 180;
         if (light.kind === 'spot') builder.module(finish.spot, light.room, position, [1, 1, 1], rotation, { id: light.id });
