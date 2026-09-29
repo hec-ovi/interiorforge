@@ -55,7 +55,7 @@
     {"id": "hall-bookcase", "room": "living", "kind": "shelf", "required": false, "wall": "free", "along": {"centred": true}, "size": [1.7, 0.4, 2.2], "rotationDeg": 90, "at": [4.93, 4.45]},
     {"id": "hall-cabinet", "room": "living", "kind": "display_rack", "required": false, "wall": "free", "along": {"centred": true}, "size": [1.7, 0.45, 2.2], "rotationDeg": 90, "at": [4.95, 9.5]},
     {"id": "pit-west", "room": "living", "kind": "sofa", "required": true, "wall": "free", "along": {"centred": true}, "at": [9.1, 7.9], "size": [4.6, 0.95, 0.4], "rotationDeg": 90},
-    {"id": "pit-south", "room": "living", "kind": "bench", "required": false, "wall": "free", "along": {"centred": true}, "at": [11.2, 5.55], "size": [2.6, 0.95, 0.4], "rotationDeg": 0},
+    {"id": "pit-south", "room": "living", "kind": "bench", "required": false, "wall": "free", "along": {"centred": true}, "at": [11.2, 6.1], "size": [2.6, 0.95, 0.4], "rotationDeg": 0},
     {"id": "pit-table", "room": "living", "kind": "low_table", "required": false, "wall": "free", "along": {"centred": true}, "at": [11.8, 8.0], "size": [1.2, 2.0, 0.35], "rotationDeg": 0},
     {"id": "pit-credenza", "room": "living", "kind": "counter", "required": false, "wall": "v1", "along": {"line": "u2", "offset": 1.2}, "size": [2.6, 0.45, 0.5], "rotationDeg": 180},
     {"id": "bed", "room": "bed", "kind": "bed_double", "required": true, "wall": "u0", "along": {"line": "v5", "offset": -2.5}, "size": [1.9, 2.1, 0.45], "rotationDeg": 90},
