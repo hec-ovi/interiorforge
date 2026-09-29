@@ -76,7 +76,7 @@ function build(plan: Blueprint, tier: InteriorRequest['building']['tier']): Prom
 }
 
 describe('a furnished building reaches its shell', () => {
-  it('leaves no band between the rooms and a notched, curved glass facade, and moves a street door out to the face', { timeout: 300000 }, async () => {
+  it('leaves no band between the rooms and a notched, curved glass facade, and closes each window a partition meets', { timeout: 300000 }, async () => {
     const result = await build(blueprint, 'rich');
     const face = shellWallDepth(blueprint.facade) + SHELL_SEAM;
     for (const layout of Object.values(result.layouts)) {
@@ -88,6 +88,15 @@ describe('a furnished building reaches its shell', () => {
     const ground = result.layouts.ground!;
     const entrance = ground.floor.rooms.flatMap(room => room.doors).find(door => door.to === 'outside' && door.kind !== 'openFront');
     if (entrance) expect(boundaryDistance(entrance.position, blueprint.floors[0]!.outline)).toBeCloseTo(face, 2);
+    // Where a partition meets glass, a cap closes the window's reveal behind its end.
+    const caps = result.building.floors.flatMap(ref => (ref.treatments ?? []).filter(item => item.id?.startsWith('partition-cap:')));
+    expect(caps.length).toBeGreaterThan(0);
+    for (const cap of caps) {
+      const bp = blueprint.floors.find(item => cap.id!.startsWith(`partition-cap:${item.index}:`))!;
+      const depth = boundaryDistance([cap.position[0], cap.position[2]], bp.outline);
+      expect(depth).toBeLessThan(face);
+      expect(depth).toBeGreaterThan(0);
+    }
   });
 
   it('lines an interior-lined facade at the shell and leaves no band behind the lining', { timeout: 300000 }, async () => {
