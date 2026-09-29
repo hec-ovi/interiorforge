@@ -15,6 +15,7 @@ import { presentModels } from '../assets/availability.js';
 import { publishStairSoffits } from './stair-soffits.js';
 import { publishStairSpaces } from './stair-spaces.js';
 import { publishApartmentEntrances } from './apartment-doors.js';
+import { seatPits } from './plenum.js';
 import { duplexAssignments } from '../layout/duplex/assignments.js';
 import { applyDuplexPairs } from '../layout/duplex/apply.js';
 import { capsuleProfile } from '../styles/capsule/profile.js';
@@ -83,6 +84,10 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
         if (at >= 0 && ![...layoutByFloor.values()].includes(name)) { names.splice(at, 1); samples.splice(at, 1); }
     }
     stampStyles(plan, request);
+    // Pits hang their trays over the rooms of the floor below: those ceilings make room,
+    // before any floor is placed.
+    const sampleOf = (index: number) => { const at = names.indexOf(layoutByFloor.get(index)!); return at >= 0 ? samples[at]!.index : undefined; };
+    seatPits(plan, request, floors, sampleOf);
     const roof = planRoofAccess(request, plan.core);
     const crown = samples.length - 1;
     // A layout lines the shell for every floor that reuses it, so one lining clears the

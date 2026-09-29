@@ -514,7 +514,7 @@
       "required": ["polygon", "delta", "edge"],
       "properties": {
         "polygon": { "type": "array", "minItems": 3, "items": { "$ref": "#/$defs/point2" } },
-        "delta": { "type": "number", "minimum": -0.45, "maximum": 1.5, "description": "walking height relative to the floor, metres" },
+        "delta": { "type": "number", "minimum": -0.6, "maximum": 1.5, "description": "walking height relative to the floor, metres; a pit deeper than 0.3 stands over a room whose ceiling hangs low enough to hold its tray" },
         "edge": { "enum": ["step", "guard", "open"] },
         "stair": {
           "type": "object", "additionalProperties": false,

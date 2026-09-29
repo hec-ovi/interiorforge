@@ -275,7 +275,7 @@ export type Door = RoomDoor | OpenFrontConnection;
 /** A raised or sunken zone inside one room, in world XZ. */
 export interface LevelZone {
   polygon: Point[];
-  /** walking height relative to the floor, -0.45..1.5 m */
+  /** walking height relative to the floor, -0.6..1.5 m */
   delta: number;
   edge: "step" | "guard" | "open";
   stair?: { at: Point; axis: "u" | "v"; width: number };

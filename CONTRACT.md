@@ -178,9 +178,11 @@ occupied storeys by the layouts whose kind is not `roof`.
 Each layout contains floor metadata, source openings, placements and NPC data.
 Layout rooms may carry `style`, `template`, `role`, `ceilingDrop` and `levels`, and
 furniture may carry `fit` ([Reference kinds](#reference-kinds)). A level zone is a raised or
-sunken polygon of the room in world XZ with its walking `delta` (-0.45 to 1.5 m), an `edge`
-(`step`, `guard` or `open`) and an optional stair. A finished ceiling stands `ceilingDrop`
-below the floor's ceiling plane. `bathtub` and `urinal` are furniture kinds; a person uses a
+sunken polygon of the room in world XZ with its walking `delta` (-0.6 to 1.5 m), an `edge`
+(`step`, `guard` or `open`) and an optional stair. A pit's tray hangs below its storey's slab;
+a pit deeper than 0.3 m stands only over a room whose `ceilingDrop` leaves its tray room
+(the generator lowers that ceiling, or makes the pit shallower). A finished ceiling stands
+`ceilingDrop` below the floor's ceiling plane. `bathtub` and `urinal` are furniture kinds; a person uses a
 urinal as a toilet, and a bathtub has no anchor. `floor.voids` names building-level open
 voids crossing a floor in world XZ, with their floor range and guarded edges; no generated
 building publishes one yet.

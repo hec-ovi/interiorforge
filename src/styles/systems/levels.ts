@@ -13,7 +13,8 @@ import type { SurfaceRoom } from './types.js';
 /** Level zones inside one room: a raised platform (the B3 bar, a split lobby's upper
  *  lounge) or a pit (the B3 lounge), built from solid boxes the body climbs, since every
  *  rise stays under the engine's autostep. A sunken zone (a lounge pit) sinks at most
- *  `SUNKEN_MAX`, inside the depth between this floor and the storey below's ceiling. A zone
+ *  `PIT_MAX`; its tray hangs inside the depth between this floor and the ceiling of the
+ *  room under it, which the building's plenum pass keeps (`placements/plenum.ts`). A zone
  *  is the axis-aligned rectangle of its uv polygon, steps included. Its exposed sides (those not on the room's own walls) either step down all
  *  along (`step`, `open`) as nested slabs, one per riser, each a going inside the one
  *  below, or stand behind a glass guard (`guard`) with one straight flight at the zone's
@@ -77,10 +78,16 @@ export function zoneRect(zone: Pick<LevelZone, 'polygon'>): UvRect {
     return { u: b.x, v: b.z, lu: b.w, lv: b.d };
 }
 
-/** Deepest sunken zone: its tray stays inside the 0.35 m between this floor and the ceiling
- *  of the storey below. */
+/** Sunken depth any storey holds: its tray stays inside the 0.35 m between this floor and
+ *  a full-height ceiling of the storey below. */
 export const SUNKEN_MAX = .3;
-const active = (zones: readonly LevelZone[]) => zones.filter(zone => zone.delta >= LEVEL_MIN || (zone.delta <= -LEVEL_MIN && zone.delta >= -SUNKEN_MAX - 1e-9));
+/** Deepest sunken zone (a reference pit of three risers); a pit deeper than `SUNKEN_MAX`
+ *  needs the room below it to hang its ceiling lower, which the plenum pass arranges. */
+export const PIT_MAX = .6;
+/** How far a pit's tray hangs below the floor per metre of pit depth (the tray module is
+ *  authored from -1 to -0.9 and stretched to the depth). */
+export const TRAY_HANG = 1 / .9;
+const active = (zones: readonly LevelZone[]) => zones.filter(zone => zone.delta >= LEVEL_MIN || (zone.delta <= -LEVEL_MIN && zone.delta >= -PIT_MAX - 1e-9));
 
 /** The parts of a floor rectangle outside every level zone (uv polygons): they keep the
  *  room's own floor; `placeLevels` builds the rest. */
@@ -226,7 +233,7 @@ export function levelPlan(zone: LevelZone, rings: readonly (readonly Point[])[])
  *  then steps back up to Y0. `step`: nested rings along every exposed side; `guard`: one
  *  flight at the zone's stair and a glass guard on the floor above along the other drops. */
 function sunkenPlan(zone: LevelZone, rings: readonly (readonly Point[])[], plan: LevelPlan): LevelPlan {
-    const depth = Math.min(-zone.delta, SUNKEN_MAX), z = zoneRect(zone), n = riserCount(depth), rise = depth / n;
+    const depth = Math.min(-zone.delta, PIT_MAX), z = zoneRect(zone), n = riserCount(depth), rise = depth / n;
     const open = exposedSides(z, rings), sides = SIDE_LIST.filter(side => open[side].length);
     const going = Math.min(TREAD, ...sides.map(side => (side[0] === 'u' ? z.lu : z.lv) / (2 * Math.max(1, n - 1) + 1)));
     plan.slabs.push({ rect: z, top: -depth, bottom: -depth, module: 'sunken' });
