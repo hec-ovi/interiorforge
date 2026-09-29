@@ -36,12 +36,12 @@ const bedWall = panelPreset('B', 'b3-bed', {
     profile: { skin: B_LOOK.charcoal, backing: B_LOOK.gold, seams: [{ y: 2.2, width: .012, slot: B_LOOK.gold }] },
 });
 const livingFloor = floorPreset('B-plank', 'b3', {
-    system: { tile: { size: [2.4, .2], joint: .002, block: 'floor-finish-b3-planks', blockTiles: [1, 3], phase: 'room' },
+    system: { tile: { size: [2.4, .2], joint: .002, block: 'floor-finish-b3-planks', blockTiles: [1, 5], phase: 'room' },
         border: { width: .18, module: 'floor-finish-b3-border' } },
     profile: { tile: B_LOOK.walnut, border: B_LOOK.oak },
 });
 const bedFloor = floorPreset('B-plank', 'b3-plank', {
-    system: { tile: { size: [2.4, .3], joint: .002, block: 'floor-finish-b3-plank-planks', blockTiles: [1, 2], phase: 'room' } },
+    system: { tile: { size: [2.4, .3], joint: .002, block: 'floor-finish-b3-plank-planks', blockTiles: [1, 1], phase: 'room' } },
     profile: { tile: B_LOOK.smoked },
 });
 const wetFloor = floorPreset('B', 'b3-marble', {
@@ -51,7 +51,7 @@ const wetFloor = floorPreset('B', 'b3-marble', {
 });
 const ceiling = ceilingPreset('B', 'b3', {
     system: {
-        grid: { pitch: [1.2, 1.2], block: 'ceiling-b3-grid12', blockCells: [1, 1], joint: .004, phase: 'room-centre' },
+        grid: { pitch: [1.2, 1.2], block: 'ceiling-b3-grid12', blockCells: [2, 2], joint: .004, phase: 'room-centre' },
         steps: [{ inset: .6, drop: .15, fascia: 'ceiling-b3-step', lens: { module: 'ceiling-cove-b3-step', y: .14, facing: 'up', lumensPerMetre: 38, kelvin: B_WARM, proud: .03 } }],
     },
     profile: { panel: B_LOOK.gloss, backing: B_LOOK.black, step: B_LOOK.smoked },
