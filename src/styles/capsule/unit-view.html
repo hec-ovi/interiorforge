@@ -1,0 +1,52 @@
+<!doctype html><html><body style="margin:0"><script type="module">
+import * as T from '/node_modules/.vite/deps/three.js';
+import { cityGltfLoader } from '/src/game/data/CityGltfLoader.js';
+import { bake } from '/src/game/city/GeometryBake.js';
+import { RoomEnvironment } from '/node_modules/three/examples/jsm/environments/RoomEnvironment.js';
+const params = new URL(location).searchParams;
+const reports = await (await fetch('./units.json')).json();
+const report = reports.find(report => report.set === params.get('set')) ?? reports[0];
+const scene = new T.Scene(); scene.background = new T.Color('#b9c1c8');
+const renderer = new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(1600,900); renderer.setPixelRatio(1);
+renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = .7;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
+document.body.append(renderer.domElement);
+const pmrem = new T.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(),.05).texture;
+scene.environmentIntensity = .25;
+scene.add(new T.HemisphereLight(0xdce5ef,0x777268,.4));
+const theme = await (await fetch('/@fs/work/materials/themes/cyberpunk/theme.json')).json();
+const byKey = new Map();
+for(const e of Object.values(theme.entries)){byKey.set(e.key,e);for(const alias of e.aliases??[])byKey.set(alias,e);}
+const cache = new Map();
+async function material(slot) {
+  if(cache.has(slot)) return cache.get(slot);
+  const [key,id] = slot.split('#'), entry=byKey.get(key), variant=entry?.variants.find(v=>v.id===id)??entry?.variants[0];
+  if(!variant) throw new Error(`Unpublished material ${slot}`);
+  const p=entry.physical??{}, m=new T.MeshPhysicalMaterial({color:0xffffff,roughness:p.roughnessFactor??.7,
+    metalness:p.metallicFactor??0,transmission:p.transmission??0,ior:p.ior??1.5,thickness:.012});
+  for(const [kind,target] of [['basecolor','map'],['normal','normalMap'],['roughness','roughnessMap'],['metallic','metalnessMap']]) {
+    if(!variant.maps[kind]) continue;
+    const texture=await new T.TextureLoader().loadAsync('/@fs/work/materials/themes/cyberpunk/'+variant.maps[kind]);
+    texture.wrapS=texture.wrapT=T.RepeatWrapping; texture.flipY=false; texture.anisotropy=8;
+    if(kind==='basecolor') texture.colorSpace=T.SRGBColorSpace;
+    m[target]=texture; if(kind==='roughness')m.roughness=1;if(kind==='metallic')m.metalness=1;
+  }
+  if(key.includes('/light-fixture/')){m.emissive=new T.Color('#fff3d9');m.emissiveIntensity=2.5;}
+  if(key.includes('/interior-led-cyan/')){m.emissive=new T.Color('#84f0ff');m.emissiveIntensity=1.5;}
+  cache.set(slot,m); return m;
+}
+const {scene:loaded}=await cityGltfLoader().loadAsync('./'+report.glb);
+loaded.updateMatrixWorld(true);const meshes=[];loaded.traverse(node=>{if(node.isMesh)meshes.push(node)});
+for(const node of meshes){const mesh=new T.Mesh(bake(node),await material(node.material.name+'#'+(node.material.userData.materialVariant??'')));
+  mesh.castShadow=mesh.material.transmission<.5;mesh.receiveShadow=true;scene.add(mesh);}
+for(const fixture of report.lights){
+  const color=fixture.color?new T.Color(...fixture.color):new T.Color(fixture.colorTemperatureK<4000?'#ffdeb1':'#e9f3ff');
+  const lamp=new T.PointLight(color,Math.max(12,fixture.intensity)/(4*Math.PI),fixture.range??5,2);
+  lamp.position.set(...fixture.position);scene.add(lamp);
+}
+const camera=new T.PerspectiveCamera(68,1600/900,.035,200);
+window.setView = view => {camera.position.set(...view.at);camera.lookAt(...view.aim);renderer.render(scene,camera)};
+window.report=report;window.setView(report.views[0]);window.ready=true;
+</script></body></html>

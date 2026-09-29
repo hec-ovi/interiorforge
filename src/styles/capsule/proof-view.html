@@ -1,0 +1,19 @@
+<!doctype html><html><body style="margin:0"><script type="module">
+import * as T from '/node_modules/.vite/deps/three.js';
+import {cityGltfLoader} from '/src/game/data/CityGltfLoader.js';
+import {bake} from '/src/game/city/GeometryBake.js';
+import { RoomEnvironment } from '/node_modules/three/examples/jsm/environments/RoomEnvironment.js';
+const scene=new T.Scene();scene.background=new T.Color('#dddbd7');
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1600,900);renderer.setPixelRatio(1);renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=.7;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;document.body.append(renderer.domElement);
+const pmrem=new T.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(),.03).texture;
+scene.add(new T.HemisphereLight(0xffffff,0x777777,.6));const key=new T.DirectionalLight(0xfff5e7,2.8);key.position.set(-3,5,4);key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.camera.left=-4;key.shadow.camera.right=4;key.shadow.camera.top=4;key.shadow.camera.bottom=-4;key.shadow.bias=-.0001;scene.add(key);
+const theme=await(await fetch('/@fs/work/materials/themes/cyberpunk/theme.json')).json(), byKey=new Map();for(const e of Object.values(theme.entries)){byKey.set(e.key,e);for(const a of e.aliases??[])byKey.set(a,e);}
+const models=JSON.parse(new URL(location).searchParams.get('models')??'[["fit-capsule-sleeping-niche",0,0]]');
+const cache=new Map();async function material(slot){if(cache.has(slot))return cache.get(slot);const [key,id]=slot.split('#'),e=byKey.get(key),v=e?.variants.find(v=>v.id===id)??e?.variants[0],p=e?.physical??{},m=new T.MeshPhysicalMaterial({color:0xffffff,roughness:p.roughnessFactor??.7,metalness:p.metallicFactor??0,transmission:p.transmission??0,ior:p.ior??1.5,thickness:.012});
+for(const [kind,target] of [['basecolor','map'],['normal','normalMap'],['roughness','roughnessMap'],['metallic','metalnessMap']]){if(!v?.maps[kind])continue;const t=await new T.TextureLoader().loadAsync('/@fs/work/materials/themes/cyberpunk/'+v.maps[kind]);t.wrapS=t.wrapT=T.RepeatWrapping;if(kind==='basecolor')t.colorSpace=T.SRGBColorSpace;t.flipY=false;t.anisotropy=8;m[target]=t;if(kind==='roughness')m.roughness=1;if(kind==='metallic')m.metalness=1;}
+if(key.includes('light-fixture')){m.emissive=new T.Color('#fff0d1');m.emissiveIntensity=2.5;}cache.set(slot,m);return m;}
+for(const [id,x,z] of models){const {scene:loaded}=await cityGltfLoader().loadAsync(`/@fs/work/interior/out/proof/capsule-quality/${id}.glb`);loaded.updateMatrixWorld(true);const nodes=[];loaded.traverse(n=>{if(n.isMesh)nodes.push(n)});for(const n of nodes){const mesh=new T.Mesh(bake(n),await material(n.material.name+'#'+(n.material.userData.materialVariant??'')));mesh.position.set(x,0,z);mesh.castShadow=mesh.material.transmission<.5;mesh.receiveShadow=true;scene.add(mesh);}}
+const floorSlot=models.some(([id])=>id.includes('sandra'))?'cyberpunk/sandra-tatami/mid#bordered':'cyberpunk/interior-capsule-hex/mid#field', floorSize=byKey.get(floorSlot.split('#')[0]).tiling.worldSize;
+const floor=new T.Mesh(new T.PlaneGeometry(12,12),await material(floorSlot));for(let i=0;i<floor.geometry.attributes.uv.array.length;i++)floor.geometry.attributes.uv.array[i]*=12/floorSize[i%2];floor.rotation.x=-Math.PI/2;floor.position.y=-.012;floor.receiveShadow=true;scene.add(floor);
+const camera=new T.PerspectiveCamera(40,1600/900,.01,100);camera.position.set(3.2,2.7,4.5);camera.lookAt(0,.95,0);renderer.render(scene,camera);window.setView=(at,aim)=>{camera.position.set(...at);camera.lookAt(...aim);renderer.render(scene,camera)};window.ready=true;
+</script></body></html>
