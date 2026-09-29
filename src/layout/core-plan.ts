@@ -3,11 +3,11 @@ import type { Point } from "../core/geom.js";
 import { polygonArea, polygonBounds } from "../core/geom.js";
 import type { CoreAdjacencyFailure, FloorAssignment, InteriorRequest } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
-import { CORRIDOR, DOOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, TWO_STAIRS, WALKUP } from "./constants.js";
+import { CORRIDOR, DOOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, STAIR, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
 import { approachKeepouts, isStreetAccess, openingKeepouts, type OpeningKeepout } from "./openings.js";
 import { constructionPlate, facadeDepth } from "./shell.js";
-import { SHAFT_WIDTH, shaftDepthFor } from "./stair-plan.js";
+import { SHAFT_WIDTH, shaftDepthFor, stairProfile } from "./stair-plan.js";
 import { CoreFacadeClearance } from "./core-adjacency.js";
 import { coreComponents, coreSolids, type CoreComponents } from "./core-solids.js";
 import type { Frame, UvRect } from "./uv.js";
@@ -64,6 +64,9 @@ interface CoreEnvelope {
   aboveFloors: number;
   topElevation: number;
   twoStairs: boolean;
+  generous: boolean;
+  roofPlate?: Point[];
+  stairWidth: number;
   stairDepth: number;
   crossDepthOk: boolean;
   /** shallowest floor plate across the frame, and the floor it belongs to */
@@ -97,9 +100,10 @@ function platesOf(floors: InteriorRequest["blueprint"]["floors"], frame: Frame, 
 
 function envelopeOf(
   blueprint: InteriorRequest["blueprint"], frame: Frame, depth: number,
-  bulkheadUv: Point | null = null, singleStair = false,
+  bulkheadUv: Point | null = null, singleStair = false, generous = false, reserveRoof = false,
 ): CoreEnvelope {
   const floors = blueprint.floors;
+  const stairWidth = generous ? STAIR.generous.shaftWidth : SHAFT_WIDTH;
   const uvFloors = platesOf(floors, frame, depth);
   // the lowest above-ground plate: a published stack may start above index zero
   const groundIndex = floors.reduce((low, floor, i) => floor.index < floors[low]!.index ? i : low, 0);
@@ -112,7 +116,7 @@ function envelopeOf(
   // the row the stair head wants: centred under the roof housing when the exterior published one
   const idealVFace = vLen < SINGLE_LOADED_BELOW
     ? snapDown(bounds.z + vLen - ELEVATOR.shaft)
-    : bulkheadUv !== null ? snap(bulkheadUv[1] - snapUp(SHAFT_WIDTH) / 2) : snap(bounds.z + (vLen + CORRIDOR.width) / 2);
+    : bulkheadUv !== null ? snap(bulkheadUv[1] - snapUp(stairWidth) / 2) : snap(bounds.z + (vLen + CORRIDOR.width) / 2);
   const vMin = snapUp(bounds.z + ROOM.minDim + CORRIDOR.width);
   const vMax = snapDown(bounds.z + vLen - ELEVATOR.shaft);
   // ideal first, then outward in 0.5 steps (lower side first on ties), clamped
@@ -136,7 +140,11 @@ function envelopeOf(
   return {
     frame, uvFloors, vMin, vMax, vLen, area, aboveFloors,
     topElevation: floors.at(-1)!.elevation,
-    twoStairs, stairDepth: stairShaftDepth(floors),
+    twoStairs, generous,
+    ...(reserveRoof ? { roofPlate: (blueprint.roof?.outline
+      ?? (floors.at(-1)!.topOutline as Point[] | undefined) ?? floors.at(-1)!.outline)
+      .map(point => worldToUv(point, frame)) } : {}),
+    stairWidth, stairDepth: stairShaftDepth(floors, generous),
     crossDepthOk: MIN_CROSS_DEPTH <= plateDepth,
     plateDepth, plateDepthFloor,
     idealVFace, candidates, bulkheadUv,
@@ -164,7 +172,7 @@ function rowFixedLen(env: CoreEnvelope): number {
 
 /** Compact core: stairs become grid-fitted columns with clear lanes and rail reservations reaching stairDepth into the rear strip. */
 function compactFixedLen(env: CoreEnvelope): number {
-  const stairCols = (env.twoStairs ? 2 : 1) * snapUp(SHAFT_WIDTH);
+  const stairCols = (env.twoStairs ? 2 : 1) * snapUp(env.stairWidth);
   return stairCols + RISER_SHAFT.w + CORRIDOR.serviceStub + MARGIN;
 }
 
@@ -180,7 +188,7 @@ interface Placement {
 /** u extent of the core block for a car count. planCore lays the block out here and the
  *  selector validates it, so the gate and the generator place the same rects. */
 function blockSpan(env: CoreEnvelope, p: Placement, elevatorCount: number): { u0: number; len: number } {
-  const colW = snapUp(SHAFT_WIDTH);
+  const colW = snapUp(env.stairWidth);
   const stairALen = p.mode === "compact" ? colW : env.stairDepth;
   const len = stairALen + elevatorCount * ELEVATOR.shaft + RISER_SHAFT.w + CORRIDOR.serviceStub
     + (p.mode === "compact" && env.twoStairs ? colW : 0);
@@ -220,9 +228,14 @@ function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number, clea
     && (!respectReservations || clearOf(env.openingKeepouts, rect));
   const span = blockSpan(env, p, elevatorCount);
   const u0 = env.bulkheadUv
-    ? env.bulkheadUv[0] - (p.mode === "compact" ? snapUp(SHAFT_WIDTH) : env.stairDepth) / 2
+    ? env.bulkheadUv[0] - (p.mode === "compact" ? snapUp(env.stairWidth) : env.stairDepth) / 2
     : span.u0;
-  const parts = coreComponents(p.mode, u0, p.vFace, env.stairDepth, env.twoStairs, elevatorCount);
+  const parts = coreComponents(p.mode, u0, p.vFace, env.stairDepth, env.twoStairs, elevatorCount, env.stairWidth);
+  if (env.roofPlate) {
+    const s = parts.stairA, reserve = STAIR.roofReserve;
+    if (!coversRect(env.roofPlate, { u: s.u - reserve, v: s.v - reserve,
+      lu: s.lu + 2 * reserve, lv: s.lv + 2 * reserve })) return null;
+  }
   const solids = coreSolids(parts);
   const fitsPlates = (rect: UvRect): boolean => env.uvFloors.every((plate) => coversRect(plate, rect));
   if (![...solids, ["stub", parts.stub] as [string, UvRect]].every(([, rect]) => fitsPlates(rect))) return null;
@@ -245,7 +258,7 @@ function coreLayout(env: CoreEnvelope, p: Placement, elevatorCount: number, clea
       u: Math.round(u * 1e6) / 1e6,
       v: p.vFace - CORRIDOR.width,
       lu: env.stairDepth,
-      lv: snapUp(SHAFT_WIDTH),
+      lv: snapUp(env.stairWidth),
     };
     const layout = fitted(stairB);
     if (layout) return layout;
@@ -280,7 +293,7 @@ function compactAt(env: CoreEnvelope, vFace: number, clearance: Clearance = "all
 
 function candidatesFor(env: CoreEnvelope, mode: CoreMode): number[] {
   if (!env.bulkheadUv) return env.candidates;
-  const vFace = env.bulkheadUv[1] - (mode === "compact" ? env.stairDepth : snapUp(SHAFT_WIDTH)) / 2;
+  const vFace = env.bulkheadUv[1] - (mode === "compact" ? env.stairDepth : snapUp(env.stairWidth)) / 2;
   return vFace >= env.vMin - 1e-6 && vFace <= env.vMax + 1e-6 ? [vFace] : [];
 }
 
@@ -288,6 +301,12 @@ function candidatesFor(env: CoreEnvelope, mode: CoreMode): number[] {
 function selectPlacement(env: CoreEnvelope, clearance: Clearance = "all"): Placement | null {
   const safe = (candidate: Placement): Placement | null =>
     openingSafePlacement(env, candidate, clearance);
+  if (env.generous) {
+    for (const vFace of candidatesFor(env, "compact")) {
+      const compact = compactAt(env, vFace, clearance);
+      if (compact) return compact;
+    }
+  }
   const rowFixed = rowFixedLen(env);
   for (const vFace of candidatesFor(env, "standard")) {
     const [u0, u1] = bandAt(env, vFace);
@@ -339,7 +358,7 @@ function withinCap(env: CoreEnvelope, placement: Placement): boolean {
 /** The one frame-and-placement decision behind both planCore and coreFeasibility. The
  *  principal frame wins whenever it holds a core, so nothing that already builds changes;
  *  only parcels it cannot serve pay for the rotated sweep. */
-function selectEnvelope(blueprint: InteriorRequest["blueprint"], singleStair = false): CoreChoice {
+function selectEnvelopeProfile(blueprint: InteriorRequest["blueprint"], singleStair = false, generous = false, reserveRoof = false): CoreChoice {
   const floors = blueprint.floors;
   const depth = facadeDepth(blueprint.facade);
   const ground = floors.reduce((low, floor) => floor.index < low.index ? floor : low, floors[0]!) as Ground;
@@ -361,7 +380,7 @@ function selectEnvelope(blueprint: InteriorRequest["blueprint"], singleStair = f
   const angles = allowed ?? frameAngles(base);
   const firstFrame = frameAt(roofAngle ?? angles[0]!, ground);
   const attempt = (frame: Frame, bulk: Point | null): CoreChoice => {
-    const env = envelopeOf(blueprint, frame, depth, bulk, singleStair);
+    const env = envelopeOf(blueprint, frame, depth, bulk, singleStair, generous, reserveRoof);
     return { env, placement: env.crossDepthOk ? selectPlacement(env) : null };
   };
   const first = attempt(firstFrame, bulkUv(firstFrame));
@@ -387,6 +406,28 @@ function selectEnvelope(blueprint: InteriorRequest["blueprint"], singleStair = f
     if (placement.mode === "standard") break;
   }
   return best ?? free;
+}
+
+/** Large plates reserve public stairs first; a constrained plot retains the compact kit. */
+function selectEnvelope(blueprint: InteriorRequest["blueprint"], singleStair = false): CoreChoice {
+  const generous = blueprint.floors.every(floor => {
+    const outline = floor.roomEnvelope?.corners ?? floor.outline;
+    const frame = makeFrame(principalAngle(outline));
+    const bounds = polygonBounds(outline.map(point => worldToUv(point, frame)));
+    return Math.min(bounds.w, bounds.d) >= STAIR.generous.minPlate;
+  });
+  // Keep the roof connected whenever any complete core can support its housing.
+  // This also handles small stepped plates: their roof notch may reject a core
+  // that otherwise fits every room envelope, so try another candidate first.
+  for (const reserveRoof of [true, false]) {
+    if (generous) {
+      const preferred = selectEnvelopeProfile(blueprint, singleStair, true, reserveRoof);
+      if (preferred.placement && withinCap(preferred.env, preferred.placement)) return preferred;
+    }
+    const compact = selectEnvelopeProfile(blueprint, singleStair, false, reserveRoof);
+    if (compact.placement && withinCap(compact.env, compact.placement)) return compact;
+  }
+  return selectEnvelopeProfile(blueprint, singleStair);
 }
 
 /** Longest band any corridor position offers; reported when no mode fits. */
@@ -580,16 +621,18 @@ export function corePlacement(core: CorePlan): CoreFeasibility["placement"] & {}
 /** Where a stair is entered: the walk-in point plus the wall line its door pierces. */
 export function stairAccess(
   core: CorePlan, which: "a" | "b",
-): { entry: Point; axis: "H" | "V"; c: number; at: number } {
+): { entry: Point; axis: "H" | "V"; c: number; at: number; width: number } {
   const shaft = which === "a" ? core.stairA : core.stairB!;
+  const landing = stairProfile(shaft).landing;
   if (core.mode === "compact" || which === "a") {
-    // door on the corridor face
-    const at = core.mode === "compact" ? shaft.u + shaft.lu / 2 : shaft.u + shaft.lu - 0.7;
-    return { entry: [at, core.vFace - 0.6], axis: "H", c: core.vFace, at };
+    // End-facing public stair exposes both lanes; a row stair opens its full landing.
+    const span = core.mode === "compact" ? shaft.lu - 0.1 : landing;
+    const at = core.mode === "compact" ? shaft.u + shaft.lu / 2 : shaft.u + shaft.lu - 0.05 - landing / 2;
+    return { entry: [at, core.vFace - 0.6], axis: "H", c: core.vFace, at, width: span - 0.16 };
   }
   // inline stair B: door on the face looking down the corridor
   const at = shaft.v + shaft.lv / 2;
-  return { entry: [shaft.u - 0.6, at], axis: "V", c: shaft.u, at };
+  return { entry: [shaft.u - 0.6, at], axis: "V", c: shaft.u, at, width: shaft.lv - 0.26 };
 }
 
 type Ground = { outline: [number, number][]; openings: { kind: string; edge: number; offset: number; width: number }[] };
@@ -650,8 +693,8 @@ function climbCandidates(floors: InteriorRequest["blueprint"]["floors"]): number
 /** Deep enough for the longest flight the building will ever need. A short storey uses
  *  fewer flights, so its flights are LONGER than a tall storey's: the shaft has to take the
  *  worst climb of this blueprint, not the tallest floor. */
-function stairShaftDepth(floors: InteriorRequest["blueprint"]["floors"]): number {
-  return shaftDepthFor(climbCandidates(floors));
+function stairShaftDepth(floors: InteriorRequest["blueprint"]["floors"], generous = false): number {
+  return shaftDepthFor(climbCandidates(floors), generous);
 }
 
 function elevatorsFor(type: string, area: number, aboveFloors: number, topElevation: number): number {

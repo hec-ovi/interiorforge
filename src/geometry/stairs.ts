@@ -1,7 +1,7 @@
 import { STAIR, WALL } from "../layout/constants.js";
 import type { CorePlan } from "../layout/core-plan.js";
 import { stairAccess } from "../layout/core-plan.js";
-import { planFlights } from "../layout/stair-plan.js";
+import { planFlights, stairProfile } from "../layout/stair-plan.js";
 import type { UvRect } from "../layout/uv.js";
 import type { UvWallHole } from "./walls.js";
 
@@ -45,14 +45,18 @@ function runOf(shaft: UvRect, entryLowEnd: boolean): Run {
 
 /** Clear width of one flight: what the player capsule has to pass through. */
 export function stairClearWidth(shaft: UvRect): number {
-  return (Math.min(shaft.lu, shaft.lv) - WALL) / 2 - 2 * STAIR.railAllowance;
+  const lane = (Math.min(shaft.lu, shaft.lv) - WALL) / 2;
+  // The canonical 1.45 m module puts its post's inner face 75 mm from the
+  // edge. Wider lanes scale those members too; never overstate their passage.
+  const rail = Math.max(STAIR.railAllowance, .075 * lane / 1.45);
+  return lane - 2 * rail;
 }
 
 /** Landing at the walk-in end, at floor level, as deep as the climb leaving it allows. Only
  *  the lowest served floor needs its own; every floor above stands on the landing the climb
  *  below arrives on. */
 export function baseLanding(shaft: UvRect, entryLowEnd: boolean, elevation: number): UvStep {
-  return runOf(shaft, entryLowEnd).step(0, STAIR.landing, 0, 2, elevation);
+  return runOf(shaft, entryLowEnd).step(0, stairProfile(shaft).landing, 0, 2, elevation);
 }
 
 /** U-return flights inside one shaft for one climb, frame space. Flights run along the
@@ -65,8 +69,8 @@ export function computeStairSteps(shaft: UvRect, entryLowEnd: boolean, elevation
   // both flights of a turn share the same stretch of run, side by side in the two lanes, and
   // the entry landing is always the same depth: landings line up storey over storey, so a
   // flight never runs low over the landing below it
-  const landing = STAIR.landing;
-  const farStart = landing + risersPerFlight * STAIR.tread;
+  const { landing, tread } = stairProfile(shaft);
+  const farStart = landing + risersPerFlight * tread;
 
   const out: UvStep[] = [];
   let y = elevation;
@@ -75,8 +79,8 @@ export function computeStairSteps(shaft: UvRect, entryLowEnd: boolean, elevation
     const climbingOut = f % 2 === 0; // away from the entry end
     for (let i = 0; i < risersPerFlight; i++) {
       y += rise;
-      const tA = climbingOut ? landing + i * STAIR.tread : farStart - (i + 1) * STAIR.tread;
-      out.push(run.step(tA, tA + STAIR.tread, lane, lane + 1, y));
+      const tA = climbingOut ? landing + i * tread : farStart - (i + 1) * tread;
+      out.push(run.step(tA, tA + tread, lane, lane + 1, y));
     }
     // the turn landing fills the rest of the run; the entry landing receives the way down
     out.push(climbingOut ? run.step(farStart, run.runLen, 0, 2, y) : run.step(0, landing, 0, 2, y));
@@ -128,7 +132,7 @@ export function stairEntryHole(core: CorePlan, stair: "a" | "b", elevation: numb
   const access = stairAccess(core, stair);
   return {
     axis: access.axis, c: access.c,
-    hole: { at: access.at, width: 1.1, y0: elevation, y1: elevation + STAIR.headroom },
+    hole: { at: access.at, width: access.width, y0: elevation, y1: elevation + STAIR.headroom },
   };
 }
 

@@ -14,9 +14,9 @@ export interface CoreComponents {
 
 /** One component recipe for feasibility, final placement and occupied-solid checks. */
 export function coreComponents(
-  mode: CoreMode, u0: number, vFace: number, stairDepth: number, twoStairs: boolean, elevatorCount: number,
+  mode: CoreMode, u0: number, vFace: number, stairDepth: number, twoStairs: boolean, elevatorCount: number, stairWidth = SHAFT_WIDTH,
 ): CoreComponents {
-  const col = snapUp(SHAFT_WIDTH);
+  const col = snapUp(stairWidth);
   const stairA: UvRect = { u: u0, v: vFace, lu: mode === "compact" ? col : stairDepth, lv: mode === "compact" ? stairDepth : col };
   let u = u0 + stairA.lu;
   const elevators: CoreComponents["elevators"] = [];

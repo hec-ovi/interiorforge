@@ -70,6 +70,17 @@ export class MeshBuilder {
     return g as MutableMeshGroup;
   }
 
+  /** Authored smooth surface. Normals are supplied per vertex, UVs in metres;
+   * the same material tile scale used by architectural faces is applied here. */
+  addSurface(material: string, surface: MeshGroup): void {
+    const g = this.group(material), base = g.positions.length / 3;
+    const [su, sv] = this.uvScale(material);
+    for (const p of surface.positions) g.positions.push(p);
+    for (const n of surface.normals) g.normals.push(n);
+    for (let i = 0; i < surface.uvs.length; i += 2) g.uvs.push(surface.uvs[i]! * su, surface.uvs[i + 1]! * sv);
+    for (const index of surface.indices) g.indices.push(base + index);
+  }
+
   /** Quad with vertices CCW as seen from the front face. World UVs start at the quad's own first
    *  vertex: u along the face from there, v up from its bottom, so a tile pattern begins at the
    *  corner and the floor line of every wall and cuts the same way on every building. */

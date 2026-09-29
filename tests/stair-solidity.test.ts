@@ -6,13 +6,15 @@ import { validateRequest, resolveAssignments } from '../src/blueprint/validate.j
 import { planBuilding } from '../src/layout/index.js';
 import { stairAccess } from '../src/layout/core-plan.js';
 import { uvToWorld } from '../src/layout/uv.js';
+import { expectBuildingLevels } from './building-levels.js';
 
 it('closes landing undersides, connected stair bodies and rear stairwell walls behind facade windows', async () => {
     const geometries = new Map(moduleRecipes().map(recipe => {
         const positions: number[] = [], indices: number[] = [];
         for (const slot of recipe.mesh.materials()) {
             const group = recipe.mesh.getGroup(slot)!, base = positions.length / 3;
-            positions.push(...group.positions); indices.push(...group.indices.map(i => i + base));
+            for (const value of group.positions) positions.push(value);
+            for (const index of group.indices) indices.push(index + base);
         }
         const geometry = new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
         geometry.setIndex(indices);
@@ -26,12 +28,17 @@ it('closes landing undersides, connected stair bodies and rear stairwell walls b
             const mesh = new Mesh(geometry, material); mesh.updateMatrixWorld();
             if (id.startsWith('floor-slab-')) {
                 expect(hits([mesh], [.071, -.16, .037], [0, 1, 0], .02), `${id} underside`).toHaveLength(1);
-                expect(hits([mesh], [.26, -.01, .037], [-1, 0, 0], .02), `${id} finished edge`).toHaveLength(1);
+                // A support under separate finish skins shows its edge below the skin.
+                expect(hits([mesh], [.26, id.endsWith('-support') ? -.03 : -.01, .037], [-1, 0, 0], .02), `${id} finished edge`).toHaveLength(1);
             }
             if (!id.startsWith('stair-flight-')) continue;
             const count = Number(id.split('-').at(-1));
+            const assembly = [mesh, ...Array.from({ length: count }, (_, index) => {
+                const soffit = new Mesh(geometries.get(`stair-soffit-${index}`)!, material);
+                soffit.position.set(0, index * .17, index * .28); soffit.updateMatrixWorld(); return soffit;
+            })];
             for (let step = 0; step < count; step++) {
-                expect(hits([mesh], [.573, step * .17 - .16, step * .28 + .137], [0, 1, 0], .02), `${id} soffit ${step}`).toHaveLength(1);
+                expect(hits(assembly, [.573, step * .17 + .137 * .17 / .28 - .16, step * .28 + .137], [0, 1, 0], .02), `${id} soffit ${step}`).toHaveLength(1);
                 if (step) expect(hits([mesh], [.573, step * .17 - .07, step * .28 - .01], [0, 0, 1], .02), `${id} internal seam ${step}`).toHaveLength(0);
             }
         }
@@ -41,10 +48,12 @@ it('closes landing undersides, connected stair bodies and rear stairwell walls b
             building: { type: 'corpo', tier: 'high_rich', floors: 7 }, options: { architecture: 'balcony-grid', glb: 'merged' } }, { textures: { mode: 'keys' } });
         const request = validateRequest({ seed: blueprint.seed, building: { id: 'closed-stairs', type: 'corpo', tier: 'high_rich' }, blueprint, materialTheme: 'cyberpunk' });
         const result = await generate(request);
+        expectBuildingLevels(result, 7);
         const { core } = planBuilding(request, resolveAssignments(request), new Set([0, 1, 6]));
         expect(core.stairB).toBeDefined();
         let probes = 0;
-        for (const layout of Object.values(result.layouts)) for (const which of ['a', 'b'] as const) {
+        // The outdoor roof has no second enclosed stair-B shaft; crown geometry is tested below.
+        for (const layout of Object.values(result.layouts).filter(layout => layout.floor.kind !== 'roof')) for (const which of ['a', 'b'] as const) {
             const shaft = which === 'a' ? core.stairA : core.stairB!;
             const access = stairAccess(core, which);
             const meshes = layout.placements.filter(p => p.connector === `stair-${which}` && p.module?.startsWith('wall-')).map(p => {
@@ -55,7 +64,7 @@ it('closes landing undersides, connected stair bodies and rear stairwell walls b
             for (const axis of ['H', 'V'] as const) for (const side of [-1, 1]) for (const t of [.17, .51, .83]) for (const y of [.43, 1.57, 4.41]) {
                 const c = axis === 'H' ? shaft.v + (side > 0 ? shaft.lv : 0) : shaft.u + (side > 0 ? shaft.lu : 0);
                 const along = axis === 'H' ? shaft.u + shaft.lu * t : shaft.v + shaft.lv * t;
-                if (axis === access.axis && Math.abs(c - access.c) < 1e-6 && Math.abs(along - access.at) < .65 && y < 2.2) continue;
+                if (axis === access.axis && Math.abs(c - access.c) < 1e-6 && Math.abs(along - access.at) < access.width / 2 + .09 && y < 2.2) continue;
                 const uv: [number, number] = axis === 'H' ? [along, c - side * .2] : [c - side * .2, along];
                 const [x, z] = uvToWorld(uv, core.frame);
                 const dir = axis === 'H' ? [-core.frame.sin * side, 0, core.frame.cos * side] : [core.frame.cos * side, 0, core.frame.sin * side];

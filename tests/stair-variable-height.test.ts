@@ -7,6 +7,7 @@ import { baseLanding, computeStairSteps, entryAtLowEnd, minHeadroom } from '../s
 import { planCore } from '../src/layout/core-plan.js';
 import { uvRectWorldBounds, uvToWorld } from '../src/layout/uv.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
+import { expectBuildingLevels, occupiedStoreys } from './building-levels.js';
 
 /** Probe the shipped modules with adjacent storeys present, including a change in rise. */
 function checkStackedGeometry(request: InteriorRequest, result: PlacementResult): number {
@@ -15,8 +16,8 @@ function checkStackedGeometry(request: InteriorRequest, result: PlacementResult)
         const positions: number[] = [], indices: number[] = [];
         for (const slot of recipe.mesh.materials()) {
             const group = recipe.mesh.getGroup(slot)!, base = positions.length / 3;
-            positions.push(...group.positions);
-            indices.push(...group.indices.map(index => index + base));
+            for (const value of group.positions) positions.push(value);
+            for (const index of group.indices) indices.push(index + base);
         }
         const geometry = new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
         geometry.setIndex(indices);
@@ -24,7 +25,7 @@ function checkStackedGeometry(request: InteriorRequest, result: PlacementResult)
     }));
     const material = new MeshBasicMaterial({ side: DoubleSide });
     try {
-        const meshes = result.building.floors.flatMap(ref => result.layouts[ref.layout]!.placements.filter(placement => placement.module).map(placement => {
+        const meshes = result.building.floors.flatMap(ref => [...result.layouts[ref.layout]!.placements, ...(ref.treatments ?? [])].filter(placement => placement.module).map(placement => {
             const mesh = new Mesh(geometries.get(placement.module!)!, material);
             mesh.position.set(placement.position[0], placement.position[1] + ref.elevation, placement.position[2]);
             mesh.rotation.y = placement.rotationY;
@@ -38,7 +39,7 @@ function checkStackedGeometry(request: InteriorRequest, result: PlacementResult)
             const bounds = uvRectWorldBounds(shaft, core.frame);
             const box = new Box3(new Vector3(bounds.x - .01, -100, bounds.z - .01), new Vector3(bounds.x + bounds.w + .01, 1000, bounds.z + bounds.d + .01));
             const candidates = meshes.filter(item => box.intersectsBox(item.bounds)).map(item => item.mesh);
-            for (const ref of result.building.floors) {
+            for (const ref of occupiedStoreys(result)) {
                 const layout = result.layouts[ref.layout]!;
                 const floor = request.blueprint.floors.find(item => item.index === ref.index)!;
                 const hasFlight = layout.placements.some(placement => placement.connector === `stair-${which}` && placement.module?.startsWith('stair-flight-'));
@@ -115,7 +116,7 @@ it('pairs the real 5m white-grid podium with its 4.5m upper floors', async () =>
     const request: InteriorRequest = { seed: blueprint.seed, building: { id: blueprint.buildingId, type: 'residential', tier: 'high_rich' }, blueprint, materialTheme: 'cyberpunk' };
     const result = await generate(request);
     expect(blueprint.floors.map((floor: { height: number }) => floor.height)).toEqual([5, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5]);
-    expect(result.building.floors).toHaveLength(7);
+    expectBuildingLevels(result, 7);
     expect(result.building.corePlacement).toEqual(coreFeasibility(blueprint, 'residential').placement);
     for (const [layout, treads] of [[result.layouts.ground!, 14], [result.layouts.middle!, 13]] as const) {
         const flights = layout.placements.filter(placement => placement.connector === 'stair-a' && placement.module?.startsWith('stair-flight-'));

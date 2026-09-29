@@ -1,3 +1,4 @@
+import type { UvRect } from "./uv.js";
 import { STAIR, WALL } from "./constants.js";
 
 /** Shared stair arithmetic used by both core feasibility and emitted geometry. */
@@ -31,17 +32,23 @@ export function planFlights(climb: number): FlightPlan {
 export const SHAFT_WIDTH = 2 * (STAIR.flightWidth + 2 * STAIR.railAllowance) + WALL;
 
 /** Shaft length for one flight between two full landings, including boundary wall halves. */
-export function shaftLength(risersPerFlight: number): number {
-  return roundUpTo(risersPerFlight * STAIR.tread + 2 * STAIR.landing + WALL, 0.1);
+export function shaftLength(risersPerFlight: number, generous = false): number {
+  const profile = generous ? STAIR.generous : STAIR;
+  return roundUpTo(risersPerFlight * profile.tread + 2 * profile.landing + WALL, 0.1);
 }
 
 /** Size for the longest flight required by any climb in the building. */
-export function shaftDepthFor(climbs: readonly number[]): number {
+export function shaftDepthFor(climbs: readonly number[], generous = false): number {
   let worst = 0;
   for (const climb of climbs) worst = Math.max(worst, planFlights(climb).risersPerFlight);
-  return shaftLength(worst);
+  return shaftLength(worst, generous);
 }
 
 function roundUpTo(value: number, step: number): number {
   return Math.round(Math.ceil(value / step - 1e-9) * step * 1000) / 1000;
+}
+
+/** The shaft carries its profile into all geometric consumers without hidden tier state. */
+export function stairProfile(shaft: UvRect): { landing: number; tread: number } {
+  return Math.min(shaft.lu, shaft.lv) >= STAIR.generous.shaftWidth - 1e-6 ? STAIR.generous : STAIR;
 }

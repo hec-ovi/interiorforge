@@ -61,6 +61,7 @@ export interface StairClearance {
   clear: number;
   material: string;
   step: RunStep;
+  at?: [number, number, number];
 }
 
 export function stairClearance(
@@ -79,7 +80,7 @@ export function stairClearance(
     for (const point of probes) {
       const [x, z] = uvToWorld(point, frame);
       const hit = clearAbove(faces, x, step.y, z);
-      if (hit.clear < worst.clear) worst = { ...hit, step };
+      if (hit.clear < worst.clear) worst = { ...hit, step, at: [x, step.y, z] };
     }
   }
   return worst;

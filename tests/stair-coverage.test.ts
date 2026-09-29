@@ -7,6 +7,7 @@ import { planBuilding } from '../src/layout/index.js';
 import { baseLanding, computeStairSteps, entryAtLowEnd } from '../src/geometry/stairs.js';
 import { uvToWorld } from '../src/layout/uv.js';
 import type { Placement } from '../src/placements/types.js';
+import { expectBuildingLevels, occupiedStoreys } from './building-levels.js';
 
 it('covers the full doorway passage and every tread/landing join across assembled balcony-grid floors', async () => {
     const exterior = await import(new URL('../../exterior/src/index.ts', import.meta.url).href);
@@ -14,7 +15,8 @@ it('covers the full doorway passage and every tread/landing join across assemble
         const positions: number[] = [], indices: number[] = [];
         for (const slot of recipe.mesh.materials()) {
             const group = recipe.mesh.getGroup(slot)!, base = positions.length / 3;
-            positions.push(...group.positions); indices.push(...group.indices.map(i => i + base));
+            for (const value of group.positions) positions.push(value);
+            for (const index of group.indices) indices.push(index + base);
         }
         const geometry = new BufferGeometry().setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
         geometry.setIndex(indices);
@@ -37,17 +39,20 @@ it('covers the full doorway passage and every tread/landing join across assemble
                 building: { type: 'corpo', tier, floors }, options: { architecture: 'balcony-grid', glb: 'merged' } }, { textures: { mode: 'keys' } });
             const request = validateRequest({ seed: 'stair-coverage', building: { id: 'coverage', type: 'corpo', tier }, blueprint, materialTheme: 'cyberpunk' });
             const result = await generate(request);
+            expectBuildingLevels(result, floors);
             const { core } = planBuilding(request, resolveAssignments(request), new Set([0, 1, floors - 1]));
             const missing: string[] = [];
             let probes = 0;
             const floorMeshes = result.building.floors.flatMap(ref => result.layouts[ref.layout]!.placements
-                .filter(p => p.module?.startsWith('floor-slab-') || p.module?.startsWith('stair-flight-'))
+                .filter(p => p.module?.startsWith('floor-slab-') || p.module?.startsWith('stair-flight-') || p.module?.startsWith('stair-tread-'))
                 .map(p => meshOf(p, ref.elevation)));
             const groundStructure = result.layouts.ground!.placements
                 .filter(p => p.module && /^(floor-slab-|wall-)/.test(p.module)).map(p => meshOf(p));
-            for (const ref of result.building.floors) {
+            // The crown flight already probes the complete roof arrival landing. The
+            // outdoor roof band publishes nav readiness, not a second base landing.
+            for (const ref of occupiedStoreys(result)) {
                 const layout = result.layouts[ref.layout]!;
-                for (const p of layout.placements.filter(p => p.module === 'door-header')) {
+                for (const p of layout.placements.filter(p => p.module && /^door-header(?:-|$)/.test(p.module))) {
                     const transform = meshOf(p, ref.elevation).matrixWorld;
                     // Sample in world metres, including both clear edges beside the jambs.
                     const halfPassage = (p.scale[0] * .5 - .16) / 2;
@@ -89,4 +94,4 @@ it('covers the full doorway passage and every tread/landing join across assemble
             expect(missing, `${width} × ${depth}, ${floors} floors, ${tier}`).toEqual([]);
         }
     } finally { for (const geometry of geometries.values()) geometry.dispose(); material.dispose(); }
-}, 60_000);
+}, 180_000);

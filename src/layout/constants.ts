@@ -37,6 +37,10 @@ export const STAIR = {
   /** Space outside each clear walking edge for handrails and brackets. */
   railAllowance: 0.1,
   landing: 1.2,
+  /** Roof enclosure half-allowance (0.5 m) plus its 0.9 m perimeter approach. */
+  roofReserve: 1.4,
+  /** Public stairs on generous plates; compact plots retain the minimum profile. */
+  generous: { shaftWidth: 4.5, landing: 2.0, tread: 0.30, minPlate: 22 },
   maxRisersPerFlight: 14,
   /** clear height over every tread and landing along the walk line */
   headroom: 2.1,
@@ -65,7 +69,9 @@ export const RISER_SHAFT = { w: 1.2, d: 2.5 }; // AC and wiring vertical run
 
 export const CEILING = {
   drop: 0.35, // dropped ceiling under the structural soffit: services and light housings
-  minClear: 2.1, // clear height kept under it, whatever the storey
+  // Preserve a 2.1 m doorway plus its two 80 mm head/casing allowances. Short
+  // storeys give up service drop before shrinking a real entrance below that.
+  minClear: DOOR.clearHeight + 0.16,
 };
 
 /** The slab hangs this far under a floor's walking surface, so a ceiling stops there. */
