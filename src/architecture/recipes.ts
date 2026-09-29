@@ -1,5 +1,9 @@
 import type { BlueprintFloor, InteriorRequest, RoomKind } from '../core/types.js';
 import type { Family, RoomFinish } from '../placements/finish.js';
+import { damagedArchitectureFinish } from '../styles/damaged/profile.js';
+import { capsuleProfile } from '../styles/capsule/profile.js';
+import { capsuleProfileFinish } from '../styles/capsule/finish.js';
+import { sandraRoomFinish } from '../styles/sandra/finish.js';
 
 /** Each exterior architecture owns its interior proportions and finish recipe.
  * Geometry, circulation and furnishing remain shared, with the shell's reservations authoritative. */
@@ -8,11 +12,11 @@ export interface InteriorRecipe {
     frontage: [number, number];
     field: 'ivory' | 'dark' | 'mineral' | 'charcoal' | 'graphite';
     frame: 'timber' | 'ivory' | 'steel' | 'graphite';
-    floor: 'stone' | 'plank' | 'obsidian' | 'marble';
+    floor: 'stone' | 'plank' | 'obsidian' | 'marble' | 'meridian-stone';
 }
 
 export const INTERIOR_RECIPES: readonly InteriorRecipe[] = [
-    { id: 'balcony-grid', frontage: [9, 11], field: 'mineral', frame: 'graphite', floor: 'stone' },
+    { id: 'balcony-grid', frontage: [9, 11], field: 'mineral', frame: 'graphite', floor: 'meridian-stone' },
     { id: 'corporate-sectors', frontage: [10, 14], field: 'charcoal', frame: 'steel', floor: 'obsidian' },
     { id: 'faceted-bays', frontage: [8, 10], field: 'ivory', frame: 'timber', floor: 'stone' },
     { id: 'mirror-frame', frontage: [8, 12], field: 'graphite', frame: 'ivory', floor: 'marble' },
@@ -41,9 +45,18 @@ export function shellOwnsFacade(request: InteriorRequest, floor: BlueprintFloor)
 }
 
 export function architectureFinish(request: InteriorRequest, family: Family, room: RoomKind, base: RoomFinish): RoomFinish {
+    if (family === 'capsule') return request.building.interiorStyle === 'sandra-dorsett'
+        ? sandraRoomFinish(room, 'apartment', base) : capsuleProfileFinish(capsuleProfile(request), room, base);
+    if (family === 'damaged') {
+        const architecture = (request.blueprint.assembly as { architecture?: string } | undefined)?.architecture;
+        return damagedArchitectureFinish(architecture, base);
+    }
     const recipe = interiorRecipe(request);
     if (!recipe || family !== 'luxury') return base;
     const service = ['bathroom', 'toilets', 'locker_room', 'storage', 'mechanical_room', 'parking_area'].includes(room);
+    // Balcony-grid's glass shell pairs with honed stone and calm mineral joinery.
+    // Preserve room-specific timber and wet/service finishes from the luxury family.
+    if (recipe.id === 'balcony-grid') return { ...base, frame: undefined };
     const cool = recipe.frame === 'steel' || recipe.frame === 'graphite';
     return { ...base,
         ...(!service ? { field: `wall-field-${recipe.field}`, floor: `floor-slab-${recipe.floor}`,

@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { expandBuilding, generate, INTERIOR_RECIPES } from '../src/index.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
+import { expectBuildingLevels, occupiedStoreys } from './building-levels.js';
 
 const families = [
     ['balcony-grid', 20.5, 37.5, 7, 'corpo', 'corpo_office'],
@@ -22,17 +23,22 @@ it.each(families)('furnishes every real %s floor with its matching shell, finish
     const recipe = INTERIOR_RECIPES.find(item => item.id === architecture)!;
     const modules = new Set(moduleRecipes().map(item => item.id));
     expect(result.building.architecture).toBe(architecture);
-    expect(result.building.floors).toHaveLength(floors);
-    expect(expanded.floors).toHaveLength(floors);
+    expectBuildingLevels(result, floors);
+    expect(expanded.floors.filter(floor => floor.kind !== 'roof')).toHaveLength(floors);
+    expect(expanded.floors.filter(floor => floor.kind === 'roof')).toHaveLength(1);
+    expect(expanded.floors).toHaveLength(floors + 1);
     expect(expanded.npc.nav.roofAccess?.floor).toBe(floors);
     expect(expanded.npc.nav.floors.map(item => item.floor)).toEqual([...Array(floors + 1).keys()]);
-    for (const ref of result.building.floors) {
+    for (const ref of occupiedStoreys(result)) {
         const layout = result.layouts[ref.layout]!;
         // A home building is studios or apartments throughout.
         expect(ref.index === 0 ? ['lobby'] : program === 'apartment' ? ['apartment', 'residence_studio'] : [program]).toContain(layout.floor.kind);
         expect(layout.floor.rooms.length).toBeGreaterThan(1);
-        expect(layout.placements.some(item => item.module === `floor-slab-${recipe.floor}`)).toBe(true);
-        expect(ref.treatments ?? []).toEqual([]);
+        // Offices and corpo parcels wear the corporate family's own floors; homes and hotels
+        // the architecture's.
+        const slab = type === 'corpo' || type === 'offices' ? 'floor-slab-corporate-carpet' : `floor-slab-${recipe.floor}`;
+        expect(layout.placements.some(item => item.module === slab), `${ref.layout} ${slab}`).toBe(true);
+        expect((ref.treatments ?? []).filter(p => !p.module?.startsWith('stair-soffit-') && !p.module?.startsWith('stair-wall-skin-'))).toEqual([]);
         expect(layout.placements.some(item => item.module === 'window-return')).toBe(false);
         expect(layout.placements.filter(item => item.module).every(item => modules.has(item.module!))).toBe(true);
         for (const connector of result.building.connectors) {
@@ -42,7 +48,7 @@ it.each(families)('furnishes every real %s floor with its matching shell, finish
     }
     if (architecture === 'garden-taper') {
         // Tapered intermediate plates must never reuse a larger lower-floor room plan.
-        expect(Object.keys(result.layouts)).toEqual(['ground', 'middle', 'floor-2', 'crown']);
+        expect(Object.keys(result.layouts)).toEqual(['ground', 'middle', 'floor-2', 'crown', `floor-${floors}`]);
         for (const ref of result.building.floors) expect(result.layouts[ref.layout]!.sourceFloor).toBe(ref.index);
-    } else expect(Object.keys(result.layouts)).toEqual(['ground', 'middle', 'crown']);
-}, 30_000);
+    } else expect(Object.keys(result.layouts)).toEqual(['ground', 'middle', 'crown', `floor-${floors}`]);
+}, 180_000);

@@ -29,7 +29,9 @@ it('fits a catalog model by the way it faces and how much of its record it fills
 });
 
 it('stands every bed along its frame, a family wardrobe where no model fills one, and lights only lit modules', { timeout: 120000 }, async () => {
-    const homes: [Tier, string][] = [['poor', 'fit-wardrobe-worn'], ['mid', 'fit-wardrobe-capsule'], ['rich', 'fit-wardrobe']];
+    // The worn and capsule styles stand their own wardrobes, the H10 capsule profile its
+    // own on an unlabelled shell; rich homes the Corpo Plaza reference wardrobe.
+    const homes: [Tier, string][] = [['poor', 'fit-damaged-wardrobe'], ['mid', 'fit-capsule-h10-wardrobe'], ['rich', 'fit-wardrobe-corpo']];
     for (const [tier, wardrobe] of homes) {
         const request: InteriorRequest = { seed: `fit:${tier}`, building: { id: `home-${tier}`, type: 'residential', tier }, blueprint: plan('plain-residential-poor-4x3x4f'), materialTheme: 'cyberpunk' };
         const built = await generate(request);
@@ -37,7 +39,15 @@ it('stands every bed along its frame, a family wardrobe where no model fills one
         const pieces = layouts.flatMap(layout => layout.floor.furniture.map(item => ({ item, placed: standing(layout, item.id)!, layout })));
         expect(pieces.some(({ item }) => item.kind === 'wardrobe'), tier).toBe(true);
         for (const { item, placed, layout } of pieces) {
-            if (item.kind === 'wardrobe') expect(placed.module, `${tier} ${item.id}`).toBe(wardrobe);
+            if (item.kind === 'wardrobe') {
+                expect(placed.module, `${tier} ${item.id}`).toBe(wardrobe);
+                // A retained wardrobe occupies its full storage reservation, with actual
+                // closed geometry and a height appropriate for standing clothing storage.
+                const recipe = modules.get(placed.module!)!;
+                expect(recipe.size[0] * placed.scale[0]).toBeCloseTo(item.size[0], 5);
+                expect(recipe.size[2] * placed.scale[2]).toBeLessThanOrEqual(item.size[1] + 1e-5);
+                expect(recipe.size[1] * placed.scale[1]).toBeGreaterThanOrEqual(1.8);
+            }
             // A catalog model turns by its own front on top of the piece's yaw.
             if (placed.prop) {
                 const turn = asset(placed.prop).frontYawDeg ?? 0;
@@ -53,7 +63,9 @@ it('stands every bed along its frame, a family wardrobe where no model fills one
 
 it('seats a luxury office at its own desks, and seats no guest in a post\'s chair', { timeout: 120000 }, async () => {
     const request = makePlacementFixture({ width: 24, depth: 40, floors: 3, type: 'offices', tier: 'rich', seed: 5 });
-    const built = await generate(request);
+    // Offices prefer a present catalog desk and chair; with none present they stand the
+    // family's built-in modules, which this checks.
+    const built = await generate(request, { models: new Set() });
     for (const [name, layout] of Object.entries(built.layouts)) {
         for (const item of layout.floor.furniture.filter(f => f.kind === 'desk' || f.kind === 'office_chair'))
             expect(standing(layout, item.id)?.module, `${name} ${item.id}`).toBe(item.kind === 'desk' ? 'fit-desk' : 'fit-office-chair');

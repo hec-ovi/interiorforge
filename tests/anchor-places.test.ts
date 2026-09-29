@@ -2,7 +2,9 @@ import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { generate } from '../src/index.js';
 import type { Anchor, FloorPlacement } from '../src/index.js';
-import { facingOf } from '../src/npc/anchors.js';
+import { facingOf, floorAnchors } from '../src/npc/anchors.js';
+import { WalkGrid } from '../src/core/grid.js';
+import type { FloorInterior, Room } from '../src/core/types.js';
 
 const plan = (id: string) => JSON.parse(readFileSync(new URL(`./kit-plans/${id}.blueprint.json`, import.meta.url), 'utf8'));
 const apart = (a: readonly number[], b: readonly number[]) => Math.hypot(a[0]! - b[0]!, a[1]! - b[1]!);
@@ -51,13 +53,21 @@ it('keeps every post whose place no body in its own room holds, and seats no bod
         return anchor.kind === 'seat' ? seatBody(lobby, anchor) : anchor.position;
     };
     expect(apart(home('receptionist'), home('guest'))).toBeGreaterThanOrEqual(0.6);
-    // The fixture still stands a desk whose unsnapped approach falls among the toilets' users.
-    const middle = built.layouts.middle!;
-    const toiletSpots = middle.npc.anchors.filter(a => a.kind === 'toilet');
-    expect(middle.floor.furniture.some(desk => {
-        if (desk.kind !== 'desk') return false;
-        const facing = facingOf(desk.rotationDeg), reach = desk.size[1] / 2 + 0.4;
-        const front = [desk.position[0] + facing[0] * reach, desk.position[1] + facing[1] * reach];
-        return toiletSpots.some(spot => spot.room !== desk.room && apart(spot.position, front) < 0.6);
-    })).toBe(true);
+});
+
+it('keeps a desk\'s post whose approach falls among the users of the toilets behind its partition', () => {
+    // The fixture above no longer stands that desk since the corporate fit-out, so the
+    // two rooms are drawn here: a wall at x = 5 parts the office from the toilets.
+    const office: Room = { id: 'office', kind: 'office_private', polygon: [[0, 0], [5, 0], [5, 4], [0, 4]], doors: [] };
+    const toilets: Room = { id: 'toilets', kind: 'toilets', polygon: [[5, 0], [8, 0], [8, 4], [5, 4]], doors: [] };
+    const desk = { id: 'desk', kind: 'desk', room: 'office', position: [4.1, 2], size: [1.6, .8, .75], rotationDeg: 90 };
+    const toilet = { id: 'toilet', kind: 'toilet', room: 'toilets', position: [5.9, 2], size: [.4, .65, .75], rotationDeg: 270 };
+    const deskFront = [desk.position[0]! + facingOf(90)[0] * .8, desk.position[1]!];
+    const toiletFront = [toilet.position[0]! + facingOf(270)[0] * .725, toilet.position[1]!];
+    expect(apart(deskFront, toiletFront)).toBeLessThan(0.6);
+    const floor = { floor: 1, rooms: [office, toilets], furniture: [desk, toilet] } as unknown as FloorInterior;
+    const grid = WalkGrid.forPolygon([[0, 0], [8, 0], [8, 4], [0, 4]], .25, { x: 0, z: 0, w: 8, d: 4 });
+    const anchors = floorAnchors(floor, grid, new Uint8Array(grid.cols * grid.rows).fill(1));
+    expect(anchors.find(a => a.furniture === 'desk')?.kind).toBe('work_spot');
+    expect(anchors.find(a => a.furniture === 'toilet')?.kind).toBe('toilet');
 });

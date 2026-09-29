@@ -48,6 +48,18 @@ export interface PlanRoom {
   /** Clockwise disjoint interior rings, strictly inside the outer footprint. */
   holes?: Point[][];
   unit?: string;
+  /** Planning-only clear arrival/route floor. Never serialized as furniture or a wall. */
+  furnishingKeepouts?: UvRect[];
+  /** Producer-only living group chosen before circulation. Furnishing commits
+   * these exact pieces after the physical routes have been planned around them. */
+  plannedLiving?: {
+    profile: string;
+    recipe: string;
+    reservation: UvRect;
+    pieces: Pick<PlanFurniture, 'kind' | 'at' | 'size' | 'rotationDeg' | 'elevation'>[];
+    paths: Point[][];
+    routeClearance: number;
+  };
   doors: PlanDoor[];
 }
 

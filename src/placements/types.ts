@@ -1,6 +1,7 @@
-import type { FloorInterior, FloorKind, NpcSupport, Opening } from '../core/types.js';
+import type { FloorInterior, FloorKind, InteriorStyle, NpcSupport, Opening } from '../core/types.js';
 import type { Vector3 } from '../modules/types.js';
 import type { ProgramChange } from '../layout/service-program.js';
+import type { ApartmentEntrance } from '../styles/luxury/apartment-doors.js';
 export type LayoutId = 'ground' | 'middle' | 'crown' | `floor-${number}`;
 export type LayoutMap<T> = Partial<Record<'ground' | 'middle' | 'crown', T>> & Record<`floor-${number}`, T>;
 export interface Placement {
@@ -27,6 +28,7 @@ export interface FloorPlacement {
     npc: NpcSupport;
 }
 export interface BuildingManifest {
+    interiorStyle?: InteriorStyle;
     architecture?: string;
     version: 1;
     generatorVersion: string;
@@ -44,6 +46,8 @@ export interface BuildingManifest {
         openings: Record<string, string>;
         /** this floor's own window returns, from its own openings */
         treatments?: Placement[];
+        /** Numbered private entrances; identities vary even when the layout repeats. */
+        apartmentEntrances?: ApartmentEntrance[];
         program?: { kind: FloorKind; changes: ProgramChange[] };
     }[];
     connectors: NpcSupport['nav']['connectors'];

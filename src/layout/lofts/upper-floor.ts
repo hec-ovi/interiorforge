@@ -26,7 +26,9 @@ export function planUpperLoft(lower: FloorInterior, floor: BlueprintFloor, core:
   const entry={u:edge[0]-.8,v:edge[1]-.8,lu:1.6,lv:1.6};
   const strip=alongU?{u:entry.u,v:b.z,lu:1.6,lv:b.d}:{u:b.x,v:entry.v,lu:b.w,lv:1.6};
   const furniture=furnish([room],"residence_studio",createRng(request.seed,"loft",floor.index),ids,
-    {outline:polygon,inner:polygon,facadeDepth:0},[strip],request.building.tier);
+    {outline:polygon,inner:polygon,facadeDepth:0},[strip],request.building.tier,
+    // The mezzanine belongs to a home already furnished on the floor below.
+    [],undefined,[],undefined,Infinity,false);
   const grid=WalkGrid.forPolygon(loft.platform,CELL,polygonBounds(loft.platform));
   for(let row=0;row<grid.rows;row++)for(let col=0;col<grid.cols;col++)
     if(boundaryDistance(grid.center(col,row),loft.platform)<AGENT_RADIUS)grid.set(col,row,false);

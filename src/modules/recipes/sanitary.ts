@@ -3,7 +3,8 @@ import type { Kit } from "../kit.js";
 import type { RecipeSet } from "../recipes.js";
 import type { Vector3 } from "../types.js";
 
-interface Ring {
+export interface Ring {
+  x?: number;
   y: number;
   rx: number;
   rz: number;
@@ -21,11 +22,11 @@ const cross = (a: Vector3, b: Vector3): Vector3 => [a[1] * b[2] - a[2] * b[1], a
 
 /** Closed ceramic profile: the rings travel up the outside, across the rim, then down
  *  the real bowl cavity. Smooth vertex normals retain highlights around the glaze. */
-function vessel(k: Kit, slot: string, profile: Ring[], sides = 48): void {
+export function vessel(k: Kit, slot: string, profile: Ring[], sides = 48): void {
   const point = (ring: Ring, angle: number): Vector3 => {
     const exponent = 2 / (ring.power ?? 2);
     const curve = (value: number) => Math.sign(value) * Math.abs(value) ** exponent;
-    return [ring.rx * curve(Math.cos(angle)), ring.y, (ring.z ?? 0) + ring.rz * curve(Math.sin(angle))];
+    return [(ring.x ?? 0) + ring.rx * curve(Math.cos(angle)), ring.y, (ring.z ?? 0) + ring.rz * curve(Math.sin(angle))];
   };
   const rings = profile.map(ring => Array.from({ length: sides }, (_, side) => point(ring, side * 2 * Math.PI / sides)));
   const normals = rings.map((ring, i) => ring.map((at, j) => {
@@ -37,24 +38,34 @@ function vessel(k: Kit, slot: string, profile: Ring[], sides = 48): void {
     const tangent = minus(ring[(j + 1) % sides]!, ring[(j + sides - 1) % sides]!);
     return unit(cross(along, tangent));
   }));
-  for (let i = 0; i < rings.length; i++) {
-    const next = (i + 1) % rings.length;
-    for (let j = 0; j < sides; j++) {
-      const end = (j + 1) % sides;
-      k.mesh.addQuad(slot, [rings[i]![j]!, rings[next]![j]!, rings[next]![end]!, rings[i]![end]!]);
-      const group = k.mesh.getGroup(slot)!;
-      const smooth = [normals[i]![j]!, normals[next]![j]!, normals[next]![end]!, normals[i]![end]!].flat();
-      for (let n = 0; n < 12; n++) group.normals[group.normals.length - 12 + n] = smooth[n]!;
+  const positions: number[] = [], smooth: number[] = [], uvs: number[] = [], indices: number[] = [];
+  let v = 0;
+  for (let i = 0; i <= rings.length; i++) {
+    const row = i % rings.length, ring = rings[row]!;
+    if (i > 0) v += Math.hypot(...minus(ring[0]!, rings[(i - 1) % rings.length]![0]!));
+    let u = 0;
+    for (let j = 0; j <= sides; j++) {
+      const side = j % sides;
+      if (j > 0) u += Math.hypot(...minus(ring[side]!, ring[(j - 1) % sides]!));
+      positions.push(...ring[side]!);
+      smooth.push(...normals[row]![side]!);
+      uvs.push(u, v);
+      if (i < rings.length && j < sides) {
+        const a = i * (sides + 1) + j, b = a + sides + 1;
+        indices.push(a, b, b + 1, a, b + 1, a + 1);
+      }
     }
   }
+  k.mesh.addSurface(slot, { positions, normals: smooth, uvs, indices });
 }
 
 /** Circular chrome pipe swept through its curved centreline. */
-function pipe(k: Kit, path: Vector3[], radius: number): void {
+export function pipe(k: Kit, path: Vector3[], radius: number, slot: string = FINISH.chrome): void {
   const sides = 12;
   const rings = path.map((point, i) => {
     const tangent = unit(minus(path[Math.min(i + 1, path.length - 1)]!, path[Math.max(i - 1, 0)]!));
-    const along: Vector3 = [1, 0, 0], across = unit(cross(along, tangent));
+    const helper: Vector3 = Math.abs(tangent[0]) < .9 ? [1, 0, 0] : [0, 1, 0];
+    const across = unit(cross(helper, tangent)), along = unit(cross(tangent, across));
     return Array.from({ length: sides }, (_, j) => {
       const angle = j * 2 * Math.PI / sides;
       const normal = along.map((n, a) => n * Math.cos(angle) + across[a]! * Math.sin(angle)) as Vector3;
@@ -64,8 +75,8 @@ function pipe(k: Kit, path: Vector3[], radius: number): void {
   for (let i = 0; i < path.length - 1; i++) for (let j = 0; j < sides; j++) {
     const next = (j + 1) % sides;
     const corners = [rings[i]![j]!, rings[i + 1]![j]!, rings[i + 1]![next]!, rings[i]![next]!];
-    k.mesh.addQuad(FINISH.chrome, corners.map(p => p.at) as [Vector3, Vector3, Vector3, Vector3]);
-    const group = k.mesh.getGroup(FINISH.chrome)!;
+    k.mesh.addQuad(slot, corners.map(p => p.at) as [Vector3, Vector3, Vector3, Vector3]);
+    const group = k.mesh.getGroup(slot)!;
     const normals = corners.flatMap(p => p.normal);
     for (let n = 0; n < 12; n++) group.normals[group.normals.length - 12 + n] = normals[n]!;
   }

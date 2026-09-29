@@ -2,6 +2,8 @@ import type { NpcPlacement } from "./npc-placement.js";
 export type { NpcPlacement } from "./npc-placement.js";
 import type { LoftPlan } from "./loft.js";
 export type { LoftPlan } from "./loft.js";
+import type { FloorDuplex } from './duplex.js';
+export type { FloorDuplex } from './duplex.js';
 /** TypeScript mirror of ../../schemas/*.schema.json. Schemas are the source of truth. */
 
 import type { Point, Rect } from "./geom.js";
@@ -14,6 +16,9 @@ export type BuildingType =
   | "military" | "factory" | "commerce" | "mall" | "restaurant" | "coffee_shop";
 
 export type Tier = "poor" | "mid" | "rich" | "high_rich";
+
+/** Reference identity is independent of the exterior shell and generation seed. */
+export type InteriorStyle = "h10" | "japantown" | "sandra-dorsett" | "apartment-1702";
 
 export type FloorKind =
   | "lobby" | "office" | "corpo_office" | "restaurant" | "coffee_shop" | "gym"
@@ -29,7 +34,7 @@ export interface FloorAssignment {
 export interface InteriorRequest {
   /** uint32, or any string (hashed internally, e.g. the exterior seed) */
   seed: number | string;
-  building: { id: string; type: BuildingType; tier: Tier };
+  building: { id: string; type: BuildingType; tier: Tier; interiorStyle?: InteriorStyle };
   shellGlb?: string;
   blueprint: Blueprint;
   /** optional: derived from blueprint floor kind slugs when omitted */
@@ -239,7 +244,7 @@ export interface RoomDoor extends RoomConnection {
   clearDepth?: number;
 }
 
-/** Permanently open street connection. It has traversable dimensions and no leaves. */
+/** Permanently open passage, including a street front or stair portal. No moving leaves. */
 export interface OpenFrontConnection extends RoomConnection {
   kind: "openFront";
   clearHeight: number;
@@ -335,6 +340,8 @@ export interface FloorCore {
 }
 
 export interface FloorInterior {
+  /** Paired private dwellings; shared core/corridor remain ordinary floor space. */
+  duplexes?: FloorDuplex[];
   /** Private mezzanine fitted into this double-height floor. */
   loft?: LoftPlan;
   /** Lower floor owning this partial platform; global core has no stop here. */
@@ -351,6 +358,8 @@ export interface FloorInterior {
   core: FloorCore;
   /** exact exterior opening volumes kept free of unrelated interior geometry */
   openingReservations: OpeningReservation[];
+  /** Occupied/enclosed spaces, including the real stairwell air volume. A polygon
+   * does not imply a flat slab; placements and navigation publish its actual support. */
   rooms: Room[];
   furniture: Furniture[];
   lights: LightFixture[];

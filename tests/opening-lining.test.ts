@@ -3,6 +3,7 @@ import { generate } from '../src/index.js';
 import { PlacementBuilder } from '../src/placements/builder.js';
 import { assertDoorwaysClear } from '../src/geometry/door-clear.js';
 import { edgeFrame, edgePoint } from '../src/geometry/shell-fit.js';
+import { expectBuildingLevels } from './building-levels.js';
 
 it('keeps the paired facade solid and its openings clear as volume and floor count change', async () => {
     const exterior = await import(new URL('../../exterior/src/index.ts', import.meta.url).href);
@@ -14,17 +15,18 @@ it('keeps the paired facade solid and its openings clear as volume and floor cou
     }, { textures: { mode: 'keys' } });
     const original = JSON.stringify(blueprint);
     const result = await generate({ seed: 'lining-clearance', building: { id: 'lining', type: 'corpo', tier: 'high_rich' }, blueprint, materialTheme: 'cyberpunk' });
-    expect(result.building.floors).toHaveLength(floors);
+    expectBuildingLevels(result, floors);
     expect(JSON.stringify(blueprint)).toBe(original);
     // One owner of the real frame and inner return, including curved glass: Interior
     // must not overlay a differently scaled ring on any floor or change its aperture.
     for (const ref of result.building.floors) {
-        expect(ref.treatments ?? []).toEqual([]);
+        // Treatments also carry the stair flight's own soffits and wall skins, never a window ring.
+        expect((ref.treatments ?? []).filter(p => !p.module?.startsWith('stair-soffit-') && !p.module?.startsWith('stair-wall-skin-'))).toEqual([]);
         const layout = result.layouts[ref.layout]!;
         expect(layout.placements.some(p => p.module === 'window-return')).toBe(false);
     }
     let checked = 0;
-    for (const layout of Object.values(result.layouts)) {
+    for (const layout of Object.values(result.layouts).filter(layout => layout.floor.kind !== 'roof')) {
         const index = layout.sourceFloor, floor = blueprint.floors[index];
         const lining = new PlacementBuilder();
         // The boundary lining may never stand across a source opening's inward sightline.

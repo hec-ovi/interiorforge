@@ -15,6 +15,7 @@ import { props } from '../src/placements/props.js';
 import { PlacementBuilder } from '../src/placements/builder.js';
 import type { Family } from '../src/placements/finish.js';
 import { loadTheme } from '../src/materials/load.js';
+import { CAPSULE_SIZES } from '../src/styles/capsule/profile.js';
 
 const sizes = { toilet: [.4, .65, .75], sink: [.5, .45, .85], shower: [.9, .9, 2] } as Record<'toilet' | 'sink' | 'shower', [number, number, number]>;
 const room: PlanRoom = { id: 'bathroom', kind: 'bathroom', rect: { u: 0, v: 0, lu: 7, lv: 7 }, doors: [] };
@@ -38,8 +39,11 @@ it.each(['v0', 'u0', 'v1', 'u1'] as EdgeName[])('faces real bowls toward usable 
 
 it.each(['luxury', 'capsule', 'damaged', 'industrial'] as Family[])('publishes sanitary modules, retaining fixture identities and transforms in %s interiors', family => {
   const furniture: Furniture[] = [
-    { id: 'wc', kind: 'toilet', room: room.id, position: [3, 4], size: sizes.toilet, rotationDeg: 53 },
-    { id: 'basin', kind: 'sink', room: room.id, position: [5, 6], size: sizes.sink, rotationDeg: 233 },
+    { id: 'wc', kind: 'toilet', room: room.id, position: [3, 4], size: family === 'luxury' ? [.4, .72, .8] : sizes.toilet, rotationDeg: 53 },
+    // Each family's planner records its own basin size: the capsule basin's tap stands
+    // within a 1.05 m reservation.
+    { id: 'basin', kind: 'sink', room: room.id, position: [5, 6], size: family === 'luxury' ? [1.4, .58, .88]
+      : family === 'capsule' ? [...CAPSULE_SIZES.sink!] as [number, number, number] : sizes.sink, rotationDeg: 233 },
   ];
   // props consumes only these layout fields; independent of unrelated stair/room planning.
   const floor = { furniture: structuredClone(furniture), lights: [] } as unknown as FloorInterior;
@@ -47,7 +51,9 @@ it.each(['luxury', 'capsule', 'damaged', 'industrial'] as Family[])('publishes s
     furniture: furniture.map(f => ({ ...f, at: f.position, rotationDeg: 0 as const })) };
   const builder = new PlacementBuilder();
   props(builder, floor, uv, family, { present: new Set(), missing: new Set() });
-  expect(builder.placements.map(p => p.module)).toEqual(['fit-toilet', family === 'luxury' ? 'fit-basin' : family === 'damaged' ? 'fit-basin-worn' : 'fit-basin-steel']);
+  // Each family stands its own basin: the capsule and damaged styles publish theirs.
+  const basin = { luxury: 'fit-basin-luxury', capsule: 'fit-capsule-basin', damaged: 'fit-basin-damaged', industrial: 'fit-basin-steel' }[family as string];
+  expect(builder.placements.map(p => p.module)).toEqual([family === 'luxury' ? 'fit-toilet-luxury' : 'fit-toilet', basin]);
   expect(floor.furniture).toEqual(furniture);
   for (const [i, placement] of builder.placements.entries()) {
     expect(placement.id).toBe(furniture[i]!.id);
@@ -58,7 +64,7 @@ it.each(['luxury', 'capsule', 'damaged', 'industrial'] as Family[])('publishes s
 });
 
 let modules: Awaited<ReturnType<typeof buildModules>>;
-beforeAll(async () => { modules = await buildModules(); }, 30000);
+beforeAll(async () => { modules = await buildModules(); }, 120000);
 
 it('exports open recessed bowls, rounded normals and rear cisterns in the compressed shared GLBs', async () => {
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);

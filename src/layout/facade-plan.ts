@@ -16,6 +16,14 @@ import { doorBetween, MIN_STRETCH, type IdGen } from "./rooms.js";
 import type { UvRect } from "./uv.js";
 import { fitServiceProgram, type ProgramChange } from "./service-program.js";
 import { interiorRecipe } from '../architecture/recipes.js';
+import { residentialEnvelope, residentialProgram, residentialTarget } from './residential-program.js';
+import { planResidentialGround } from './ground-program.js';
+import { planPerimeterResidential } from './perimeter-residential.js';
+import { CORPORATE_SERVICE_SIZES, isCorporate } from '../styles/corporate/index.js';
+import { planCapsuleResidential } from '../styles/capsule/layout.js';
+import { absorbDamagedSlivers, damagedCorridorRect, isDamagedResidential, planDamagedResidential } from '../styles/damaged/layout.js';
+import { damagedDwellingProgram } from '../styles/damaged/dwelling-program.js';
+import { fitDamagedGroundPublicDoors, planDamagedGround } from '../styles/damaged/ground-program.js';
 
 const UNIT_PROGRAM: Partial<Record<FloorKind, { main: RoomKind; service: RoomKind }>> = {
   apartment: { main: "studio_main", service: "bathroom" },
@@ -40,11 +48,22 @@ export interface FacadeRoomPlan { rooms: PlanRoom[]; sealed: UvRect[]; changes: 
 
 /** Complete facade bays belong to one room; the shared remainder carries public routes. */
 export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor, kind: FloorKind,
-  core: CorePlan, frame: FloorFrame, plate: Point[], outline: Point[], ids: IdGen, rng: Rng): FacadeRoomPlan {
+  core: CorePlan, frame: FloorFrame, plate: Point[], outline: Point[], ids: IdGen, rng: Rng,
+  previous = false): FacadeRoomPlan {
+  // Keep the stable core datum. The extra clear public width comes from the
+  // floor allocation in front of it, not from moving stairs or lift shafts.
+  if (request.building.type === 'residential' && ['rich', 'high_rich'].includes(request.building.tier)
+    && core.mode === 'compact' && ['lobby', 'apartment', 'residence_studio'].includes(kind) && frame.corridor.lv < 3.5) {
+    const extra = 3.5 - frame.corridor.lv;
+    frame = { ...frame, corridor: { ...frame.corridor, v: frame.corridor.v - extra, lv: 3.5 },
+      south: { ...frame.south, lv: frame.south.lv - extra } };
+  }
   const occupied = [...coreRectsOf(core)];
   const rooms: PlanRoom[] = [];
+  const privateInternal = new Set<string>();
+  let zonedGround = false;
   const changes: ProgramChange[] = [];
-  const corridorRect = { ...frame.corridor };
+  const corridorRect = damagedCorridorRect(request, frame, plate);
   const trim = Math.min(MIN_UNIT.endCommon, Math.max(0, (corridorRect.lu - 4) / 2));
   // The corridor owns every core front: a trimmed end would leave a stair or lift door
   // standing on its end wall, with no floor to approach it from.
@@ -60,8 +79,25 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
   rooms.push(corridor);
   occupied.push(corridorRect);
 
+  // `previous` is the fallback for a floor whose complete homes cannot all be fitted
+  // and furnished: the plain studio and service allocation those planners replaced.
+  if (!previous && (kind === 'apartment' || kind === 'residence_studio')) {
+    const standard = planCapsuleResidential(request, floor, core, frame, plate, outline, ids);
+    if (standard) return { rooms: standard, sealed: [], changes: [] };
+    const damaged = planDamagedResidential(request, floor, core, frame, plate, outline, ids);
+    if (damaged) return { rooms: damaged, sealed: [], changes: [] };
+    const diagnostics: string[] = [];
+    const complete = planPerimeterResidential(request, floor, core, frame, corridor, plate, outline, ids, diagnostics);
+    if (complete) return { rooms: complete, sealed: [], changes: [] };
+    if (diagnostics.length) throw new InteriorError('E_FLOOR_TOO_SMALL',
+      `complete luxury floor allocation failed: ${diagnostics.slice(-3).join('; ')}`, floor.index);
+  }
+
   const program = UNIT_PROGRAM[kind];
+  const serviceSize = program?.service === 'bathroom'
+    && residentialTarget(request.building.tier) === 150 ? 3.5 : MIN_UNIT.serviceSize;
   if (program) {
+    const residential = kind === 'apartment' || kind === 'residence_studio';
     const seats = new FacadeSeats(floor, core.frame, outline, request.blueprint.facade!);
     const access = new FacadeAccess(frame);
     const bounds = polygonBounds(plate);
@@ -73,44 +109,77 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
       if (strip.lv < MIN_UNIT.depth) continue;
       const cuts = seats.cuts(strip, side, MIN_UNIT.endCommon);
       const frontage = interiorRecipe(request)?.frontage ?? [8, 12];
-      const slots = facadeSlots(cuts, rng.range(frontage[0]!, frontage[1]!), (low, high) => {
-        const rect = access.unit(strip, side, low, high);
+      const envelope = (low: number, high: number) => {
+        const available = access.unit(strip, side, low, high);
+        return residential ? residentialEnvelope(available, side) : available;
+      };
+      const targetArea = residentialTarget(request.building.tier);
+      const preferred = residential ? targetArea / Math.min(10, strip.lv) : rng.range(frontage[0]!, frontage[1]!);
+      const slots = facadeSlots(cuts, preferred, (low, high) => {
+        const rect = envelope(low, high);
         if (rect.lu < MIN_UNIT.width || rect.lv < MIN_UNIT.depth || occupied.some(cut => overlaps(rect, cut))) return false;
         const polygon = clipPolygonToRect(plate, toRect(rect));
-        return Math.abs(polygonArea(polygon)) >= MIN_UNIT.area
+        return Math.abs(polygonArea(polygon)) >= (residential ? Math.min(targetArea * 0.85, strip.lu * strip.lv * 0.6) : MIN_UNIT.area)
           && Math.abs(polygonArea(polygon)) >= rect.lu * rect.lv * 0.9
-          && fittedServices(rect, side, polygon).length > 0;
+          && fittedServices(rect, side, polygon, serviceSize).length > 0;
       });
       for (const [low, high] of slots) {
-        const rect = access.unit(strip, side, low, high);
+        const rect = envelope(low, high);
         const polygon = clipPolygonToRect(plate, toRect(rect));
-        const services = fittedServices(rect, side, polygon);
+        const unit = `f${floor.index}-unit-${rooms.length}`;
+        const dwelling = residential && !previous ? (isDamagedResidential(request)
+          ? damagedDwellingProgram(rect, side, polygon, cuts, unit, ids)
+          : residentialProgram(rect, side, polygon, cuts, request.building.tier, unit, ids)) : null;
+        if (dwelling) {
+          rooms.push(...dwelling);
+          dwelling.slice(1).forEach(room => privateInternal.add(room.id));
+          occupied.push(rect);
+          continue;
+        }
+        // A worn standard home keeps its separate sleeping, cooking and wet rooms.
+        // A failed programme cannot silently become the old studio fallback.
+        if (residential && isDamagedResidential(request) && !previous) continue;
+        const services = fittedServices(rect, side, polygon, serviceSize);
         const serviceRect = services[Math.floor(rng.next() * services.length)]!;
         const mainShape = new RoomRegion(polygon).subtract([serviceRect]);
         if (mainShape.length !== 1) continue;
-        const unit = `f${floor.index}-unit-${rooms.length}`;
         const main: PlanRoom = { ...mainShape[0]!, id: ids.room(),
           kind: program.main, unit, doors: [] };
         const service: PlanRoom = { id: ids.room(), kind: program.service, rect: serviceRect, unit, doors: [] };
         doorBetween(service, main.id, main, ids);
         rooms.push(main, service);
+        privateInternal.add(service.id);
         occupied.push(rect);
       }
     }
   } else {
     // Service rooms stand clear of the floor in front of the street door, as the core does.
     const approaches = approachKeepouts(floor, core.frame, facadeDepth(request.blueprint.facade)).map(keepout => keepout.rect);
-    const services = fitServiceProgram(SERVICES[kind] ?? [], [...occupied, ...approaches], plate,
-      { ...frame, corridor: corridorRect }, ids);
-    rooms.push(...services.rooms);
-    occupied.push(...services.rooms.map(room => room.rect));
-    changes.push(...services.changes);
+    const ground = kind === 'lobby' && !previous ? planDamagedGround(request, floor, core,
+      { ...frame, corridor: corridorRect }, corridor, plate, outline, approaches, ids)
+      ?? planResidentialGround(request, floor, core,
+        { ...frame, corridor: corridorRect }, corridor, plate, outline, approaches, ids) : null;
+    if (ground) {
+      zonedGround = true;
+      rooms.push(...ground.rooms);
+      occupied.push(...ground.occupied);
+    } else {
+      const services = fitServiceProgram(SERVICES[kind] ?? [], [...occupied, ...approaches], plate,
+        { ...frame, corridor: corridorRect }, ids,
+        isCorporate(request.building.type, request.building.tier) ? CORPORATE_SERVICE_SIZES : undefined);
+      rooms.push(...services.rooms);
+      occupied.push(...services.rooms.map(room => room.rect));
+      changes.push(...services.changes);
+    }
   }
 
+  if (!previous && isDamagedResidential(request) && ['apartment', 'residence_studio'].includes(kind)
+    && !rooms.some(room => room.unit)) throw new InteriorError('E_FLOOR_TOO_SMALL',
+    'worn residential floor cannot retain a complete bedroom, bathroom, kitchen and furnished living programme', floor.index);
   const singleUnit = program && !rooms.some(room => room.unit);
-  if (singleUnit) changes.push({ kind: program.service, requested: [MIN_UNIT.serviceSize, MIN_UNIT.serviceSize], fitted: null });
-  const common = new RoomRegion(plate).subtract(absorbSlivers(occupied))
-    .map(shape => ({ ...shape, id: ids.room(), kind: singleUnit ? program.main : MAIN[kind] ?? "lounge",
+  if (singleUnit) changes.push({ kind: program.service, requested: [serviceSize, serviceSize], fitted: null });
+  const common = new RoomRegion(plate).subtract(isDamagedResidential(request) ? absorbDamagedSlivers(occupied) : absorbSlivers(occupied))
+    .map(shape => ({ ...shape, id: ids.room(), kind: zonedGround ? 'corridor' : singleUnit ? program.main : MAIN[kind] ?? "lounge",
       ...(singleUnit ? { unit: `f${floor.index}-unit-main` } : {}), doors: [] } as PlanRoom));
   if (!common.some(room => Math.abs(polygonArea(room.polygon!)) >= ROOM.minArea
     && room.rect.lu >= ROOM.minDim && room.rect.lv >= ROOM.minDim)) {
@@ -118,11 +187,14 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
   }
   rooms.push(...common);
   for (const room of rooms) {
-    if (room === corridor || room.unit && room.kind === program?.service) continue;
+    if (room === corridor || privateInternal.has(room.id)) continue;
     const targets = [corridor, ...common.filter(other => other !== room)];
+    if (room.doors.some(door => targets.some(target => target.id === door.to))) continue;
     const target = targets.find(other => sharedRoomEdges(room, other, plate).some(edge => edge.hi - edge.lo >= MIN_STRETCH));
-    if (target) doorBetween(room, target.id, target, ids, room.unit ? 1 : 2, room.unit ? DOOR.single : DOOR.double);
+    if (target) doorBetween(room, target.id, target, ids, room.unit ? 1 : 2,
+      room.unit ? (isDamagedResidential(request) ? 1.2 : DOOR.single) : DOOR.double);
   }
+  if (kind === 'lobby' && zonedGround && isDamagedResidential(request)) fitDamagedGroundPublicDoors(rooms);
   return { rooms, sealed: [], changes };
 }
 
@@ -153,10 +225,10 @@ function absorbSlivers(occupied: readonly UvRect[]): UvRect[] {
   });
 }
 
-function fittedServices(rect: UvRect, side: "v0" | "v1", polygon: Point[]): UvRect[] {
-  return [rect.u, rect.u + rect.lu - MIN_UNIT.serviceSize].map(u => ({ u,
-    v: side === "v0" ? rect.v : rect.v + rect.lv - MIN_UNIT.serviceSize,
-    lu: MIN_UNIT.serviceSize, lv: MIN_UNIT.serviceSize }))
+function fittedServices(rect: UvRect, side: "v0" | "v1", polygon: Point[], size = MIN_UNIT.serviceSize): UvRect[] {
+  return [rect.u, rect.u + rect.lu - size].map(u => ({ u,
+    v: side === "v0" ? rect.v : rect.v + rect.lv - size,
+    lu: size, lv: size }))
     .filter(service => roomCoversRect({ rect, polygon }, service));
 }
 

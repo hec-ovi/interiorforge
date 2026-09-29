@@ -1,9 +1,13 @@
 import type { BuildingType, FloorKind, RoomKind, Tier } from "../core/types.js";
 import { VENUE_KINDS } from "../layout/frame.js";
+import { capsuleRoomFinish } from '../styles/capsule/finish.js';
+import { damagedRoomFinish } from '../styles/damaged/finish.js';
+import { industrialFinish } from '../styles/industrial/index.js';
+import { corporateRoomFinish, isCorporate } from '../styles/corporate/index.js';
 
 /** The look a building is furnished in: luxury for rich tiers, capsule for mid, damaged for
  *  poor, industrial for factories and military parcels whatever their tier. */
-export type Family = "luxury" | "capsule" | "damaged" | "industrial";
+export type Family = "luxury" | "corporate" | "capsule" | "damaged" | "industrial";
 
 /** The modules one room's surfaces are built from. */
 export interface RoomFinish {
@@ -26,6 +30,7 @@ const INDUSTRIAL: ReadonlySet<BuildingType> = new Set(["factory", "military"]);
 
 export function familyOf(type: BuildingType, tier: Tier): Family {
   if (INDUSTRIAL.has(type)) return "industrial";
+  if (isCorporate(type, tier)) return 'corporate';
   return tier === "poor" ? "damaged" : tier === "mid" ? "capsule" : "luxury";
 }
 
@@ -35,45 +40,36 @@ const DARK_ROOMS: ReadonlySet<RoomKind> = new Set([
 const WET_ROOMS: ReadonlySet<RoomKind> = new Set(["bathroom", "toilets", "locker_room"]);
 const TIMBER_FLOORS: ReadonlySet<RoomKind> = new Set(["living", "bedroom", "studio_main"]);
 const SERVICE_ROOMS: ReadonlySet<RoomKind> = new Set(["storage", "mechanical_room", "parking_area"]);
+/** Dark mineral marks the vertical/service core; inhabited fields stay pale and calm. */
+const CORE_FIELDS: ReadonlySet<RoomKind> = new Set(["elevator_lobby", "mechanical_room"]);
 
 /** Rooms whose partitions toward public space are glazed. */
-export const GLAZED_ROOMS: ReadonlySet<RoomKind> = new Set(["office_private", "meeting", "executive_office"]);
-
-/** A frame band always contrasts its field: walnut against the light walls, ivory against
- *  the dark ones, so the nine slices read as a frame and not as one flat tone. */
-const members = (name: string) => ({ corner: `wall-panel-corner-${name}`, rail: `wall-panel-rail-${name}`, stile: `wall-panel-stile-${name}` });
-const TIMBER_FRAME = { ...members("timber"), line: "wall-light-line", kelvin: 2700 };
-const IVORY_FRAME = { ...members("ivory"), line: "wall-light-line", kelvin: 2700 };
-const STEEL_FRAME = { ...members("steel"), line: "wall-light-line-cool", kelvin: 6500, color: [0.025, 0.72, 1] as [number, number, number] };
+export const GLAZED_ROOMS: ReadonlySet<RoomKind> = new Set(["office_private", "meeting", "executive_office", "lounge"]);
+/** Public neighbours sharing those glass partitions; also used by wall-mounted furniture. */
+export const GLAZED_ONTO: ReadonlySet<RoomKind> = new Set(["corridor", "elevator_lobby", "concourse", "office_open", "reception", "lounge"]);
 
 export function roomFinish(family: Family, room: RoomKind, floorKind: FloorKind): RoomFinish {
   switch (family) {
+    case 'corporate':
+      return corporateRoomFinish(room, floorKind);
     case "capsule":
-      return {
-        family, frame: { ...STEEL_FRAME, field: "wall-panel-field-capsule" }, field: "wall-field-capsule",
-        floor: "floor-slab-capsule", ceiling: "ceiling-field-capsule", band: "ceiling-band-steel",
-        cove: "ceiling-cove-steel", spot: "ceiling-spot-cool",
-      };
+      return capsuleRoomFinish(room, floorKind);
     case "damaged":
-      return {
-        family, field: "wall-field-damaged", floor: "floor-slab-damaged", ceiling: "ceiling-field-damaged",
-        services: "ceiling-services", cove: "ceiling-led-strip", spot: "ceiling-spot-cool",
-      };
+      return damagedRoomFinish(room, floorKind);
     case "industrial":
-      return {
-        family, field: "wall-field-steel", floor: "floor-slab-steel", ceiling: "ceiling-field-steel",
-        services: "ceiling-services", cove: "ceiling-led-strip", spot: "ceiling-spot-cool",
-      };
+      return industrialFinish(room, floorKind);
     default: {
       const dark = DARK_ROOMS.has(room) || (room === "corridor" && VENUE_KINDS.has(floorKind));
       const palette = WET_ROOMS.has(room) ? "slate" : dark ? "dark" : "ivory";
-      const floor = palette === "slate" ? "floor-slab-marble" : dark ? "floor-slab-obsidian"
-        : TIMBER_FLOORS.has(room) ? "floor-slab-plank" : "floor-slab-stone";
+      const privateSalon = room === "living" || room === "studio_main";
+      const floor = privateSalon ? "floor-slab-luxury-polished" : palette === "slate" ? "floor-slab-marble"
+        : TIMBER_FLOORS.has(room) ? "floor-slab-plank" : "floor-slab-meridian-stone";
       return {
-        family, field: `wall-field-${palette}`, floor, ceiling: dark ? "ceiling-field-dark" : "ceiling-field-light",
+        family, field: privateSalon ? "wall-field-meridian-walnut" : CORE_FIELDS.has(room) ? "wall-field-meridian-mineral"
+          : SERVICE_ROOMS.has(room) || WET_ROOMS.has(room) ? `wall-field-${palette}` : "wall-field-meridian-ivory",
+        floor, ceiling: dark ? "ceiling-field-dark" : "ceiling-field-light",
         cove: "ceiling-cove-timber", spot: "ceiling-spot",
         ...(SERVICE_ROOMS.has(room) ? {} : {
-          frame: { ...(dark ? IVORY_FRAME : TIMBER_FRAME), field: `wall-panel-field-${palette}` },
           band: dark ? "ceiling-band-ivory" : "ceiling-band-timber",
         }),
       };

@@ -5,7 +5,19 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "architecture": { "type": "string", "description": "Exterior architecture selecting the paired interior recipe." },
+    "interiorStyle": {
+      "enum": [
+        "h10",
+        "japantown",
+        "sandra-dorsett",
+        "apartment-1702"
+      ],
+      "description": "Resolved reference identity used by the Interior producer."
+    },
+    "architecture": {
+      "type": "string",
+      "description": "Exterior architecture selecting the paired interior recipe."
+    },
     "version": {
       "const": 1
     },
@@ -37,17 +49,44 @@
       "type": "object",
       "additionalProperties": false,
       "description": "the stair this building was furnished around; coreFeasibility publishes the same shape",
-      "required": ["stairA"],
+      "required": [
+        "stairA"
+      ],
       "properties": {
         "stairA": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["center", "axis", "width", "depth"],
+          "required": [
+            "center",
+            "axis",
+            "width",
+            "depth"
+          ],
           "properties": {
-            "center": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
-            "axis": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
-            "width": { "type": "number", "exclusiveMinimum": 0 },
-            "depth": { "type": "number", "exclusiveMinimum": 0 }
+            "center": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "number"
+              }
+            },
+            "axis": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "number"
+              }
+            },
+            "width": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "depth": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           }
         }
       }
@@ -56,14 +95,34 @@
       "type": "object",
       "additionalProperties": true,
       "description": "present when the only core the plate holds crosses an exterior opening reservation",
-      "required": ["floor", "opening", "coreSolid", "requiredDepth", "availableDepth"],
+      "required": [
+        "floor",
+        "opening",
+        "coreSolid",
+        "requiredDepth",
+        "availableDepth"
+      ],
       "properties": {
-        "floor": { "type": "integer" },
-        "opening": { "type": "string", "minLength": 1 },
-        "coreSolid": { "type": "string", "minLength": 1 },
-        "role": { "type": "string" },
-        "requiredDepth": { "type": "number" },
-        "availableDepth": { "type": "number" }
+        "floor": {
+          "type": "integer"
+        },
+        "opening": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coreSolid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string"
+        },
+        "requiredDepth": {
+          "type": "number"
+        },
+        "availableDepth": {
+          "type": "number"
+        }
       }
     },
     "layouts": {
@@ -84,15 +143,19 @@
         }
       },
       "patternProperties": {
-        "^floor-[0-9]+$": { "type": "string", "minLength": 1 }
+        "^floor-[0-9]+$": {
+          "type": "string",
+          "minLength": 1
+        }
       },
-      "description": "Repeated floors share a layout; distinct intermediate plates use floor-<index>. Single-floor buildings publish only ground.",
+      "description": "Repeated occupied floors share a layout; distinct plates use floor-<index>. A reachable roof adds floor-<roof index> with kind roof and no furnished rooms or elevator stops.",
       "required": [
         "ground"
       ]
     },
     "floors": {
       "type": "array",
+      "description": "Occupied storeys and, when reachable, one separately streamable roof floor. The shell owns the outdoor roof surface; the crown owns the final stair and landing.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -117,30 +180,62 @@
           "treatments": {
             "type": "array",
             "description": "this floor's own window returns, built from its own openings",
-            "items": { "$ref": "floor-placement.schema.json#/properties/placements/items" }
+            "items": {
+              "$ref": "floor-placement.schema.json#/properties/placements/items"
+            }
           },
           "program": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["kind", "changes"],
+            "required": [
+              "kind",
+              "changes"
+            ],
             "description": "Present when service rooms are reduced. Each floor records the changes from its reusable layout, in reduction order.",
             "properties": {
-              "kind": { "type": "string", "minLength": 1 },
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
               "changes": {
-                "type": "array", "minItems": 1,
+                "type": "array",
+                "minItems": 1,
                 "items": {
-                  "type": "object", "additionalProperties": false,
-                  "required": ["kind", "requested", "fitted"],
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "requested",
+                    "fitted"
+                  ],
                   "properties": {
-                    "kind": { "$ref": "floor.schema.json#/properties/rooms/items/properties/kind" },
-                    "requested": { "$ref": "#/$defs/roomSize" },
+                    "kind": {
+                      "$ref": "floor.schema.json#/properties/rooms/items/properties/kind"
+                    },
+                    "requested": {
+                      "$ref": "#/$defs/roomSize"
+                    },
                     "fitted": {
                       "description": "Room width and depth in metres, or null when omitted.",
-                      "anyOf": [{ "$ref": "#/$defs/roomSize" }, { "type": "null" }]
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/roomSize"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   }
                 }
               }
+            }
+          },
+          "apartmentEntrances": {
+            "type": "array",
+            "description": "Per-floor private apartment identities and moving leaf assemblies; never static placements or exterior openings.",
+            "items": {
+              "$ref": "#/$defs/apartmentEntrance"
             }
           }
         },
@@ -159,8 +254,222 @@
   },
   "$defs": {
     "roomSize": {
-      "type": "array", "minItems": 2, "maxItems": 2,
-      "items": { "type": "number", "exclusiveMinimum": 0 }
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number",
+        "exclusiveMinimum": 0
+      }
+    },
+    "apartmentDoorPart": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "position",
+        "rotationY",
+        "scale"
+      ],
+      "properties": {
+        "module": {
+          "type": "string",
+          "pattern": "^apartment-"
+        },
+        "position": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          }
+        },
+        "rotationY": {
+          "type": "number"
+        },
+        "scale": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "apartmentEntrance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "role",
+        "unit",
+        "slot",
+        "number",
+        "corridorRoom",
+        "privateRoom",
+        "connection",
+        "position",
+        "inward",
+        "width",
+        "height",
+        "leafDepth",
+        "motion",
+        "fixed",
+        "leaves",
+        "pockets"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "const": "apartment"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slot": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99
+        },
+        "number": {
+          "type": "string",
+          "pattern": "^[0-9]{3,4}$"
+        },
+        "corridorRoom": {
+          "type": "string",
+          "minLength": 1
+        },
+        "privateRoom": {
+          "type": "string",
+          "minLength": 1
+        },
+        "connection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "inward": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0.7,
+          "maximum": 2.4
+        },
+        "height": {
+          "type": "number",
+          "minimum": 2.1,
+          "maximum": 3
+        },
+        "leafDepth": {
+          "const": 0.06
+        },
+        "motion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "maxTravel",
+            "leaves"
+          ],
+          "properties": {
+            "kind": {
+              "const": "pocket"
+            },
+            "maxTravel": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "leaves": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "leaf",
+                  "travelU"
+                ],
+                "properties": {
+                  "leaf": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "travelU": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fixed": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/apartmentDoorPart"
+          }
+        },
+        "leaves": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/apartmentDoorPart"
+          }
+        },
+        "pockets": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "min",
+              "max"
+            ],
+            "properties": {
+              "min": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {
+                  "type": "number"
+                }
+              },
+              "max": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "required": [

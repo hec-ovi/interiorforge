@@ -1,7 +1,7 @@
 import { planUpperLoft } from "./lofts/upper-floor.js";
 import { InteriorError } from "../core/errors.js";
 import type { WalkGrid } from "../core/grid.js";
-import type { FloorAssignment, FloorInterior, InteriorRequest } from "../core/types.js";
+import type { BlueprintFloor, FloorAssignment, FloorInterior, FloorKind, InteriorRequest } from "../core/types.js";
 import type { CorePlan } from "./core-plan.js";
 import { planCore } from "./core-plan.js";
 import { entryAtLowEnd, stairRunHeadroom } from "../geometry/stairs.js";
@@ -54,7 +54,7 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
       const lower = floors.find(f => f.floor === assignment.floor);
       const planned = i > 0 && lower?.loft
         ? planUpperLoft(lower, bpFloor, core, request)
-        : planFloor(request, core, bpFloor, assignment.kind, i > 0, spaceHeight);
+        : planFloorProgram(request, core, bpFloor, assignment.kind, i > 0, spaceHeight);
       if (planned.circulation) circulation.set(bpFloor.index, planned.circulation);
       floors.push(planned.interior);
       navGrids.set(bpFloor.index, planned.grid);
@@ -62,6 +62,23 @@ export function planBuilding(request: InteriorRequest, assignments: FloorAssignm
     }
   }
   return { floors, core, navGrids, uvFloors, circulation, assignments: sorted };
+}
+
+/** A floor whose complete program cannot fit steps back one fallback level at a time
+ *  (see ProgramFallback) instead of failing the building. A floor that cannot hold a
+ *  room at any level reports the complete program's error. */
+function planFloorProgram(request: InteriorRequest, core: CorePlan, floor: BlueprintFloor, kind: FloorKind,
+  isSpanUpper: boolean, spaceHeight: number): ReturnType<typeof planFloor> {
+  let first: unknown;
+  for (const fallback of [0, 1, 2] as const) {
+    try {
+      return planFloor(request, core, floor, kind, isSpanUpper, spaceHeight, fallback);
+    } catch (error) {
+      if (!(error instanceof InteriorError) || !['E_FLOOR_TOO_SMALL', 'E_UNREACHABLE_SPACE'].includes(error.code)) throw error;
+      first ??= error;
+    }
+  }
+  throw first;
 }
 
 /** Whether stair B keeps the published headroom for every floor height it repeats on. */

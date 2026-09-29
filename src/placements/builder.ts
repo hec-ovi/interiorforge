@@ -3,6 +3,8 @@ import { MeshBuilder, type Vec3 } from '../glb/mesh-builder.js';
 import { moduleRecipes } from '../modules/recipes.js';
 import type { Placement } from './types.js';
 const recipes = new Map(moduleRecipes().map(recipe => [recipe.id, recipe]));
+/** Shared authored bounds, reused by structural finish publication. */
+export const placementRecipe = (id: string) => recipes.get(id);
 /** True when the module carries a lit lens, which its light record stands on. */
 export const litModule = (id: string): boolean => recipes.get(id)?.mesh.materials().some(slot => slot.includes('/light-fixture/')) ?? false;
 export class PlacementBuilder {
@@ -33,15 +35,15 @@ export class PlacementBuilder {
         // Clearance sees the same authored vertices and transforms as the consumer.
         for (const key of recipe.mesh.materials()) {
             const group = recipe.mesh.getGroup(key)!;
-            for (let i = 0; i < group.indices.length; i += 6) {
-                const ids = [group.indices[i]!, group.indices[i + 1]!, group.indices[i + 2]!, group.indices[i + 5]!];
-                this.mesh.addQuad(key, ids.map(index => point(group.positions, index * 3)) as [
-                    Vec3,
-                    Vec3,
-                    Vec3,
-                    Vec3
-                ]);
+            const positions: number[] = [], normals: number[] = [];
+            for (let i = 0; i < group.positions.length; i += 3) {
+                positions.push(...point(group.positions, i));
+                // Inverse transpose for non-uniformly scaled smooth authored normals.
+                const x = group.normals[i]! / placement.scale[0], y = group.normals[i + 1]! / placement.scale[1], z = group.normals[i + 2]! / placement.scale[2];
+                const length = Math.hypot(x, y, z) || 1;
+                normals.push((x * c + z * s) / length, y / length, (z * c - x * s) / length);
             }
+            this.mesh.addSurface(key, { positions, normals, uvs: group.uvs, indices: group.indices });
         }
         return placement;
     }

@@ -17,11 +17,22 @@ import { walls } from './walls.js';
 import { openings } from './openings.js';
 import { stairs, stairLandingRect } from './stairs.js';
 import { props } from './props.js';
+import { dressDamagedRooms } from '../styles/damaged/dressing.js';
+import { placeIndustrialEquipmentFeeds } from '../styles/industrial/feeds.js';
+import { luxuryRugForRoom } from '../styles/luxury/rugs.js';
+import { dressCorporateWalls } from '../styles/corporate/walls.js';
+import { dressCapsuleArchitecture } from '../styles/capsule/architecture.js';
+import { capsuleProfile } from '../styles/capsule/profile.js';
 import type { ModelPresence } from '../assets/families.js';
 import { architectureFinish, interiorRecipe } from '../architecture/recipes.js';
 import { WALL } from '../layout/constants.js';
 import { subtractRect, thresholds, walkingSlabs } from './thresholds.js';
-import { elevatorDoorHole } from '../geometry/core-geo.js';
+import { lifts } from './lifts.js';
+import { duplexVoids, duplexCeilingRects, duplexGalleryEdges, placeDuplexStructure } from './duplex.js';
+import { LOFT1702_FINISH, loft1702Finish, placeLoft1702GalleryFascia } from '../styles/luxury/loft-finish.js';
+import { placeDuplexLivingFloor } from './duplex-finish.js';
+import { polygonBounds } from '../core/geom.js';
+import { worldToUv } from '../layout/uv.js';
 
 export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: InteriorRequest, models: ModelPresence, climb: number, roof?: RoofAccessPlan | null, shared: readonly BlueprintFloor[] = [bp]): PlacementBuilder {
     const floor = plan.floors.find(f => f.floor === bp.index)!, uv = plan.uvFloors.get(bp.index)!, core = plan.core;
@@ -31,15 +42,23 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     const family = familyOf(request.building.type, request.building.tier);
     const kinds = new Map<string, RoomKind>(floor.rooms.map(room => [room.id, room.kind]));
     const common = floor.rooms.find(room => room.kind === 'corridor' || room.kind === 'elevator_lobby' || room.kind === 'concourse')!;
-    const finishOf = (room: string, kind: RoomKind = kinds.get(room) ?? common.kind): RoomFinish => architectureFinish(request, family, kind, roomFinish(family, kind, floor.kind as FloorKind));
+    const duplexUnits = new Set((floor.duplexes ?? []).map(slice => slice.unit));
+    const loftRooms = new Set(request.building.interiorStyle === 'apartment-1702'
+        ? floor.rooms.filter(room => room.unit && duplexUnits.has(room.unit)).map(room => room.id) : []);
+    const finishOf = (room: string, kind: RoomKind = kinds.get(room) ?? common.kind): RoomFinish => {
+        const base = architectureFinish(request, family, kind, roomFinish(family, kind, floor.kind as FloorKind));
+        return loft1702Finish(kind, base, { privateRoom: loftRooms.has(room) });
+    };
     const tag = `f${bp.index < 0 ? `m${-bp.index}` : bp.index}`;
 
     const floorRects = uv.rooms.map(room => ({ room, rects: rectangles(roomPolygon(room, plate), room.holes) }));
     for (const { room, rects } of floorRects) {
         const finish = finishOf(room.id, room.kind);
         for (const rect of rects) {
-            slabs(builder, finish.floor, room.id, rect, 0, core.frame);
-            ceiling(builder, finish, room.id, rect, ceilingY, core.frame);
+            if (loftRooms.has(room.id) && room.kind === 'living')
+                placeDuplexLivingFloor(builder, room.id, rect, uv.carpets.filter(carpet => carpet.room === room.id).map(carpet => carpet.rect), core.frame);
+            else slabs(builder, finish.floor, room.id, rect, 0, core.frame);
+            for (const part of duplexCeilingRects(floor, core.frame, rect)) ceiling(builder, finish, room.id, part, ceilingY, core.frame);
         }
     }
     const plain = finishOf(common.id);
@@ -47,22 +66,40 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         surface(builder, plain.floor, 'sealed', rect, 0, core.frame);
         surface(builder, plain.ceiling, 'sealed', rect, ceilingY, core.frame);
     }
-    for (const carpet of uv.carpets) surface(builder, 'floor-carpet', carpet.room, carpet.rect, 0, core.frame);
+    for (const carpet of uv.carpets) surface(builder,
+        loftRooms.has(carpet.room) && kinds.get(carpet.room) === 'living' ? LOFT1702_FINISH.rug
+            : family === 'luxury' ? luxuryRugForRoom(kinds.get(carpet.room) ?? common.kind) : 'floor-carpet',
+        carpet.room, carpet.rect, 0, core.frame);
 
     // Every fixture the floor plan lit stands before the walls add their own lines.
+    // Architectural coves follow actual opaque wall/ceiling junctions below;
+    // generic room-perimeter lines would float over the open lounge void.
+    floor.lights = floor.lights.filter(light => light.kind !== 'cove' || light.furniture || !loftRooms.has(light.room));
     const planned = floor.lights.filter(light => !light.furniture);
     if (['steel', 'graphite'].includes(interiorRecipe(request)?.frame ?? '')) {
         for (const light of planned) { light.colorTemperatureK = 4000; delete light.color; }
     }
     floor.lights.push(...walls(builder, floor, uv, core, bp, request, finishOf, tag, shared));
+    for (const slice of floor.duplexes ?? []) if (slice.level === 'upper') {
+        const room = `${slice.unit}-upper-gallery`;
+        for (const [i, edge] of duplexGalleryEdges(slice, core.frame).entries())
+            floor.lights.push(...placeLoft1702GalleryFascia(builder, room, edge.a, edge.b, 0, core.frame,
+                { normal: [-edge.inward[0], -edge.inward[1]], elevation: floor.elevation, id: `${slice.id}-gallery-fascia-${i}` }));
+    }
     // Furniture keeps the lens records of the lit modules it stands as, and no others.
-    props(builder, floor, uv, family, models);
+    props(builder, floor, uv, family, models, request);
+    if (family === 'industrial') placeIndustrialEquipmentFeeds(builder, floor);
+    if (family === 'corporate') dressCorporateWalls(builder, floor);
+    if (family === 'capsule' && request.building.interiorStyle !== 'sandra-dorsett')
+        dressCapsuleArchitecture(builder, floor, capsuleProfile(request));
+    if (family === 'damaged') dressDamagedRooms(builder, floor, uv, core, bp);
     // Every record the room publishes is in now, so each luminaire takes the share that
     // lands the room in its kind's illuminance band.
     balanceIllumination(uv.rooms.map(room => ({ id: room.id, kind: room.kind, area: roomArea(room, plate) })), floor.lights, request.building.tier);
     openings(builder, bp, floor, request, 'doors', room => finishOf(room).floor);
     const lowest = bp.index === Math.min(...request.blueprint.floors.map(f => f.index));
-    const runs = stairs(builder, core, climb, plain.floor, !!roof, lowest);
+    const stairFloor = family === 'luxury' ? 'floor-slab-stair-luxury' : plain.floor;
+    const runs = stairs(builder, core, climb, stairFloor, !!roof, lowest, family, { fixtures: floor.lights, elevation: floor.elevation });
     // Close the stairwell ceiling wherever this shaft has no onward flight.
     for (const [id, shaft] of [['stair-a', core.stairA], ...(core.stairB ? [['stair-b', core.stairB] as const] : [])] as const) {
         if (climb && (!roof || id === 'stair-a')) continue;
@@ -72,26 +109,21 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     if (roof) {
         const landing = baseLanding(core.stairA, entryAtLowEnd(core, 'a'), climb);
         const structuralLanding = stairLandingRect(core.stairA, landing);
-        surface(builder, plain.floor, 'stair-a', structuralLanding, climb, core.frame);
+        // The arriving flight owns this landing; only the roof-door extension
+        // is added here, so there are no coincident top or soffit faces.
         const rect = roof.landingUv;
         for (const uncovered of subtractRect({ u: rect.x, v: rect.z, lu: rect.w, lv: rect.d }, structuralLanding))
-            surface(builder, plain.floor, 'stair-a', uncovered, climb, core.frame);
+            surface(builder, stairFloor, 'stair-a', uncovered, climb, core.frame);
     }
-    for (const elevator of core.elevators) {
-        const rect = elevator.rect, [x, z] = uvToWorld([rect.u + rect.lu / 2, rect.v + rect.lv / 2], core.frame);
-        builder.module('lift-car', elevator.id, [x, 0, z], [1, 1, 1], -core.frame.angleDeg * Math.PI / 180);
-        const [dx, dz] = uvToWorld([rect.u + rect.lu / 2, core.vFace], core.frame);
-        builder.module('lift-doors', elevator.id, [dx, 0, dz], [1, 1, 1], -core.frame.angleDeg * Math.PI / 180);
-        const passage = elevatorDoorHole(core, core.elevators.indexOf(elevator), 0).hole;
-        const carFront = rect.v + rect.lv / 2 - 1;
-        if (carFront > core.vFace) surface(builder, plain.floor, common.id,
-            { u: passage.at - passage.width / 2, v: core.vFace, lu: passage.width, lv: carFront - core.vFace }, 0, core.frame);
-    }
-    thresholds(builder, core.frame, room => finishOf(room).floor);
+    floor.lights.push(...lifts(builder, core, plain.floor, common.id, Math.min(...request.blueprint.floors.map(f => f.height)), bp.height, floor.elevation));
+    const incomingLandings = lowest ? [] : [core.stairA, ...(core.stairB ? [core.stairB] : [])]
+        .map((shaft, i) => stairLandingRect(shaft, baseLanding(shaft, entryAtLowEnd(core, i === 0 ? 'a' : 'b'), 0)));
+    thresholds(builder, core.frame, room => finishOf(room).floor, incomingLandings);
     // A leftover thinner than a body, beside the core or between rooms, lies inside the
     // rectangle the rooms and core stand in, where consumers cut their storey plate: it takes
     // the slab and plain ceiling field of the room along its longest side.
-    const shafts = [core.stairA, ...(core.stairB ? [core.stairB] : []), core.riser, ...core.elevators.map(e => e.rect)];
+    const shafts = [core.stairA, ...(core.stairB ? [core.stairB] : []), core.riser, ...core.elevators.map(e => e.rect),
+        ...duplexVoids(floor, core.frame, 'upper')];
     const standing = [...floorRects.flatMap(({ rects }) => rects), ...uv.sealed, ...shafts];
     const envelope = boundsOf(standing);
     for (const rect of envelope ? uncoveredRects(envelope, [...walkingSlabs(builder, core.frame), ...shafts], plate) : []) {
@@ -99,7 +131,18 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
             .sort((a, b) => b.side - a.side)[0];
         const room = owner && owner.side > 0 ? owner.room : common, finish = finishOf(room.id, room.kind);
         slabs(builder, finish.floor, room.id, rect, 0, core.frame);
-        surface(builder, finish.ceiling, room.id, rect, ceilingY, core.frame);
+        for (const part of duplexCeilingRects(floor, core.frame, rect)) {
+            if (loftRooms.has(room.id)) ceiling(builder, finish, room.id, part, ceilingY, core.frame);
+            else surface(builder, finish.ceiling, room.id, part, ceilingY, core.frame);
+        }
+    }
+    for (const slice of floor.duplexes ?? []) {
+        const room = `${slice.unit}-${slice.level}-${slice.level === 'lower' ? 'living' : 'gallery'}`;
+        placeDuplexStructure(builder, slice, room);
+        if (slice.level === 'upper') for (const [index, ring] of [...slice.loungeVoids, slice.stairOpening].entries()) {
+            const b = polygonBounds(ring.map(point => worldToUv(point, core.frame))), air = `${slice.id}-air-${index}`;
+            ceiling(builder, finishOf(air, 'living'), air, { u: b.x, v: b.z, lu: b.w, lv: b.d }, ceilingY, core.frame);
+        }
     }
     for (const light of planned) {
         const finish = finishOf(light.room), position: [number, number, number] = [light.position[0], light.position[1] - floor.elevation, light.position[2]];
@@ -111,7 +154,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         const shaft = id === 'stair-a' ? core.stairA : core.stairB!;
         const probe = stairClearance(shaft, core.frame, steps, [builder.mesh]);
         if (probe.clear < 2.1 - 1e-4)
-            throw new InteriorError('E_UNREACHABLE_SPACE', `${id} has ${probe.clear.toFixed(3)} m headroom at ${probe.step.y}`, bp.index);
+            throw new InteriorError('E_UNREACHABLE_SPACE', `${id} has ${probe.clear.toFixed(3)} m headroom at ${probe.step.y} below ${probe.material} at ${probe.at?.join(",")}`, bp.index);
     }
     assertDoorwaysClear(builder.mesh, [...floorDoorways(uv.rooms, core.frame, 0, ceilingY, bp), ...openFrontClearances({ ...bp, elevation: 0 }, shellWallDepth(request.blueprint.facade))], bp.index);
     assertInsideShell(builder.mesh, [{ ...bp, elevation: 0 }], shellWallDepth(request.blueprint.facade));

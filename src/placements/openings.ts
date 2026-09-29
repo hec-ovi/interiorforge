@@ -3,6 +3,7 @@ import { roomFootprintContains } from '../core/room-footprint.js';
 import { edgeFrame, edgePoint, openingReturnDepth } from '../geometry/shell-fit.js';
 import { SHELL_WALL, shellWallDepth } from '../layout/shell.js';
 import type { PlacementBuilder } from './builder.js';
+import { exteriorThreshold } from './thresholds.js';
 /** Doors belong to the reusable layout: the middle-layout signature holds them identical.
  *  Windows vary per floor, so their returns are published as that floor's own treatments. */
 export function openings(builder: PlacementBuilder, bp: BlueprintFloor, floor: FloorInterior, request: InteriorRequest, want: 'doors' | 'windows', slabOf: (room: string) => string = () => 'floor-slab-stone'): void {
@@ -29,10 +30,10 @@ export function openings(builder: PlacementBuilder, bp: BlueprintFloor, floor: F
             // The threshold joins the plate to the passage: behind the recess of a swing door, behind
             // the back attachment plane of a pocket cassette.
             const thresholdDepth = Math.max(openingReturnDepth(opening), opening.door?.recessDepth ?? opening.portal?.recessDepth ?? 0);
-            if (field.sill === 0 && depth > thresholdDepth) {
-                const threshold = edgePoint(face, field.offset + field.width / 2, (depth + thresholdDepth) / 2);
-                const clearWidth = opening.portal?.clearWidth ?? field.width - 2 * SHELL_WALL.recess;
-                builder.module(slabOf(owner.id), owner.id, [threshold[0], 0, threshold[1]], [clearWidth / .5, 1, (depth - thresholdDepth) / .5], rotation, { id: `threshold:${opening.id}`, opening: opening.id });
+            if (field.sill === 0) {
+                const clearWidth = opening.portal?.clearWidth ?? (opening.door?.motion?.kind === 'pocket' ? field.width : field.width - 2 * SHELL_WALL.recess);
+                exteriorThreshold(builder, face, opening.id, field.offset + (field.width - clearWidth) / 2,
+                    clearWidth, thresholdDepth, slabOf(owner.id), owner.id);
             }
             const connection = floor.rooms.flatMap(r => r.doors).filter(d => d.to === 'outside')
                 .sort((a, b) => Math.hypot(a.position[0] - p[0], a.position[1] - p[1]) - Math.hypot(b.position[0] - p[0], b.position[1] - p[1]))[0];

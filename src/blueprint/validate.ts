@@ -20,6 +20,15 @@ export function validateRequest(input: unknown): InteriorRequest {
     throw new InteriorError("E_BLUEPRINT_INVALID", `schema: ${err?.instancePath ?? ""} ${err?.message ?? "invalid"}`);
   }
   const request = input as unknown as InteriorRequest;
+  if (request.building.interiorStyle === 'apartment-1702') {
+    if (request.building.type !== 'residential' || !['rich', 'high_rich'].includes(request.building.tier))
+      throw new InteriorError('E_BLUEPRINT_INVALID', 'apartment-1702 requires a rich residential building');
+    if (!request.assignments?.some(assignment => assignment.spans === 2))
+      throw new InteriorError('E_ASSIGNMENT_INVALID', 'apartment-1702 requires an explicit paired-storey assignment');
+  } else if (request.building.interiorStyle && (request.building.tier !== 'mid'
+    || !['residential', 'hotel'].includes(request.building.type))) {
+    throw new InteriorError('E_BLUEPRINT_INVALID', 'selected interiorStyle requires a mid-tier residential or hotel building');
+  }
   validateBlueprint(request);
   validateAssignments(request);
   return request;

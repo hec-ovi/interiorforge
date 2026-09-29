@@ -64,8 +64,8 @@ export const surfaceRecipes: RecipeSet = (add) => {
   }
   // exposed services under a worn soffit: two pipes and a cable tray along the run
   add("ceiling-services", (k) => {
-    for (const z of [-0.14, 0.14]) k.rod(FINISH.damagedSteel, [-0.25, 0.14, z], [0.25, 0.14, z], 0.09);
-    k.cbox(FINISH.zinc, [0, 0.19, 0], [CELL, 0.05, 0.16]);
-    for (const x of [-0.2, 0.2]) k.rod(FINISH.damagedSteel, [x, 0.24, -0.2], [x, 0.24, 0.2], 0.03);
+    for (const z of [-0.14, 0.14]) k.rod(FINISH.damagedSteel, [-0.25, -0.14, z], [0.25, -0.14, z], 0.09);
+    k.cbox(FINISH.zinc, [0, -0.09, 0], [CELL, 0.05, 0.16]);
+    for (const x of [-0.2, 0.2]) k.rod(FINISH.damagedSteel, [x, -0.04, -0.2], [x, -0.04, 0.2], 0.03);
   });
 };

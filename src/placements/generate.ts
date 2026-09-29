@@ -7,10 +7,17 @@ import type { BlueprintFloor, InteriorRequest, NpcSupport, Opening } from '../co
 import { corePlacement } from '../layout/core-plan.js';
 import { placeLayout } from './layout.js';
 import { windowTreatments } from './treatments.js';
+import { publishRoofBand } from './roof-band.js';
 import type { GeneratedInterior, LayoutId, LayoutMap, FloorPlacement } from './types.js';
 import version from '../../package.json' with { type: 'json' };
 import { interiorRecipe } from '../architecture/recipes.js';
 import { presentModels } from '../assets/availability.js';
+import { publishStairSoffits } from './stair-soffits.js';
+import { publishStairSpaces } from './stair-spaces.js';
+import { publishApartmentEntrances } from './apartment-doors.js';
+import { duplexAssignments } from '../layout/duplex/assignments.js';
+import { applyDuplexPairs } from '../layout/duplex/apply.js';
+import { capsuleProfile } from '../styles/capsule/profile.js';
 export interface GenerateOptions {
     /** catalog ids whose model file the consumer holds; default presentModels() */
     models?: ReadonlySet<string>;
@@ -28,15 +35,16 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
             ...(published.assignments ? { assignments: published.assignments.filter(a => a.floor >= 0) } : {}) };
     const floors = request.blueprint.floors;
     // Two floors are ground and crown; the middle layout exists only where a floor repeats it.
-    const assignments = resolveAssignments(request), alone = floors.length === 1;
-    if (assignments.some(a => (a.spans ?? 1) !== 1))
-        throw new InteriorError('E_ASSIGNMENT_INVALID', 'placement layouts require single storey assignments');
+    const { assignments, pairs: duplexPairs } = duplexAssignments(request, resolveAssignments(request));
+    const alone = floors.length === 1;
+    const pairedFloors = new Set(duplexPairs.flatMap(pair => [pair.lower, pair.upper]));
     // Reuse only genuinely identical construction plates. Tapered wings, connection
     // floors and explicit programmes keep their own geometry and navigation.
     const samples: BlueprintFloor[] = [], names: LayoutId[] = [], layoutByFloor = new Map<number, LayoutId>();
     const reusable = new Map<string, LayoutId>();
     for (const [index, floor] of floors.entries()) {
-        const key = signature(floor, assignments.find(a => a.floor === floor.index)!.kind);
+        const key = signature(floor, assignments.find(a => a.floor === floor.index)!.kind)
+            + (pairedFloors.has(floor.index) ? `:duplex:${floor.index}` : '');
         let name: LayoutId;
         if (index === 0) name = 'ground';
         else if (index === floors.length - 1) name = 'crown';
@@ -58,6 +66,7 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
         return generate({ ...request, blueprint: { ...request.blueprint, floors: [floors[0]!], roof: undefined },
             ...(request.assignments ? { assignments: request.assignments.filter(a => a.floor === 0) } : {}) }, { models: present });
     }
+    applyDuplexPairs(plan, duplexPairs, request);
     const roof = planRoofAccess(request, plan.core);
     const crown = samples.length - 1;
     // A layout lines the shell for every floor that reuses it, so one lining clears the
@@ -100,7 +109,9 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
             ...(changes?.length ? { program: { kind: assignments.find(a => a.floor === table.sourceFloor)!.kind,
                 changes: structuredClone(changes) } } : {}) };
     });
+    const privateConnectors = new Set(plan.floors.flatMap(floor => (floor.duplexes ?? []).map(slice => slice.id)));
     const connectors = alone ? [] : npc.nav.connectors.map(c => {
+        if (privateConnectors.has(c.id)) return c;
         const served = floors.map(f => f.index);
         const entries = Object.fromEntries(floors.map(floor => [floor.index,
             c.entryByFloor[String(layouts[layoutByFloor.get(floor.index)!]!.sourceFloor)]!]));
@@ -110,14 +121,22 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
         }
         return { ...c, floors: served, entryByFloor: entries };
     });
-    return {
+    const result: GeneratedInterior = {
         building: {
             version: 1, generatorVersion: version.version, buildingId: request.building.id, modules: 'modules.json', props: 'catalog.json',
             ...(interiorRecipe(request) ? { architecture: interiorRecipe(request)!.id } : {}),
             materialTheme: request.materialTheme, tier: request.building.tier, layouts: Object.fromEntries(names.map(name => [name, `layouts/${name}.json`])), floors: refs, connectors, corePlacement: corePlacement(plan.core),
+            ...(request.building.interiorStyle ? { interiorStyle: request.building.interiorStyle }
+                : request.building.tier === 'mid' && ['residential', 'hotel'].includes(request.building.type)
+                    ? { interiorStyle: capsuleProfile(request) } : {}),
             ...(plan.core.reservationCrossing ? { reservationCrossing: plan.core.reservationCrossing } : {})
         }, layouts, missingModels: [...models.missing].sort()
     };
+    publishRoofBand(result, request);
+    publishApartmentEntrances(result);
+    publishStairSpaces(result, request, plan.core);
+    publishStairSoffits(result.building.floors, result.layouts);
+    return result;
 }
 /** Geometry and program only. Windows and exterior dressing (material, panes, glazing,
  *  scenery, section ids) vary per floor by design; doors and portals hold the layout. */

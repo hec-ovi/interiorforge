@@ -5,6 +5,11 @@ import type { Frame, UvRect } from '../layout/uv.js';
 import { uvToWorld } from '../layout/uv.js';
 import type { PlacementBuilder } from './builder.js';
 import type { RoomFinish } from './finish.js';
+import { placeCorporateCeiling } from '../styles/corporate/ceiling.js';
+import { placeIndustrialServices } from '../styles/industrial/services.js';
+import { placeLuxuryCeiling } from '../styles/luxury/ceiling.js';
+import { placeLuxuryStoneFloor } from '../styles/luxury/surfaces.js';
+import { isLoft1702Ceiling, LOFT1702_FINISH, placeLoft1702Ceiling } from '../styles/luxury/loft-finish.js';
 
 /** Fitted ceiling band width, one construction cell. */
 const BAND = 0.5;
@@ -79,12 +84,28 @@ export function surface(builder: PlacementBuilder, module: string, room: string,
 
 /** The floor of a room rectangle: one fitted slab, tiled by its own map. */
 export function slabs(builder: PlacementBuilder, module: string, room: string, rect: UvRect, y: number, frame: Frame): void {
+    if (module === 'floor-slab-meridian-stone' || module === 'floor-slab-luxury-polished') {
+        placeLuxuryStoneFloor(builder, room, rect, y, frame, module === 'floor-slab-luxury-polished' ? 'floor-finish-luxury-polished' : undefined);
+        return;
+    }
     surface(builder, module, room, rect, y, frame);
 }
 
 /** A ceiling over a room rectangle: the fitted outer band where the rectangle can hold one,
  *  inset fields inside it, and the family's exposed services along the run. */
 export function ceiling(builder: PlacementBuilder, finish: RoomFinish, room: string, rect: UvRect, y: number, frame: Frame): void {
+    if (isLoft1702Ceiling(finish.ceiling)) {
+        placeLoft1702Ceiling(builder, room, rect, y, frame, { dark: finish.ceiling === LOFT1702_FINISH.wetCeiling });
+        return;
+    }
+    if (finish.family === 'corporate') {
+        placeCorporateCeiling(builder, room, rect, y, frame, finish.ceiling);
+        return;
+    }
+    if (finish.family === 'luxury') {
+        placeLuxuryCeiling(builder, room, rect, y, frame);
+        return;
+    }
     const banded = finish.band && rect.lu >= 2 * BAND + 1 && rect.lv >= 2 * BAND + 1;
     if (banded) {
         surface(builder, finish.band!, room, { u: rect.u, v: rect.v, lu: rect.lu, lv: BAND }, y, frame);
@@ -94,7 +115,11 @@ export function ceiling(builder: PlacementBuilder, finish: RoomFinish, room: str
     }
     const field = banded ? { u: rect.u + BAND, v: rect.v + BAND, lu: rect.lu - 2 * BAND, lv: rect.lv - 2 * BAND } : rect;
     surface(builder, finish.ceiling, room, field, y, frame);
-    if (finish.services && Math.max(rect.lu, rect.lv) >= 2) {
+    if (finish.services === 'ceiling-services-industrial') {
+        placeIndustrialServices(builder, room, rect, y, frame);
+        return;
+    }
+    if (finish.services && Math.max(rect.lu, rect.lv) >= 2 && Math.min(rect.lu, rect.lv) >= .5) {
         const alongU = rect.lu >= rect.lv;
         const [x, z] = uvToWorld([rect.u + rect.lu / 2, rect.v + rect.lv / 2], frame);
         builder.module(finish.services, room, [x, y, z], [(alongU ? rect.lu : rect.lv) / .5, 1, 1],

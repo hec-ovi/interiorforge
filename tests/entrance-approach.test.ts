@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { coreFeasibility, generate } from '../src/index.js';
 import type { BuildingType, Tier } from '../src/index.js';
+import { expectBuildingLevels, occupiedStoreys } from './building-levels.js';
 
 /** Kit plans whose street door once opened onto a wall: the plain plan behind four of
  *  Sluice's venues (p34, p50, p90, p93) stood its egress stair flush behind the door, and
@@ -64,6 +65,7 @@ it('keeps a core, and every floor, behind the balcony doors of plain-2x4x6f', as
     expect(coreFeasibility(blueprint).fits).toBe(true);
     const built = await generate({ seed: 'undertow:residential', building: { id: 'plain-2x4x6f', type: 'residential', tier: 'mid' },
         blueprint, materialTheme: 'cyberpunk' });
-    expect(built.building.floors.map(floor => floor.index)).toEqual([0, 1, 2, 3, 4, 5]);
+    expectBuildingLevels(built, 6);
+    expect(occupiedStoreys(built).map(floor => floor.index)).toEqual([0, 1, 2, 3, 4, 5]);
     expectClearWayIn(built, blueprint);
 }, 120_000);

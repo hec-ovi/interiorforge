@@ -56,6 +56,10 @@
           ],
           "description": "atlas parcel vocabulary, verbatim"
         },
+        "interiorStyle": {
+          "enum": ["h10", "japantown", "sandra-dorsett", "apartment-1702"],
+          "description": "Reference identity independent of exterior and seed: standard residential/hotel, or rich residential paired-storey Apartment 1702."
+        },
         "tier": {
           "enum": [
             "poor",

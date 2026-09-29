@@ -7,15 +7,20 @@ import { doorUvPoint } from '../layout/plan-floor.js';
 import type { PlanRoom } from '../layout/plan-types.js';
 import { Facade } from '../layout/openings.js';
 import { constructionPlate, facadeDepth } from '../layout/shell.js';
-import type { Frame } from '../layout/uv.js';
+import type { Frame, UvRect } from '../layout/uv.js';
 import { uvToWorld, worldToUv } from '../layout/uv.js';
 import { edgeFrame, edgePoint } from '../geometry/shell-fit.js';
 import { doorHeadHeight, mergeHoles, openingSpan, outsideDoorHead, roomSegments, reserveFacadeEnds, wallCuts, type WallHole } from '../geometry/walls.js';
 import { stairEntryHole } from '../geometry/stairs.js';
 import { elevatorDoorHole } from '../geometry/core-geo.js';
 import type { PlacementBuilder } from './builder.js';
-import { GLAZED_ROOMS, type RoomFinish } from './finish.js';
+import { GLAZED_ONTO, GLAZED_ROOMS, type RoomFinish } from './finish.js';
 import { shellOwnsFacade } from '../architecture/recipes.js';
+import { PUBLIC_PORTAL, placeLuxuryPortal } from '../styles/luxury/portals.js';
+import { privacyReturns } from '../layout/privacy-returns.js';
+import { duplexAirOwners, duplexPerimeterSegment, duplexWallSegments, duplexVoids } from './duplex.js';
+import { isLoft1702Wall, LOFT1702_FINISH, placeLoft1702Wall } from '../styles/luxury/loft-finish.js';
+import { duplexCoveSpans } from './duplex-finish.js';
 
 /** Fixed frame piece: corners are one cell, edges one cell wide. */
 const PIECE = 0.5;
@@ -31,10 +36,7 @@ const LINE_OFFSET = 0.09;
 const OPENING_MARGIN = 0.06;
 const LINE_LUMENS_PER_METRE = 55;
 
-/** Public rooms an office's glazed partition looks onto. */
-const GLAZED_ONTO: ReadonlySet<RoomKind> = new Set(["corridor", "elevator_lobby", "concourse", "office_open", "reception", "lounge"]);
-
-interface Run { a: number; b: number; room: string; kind: RoomKind; side: 1 | -1; draw: boolean }
+interface Run { a: number; b: number; room: string; kind: RoomKind; side: 1 | -1; draw: boolean; air?: number }
 interface Line { axis: 'H' | 'V'; c: number; runs: Run[]; holes: WallHole[]; boundary: boolean }
 
 /** Every partition face of a floor: nine-slice panel frames with light lines where a run
@@ -50,6 +52,7 @@ export function walls(
     const frame = core.frame, depth = facadeDepth(request.blueprint.facade), facade = new Facade(bp, request.blueprint.facade);
     const buildable = constructionPlate(bp, frame, depth), plate = polygonBounds(buildable);
     const height = floor.ceilingElevation - floor.elevation;
+    const ceilingHoles = duplexVoids(floor, frame, 'lower');
     const lines = new Map<string, Line>();
     const line = (axis: 'H' | 'V', c: number, boundary = false): Line => {
         const key = `${boundary ? 'B' : 'P'}:${axis}:${c.toFixed(6)}`;
@@ -62,16 +65,21 @@ export function walls(
     };
     // The core's shafts and the sealed voids own their faces too: a stairwell's are drawn in the
     // corridor's finish, a lift shaft's and a void's are never seen.
-    type Owner = PlanRoom & { draw: boolean; structural?: boolean };
-    const pseudo = (id: string, rect: PlanRoom['rect'], draw: boolean): Owner => ({ id, kind: 'mechanical_room', rect, doors: [], draw, structural: true });
+    type Owner = PlanRoom & { draw: boolean; structural?: boolean; air?: number; perimeter?: PlanRoom['rect'] };
+    const pseudo = (id: string, rect: PlanRoom['rect'], draw: boolean, kind: RoomKind = 'mechanical_room'): Owner => ({ id, kind, rect, doors: [], draw, structural: true });
     const owners: Owner[] = [
         ...uv.rooms.map(room => ({ ...room, draw: true })),
-        pseudo('stair-a', core.stairA, true), ...(core.stairB ? [pseudo('stair-b', core.stairB, true)] : []),
+        ...duplexAirOwners(floor, frame).map(room => ({ ...room, draw: true })),
+        pseudo('stair-a', core.stairA, true, 'corridor'), ...(core.stairB ? [pseudo('stair-b', core.stairB, true, 'corridor')] : []),
         pseudo('riser', core.riser, false), ...core.elevators.map(e => pseudo(e.id, e.rect, false)),
         ...uv.sealed.map((rect, i) => pseudo(`sealed:${i}`, rect, false)),
     ];
     for (const room of owners) {
-        for (const raw of roomSegments(room, buildable)) {
+        const segments = roomSegments(room, buildable);
+        const ownedSegments = room.air !== undefined
+            ? segments.filter(segment => segment.boundary || duplexPerimeterSegment(segment, room.perimeter!))
+            : segments.flatMap(segment => duplexWallSegments(floor, frame, segment, room.unit));
+        for (const raw of ownedSegments) {
             // The paired facade is already closed by Exterior. The rectangular room
             // envelope is an open perimeter band, not a wall to float behind its glass.
             // Core solids keep their enclosing walls even when they meet that boundary.
@@ -84,7 +92,8 @@ export function walls(
             const side = segment.edge === 'v0' || segment.edge === 'u0' ? 1 : -1;
             // Core enclosures remain walls at the room-envelope boundary. Exterior
             // windows cut facade linings, never the stairwell behind that facade.
-            line(segment.axis, segment.c, !!segment.boundary && !room.structural).runs.push({ a, b, room: room.id, kind: room.kind, side, draw: room.draw });
+            line(segment.axis, segment.c, !!segment.boundary && !room.structural).runs.push({ a, b, room: room.id, kind: room.kind, side, draw: room.draw,
+                ...(room.air === undefined ? {} : { air: room.air }) });
         }
         for (const door of room.doors) {
             if (door.openFront) continue;
@@ -97,7 +106,13 @@ export function walls(
             (owner ?? line(axis,c)).holes.push({ at: axis === 'H' ? u : v, width: door.width, y0: 0, y1: head });
         }
     }
-    for (const h of [stairEntryHole(core, 'a', 0), ...(core.stairB ? [stairEntryHole(core, 'b', 0)] : []), ...core.elevators.map((_, i) => elevatorDoorHole(core, i, 0))])
+    const stairHoles = [stairEntryHole(core, 'a', 0), ...(core.stairB ? [stairEntryHole(core, 'b', 0)] : [])];
+    for (const entry of stairHoles) {
+        // A broad public stair reads as an open portal, with a head proportioned to
+        // its floor instead of the low domestic doorway formerly masking both lanes.
+        if (entry.hole.width > 3) entry.hole.y1 = Math.min(bp.height - .15, 2.8);
+    }
+    for (const h of [...stairHoles, ...core.elevators.map((_, i) => elevatorDoorHole(core, i, 0))])
         line(h.axis, h.c).holes.push(h.hole);
     // Every opening any floor sharing this layout puts in the shell cuts the lining, so one
     // lined run serves a floor whose windows sit somewhere else.
@@ -105,12 +120,30 @@ export function walls(
     projectShellCuts(shared, frame, height, boundaries);
 
     const kinds = new Map(owners.map(room => [room.id, room.kind]));
+    const publicKinds = new Set<RoomKind>(['reception', 'lounge', 'corridor', 'elevator_lobby', 'concourse', 'dining_area', 'bar', 'living', 'studio_main']);
+    const portal = (l: Line, h: WallHole): boolean => {
+        if (l.boundary || h.y0 !== 0 || h.width < 1.2 || h.y1 < 1.9
+            || height < h.y1 + PUBLIC_PORTAL.radius + PUBLIC_PORTAL.band + .01) return false;
+        const peers = l.runs.filter(r => r.draw && h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01);
+        if (peers.length < 2 || peers.some(r => !publicKinds.has(r.kind) || r.room.startsWith('stair-'))) return false;
+        // Main apartment entries retain the moving-door owner's existing casing IDs.
+        const units = peers.map(r => uv.rooms.find(room => room.id === r.room)?.unit);
+        if (units.some(Boolean) && new Set(units).size > 1) return false;
+        if (peers.some(r => finishOf(r.room, r.kind).family !== 'luxury')) return false;
+        const pad = PUBLIC_PORTAL.band;
+        if (!peers.every(r => h.at - h.width / 2 - pad >= r.a - .01 && h.at + h.width / 2 + pad <= r.b + .01)) return false;
+        return !mergeHoles(l.holes, CASING_MEMBER).some(other => Math.abs(other.at - h.at) > 1e-6
+            && Math.abs(other.at - h.at) < (other.width + h.width) / 2 + pad + CASING_MEMBER + .01);
+    };
     const lights: LightFixture[] = [];
     for (const l of lines.values()) {
         // A partition frames each opening once in its casing; the lining cuts the union of
         // everything its line carries, so no stretch takes two heads or a sill across a door.
         const casing = l.boundary ? 0 : CASING_MEMBER;
-        const cuts = wallCuts(l.boundary ? l.holes : mergeHoles(l.holes, casing), casing);
+        const holes = l.boundary ? l.holes : mergeHoles(l.holes, casing);
+        const cuts = wallCuts(holes.map(h => portal(l, h)
+            ? { ...h, width: h.width + 2 * PUBLIC_PORTAL.band, y1: h.y1 + PUBLIC_PORTAL.radius + PUBLIC_PORTAL.band }
+            : { ...h, width: h.width + 2 * casing, y1: h.y1 + casing }));
         for (const run of l.runs) {
             if (!run.draw) continue;
             const baseFinish = finishOf(run.room, run.kind);
@@ -120,18 +153,19 @@ export function walls(
             const finish = run.room.startsWith('stair-') ? { ...baseFinish, frame: undefined } : baseFinish;
             // Stairwell walls close the full storey, including the ceiling service band.
             const runHeight = run.room.startsWith('stair-') ? bp.height : height;
-            const face = new Face(builder, l, run, frame, runHeight, floor.elevation, finish, nextLineId, lights);
+            const face = new Face(builder, l, run, frame, runHeight, floor.elevation, finish, nextLineId, lights, ceilingHoles);
             // The other side of this run: a glazed office looks through glass onto public space.
             const across = l.runs.find(other => other.side !== run.side && other.a < run.b - 1e-6 && other.b > run.a + 1e-6);
-            const glazed = !!finish.frame && GLAZED_ROOMS.has(run.kind) && !!across && GLAZED_ONTO.has(kinds.get(across.room)!);
-            const mirror = !!finish.frame && !!across && GLAZED_ROOMS.has(across.kind) && GLAZED_ONTO.has(run.kind);
+            const glazed = (finish.family === 'luxury' || finish.family === 'corporate' || !!finish.frame) && GLAZED_ROOMS.has(run.kind) && !!across && GLAZED_ONTO.has(kinds.get(across.room)!);
+            const mirror = (finish.family === 'luxury' || finish.family === 'corporate' || !!finish.frame) && !!across && GLAZED_ROOMS.has(across.kind) && GLAZED_ONTO.has(run.kind);
+            const build = (a: number, b: number) => run.air === undefined ? face.build(a, b, glazed, mirror) : face.plain(a, b, -run.air, runHeight);
             // Glass is one plate seen from both rooms: the office side owns it, the public side keeps its frame.
             let cursor = run.a;
             for (const cut of cuts) {
                 const lo = Math.max(run.a, cut.a), hi = Math.min(run.b, cut.b);
                 if (hi <= lo + 1e-6) continue;
-                if (lo > cursor + 1e-6) face.build(cursor, lo, glazed, mirror);
-                let wall = 0;
+                if (lo > cursor + 1e-6) build(cursor, lo);
+                let wall = -(run.air ?? 0);
                 for (const [y0, y1] of cut.open) {
                     if (y0 - wall > 0.05) face.plain(lo, hi, wall, y0);
                     wall = Math.max(wall, y1);
@@ -139,22 +173,47 @@ export function walls(
                 if (runHeight - wall > 0.05) face.plain(lo, hi, wall, runHeight);
                 cursor = Math.max(cursor, hi);
             }
-            if (run.b > cursor + 1e-6) face.build(cursor, run.b, glazed, mirror);
+            if (run.b > cursor + 1e-6) build(cursor, run.b);
+        }
+    }
+    if ((floor.kind === 'apartment' || floor.kind === 'residence_studio') && shellOwnsFacade(request, bp))
+      for (const closure of privacyReturns(uv.rooms, buildable, bp, request.blueprint.facade, frame)) {
+        const l: Line = { axis: closure.axis, c: closure.c, runs: [], holes: [], boundary: false };
+        // A return is a real two-faced opaque partition, using existing wall
+        // modules and the shared room finish. It reaches the structural soffit.
+        for (const side of [1, -1] as const) {
+            const run: Run = { ...closure, side, draw: true };
+            const finish = { ...finishOf(closure.room, closure.kind), frame: undefined };
+            const face = new Face(builder, l, run, frame, bp.height, floor.elevation, finish, nextLineId, lights);
+            face.plain(closure.a - .02, closure.b + .02, 0, bp.height);
         }
     }
     for (const l of lines.values()) {
         if (l.boundary) continue;
         for (const h of mergeHoles(l.holes, CASING_MEMBER)) {
+            const matches = (entry: ReturnType<typeof stairEntryHole>) => entry.axis === l.axis
+                && Math.abs(entry.c - l.c) < 1e-6 && Math.abs(entry.hole.at - h.at) < 1e-6;
+            // Lift-specific fitted members own this complete reveal and casing.
+            if (core.elevators.some((_, i) => matches(elevatorDoorHole(core, i, 0)))) continue;
             const inside = (r: Run) => h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01;
             const owner = l.runs.find(r => r.draw && inside(r)) ?? l.runs.find(inside);
             if (!owner) continue;
+            if (portal(l, h)) {
+                placeLuxuryPortal(builder, owner.room, l.axis, l.c, h.at, h.width, h.y1, frame);
+                continue;
+            }
+            const family = finishOf(owner.room, owner.kind).family;
+            // Core thresholds retain the stable member IDs used by stair walking
+            // consumers. Room passages may vary their casing without changing bounds.
+            const coreEntry = [stairEntryHole(core, 'a', 0), ...(core.stairB ? [stairEntryHole(core, 'b', 0)] : [])].some(matches);
+            const suffix = coreEntry ? '' : `-${family}`;
             const rotation = -frame.angleDeg * Math.PI / 180 + (l.axis === 'V' ? -Math.PI / 2 : 0);
             for (const t of [h.at - h.width / 2 - CASING_MEMBER / 2, h.at + h.width / 2 + CASING_MEMBER / 2]) {
                 const [x, z] = uvToWorld(l.axis === 'H' ? [t, l.c] : [l.c, t], frame);
-                builder.module('door-jamb', owner.room, [x, h.y0, z], [1, (h.y1 - h.y0) / .5, 1], rotation);
+                builder.module(`door-jamb${suffix}`, owner.room, [x, h.y0, z], [1, (h.y1 - h.y0) / .5, 1], rotation);
             }
             const [x, z] = uvToWorld(l.axis === 'H' ? [h.at, l.c] : [l.c, h.at], frame);
-            builder.module('door-header', owner.room, [x, h.y1, z], [(h.width + 2 * CASING_MEMBER) / .5, 1, 1], rotation);
+            builder.module(`door-header${suffix}`, owner.room, [x, h.y1, z], [(h.width + 2 * CASING_MEMBER) / .5, 1, 1], rotation);
         }
     }
     return lights;
@@ -199,6 +258,7 @@ class Face {
         private readonly builder: PlacementBuilder, private readonly line: Line, private readonly run: Run,
         private readonly frame: Frame, private readonly height: number, private readonly elevation: number,
         private readonly finish: RoomFinish, private readonly nextId: () => string, private readonly lights: LightFixture[],
+        private readonly ceilingHoles: readonly UvRect[] = [],
     ) {
         // Local +z of a wall piece points into its room: along the line's normal on the run's side.
         const d: Point = line.axis === 'H' ? [0, run.side] : [run.side, 0];
@@ -211,6 +271,18 @@ class Face {
      *  stiles stand on it, each a shadow gap short of its cell. */
     build(a: number, b: number, glazed: boolean, mirror: boolean): void {
         const length = b - a, frame = this.finish.frame;
+        // Office glazing keeps slim real mullions after removing the old .5 m
+        // decorative frame. One side owns the shared glass and unlit metalwork.
+        if ((this.finish.family === 'luxury' || this.finish.family === 'corporate') && (glazed || mirror)) {
+            if (mirror) return;
+            const mid = (a + b) / 2;
+            this.piece('wall-panel-field-glass', mid, 0, [length / PIECE, this.height / PIECE, 1]);
+            for (const t of [a + .0125, b - .0125])
+                this.piece('wall-meridian-glass-stile', t, 0, [1, this.height / PIECE, 1]);
+            for (const y of [0, this.height - .025])
+                this.piece('wall-meridian-glass-rail', mid, y, [length / PIECE, 1, 1]);
+            return;
+        }
         if (!frame || length < MIN_FRAME - 1e-6 || this.height < MIN_FRAME - 1e-6) {
             this.plain(a, b, 0, this.height);
             return;
@@ -228,7 +300,37 @@ class Face {
 
     /** A plain field: one fitted piece over the whole run and height. */
     plain(a: number, b: number, y0: number, y1: number): void {
-        this.piece(this.finish.field, (a + b) / 2, y0, [(b - a) / PIECE, (y1 - y0) / PIECE, 1]);
+        if (isLoft1702Wall(this.finish.field)) {
+            const tangent = [Math.cos(this.rotation), -Math.sin(this.rotation)];
+            const along = this.line.axis === 'H'
+                ? tangent[0]! * this.frame.cos + tangent[1]! * this.frame.sin
+                : -tangent[0]! * this.frame.sin + tangent[1]! * this.frame.cos;
+            placeLoft1702Wall(this.builder, this.run.room, this.at((a + b) / 2, y0), b - a, y1 - y0, this.rotation,
+                { phase: along > 0 ? a : -b, wet: this.finish.field === LOFT1702_FINISH.wetWall });
+            if (this.finish.field === LOFT1702_FINISH.wall && ['living', 'corridor'].includes(this.run.kind)
+                && Math.abs(y1 - this.height) < 1e-6 && y1 - y0 >= .3) {
+                for (const [from, to] of duplexCoveSpans(a, b, this.line.axis, this.line.c, this.run.side, this.ceilingHoles))
+                    if (to - from > .44) this.loftCove((from + to) / 2, this.height - .24, to - from - .04);
+            }
+            return;
+        }
+        if (!['wall-field-meridian-mineral', 'wall-field-meridian-ivory', 'wall-field-meridian-walnut'].includes(this.finish.field)) {
+            this.piece(this.finish.field, (a + b) / 2, y0, [(b - a) / PIECE, (y1 - y0) / PIECE, 1]);
+            return;
+        }
+        // Continuous full-depth backing keeps the partition sealed behind the
+        // narrow joints. Broad 1.5–2 m panels have no luminous perimeter frame.
+        this.piece('wall-field-meridian-backing', (a + b) / 2, y0, [(b - a) / PIECE, (y1 - y0) / PIECE, 1]);
+        const skirt = y0 >= -1e-6 && y0 < .001 && y1 > .3;
+        const bottom = skirt ? .102 : y0;
+        const count = Math.max(1, Math.ceil((b - a) / 2));
+        const width = (b - a) / count;
+        for (let i = 0; i < count; i++) {
+            const from = a + i * width + (i ? .002 : 0);
+            const to = a + (i + 1) * width - (i + 1 < count ? .002 : 0);
+            this.piece(this.finish.field, (from + to) / 2, bottom, [(to - from) / PIECE, (y1 - bottom) / PIECE, 1]);
+        }
+        if (skirt) this.piece('wall-meridian-skirting', (a + b) / 2, 0, [(b - a) / PIECE, 1, 1]);
     }
 
     private at(t: number, y: number, proud = 0): [number, number, number] {
@@ -239,6 +341,20 @@ class Face {
 
     private piece(module: string, t: number, y: number, scale: [number, number, number]): void {
         this.builder.module(module, this.run.room, this.at(t, y), scale, this.rotation);
+    }
+
+    /** Physical wall pocket and matching restrained red source, both facing
+     * this room. Bedroom and wet-room lighting remains warm task lighting. */
+    private loftCove(t: number, y: number, length: number): void {
+        const id = this.nextId(), position = this.at(t, y, .149);
+        this.builder.module(LOFT1702_FINISH.cove, this.run.room, position, [length / PIECE, 1, 1], this.rotation, { id });
+        this.lights.push({ id, kind: 'cove', room: this.run.room,
+            position: [position[0], position[1] + this.elevation, position[2]], length,
+            axis: [Math.cos(this.rotation), 0, -Math.sin(this.rotation)], direction: [0, 1, 0],
+            angleDeg: (-this.rotation * 180 / Math.PI + 360) % 360,
+            intensity: length * LOFT1702_FINISH.coveLumensPerMetre,
+            color: [...LOFT1702_FINISH.coveColor], colorTemperatureK: 2700,
+            range: 2.5, beamDeg: 170, diffuse: .9, facing: 'up' });
     }
 
     /** The lit joint between an edge and the field: emissive geometry and its light record. */

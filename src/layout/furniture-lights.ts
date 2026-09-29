@@ -1,6 +1,12 @@
-import type { FurnitureKind, LightFixture } from "../core/types.js";
-import type { PlanFurniture } from "./plan-types.js";
+import type { FloorKind, FurnitureKind, InteriorStyle, LightFixture } from "../core/types.js";
+import { CAPSULE_PROFILE_LIGHTS } from '../styles/capsule/profile.js';
+import type { PlanFurniture, PlanRoom } from "./plan-types.js";
+import { CORPO_BATH_DIVIDER_LIGHTS } from '../styles/luxury/corpo-bathroom.js';
+import { usesResidentialVanity, residentialVanityLights } from '../styles/luxury/vanity-policy.js';
 import { uvToWorld, type Frame } from "./uv.js";
+import type { Family } from '../placements/finish.js';
+import { LUXURY_REFERENCE_LIGHTS } from '../styles/luxury/profile.js';
+import { CORPORATE_FITS } from '../styles/corporate/index.js';
 
 type Vec = [number, number, number];
 interface Lens { at: Vec; length: number; up?: boolean; lumens: number }
@@ -26,14 +32,26 @@ const LIT: Partial<Record<FurnitureKind, Lit>> = {
 };
 
 /** Each source sits on a modeled lens, in the same local coordinate frame. */
-export function furnitureLights(items: readonly PlanFurniture[], frame: Frame, elevation: number, tier: string): LightFixture[] {
+export function furnitureLights(items: readonly PlanFurniture[], frame: Frame, elevation: number, tier: string, family?: Family, interiorStyle?: InteriorStyle,
+  rooms?: readonly Pick<PlanRoom, 'id' | 'kind'>[], programme?: FloorKind): LightFixture[] {
   if (tier === "poor") return [];
+  const roomKinds = new Map(rooms?.map(room => [room.id, room.kind]));
   return items.flatMap(item => {
-    const lit = LIT[item.kind];
+    // Corporate joinery replaces these fittings with unlit cabinetry; inherited
+    // luxury fixtures retain the exact lens geometry and warm diffuser colour.
+    if (family === 'corporate' && CORPORATE_FITS[item.kind]) return [];
+    const profileLit = family === 'capsule' && interiorStyle === 'japantown'
+      ? (CAPSULE_PROFILE_LIGHTS.japantown as Partial<Record<FurnitureKind, Lit>>)[item.kind] : undefined;
+    const residentialBath = usesResidentialVanity(family, roomKinds.get(item.room), programme);
+    const lit: Lit | undefined = (residentialBath && item.kind === 'sink' ? residentialVanityLights(interiorStyle)
+      : residentialBath && item.kind === 'room_divider' ? CORPO_BATH_DIVIDER_LIGHTS : undefined)
+      ?? profileLit ?? (family === 'luxury' || family === 'corporate'
+      ? LUXURY_REFERENCE_LIGHTS[item.kind] ?? LIT[item.kind] : LIT[item.kind]);
     if (!lit) return [];
     const scale = item.size.map((v, i) => v / lit.size[i]!) as Vec;
     const scaled = (v: Vec): Vec => [v[0] * scale[0], v[1] * scale[2], v[2] * scale[1]];
     const angle = item.rotationDeg * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle);
+    const warmNiche = family === 'capsule' && interiorStyle === 'h10' && item.kind === 'sleeping_pod';
     const vector = ([x, y, z]: number[]): Vec => {
       const u = x! * c + z! * s, v = -x! * s + z! * c;
       return [u * frame.cos - v * frame.sin, y!, u * frame.sin + v * frame.cos];
@@ -44,13 +62,13 @@ export function furnitureLights(items: readonly PlanFurniture[], frame: Frame, e
         position: [x, elevation + (item.elevation ?? 0) + local[1], z], length,
         angleDeg: ((frame.angleDeg - item.rotationDeg) % 360 + 360) % 360,
         axis: vector(axis), direction: vector(direction), intensity: lumens,
-        colorTemperatureK: tier === "mid" ? 6500 : 2700,
-        ...(tier === "mid" ? { color: [.025, .72, 1] as Vec } : {}),
+        colorTemperatureK: warmNiche ? 3500 : tier === "mid" && family !== 'corporate' ? 6500 : 2700,
+        ...(tier === "mid" && family !== 'corporate' && !warmNiche ? { color: [.025, .72, 1] as Vec } : {}),
         range: 2.5, beamDeg: 170, diffuse: .95, facing: direction[1] > 0 ? "up" : "down" };
     };
     const lenses = lit.lenses.map((lens, i) => source(lit.lenses.length > 1 ? `lens-${i}` : "light", scaled(lens.at),
       lens.length * scale[0], [1, 0, 0], [0, lens.up ? 1 : -1, 0], lens.lumens));
-    if (item.kind !== "sleeping_pod") return lenses;
+    if (item.kind !== "sleeping_pod" || interiorStyle === 'h10' || interiorStyle === 'sandra-dorsett') return lenses;
     const [w, d, h] = item.size, bars: LightFixture[] = [];
     for (const side of [-1, 1]) for (const [index, low, high] of [[0, .58, 1.02], [1, 1.12, h - .38]]) {
       bars.push(source(`jamb-${side}-${index}`, [side * (w / 2 - .055), (low! + high!) / 2, d / 2 + .002], high! - low!, [0, 1, 0], [0, 0, 1], 42));

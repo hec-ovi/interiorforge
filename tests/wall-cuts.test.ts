@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { generate } from '../src/index.js';
 import type { FloorPlacement, InteriorRequest } from '../src/index.js';
 import { mergeHoles, wallCuts } from '../src/geometry/walls.js';
+import { expectBuildingLevels } from './building-levels.js';
 
 /** Exterior kit plans whose 2 m balcony doors once walled themselves shut, as the undertow
  *  city requested them for p5, p19 and p90 (consumed keys only). */
@@ -51,8 +52,8 @@ it('opens the poor balcony-door plans, each 2 m door under its own head, with no
         const request = poorHome(parcel, id);
         // Generation proves every doorway clear up to the passage its shell opening publishes.
         const built = await generate(request);
-        expect(built.building.floors).toHaveLength(request.blueprint.floors.length);
-        for (const [name, layout] of Object.entries(built.layouts)) {
+        expectBuildingLevels(built, request.blueprint.floors.length);
+        for (const [name, layout] of Object.entries(built.layouts).filter(([, layout]) => layout.floor.kind !== 'roof')) {
             expect(coplanarFields(layout), `${parcel} ${name}`).toEqual([]);
             expect(layout.floor.rooms.flatMap(r => r.doors).filter(d => d.to === 'outside').length, `${parcel} ${name}`).toBeGreaterThan(0);
         }

@@ -1,4 +1,5 @@
-import { STAIR, WALL } from "./constants.js";
+import { WALL } from "./constants.js";
+import { stairProfile } from "./stair-plan.js";
 import { stairAccess } from "./core-plan.js";
 import type { Point } from "../core/geom.js";
 import { clipPolygonToRect, insetPolygon, pointInPolygon, polygonBounds } from "../core/geom.js";
@@ -8,7 +9,7 @@ import { doorUvPoint } from "./plan-floor.js";
 import type { PlanRoom } from "./plan-types.js";
 import type { IdGen } from "./rooms.js";
 import type { Frame, UvRect } from "./uv.js";
-import { uvToWorld } from "./uv.js";
+import { uvToWorld, worldToUv } from "./uv.js";
 import { roomAnchor, roomArea, roomClearance, roomCoversRect, roomEdges } from "./room-shape.js";
 
 /** Every room, corridor and stairwell emits its own light fixtures: the engine instantiates
@@ -233,7 +234,41 @@ class FloorLighting {
       const at = this.insideCenter(room);
       if (at) this.spotAt(room.id, at, style.lumens, style.colorTemperatureK, true);
     }
+    this.ensureCapacity(room, style, before);
     this.activeRoom = undefined;
+  }
+
+  /** A bounding-box grid can miss most of a concave room or land in its holes. Add
+   * actual housings across the remaining floor before balancing flux; one capped
+   * downlight cannot illuminate a large lounge merely because it was the only survivor. */
+  private ensureCapacity(room: PlanRoom, style: LightStyle, start: number): void {
+    const own = this.out.slice(start), ceiling = own.filter(light => light.kind !== "cove");
+    const [low, high] = luxBand(room.kind, this.tier);
+    const fixed = own.filter(light => light.kind === "cove").reduce((sum, light) => sum + light.intensity, 0);
+    const target = roomArea(room, this.uvOutline) * (low + high) / 2;
+    const needed = clamp(Math.ceil((target - fixed) / FIXTURE_LUMENS.max), 1, FIXTURES_PER_ROOM.max);
+    if (ceiling.length >= needed) return;
+    const placed = ceiling.map(light => worldToUv([light.position[0], light.position[2]], this.frame));
+    const candidates: Point[] = [], r = room.rect;
+    for (let v = r.v + FIXTURE_MARGIN; v < r.v + r.lv - FIXTURE_MARGIN; v += 0.5) {
+      for (let u = r.u + FIXTURE_MARGIN; u < r.u + r.lu - FIXTURE_MARGIN; u += 0.5) {
+        const at: Point = [u, v];
+        if (this.inside(at) && roomClearance(room, at) >= FIXTURE_MARGIN) candidates.push(at);
+      }
+    }
+    while (placed.length < needed && candidates.length) {
+      let best = -1, distance = -Infinity;
+      for (let i = 0; i < candidates.length; i++) {
+        const at = candidates[i]!;
+        const score = placed.length ? Math.min(...placed.map(p => Math.hypot(at[0] - p[0], at[1] - p[1])))
+          : roomClearance(room, at);
+        if (score > distance) { best = i; distance = score; }
+      }
+      if (best < 0 || distance < FIXTURE_MARGIN * 2) break;
+      const at = candidates.splice(best, 1)[0]!;
+      this.spotAt(room.id, at, style.lumens, style.colorTemperatureK);
+      placed.push(at);
+    }
   }
 
   /** One flush downlight embedded in the arrival landing above the entry, preserving the
@@ -244,9 +279,10 @@ class FloorLighting {
     const runLen = alongU ? shaft.lu : shaft.lv;
     const entryAt = alongU ? entry[0] : entry[1];
     const entryLow = entryAt - runStart < runLen / 2;
+    const { landing } = stairProfile(shaft);
     const run = entryLow
-      ? runStart + WALL / 2 + STAIR.landing / 2
-      : runStart + runLen - WALL / 2 - STAIR.landing / 2;
+      ? runStart + WALL / 2 + landing / 2
+      : runStart + runLen - WALL / 2 - landing / 2;
     const cross = alongU ? shaft.v + shaft.lv / 2 : shaft.u + shaft.lu / 2;
     const at: Point = alongU ? [run, cross] : [cross, run];
     this.push({

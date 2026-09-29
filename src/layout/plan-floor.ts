@@ -16,7 +16,8 @@ import { CELL, ceilingUnder, DOOR, ELEVATOR, ROOM, SOFFIT_DEPTH, stairSlab } fro
 import type { CorePlan } from "./core-plan.js";
 import { elevatorWaitUv, stairEntryUv } from "./core-plan.js";
 import { buildFrame, HALL_FLOOR_KINDS, VENUE_KINDS } from "./frame.js";
-import { furnish } from "./furnish.js";
+import { furnish, incompleteHomes } from "./furnish.js";
+import { familyOf } from '../placements/finish.js';
 import { planLights } from "./lighting.js";
 import { furnitureLights } from "./furniture-lights.js";
 import { isExteriorConnection, openingKeepouts, partitionConflicts } from "./openings.js";
@@ -32,12 +33,14 @@ import { constructionPlate, floorBounds, shellWallDepth } from "./shell.js";
 import type { Frame, UvRect } from "./uv.js";
 import { toWorldPolygon, uvRectToFrameRect, uvToWorld, worldToUv } from "./uv.js";
 import { validateArchitecture } from "./validate-floor.js";
-import { circulationKeepouts, reserveCirculation, verifyCirculation, type FloorCirculation } from "./circulation.js";
+import { circulationKeepouts, publicCirculationKeepouts, protectPrivateLivingRoutes, reserveCirculation, verifyCirculation, type FloorCirculation } from "./circulation.js";
 import { buildNavGrid, blockPhysicalFurniture } from "./navgrid.js";
 import { roomPolygon } from "./room-shape.js";
 import { planFacadeRooms } from "./facade-plan.js";
 import { planLegacyPublicRooms } from "./legacy-public-access.js";
 import type { ProgramChange } from "./service-program.js";
+import { capsuleProfile } from '../styles/capsule/profile.js';
+import { planResidentialLivingGroups } from '../styles/capsule/composition-plan.js';
 
 /** uv-space working data a floor keeps for geometry and npc passes */
 export interface UvFloorData {
@@ -50,6 +53,12 @@ export interface UvFloorData {
   carpets: { room: string; rect: UvRect }[];
 }
 
+/** How far a floor steps back from its complete reference program when a room cannot
+ *  hold it: 0 the complete program; 1 the facade allocation it replaced, with plain
+ *  studios and service rooms; 2 that allocation furnished with what fits, where a unit
+ *  left without a bed or toilet is not published as a home. */
+export type ProgramFallback = 0 | 1 | 2;
+
 export interface PlannedFloor {
   circulation?: FloorCirculation;
   interior: FloorInterior;
@@ -60,7 +69,7 @@ export interface PlannedFloor {
 
 export function planFloor(
   request: InteriorRequest, core: CorePlan, floor: BlueprintFloor, kind: FloorKind,
-  isSpanUpper: boolean, spaceHeight: number,
+  isSpanUpper: boolean, spaceHeight: number, fallback: ProgramFallback = 0,
 ): PlannedFloor {
   const frame = core.frame;
   const uvOutline = floor.outline.map((p) => worldToUv(p, frame));
@@ -129,7 +138,7 @@ export function planFloor(
   let rooms: PlanRoom[] = [corridorRoom, ...(corridorTail ? [corridorTail] : [])];
 
   const facadePlan = hasFacadeGrid
-    ? planFacadeRooms(request, floor, kind, core, floorFrame, slabPlate, uvOutline, ids, rng) : null;
+    ? planFacadeRooms(request, floor, kind, core, floorFrame, slabPlate, uvOutline, ids, rng, fallback > 0) : null;
   const backing = facadePlan ? { rooms: [], sealed: [] }
     : fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
   rooms.push(...backing.rooms);
@@ -142,7 +151,7 @@ export function planFloor(
     }
     const fill = isMall
       ? fillShopStrip(seg, side, corridorRoom, rng, ids, unit, uvOutline)
-      : fillUnitStrip(seg, side, corridorRoom, kind, rng, ids, unit, uvOutline);
+      : fillUnitStrip(seg, side, corridorRoom, kind, rng, ids, unit, uvOutline, request.building.tier);
     rooms.push(...fill.rooms);
     extraSealed.push(...fill.sealed);
   };
@@ -153,7 +162,7 @@ export function planFloor(
     extraSealed.push(...facadePlan.sealed);
   } else if (publicBypass) {
     rooms = planLegacyPublicRooms(core, floorFrame, kind, corridorRoom, backing,
-      slabPlate, uvOutline, ids, rng, floor.index);
+      slabPlate, uvOutline, ids, rng, floor.index, request.building.tier);
     extraSealed.length = 0;
   } else if (isHall) {
     rooms.push(...fillVenue(floorFrame, corridorRoom, kind, rng, ids));
@@ -238,9 +247,14 @@ export function planFloor(
     for (const other of rooms) other.doors = other.doors.filter(door => door.to !== room.id);
     architectureAccess = validateArchitecture(floor.outline, bounds, rooms, sealed, core, floor.index, ids);
   }
+  const dwellingFamily = familyOf(request.building.type, request.building.tier);
+  if (!fallback && (kind === 'apartment' || kind === 'residence_studio') && (dwellingFamily === 'capsule' || dwellingFamily === 'damaged')) architectureAccess = planResidentialLivingGroups(
+    architectureAccess, rooms, frame, bounds, facadeKeepouts.map(item => item.rect),
+    dwellingFamily === 'damaged' ? 'damaged' : request.building.interiorStyle === 'sandra-dorsett' ? 'sandra-dorsett' : capsuleProfile(request));
   const architecture = architectureAccess.physical;
-  const worldRooms = rooms.map(room => roomToWorld(room, uvOutline, frame));
-  const circulation = reserveCirculation(architecture, rooms, core, floor.index, architectureAccess);
+  const circulation = reserveCirculation(architecture, rooms, core, floor.index, architectureAccess,
+    ['capsule', 'damaged'].includes(familyOf(request.building.type, request.building.tier)));
+  protectPrivateLivingRoutes(circulation, frame, rooms);
   const placementKeepouts = [...facadeKeepouts.map(item => item.rect), ...circulationKeepouts(circulation, frame)];
   const upperFloor = request.blueprint.floors.find(f => f.index === floor.index + 1);
   const loft = spaceHeight > floor.height && upperFloor ? fitLoft(rooms,
@@ -249,8 +263,16 @@ export function planFloor(
     floor.elevation + ceilingUnder(floor.openings, spaceHeight),
     insetPolygon(upperFloor.outline.map(p=>worldToUv(p,frame)),shellWallDepth(request.blueprint.facade)+.15)) : null;
   const carpets: UvFloorData["carpets"] = [];
+  const interiorStyle = request.building.interiorStyle
+    ?? (familyOf(request.building.type, request.building.tier) === 'capsule' ? capsuleProfile(request) : undefined);
   const furniture = furnish(rooms, kind, rng, ids, bounds,
-    [...placementKeepouts, ...(loft?.reserved ?? [])], request.building.tier, carpets);
+    [...placementKeepouts, ...(loft?.reserved ?? [])], request.building.tier, carpets,
+    familyOf(request.building.type, request.building.tier), publicCirculationKeepouts(circulation, frame, rooms), interiorStyle,
+    ceilingUnder(floor.openings, spaceHeight), fallback < 2);
+  // Last resort: a unit that still lacks a bed or toilet stays a room, not a home.
+  const unhomed = new Set(fallback < 2 ? [] : incompleteHomes(rooms, furniture));
+  for (const room of rooms) if (room.unit && unhomed.has(room.unit)) delete room.unit;
+  const worldRooms = rooms.map(room => roomToWorld(room, uvOutline, frame));
   blockPhysicalFurniture(architecture, frame, furniture);
   if (loft) blockLoftSolids(architecture, loft.solids, frame);
   verifyCirculation(circulation, architecture);
@@ -271,7 +293,8 @@ export function planFloor(
       lights: [...planLights(
         rooms, core, bounds.inner, ceilingElevation,
         floor.elevation + spaceHeight - stairSlab(spaceHeight), ids, request.building.tier,
-      ), ...furnitureLights(furniture, frame, floor.elevation, request.building.tier)].map(light =>
+      ), ...furnitureLights(furniture, frame, floor.elevation, request.building.tier,
+        familyOf(request.building.type, request.building.tier), interiorStyle, rooms, kind)].map(light =>
         loft && !light.furniture && light.room === loft.plan.lowerRoom
           && pointInPolygon([light.position[0], light.position[2]], loft.plan.platform)
           ? {...light, position: [light.position[0],loft.plan.elevation-loft.plan.thickness-.04,light.position[2]] as [number,number,number]} : light)
