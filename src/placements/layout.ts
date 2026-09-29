@@ -58,8 +58,10 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     // A room wearing a registered reference style is finished by it, over the family base.
     const published = new Map<string, Room>(floor.rooms.map(room => [room.id, room]));
     const planned = new Map<string, StyledPlanRoom>(uv.rooms.map(room => [room.id, room as StyledPlanRoom]));
+    // The stairwells are published later as common rooms: their walls wear the common style.
     const styleOfRoom = (room: string): StyleSpec | undefined => {
-        const id = published.get(room)?.style ?? planned.get(room)?.style;
+        const own = (id: string) => published.get(id)?.style ?? planned.get(id)?.style;
+        const id = own(room) ?? (/^stair-[ab]$/.test(room) ? own(common.id) : undefined);
         return id ? STYLES.get(id) : undefined;
     };
     const finishOf = (room: string, kind: RoomKind = kinds.get(room) ?? common.kind): RoomFinish => {
