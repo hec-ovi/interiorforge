@@ -19,9 +19,9 @@ export function zoneUvRect(zone: Pick<Zone, "polygon">): UvRect {
   return { u: b.x, v: b.z, lu: b.w, lv: b.d };
 }
 
-/** Rectangles of the room's raised zones that close nav cells. */
+/** Rectangles of the room's raised and sunken zones that close nav cells. */
 export function raisedZoneRects(room: Pick<PlanRoom, "levels">): UvRect[] {
-  return (room.levels ?? []).filter(zone => zone.delta >= NAV_LEVEL_MIN).map(zoneUvRect);
+  return (room.levels ?? []).filter(zone => Math.abs(zone.delta) >= NAV_LEVEL_MIN).map(zoneUvRect);
 }
 
 const overlaps = (a: UvRect, b: UvRect) =>

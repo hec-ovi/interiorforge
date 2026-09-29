@@ -11,9 +11,9 @@ import { facingRotation, subtractAll, wallIntervals, type Side } from './surface
 import type { SurfaceRoom } from './types.js';
 
 /** Level zones inside one room: a raised platform (the B3 bar, a split lobby's upper
- *  lounge), built from solid boxes the body climbs, since every
- *  rise stays under the engine's autostep. Only raised zones are built (a sunken reference
- *  is authored as a raised surround, since sinking would cut the structural slab). A zone
+ *  lounge) or a pit (the B3 lounge), built from solid boxes the body climbs, since every
+ *  rise stays under the engine's autostep. A sunken zone (a lounge pit) sinks at most
+ *  `SUNKEN_MAX`, inside the depth between this floor and the storey below's ceiling. A zone
  *  is the axis-aligned rectangle of its uv polygon, steps included. Its exposed sides (those not on the room's own walls) either step down all
  *  along (`step`, `open`) as nested slabs, one per riser, each a going inside the one
  *  below, or stand behind a glass guard (`guard`) with one straight flight at the zone's
@@ -43,6 +43,8 @@ export const SHARED_LEVEL_LOOK = 'ref';
 
 const CELL = .5;
 const EPS = 1e-6;
+/** Width of the curb lining a sunken zone's sides. */
+const CURB = .03;
 
 export interface LevelProfile {
     /** slab top (the platform's walking surface) */
@@ -61,7 +63,7 @@ const PROFILES = new Map<string, LevelProfile>();
 
 export function levelIds(sid: string) {
     return {
-        platform: `floor-slab-${sid}-platform`, tread: `floor-slab-${sid}-tread`,
+        platform: `floor-slab-${sid}-platform`, tread: `floor-slab-${sid}-tread`, sunken: `floor-slab-${sid}-sunken`,
         nosing: `trim-${sid}-nosing`, guard: `wall-guard-${sid}`, lens: `ceiling-cove-${sid}-nosing`,
     };
 }
@@ -75,9 +77,10 @@ export function zoneRect(zone: Pick<LevelZone, 'polygon'>): UvRect {
     return { u: b.x, v: b.z, lu: b.w, lv: b.d };
 }
 
-/** Raised zones only: a sunken floor would need the structural slab cut, so a sunken
- *  reference (a lounge pit) is authored as a raised surround instead. */
-const active = (zones: readonly LevelZone[]) => zones.filter(zone => zone.delta >= LEVEL_MIN);
+/** Deepest sunken zone: its tray stays inside the 0.35 m between this floor and the ceiling
+ *  of the storey below. */
+export const SUNKEN_MAX = .3;
+const active = (zones: readonly LevelZone[]) => zones.filter(zone => zone.delta >= LEVEL_MIN || (zone.delta <= -LEVEL_MIN && zone.delta >= -SUNKEN_MAX - 1e-9));
 
 /** The parts of a floor rectangle outside every level zone (uv polygons): they keep the
  *  room's own floor; `placeLevels` builds the rest. */
@@ -86,7 +89,7 @@ export function levelFloorRects(rect: UvRect, zones: readonly LevelZone[]): UvRe
 }
 
 /** One solid slab of a zone: a rectangle standing from `bottom` to `top`. */
-export interface LevelSlab { rect: UvRect; top: number; bottom: number; module: 'platform' | 'tread' }
+export interface LevelSlab { rect: UvRect; top: number; bottom: number; module: 'platform' | 'tread' | 'sunken' }
 /** A straight edge of a zone at height y: a nosing (step edge) or a guard (drop edge).
  *  `out` is the unit uv direction off the higher side. */
 export interface LevelEdge { a: Point; b: Point; y: number; out: Point }
@@ -144,7 +147,8 @@ const edgeAt = (side: Side, z: UvRect, s0: number, s1: number, y: number, offset
  *  rectangle. `rings` are the room's outline and holes: sides lying on them are walls. */
 export function levelPlan(zone: LevelZone, rings: readonly (readonly Point[])[]): LevelPlan {
     const plan: LevelPlan = { slabs: [], nosings: [], guards: [] };
-    if (zone.delta < LEVEL_MIN) return plan;
+    if (zone.delta > -LEVEL_MIN && zone.delta < LEVEL_MIN) return plan;
+    if (zone.delta < 0) return sunkenPlan(zone, rings, plan);
     const z = zoneRect(zone), n = riserCount(zone.delta), rise = Math.abs(zone.delta) / n;
     const open = exposedSides(z, rings);
     const sides = SIDE_LIST.filter(side => open[side].length);
@@ -205,6 +209,60 @@ export function levelPlan(zone: LevelZone, rings: readonly (readonly Point[])[])
     return plan;
 }
 
+/** A sunken zone (a lounge pit): a thin tray at delta over the whole zone, which alone
+ *  stands at y = 0 (so the zone counts as walking floor and no leftover slab covers it),
+ *  then steps back up to Y0. `step`: nested rings along every exposed side; `guard`: one
+ *  flight at the zone's stair and a glass guard on the floor above along the other drops. */
+function sunkenPlan(zone: LevelZone, rings: readonly (readonly Point[])[], plan: LevelPlan): LevelPlan {
+    const depth = Math.min(-zone.delta, SUNKEN_MAX), z = zoneRect(zone), n = riserCount(depth), rise = depth / n;
+    const open = exposedSides(z, rings), sides = SIDE_LIST.filter(side => open[side].length);
+    const going = Math.min(TREAD, ...sides.map(side => (side[0] === 'u' ? z.lu : z.lv) / (2 * Math.max(1, n - 1) + 1)));
+    plan.slabs.push({ rect: z, top: -depth, bottom: -depth, module: 'sunken' });
+    // A 30 mm curb lines every side of the pit from its floor up to Y0 (the step's riser,
+    // the wall's missing foot, the drop under a guard).
+    for (const side of SIDE_LIST) {
+        const r = side === 'u0' ? { u: z.u, v: z.v, lu: CURB, lv: z.lv } : side === 'u1' ? { u: z.u + z.lu - CURB, v: z.v, lu: CURB, lv: z.lv }
+            : side === 'v0' ? { u: z.u, v: z.v, lu: z.lu, lv: CURB } : { u: z.u, v: z.v + z.lv - CURB, lu: z.lu, lv: CURB };
+        plan.slabs.push({ rect: r, top: 0, bottom: -depth, module: 'tread' });
+    }
+    const inward = (side: Side) => SIDE_OUT[side].map(x => -x) as Point;
+    if (zone.edge === 'guard') {
+        const at = zone.stair?.at ?? [z.u + z.lu / 2, z.v];
+        const side = stairSide(z, at, sides);
+        if (!side) return plan;
+        const runAlong = side[0] === 'v' ? 0 : 1;
+        const lo = runAlong === 0 ? z.u : z.v, length = runAlong === 0 ? z.lu : z.lv;
+        const width = Math.min(zone.stair?.width ?? 1.2, FLIGHT_MAX, length);
+        const c = Math.min(Math.max(at[runAlong]!, lo + width / 2), lo + length - width / 2);
+        for (let k = 1; k < n; k++) {
+            // Step k (top -depth + k·rise) runs from the zone edge (n - k) goings inward.
+            const reach = (n - k) * going;
+            const rect: UvRect = runAlong === 0
+                ? { u: c - width / 2, v: side === 'v0' ? z.v : z.v + z.lv - reach, lu: width, lv: reach }
+                : { u: side === 'u0' ? z.u : z.u + z.lu - reach, v: c - width / 2, lu: reach, lv: width };
+            plan.slabs.push({ rect, top: -depth + k * rise, bottom: -depth, module: 'tread' });
+        }
+        for (let k = 1; k <= n; k++)
+            plan.nosings.push({ ...edgeAt(side, z, c - width / 2, c + width / 2, -depth + k * rise, (n - k) * going), out: inward(side) });
+        for (const s of sides) for (const [s0, s1] of open[s]) {
+            const runs: [number, number][] = s === side ? [[s0, Math.min(s1, c - width / 2)], [Math.max(s0, c + width / 2), s1]] : [[s0, s1]];
+            // The guard stands on the floor above, just outside the drop.
+            for (const [p, q] of runs) if (q - p > .1) plan.guards.push({ ...edgeAt(s, z, p, q, 0, -.06), out: inward(s) });
+        }
+        return plan;
+    }
+    for (let k = 1; k < n; k++) {
+        const by: Partial<Record<Side, number>> = {};
+        for (const s of sides) by[s] = (n - k) * going;
+        const inner = inset(z, by);
+        for (const part of subtractAll(z, inner.lu > EPS && inner.lv > EPS ? [inner] : []))
+            plan.slabs.push({ rect: part, top: -depth + k * rise, bottom: -depth, module: 'tread' });
+    }
+    for (let k = 1; k <= n; k++) for (const s of sides) for (const [s0, s1] of open[s])
+        plan.nosings.push({ ...edgeAt(s, z, s0, s1, -depth + k * rise, (n - k) * going), out: inward(s) });
+    return plan;
+}
+
 const clipRect = (a: UvRect, b: UvRect): UvRect | undefined => {
     const u0 = Math.max(a.u, b.u), u1 = Math.min(a.u + a.lu, b.u + b.lu), v0 = Math.max(a.v, b.v), v1 = Math.min(a.v + a.lv, b.v + b.lv);
     return u1 - u0 > 1e-4 && v1 - v0 > 1e-4 ? { u: u0, v: v0, lu: u1 - u0, lv: v1 - v0 } : undefined;
@@ -239,7 +297,10 @@ export function placeLevels(builder: PlacementBuilder, sid: string, room: Surfac
             const part = clipRect(slab.rect, rect);
             if (!part) continue;
             const [x, z] = uvToWorld([part.u + part.lu / 2, part.v + part.lv / 2], frame);
-            builder.module(ids[slab.module], room.id, [x, slab.bottom, z], [part.lu / CELL, (slab.top - slab.bottom) / CELL, part.lv / CELL], yaw);
+            // The tray is authored hanging under y = 0 (its top at -0.9 of its scale): it
+            // stands at y = 0 stretched to its depth; every other slab stands on its bottom.
+            if (slab.module === 'sunken') builder.module(ids.sunken, room.id, [x, 0, z], [part.lu / CELL, -slab.top / .9, part.lv / CELL], yaw);
+            else builder.module(ids[slab.module], room.id, [x, slab.bottom, z], [part.lu / CELL, (slab.top - slab.bottom) / CELL, part.lv / CELL], yaw);
         }
         for (const edge of plan.nosings) {
             const e = clipEdge(edge, rect);
@@ -285,6 +346,11 @@ export function levelRecipes(sid: string, profile: LevelProfile): RecipeSet {
     return add => {
         add(ids.platform, slab);
         add(ids.tread, slab);
+        // Sunken tray: a slab from y = -1 to -0.9, its top skin the walking floor.
+        add(ids.sunken, k => {
+            k.cbox(profile.riser, [0, -1, 0], [CELL, .088, CELL], undefined, ['bottom', 'north', 'south', 'east', 'west']);
+            k.cbox(profile.top, [0, -.912, 0], [CELL, .012, CELL], undefined, ['top']);
+        });
         add(ids.nosing, k => k.box(profile.nosing, [-CELL / 2, -.011, -.03], [CELL, .012, .031], undefined, ['top', 'south']));
         add(ids.lens, k => {
             k.box(profile.nosing, [-CELL / 2, -.011, -.03], [CELL, .012, .031], undefined, ['top']);
