@@ -1,0 +1,30 @@
+{
+  "id": "c2-corridors",
+  "version": 1,
+  "scope": "public",
+  "style": "c2",
+  "use": { "floorKinds": ["apartment", "residence_studio", "lobby"], "kinds": ["C"], "slot": "corridor" },
+  "envelope": { "width": 20.0, "depth": 3.0, "min": [3.0, 2.5], "max": [80.0, 6.0] },
+  "entry": { "room": "corridor", "door": "entry" },
+  "daylight": [],
+  "mirror": "allow",
+  "lines": [
+    { "id": "u0", "axis": "u", "ref": 0 },
+    { "id": "u1", "axis": "u", "ref": 20.0 },
+    { "id": "v0", "axis": "v", "ref": 0 },
+    { "id": "v1", "axis": "v", "ref": 3.0 }
+  ],
+  "spans": [
+    { "from": "u0", "to": "u1", "min": 3.0, "max": null, "weight": 20.0 },
+    { "from": "v0", "to": "v1", "min": 2.5, "max": null, "weight": 3.0 }
+  ],
+  "rooms": [
+    { "id": "corridor", "kind": "corridor", "role": "corridor", "remainder": true }
+  ],
+  "doors": [
+    { "id": "entry", "between": ["corridor", "@public"], "width": 2.4, "leaves": 2, "kind": "open", "along": 0.5,
+      "owner": "corridor", "optional": true }
+  ],
+  "fixtures": [],
+  "source": { "key": "c2-corridors", "revision": "hand-1" }
+}

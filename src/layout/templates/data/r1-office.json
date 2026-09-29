@@ -1,0 +1,54 @@
+{
+  "id": "r1-office",
+  "version": 1,
+  "scope": "public",
+  "style": "r1",
+  "use": { "floorKinds": ["office", "corpo_office"], "kinds": ["R"], "slot": "hall" },
+  "envelope": { "width": 13.0, "depth": 11.5, "min": [7.0, 7.1], "max": [60.0, 30.0] },
+  "entry": { "room": "open", "door": "entry" },
+  "daylight": ["v1"],
+  "mirror": "allow",
+  "lines": [
+    { "id": "u0", "axis": "u", "ref": 0 },
+    { "id": "u1", "axis": "u", "ref": 5.0 },
+    { "id": "u2", "axis": "u", "ref": 13.0 },
+    { "id": "v0", "axis": "v", "ref": 0 },
+    { "id": "v1", "axis": "v", "ref": 3.0 },
+    { "id": "v2", "axis": "v", "ref": 11.5 }
+  ],
+  "spans": [
+    { "from": "u0", "to": "u1", "min": 4.0, "max": 5.0, "weight": 0 },
+    { "from": "u1", "to": "u2", "min": 3.0, "max": null, "weight": 8.0 },
+    { "from": "v0", "to": "v1", "min": 1.6, "max": null, "weight": 3.0 },
+    { "from": "v1", "to": "v2", "min": 5.5, "max": 8.5, "weight": 0 }
+  ],
+  "rooms": [
+    { "id": "open", "kind": "office_open", "role": "open-office", "remainder": true, "ceiling": 3.0 },
+    { "id": "executive", "kind": "executive_office", "role": "executive", "u": ["u0", "u1"], "v": ["v1", "v2"],
+      "minClear": [3.8, 5.0], "ceiling": 3.0 }
+  ],
+  "doors": [
+    { "id": "entry", "between": ["open", "@public"], "width": 1.8, "leaves": 2, "kind": "swing", "along": 0.5, "owner": "open" },
+    { "id": "executive-door", "between": ["executive", "open"], "width": 1.4, "leaves": 2, "kind": "portal",
+      "portal": "r1-layered", "along": 0.2, "owner": "executive" }
+  ],
+  "fixtures": [
+    { "id": "desk", "room": "executive", "kind": "desk", "required": false, "wall": "free", "along": { "centred": true },
+      "at": [2.5, 6.3], "size": [2.2, 0.95, 0.76], "rotationDeg": 180 },
+    { "id": "desk-chair", "room": "executive", "kind": "office_chair", "required": false, "wall": "free", "along": { "centred": true },
+      "at": [2.5, 7.3], "size": [0.65, 0.65, 1.15], "rotationDeg": 180 },
+    { "id": "library", "room": "executive", "kind": "shelf", "fit": "asm-r1-library", "required": false, "wall": "u1",
+      "along": { "line": "v1", "offset": 0.9 }, "size": [2.6, 0.4, 2.2], "rotationDeg": 270, "stretch": ["v"] },
+    { "id": "bench", "room": "executive", "kind": "bench", "required": false, "wall": "v0",
+      "along": { "line": "u0", "offset": 2.7 }, "size": [2.2, 0.6, 0.45], "rotationDeg": 0 },
+    { "id": "cabinet-left", "room": "executive", "kind": "shelf", "required": false, "wall": "v1",
+      "along": { "line": "u0", "offset": 0.4 }, "size": [0.8, 0.5, 1.4], "rotationDeg": 180 },
+    { "id": "cabinet-right", "room": "executive", "kind": "shelf", "required": false, "wall": "v1",
+      "along": { "line": "u0", "offset": 3.8 }, "size": [0.8, 0.5, 1.4], "rotationDeg": 180 },
+    { "id": "screen", "room": "executive", "kind": "display_screen", "required": false, "wall": "v1",
+      "along": { "centred": true }, "size": [1.3, 0.08, 0.75], "rotationDeg": 180, "elevation": 1.5 },
+    { "id": "art", "room": "executive", "kind": "wall_art", "required": false, "wall": "u0",
+      "along": { "line": "v1", "offset": 4.0 }, "size": [1.4, 0.06, 1.0], "rotationDeg": 90, "elevation": 1.2 }
+  ],
+  "source": { "key": "r1-office", "revision": "hand-1" }
+}

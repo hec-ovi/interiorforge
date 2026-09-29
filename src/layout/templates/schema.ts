@@ -11,13 +11,9 @@ import type { UvRect } from "../uv.js";
  *  Local frame: v = 0 is the entry wall (the public side), v grows into the space and
  *  u runs along the entry wall. Values are metres. */
 
-export type ReferenceKind = "A" | "B" | "C" | "R";
-export type StyleId = "e1" | "e2" | "e5" | "e6" | "b1" | "b2" | "b3" | "b4"
-  | "c1" | "c2" | "c3" | "c4" | "c5" | "c6" | "c7" | "r1";
-export type TemplateKey = "e1-apartment" | "e2-floor" | "e5-lobby2" | "e6-apartment2" | "b1-floor" | "b2-suite"
-  | "b3-apartment" | "b4-loft" | "c1-capsule" | "c2-corridors" | "c3-poor" | "c4-bathroom" | "c5-machine"
-  | "c6-studio" | "c7-room" | "r1-office";
-export type PublicSlot = "ground-front" | "core-front" | "service" | "hall" | "corridor";
+import type { ReferenceKind, StyleId, TemplateKey } from "../../core/types.js";
+import type { PublicSlot } from "../../styles/reference/kinds.js";
+export type { PublicSlot, ReferenceKind, StyleId, TemplateKey };
 export type Axis = "u" | "v";
 
 export const TEMPLATE_KEYS: readonly TemplateKey[] = ["e1-apartment", "e2-floor", "e5-lobby2", "e6-apartment2",

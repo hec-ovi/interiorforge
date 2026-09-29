@@ -1,0 +1,44 @@
+{
+  "id": "c6-studio",
+  "version": 1,
+  "scope": "dwelling",
+  "style": "c6",
+  "use": { "floorKinds": ["apartment", "residence_studio", "hotel_rooms"], "kinds": ["C"] },
+  "envelope": { "width": 5.5, "depth": 6.5, "min": [4.6, 5.8], "max": [11.0, 13.0] },
+  "entry": { "room": "studio", "door": "entry" },
+  "daylight": ["v1"],
+  "mirror": "allow",
+  "lines": [
+    { "id": "u0", "axis": "u", "ref": 0 },
+    { "id": "u1", "axis": "u", "ref": 3.1 },
+    { "id": "u2", "axis": "u", "ref": 5.5 },
+    { "id": "v0", "axis": "v", "ref": 0 },
+    { "id": "v1", "axis": "v", "ref": 1.2 },
+    { "id": "v2", "axis": "v", "ref": 3.6 },
+    { "id": "v3", "axis": "v", "ref": 6.5 }
+  ],
+  "spans": [
+    { "from": "u0", "to": "u1", "min": 2.4, "max": null, "weight": 3.1 },
+    { "from": "u1", "to": "u2", "min": 2.2, "max": 2.4, "weight": 0 },
+    { "from": "v0", "to": "v1", "min": 1.2, "max": null, "weight": 0.5 },
+    { "from": "v1", "to": "v2", "min": 2.2, "max": 2.4, "weight": 0 },
+    { "from": "v2", "to": "v3", "min": 2.4, "max": null, "weight": 2.9 }
+  ],
+  "rooms": [
+    { "id": "studio", "kind": "studio_main", "role": "studio", "remainder": true },
+    { "id": "bath", "kind": "bathroom", "role": "shower-room", "u": ["u1", "u2"], "v": ["v1", "v2"], "minClear": [2.2, 2.2] }
+  ],
+  "doors": [
+    { "id": "entry", "between": ["studio", "@public"], "width": 1.2, "leaves": 1, "kind": "pocket", "along": 0.3, "owner": "studio" },
+    { "id": "bath-door", "between": ["bath", "studio"], "width": 0.9, "leaves": 1, "kind": "swing", "along": 0.5, "owner": "bath" }
+  ],
+  "fixtures": [
+    { "id": "bed", "room": "studio", "kind": "bed_double", "required": true, "wall": "u0",
+      "along": { "line": "v2", "offset": 0.2 }, "size": [1.6, 2.0, 0.5], "rotationDeg": 90 },
+    { "id": "media", "room": "studio", "kind": "display_screen", "required": false, "wall": "u1",
+      "along": { "line": "v2", "offset": 1.0 }, "size": [1.2, 0.08, 0.7], "rotationDeg": 270, "elevation": 1.4 },
+    { "id": "window-storage", "room": "studio", "kind": "shelf", "required": false, "wall": "v1",
+      "along": { "line": "u1", "offset": 0.2 }, "size": [1.6, 0.45, 0.8], "rotationDeg": 180 }
+  ],
+  "source": { "key": "c6-studio", "revision": "hand-1" }
+}

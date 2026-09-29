@@ -1,0 +1,36 @@
+{
+  "id": "c5-machine",
+  "version": 1,
+  "scope": "public",
+  "style": "c5",
+  "use": { "floorKinds": ["lobby", "apartment", "residence_studio"], "kinds": ["C"], "slot": "service" },
+  "envelope": { "width": 5.0, "depth": 4.5, "min": [2.4, 2.5], "max": [12.0, 9.0] },
+  "entry": { "room": "machine", "door": "entry" },
+  "daylight": [],
+  "mirror": "allow",
+  "lines": [
+    { "id": "u0", "axis": "u", "ref": 0 },
+    { "id": "u1", "axis": "u", "ref": 5.0 },
+    { "id": "v0", "axis": "v", "ref": 0 },
+    { "id": "v1", "axis": "v", "ref": 4.5 }
+  ],
+  "spans": [
+    { "from": "u0", "to": "u1", "min": 2.4, "max": null, "weight": 5.0 },
+    { "from": "v0", "to": "v1", "min": 2.5, "max": null, "weight": 4.5 }
+  ],
+  "rooms": [
+    { "id": "machine", "kind": "mechanical_room", "role": "machine-room", "remainder": true }
+  ],
+  "doors": [
+    { "id": "entry", "between": ["machine", "@public"], "width": 1.0, "leaves": 1, "kind": "swing", "along": 0.25, "owner": "machine" }
+  ],
+  "fixtures": [
+    { "id": "drive-bank", "room": "machine", "kind": "ornament_wall", "fit": "fit-industrial-drive-bank", "required": false,
+      "wall": "v1", "along": { "centred": true }, "size": [2.4, 0.8, 2.0], "rotationDeg": 180 },
+    { "id": "rack", "room": "machine", "kind": "shelf", "fit": "fit-industrial-storage-rack", "required": false,
+      "wall": "u1", "along": { "line": "v0", "offset": 1.2 }, "size": [1.8, 0.6, 2.0], "rotationDeg": 270 },
+    { "id": "case", "room": "machine", "kind": "crate", "fit": "fit-industrial-transit-case", "required": false,
+      "wall": "u0", "along": { "line": "v0", "offset": 1.4 }, "size": [0.62, 0.62, 0.55], "rotationDeg": 90 }
+  ],
+  "source": { "key": "c5-machine", "revision": "hand-1" }
+}

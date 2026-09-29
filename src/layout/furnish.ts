@@ -5,7 +5,7 @@ import type { Rng } from "../core/rng.js";
 import type { FloorKind, FurnitureKind, InteriorStyle } from "../core/types.js";
 import { doorZonesByRoom } from "./clearance.js";
 import { BODY_CLEAR } from "./constants.js";
-import type { PlanFurniture, PlanRoom } from "./plan-types.js";
+import type { AuthoredPiece, PlanFurniture, PlanRoom } from "./plan-types.js";
 import { doorUvPoint } from "./plan-floor.js";
 import type { IdGen } from "./rooms.js";
 import type { FloorBounds } from "./shell.js";
@@ -572,6 +572,40 @@ class RoomPlacer {
     return placed;
   }
 
+  /** Commits a template's authored pieces at their exact places and sizes. A colliding
+   *  optional piece is left out; when a required one cannot stand, nothing is kept and the
+   *  room falls back to the family dispatch. Built-in runs reserve the wall to the ceiling. */
+  authored(pieces: readonly AuthoredPiece[], ceilingHeight: number): boolean {
+    const blocked = this.blocked.length, out = this.out.length;
+    for (let piece of pieces) {
+      // a wall piece slides off its wall (facade lining, door swing) before it gives up
+      const back = BACK_NORMAL[piece.rotationDeg]!;
+      let fp = footprintOf(piece);
+      for (let step = 1; step <= 10 && !this.fits(fp, piece.kind); step++) {
+        const base = footprintOf(piece);
+        fp = { ...base, u: base.u + back[0] * step * 0.05, v: base.v + back[1] * step * 0.05 };
+      }
+      if (this.fits(fp, piece.kind)) {
+        piece = { ...piece, at: [fp.u + fp.lu / 2, fp.v + fp.lv / 2] };
+        const size: [number, number, number] = piece.fit?.startsWith('asm-') && (piece.kind === 'kitchen_block' || piece.kind === 'wardrobe')
+          && Number.isFinite(ceilingHeight) ? [piece.size[0], piece.size[1], Math.max(piece.size[2], ceilingHeight - (piece.elevation ?? 0))] : piece.size;
+        this.blocked.push(fp);
+        const item: PlanFurniture = { id: this.ids.furniture(), kind: piece.kind, room: this.room.id, at: piece.at,
+          rotationDeg: piece.rotationDeg, size,
+          ...(piece.elevation !== undefined ? { elevation: piece.elevation } : MOUNT[piece.kind] !== undefined ? { elevation: MOUNT[piece.kind] } : {}),
+          ...(piece.fit ? { fit: piece.fit } : {}) };
+        this.out.push(item);
+        this.rects.set(item.id, fp);
+        continue;
+      }
+      if (!piece.required) continue;
+      this.blocked.splice(blocked);
+      for (const item of this.out.splice(out)) this.rects.delete(item.id);
+      return false;
+    }
+    return this.out.length > out;
+  }
+
   private fits(fp: UvRect, kind: FurnitureKind, except?: UvRect): boolean {
     if (!this.covers(fp)) return false;
     const gap = MOUNT[kind] ? 0.05 : SEATS.has(kind) ? 0.06 : 0.15;
@@ -776,6 +810,9 @@ export function furnish(
       rooms, family,
     );
     const area = roomArea(room);
+    // A templated room stands its authored pieces first; the family dispatch still runs for
+    // a room whose template did not author the piece that makes it what it is.
+    if (room.authored?.length && p.authored(room.authored, ceilingHeight) && authoredComplete(room, out)) continue;
     if (family === 'industrial' && furnishIndustrial(room, floorKind, p)) continue;
     if (family === 'corporate' && furnishCorporate(room, floorKind, p)) continue;
     if (domestic && furnishResidentialComposition(room, p, residentialProfile)) continue;
@@ -989,6 +1026,22 @@ export function furnish(
   if (strict && incomplete.length) throw new InteriorError('E_FLOOR_TOO_SMALL',
     `${incomplete.join(', ')} cannot fit a bed and a toilet in the rooms that carry them`);
   return out;
+}
+
+/** Direction away from the back wall of a piece at each rotation (it faces that way). */
+const BACK_NORMAL: Record<number, [number, number]> = { 0: [0, 1], 90: [1, 0], 180: [0, -1], 270: [-1, 0] };
+
+/** The pieces that make each room kind what it is; an authored room holding one is done. */
+const DEFINING: Partial<Record<string, readonly FurnitureKind[]>> = {
+  bedroom: ['bed_double', 'bed_single', 'sleeping_pod'], studio_main: ['bed_double', 'bed_single', 'sleeping_pod'],
+  living: ['sofa'], lounge: ['sofa', 'bench'], kitchen: ['kitchen_block'], bathroom: ['toilet'], toilets: ['toilet'],
+  office_private: ['desk'], executive_office: ['desk'], office_open: ['desk'], meeting: ['meeting_table'],
+  reception: ['reception_desk'], bar: ['bar_counter'],
+};
+
+function authoredComplete(room: PlanRoom, placed: readonly PlanFurniture[]): boolean {
+  const defining = DEFINING[room.kind];
+  return !defining || placed.some(item => item.room === room.id && defining.includes(item.kind));
 }
 
 /** Cooking pieces placed one by one against their walls, each keeping its own clearance. */

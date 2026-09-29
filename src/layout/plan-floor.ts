@@ -41,6 +41,8 @@ import { planLegacyPublicRooms } from "./legacy-public-access.js";
 import type { ProgramChange } from "./service-program.js";
 import { capsuleProfile } from '../styles/capsule/profile.js';
 import { planResidentialLivingGroups } from '../styles/capsule/composition-plan.js';
+import { applySpaceTemplates } from "./templates/apply.js";
+import { dwellingTemplates, publicTemplates, stampStyles } from "./templates/registry.js";
 
 /** uv-space working data a floor keeps for geometry and npc passes */
 export interface UvFloorData {
@@ -67,9 +69,39 @@ export interface PlannedFloor {
   uv: UvFloorData;
 }
 
+/** Units and halls a floor templated, and those a failed attempt must leave generic. */
+interface TemplateRun { exclude: Set<string>; templated: Map<string, { key: string; rooms: string[] }> }
+
+/** Plans one floor. On a kind building the floor first tries its authored templates; a
+ *  floor that then fails downstream is planned again without the unit that failed (or,
+ *  when the failure names none, without templates), so a template never fails a building. */
 export function planFloor(
   request: InteriorRequest, core: CorePlan, floor: BlueprintFloor, kind: FloorKind,
   isSpanUpper: boolean, spaceHeight: number, fallback: ProgramFallback = 0,
+): PlannedFloor {
+  const offered = !isSpanUpper && (dwellingTemplates(request, kind).length > 0
+    || publicTemplates(request, kind, "hall").length > 0);
+  if (!offered) return planFloorWith(request, core, floor, kind, isSpanUpper, spaceHeight, fallback, null);
+  const run: TemplateRun = { exclude: new Set(), templated: new Map() };
+  for (let attempt = 0; attempt < 6; attempt++) {
+    run.templated = new Map();
+    try {
+      return planFloorWith(request, core, floor, kind, isSpanUpper, spaceHeight, fallback, run);
+    } catch (error) {
+      if (!run.templated.size) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      const named = (id: string) => new RegExp(`(^|[^\\w-])${id.replace(/[-]/g, "\\-")}(?![\\w-])`).test(message);
+      const culprits = [...run.templated].filter(([id, entry]) => named(id) || entry.rooms.some(named)).map(([id]) => id);
+      if (!culprits.length) break;
+      for (const id of culprits) run.exclude.add(id);
+    }
+  }
+  return planFloorWith(request, core, floor, kind, isSpanUpper, spaceHeight, fallback, null);
+}
+
+function planFloorWith(
+  request: InteriorRequest, core: CorePlan, floor: BlueprintFloor, kind: FloorKind,
+  isSpanUpper: boolean, spaceHeight: number, fallback: ProgramFallback, templateRun: TemplateRun | null,
 ): PlannedFloor {
   const frame = core.frame;
   const uvOutline = floor.outline.map((p) => worldToUv(p, frame));
@@ -189,6 +221,31 @@ export function planFloor(
     for (const r of rooms) r.doors = r.doors.filter((d) => !dropped.has(d.to));
   }
 
+  // Authored reference spaces replace generic units and halls where they fit. Every room
+  // they emit carries a polygon, so the grid and pier passes below leave it in place.
+  const templateChanges: ProgramChange[] = [];
+  if (templateRun) {
+    const family = familyOf(request.building.type, request.building.tier);
+    const probeStyle = request.building.interiorStyle ?? (family === 'capsule' ? capsuleProfile(request) : undefined);
+    const probeCeiling = ceilingUnder(floor.openings, spaceHeight);
+    const applied = applySpaceTemplates({
+      request, floor, kind, core, plate: slabPlate, outline: uvOutline, rooms, ids, exclude: templateRun.exclude,
+      furnishes: (candidate) => {
+        try {
+          furnish(candidate.map(room => ({ ...room, doors: [...room.doors] })), kind,
+            createRng(request.seed, "template-probe", floor.index), idGen(0), bounds, [], request.building.tier, [],
+            family, [], probeStyle, probeCeiling, true);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    });
+    rooms = applied.rooms;
+    templateChanges.push(...applied.changes);
+    for (const [id, entry] of applied.templated) templateRun.templated.set(id, entry);
+  }
+
   // partitions first land on the interior grid, half the exterior panel, counted from the
   // outline's corner. The facade reservation pass runs last so the grid cannot move a wall
   // back through an opening after it has been fitted to a pier.
@@ -247,6 +304,7 @@ export function planFloor(
     for (const other of rooms) other.doors = other.doors.filter(door => door.to !== room.id);
     architectureAccess = validateArchitecture(floor.outline, bounds, rooms, sealed, core, floor.index, ids);
   }
+  stampStyles(rooms, request, kind);
   const dwellingFamily = familyOf(request.building.type, request.building.tier);
   if (!fallback && (kind === 'apartment' || kind === 'residence_studio') && (dwellingFamily === 'capsule' || dwellingFamily === 'damaged')) architectureAccess = planResidentialLivingGroups(
     architectureAccess, rooms, frame, bounds, facadeKeepouts.map(item => item.rect),
@@ -301,7 +359,9 @@ export function planFloor(
         .concat(loft ? loftLights(loft.plan, floor.elevation, ceilingElevation, request.building.tier).filter(light => light.room === loft.plan.lowerRoom) : []),
     },
     grid,
-    uv: { outline: uvOutline, rooms, furniture, sealed, carpets, programChanges: facadePlan?.changes },
+    uv: { outline: uvOutline, rooms, furniture, sealed, carpets,
+      ...(facadePlan?.changes.length || templateChanges.length
+        ? { programChanges: [...(facadePlan?.changes ?? []), ...templateChanges] } : {}) },
   };
 }
 
@@ -351,6 +411,16 @@ function roomToWorld(room: PlanRoom, uvOutline: Point[], frame: Frame): Room {
     }) } : {}),
     ...(room.unit ? { unit: room.unit } : {}),
     doors: room.doors.map((d) => doorToWorld(d, room, frame)),
+    ...(room.style ? { style: room.style } : {}),
+    ...(room.template ? { template: room.template } : {}),
+    ...(room.role ? { role: room.role } : {}),
+    ...(room.ceilingDrop ? { ceilingDrop: round3(room.ceilingDrop) } : {}),
+    ...(room.levels?.length ? { levels: room.levels.map(level => {
+      let ring = toWorldPolygon(level.polygon, frame).map(roundPoint);
+      if (!isCcw(ring)) ring = ring.reverse();
+      return { polygon: ring, delta: level.delta, edge: level.edge,
+        ...(level.stair ? { stair: { at: roundPoint(uvToWorld(level.stair.at, frame)), axis: level.stair.axis, width: level.stair.width } } : {}) };
+    }) } : {}),
   };
 }
 
@@ -419,6 +489,7 @@ export function furnitureToWorld(f: PlanFurniture, frame: Frame) {
     rotationDeg: norm360(f.rotationDeg - frame.angleDeg),
     size: f.size,
     ...(f.elevation === undefined ? {} : { elevation: f.elevation }),
+    ...(f.fit ? { fit: f.fit } : {}),
   };
 }
 

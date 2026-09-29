@@ -1,0 +1,63 @@
+{
+  "id": "e1-apartment",
+  "version": 1,
+  "scope": "dwelling",
+  "style": "e1",
+  "use": { "floorKinds": ["apartment", "hotel_rooms", "residence_studio"], "kinds": ["A"] },
+  "envelope": { "width": 15.0, "depth": 10.0, "min": [8.7, 7.4], "max": [30.0, 20.0] },
+  "entry": { "room": "living", "door": "entry" },
+  "daylight": ["v1"],
+  "mirror": "allow",
+  "lines": [
+    { "id": "u0", "axis": "u", "ref": 0 },
+    { "id": "u1", "axis": "u", "ref": 10.0 },
+    { "id": "u2", "axis": "u", "ref": 12.0 },
+    { "id": "u3", "axis": "u", "ref": 15.0 },
+    { "id": "v0", "axis": "v", "ref": 0 },
+    { "id": "v1", "axis": "v", "ref": 1.4 },
+    { "id": "v2", "axis": "v", "ref": 4.5 },
+    { "id": "v3", "axis": "v", "ref": 10.0 }
+  ],
+  "spans": [
+    { "from": "u0", "to": "u1", "min": 4.5, "max": null, "weight": 10.0 },
+    { "from": "u1", "to": "u2", "min": 1.6, "max": 2.8, "weight": 1.0 },
+    { "from": "u2", "to": "u3", "min": 2.6, "max": 3.0, "weight": 0 },
+    { "from": "v0", "to": "v1", "min": 1.2, "max": null, "weight": 0.5 },
+    { "from": "v1", "to": "v2", "min": 2.6, "max": 3.1, "weight": 0 },
+    { "from": "v2", "to": "v3", "min": 3.6, "max": 7.7, "weight": 2.75 }
+  ],
+  "rooms": [
+    { "id": "living", "kind": "living", "role": "living", "remainder": true, "ceiling": 3.0 },
+    { "id": "bath", "kind": "bathroom", "role": "bath", "u": ["u2", "u3"], "v": ["v1", "v2"], "minClear": [2.6, 2.6], "ceiling": 2.8 },
+    { "id": "dressing", "kind": "storage", "role": "dressing", "u": ["u1", "u2"], "v": ["v1", "v2"],
+      "optional": { "drop": 1 }, "minClear": [1.4, 2.0], "ceiling": 2.8 },
+    { "id": "bed", "kind": "bedroom", "role": "bedroom", "u": ["u1", "u3"], "v": ["v2", "v3"], "minClear": [3.4, 3.6], "ceiling": 3.0 }
+  ],
+  "doors": [
+    { "id": "entry", "between": ["living", "@public"], "width": 1.6, "leaves": 2, "kind": "pocket", "along": 0.45, "owner": "living" },
+    { "id": "bed-portal", "between": ["bed", "living"], "width": 2.4, "leaves": 2, "kind": "portal", "portal": "e1-inner",
+      "along": 0.5, "owner": "bed" },
+    { "id": "bath-door", "between": ["bath", "living"], "width": 0.9, "leaves": 1, "kind": "swing", "along": 0.5, "owner": "bath" },
+    { "id": "dressing-door", "between": ["dressing", "bed"], "width": 0.9, "leaves": 1, "kind": "pocket", "along": 0.5,
+      "owner": "dressing" }
+  ],
+  "fixtures": [
+    { "id": "kitchen", "room": "living", "kind": "kitchen_block", "fit": "asm-e1-kitchen", "required": true, "wall": "v1",
+      "along": { "line": "u0", "offset": 0.75 }, "size": [3.6, 0.65, 0.9], "rotationDeg": 180, "stretch": ["u"] },
+    { "id": "kitchen-return", "room": "living", "kind": "kitchen_block", "fit": "asm-e1-kitchen", "required": false, "wall": "u0",
+      "along": { "line": "v2", "offset": 1.2 }, "size": [2.4, 0.65, 0.9], "rotationDeg": 90, "stretch": ["v"] },
+    { "id": "island", "room": "living", "kind": "bar_counter", "fit": "asm-e1-island", "required": false, "wall": "free",
+      "along": { "centred": true }, "at": [2.4, 6.9], "size": [2.4, 1.0, 0.95], "rotationDeg": 0 },
+    { "id": "planter", "room": "living", "kind": "plant", "fit": "asm-e1-planter", "required": false, "wall": "v1",
+      "along": { "line": "u0", "offset": 5.0 }, "size": [4.2, 0.45, 0.8], "rotationDeg": 180, "stretch": ["u"] },
+    { "id": "sofa", "room": "living", "kind": "sofa", "required": false, "wall": "free", "along": { "centred": true },
+      "at": [7.3, 7.9], "size": [2.6, 1.0, 0.8], "rotationDeg": 180 },
+    { "id": "bed", "room": "bed", "kind": "bed_double", "required": true, "wall": "u1",
+      "along": { "line": "v2", "offset": 1.6 }, "size": [1.8, 2.15, 0.55], "rotationDeg": 270 },
+    { "id": "desk", "room": "bed", "kind": "desk", "required": false, "wall": "v1",
+      "along": { "line": "u1", "offset": 0.5 }, "size": [1.4, 0.7, 0.75], "rotationDeg": 180 },
+    { "id": "wardrobe", "room": "dressing", "kind": "wardrobe", "fit": "asm-e1-wardrobe", "required": false, "wall": "u0",
+      "along": { "line": "v1", "offset": 0.25 }, "size": [2.6, 0.65, 2.4], "rotationDeg": 90, "stretch": ["v"] }
+  ],
+  "source": { "key": "e1-apartment", "revision": "hand-1" }
+}

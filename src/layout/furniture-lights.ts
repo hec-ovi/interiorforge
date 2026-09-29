@@ -40,6 +40,8 @@ export function furnitureLights(items: readonly PlanFurniture[], frame: Frame, e
     // Corporate joinery replaces these fittings with unlit cabinetry; inherited
     // luxury fixtures retain the exact lens geometry and warm diffuser colour.
     if (family === 'corporate' && CORPORATE_FITS[item.kind]) return [];
+    // A built-in assembly carries its own lenses and records.
+    if (item.fit?.startsWith('asm-')) return [];
     const profileLit = family === 'capsule' && interiorStyle === 'japantown'
       ? (CAPSULE_PROFILE_LIGHTS.japantown as Partial<Record<FurnitureKind, Lit>>)[item.kind] : undefined;
     const residentialBath = usesResidentialVanity(family, roomKinds.get(item.room), programme);
