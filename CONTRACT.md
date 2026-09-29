@@ -1,4 +1,4 @@
-# Interior 0.37.3
+# Interior 0.38.0
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
