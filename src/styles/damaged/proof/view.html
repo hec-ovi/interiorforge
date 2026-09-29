@@ -1,0 +1,13 @@
+<!doctype html><html><body style="margin:0;background:#d8d7d2"><script type="module">
+import * as T from '/node_modules/.vite/deps/three.js';
+import { cityGltfLoader } from '/src/game/data/CityGltfLoader.js';
+import { RoomEnvironment } from '/node_modules/three/examples/jsm/environments/RoomEnvironment.js';
+const scene=new T.Scene();scene.background=new T.Color('#d8d7d2');
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1600,1000);renderer.setPixelRatio(1);renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=.85;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;document.body.append(renderer.domElement);
+const pmrem=new T.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(),.03).texture;
+scene.add(new T.HemisphereLight(0xffffff,0x6e7377,.7));const key=new T.DirectionalLight(0xfff5e6,2.7);key.position.set(-3,5,4);key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.camera.left=-5;key.shadow.camera.right=5;key.shadow.camera.top=5;key.shadow.camera.bottom=-5;key.shadow.bias=-.0001;scene.add(key);
+const objects=JSON.parse(new URL(location).searchParams.get('models')??'[["fit-damaged-sofa",0,0]]');
+for(const [id,x,z] of objects){const {scene:loaded}=await cityGltfLoader().loadAsync(`/@fs/work/interior/out/proof/damaged-02/${id}.glb`);loaded.position.set(x,0,z);loaded.traverse(n=>{if(n.isMesh){n.castShadow=true;n.receiveShadow=true;const mats=Array.isArray(n.material)?n.material:[n.material];for(const m of mats)for(const t of [m.map,m.normalMap,m.roughnessMap,m.metalnessMap])if(t)t.anisotropy=8;}});scene.add(loaded);}
+const floor=new T.Mesh(new T.PlaneGeometry(25,25),new T.MeshStandardMaterial({color:'#898b88',roughness:.85}));floor.rotation.x=-Math.PI/2;floor.position.y=-.012;floor.receiveShadow=true;scene.add(floor);
+const camera=new T.PerspectiveCamera(40,1600/1000,.01,100);window.setView=(at,aim)=>{camera.position.set(...at);camera.lookAt(...aim);renderer.render(scene,camera)};window.setView([2.7,1.9,3.6],[0,.4,0]);window.ready=true;
+</script></body></html>

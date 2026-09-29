@@ -1,0 +1,22 @@
+<!doctype html><html><body style="margin:0;background:#232524"><script type="module">
+import * as T from '/node_modules/.vite/deps/three.js';
+import { cityGltfLoader } from '/src/game/data/CityGltfLoader.js';
+import { isSceneryNode } from '/src/game/city/ShellSurface.js';
+import { RoomEnvironment } from '/node_modules/three/examples/jsm/environments/RoomEnvironment.js';
+const proof=new URL(location).searchParams.get('proof')??'damaged-03';
+const root='/@fs/work/interior/out/proof/'+proof+'/';
+const scene=new T.Scene();scene.background=new T.Color('#424441');
+const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(1600,1000);renderer.setPixelRatio(1);renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=.8;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;document.body.append(renderer.domElement);
+const pmrem=new T.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(),.03).texture;scene.environmentIntensity=.38;
+scene.add(new T.HemisphereLight(0xffffff,0x545753,.35));
+for(const [x,z,power] of [[-2,.9,28],[2,.9,24]]){const key=new T.PointLight(0xffe9cc,power,9,2);key.position.set(x,2.5,z);key.castShadow=true;key.shadow.mapSize.set(1024,1024);key.shadow.bias=-.0002;scene.add(key)}
+const profile=new URL(location).searchParams.get('profile')??'public';
+const actual=!['public','lodging'].includes(profile)?(await fetch(root+'actual-rooms.json').then(r=>r.json())).find(v=>v.name===profile):null;
+if(actual){const dx=actual.at[0]-actual.aim[0],dz=actual.at[2]-actual.aim[2],length=Math.hypot(dx,dz);let side=-1;for(const light of scene.children.filter(n=>n.isPointLight)){light.position.set(actual.aim[0]+dx/length*1.5-dz/length*side,2.8,actual.aim[2]+dz/length*1.5+dx/length*side);side=1;}}
+const asset=actual?.scene??profile;
+const placements=await fetch(root+asset+'.json').then(r=>r.json()), loader=cityGltfLoader(), catalog=new Map();
+for(const id of new Set(placements.map(p=>p.module)))catalog.set(id,(await loader.loadAsync(root+id+'.glb')).scene);
+if(actual){const shell=(await loader.loadAsync(root+(actual.shell??asset)+'-shell.glb')).scene;shell.position.y=-actual.elevation;shell.traverse(n=>{if(n.isMesh){n.castShadow=true;n.receiveShadow=true;if(isSceneryNode(n))n.visible=false;}});scene.add(shell)}
+for(const p of placements){const obj=catalog.get(p.module).clone(true);obj.position.set(...p.position);obj.rotation.y=p.rotationY;obj.scale.set(...p.scale);obj.traverse(n=>{if(n.isMesh){n.castShadow=true;n.receiveShadow=true;const materials=(Array.isArray(n.material)?n.material:[n.material]).map(m=>{const c=m.clone();for(const key of ['map','normalMap','roughnessMap','metalnessMap'])if(c[key]){c[key]=c[key].clone();c[key].repeat.set(...p.uvRepeat??[1,1]);c[key].anisotropy=8;}return c});n.material=Array.isArray(n.material)?materials:materials[0]}});scene.add(obj)}
+const camera=new T.PerspectiveCamera(actual?.kind==='living'?72:62,1600/1000,.025,100);window.setView=(at,aim)=>{camera.position.set(...at);camera.lookAt(...aim);renderer.render(scene,camera)};window.setRoomView=(at,aim)=>{const dx=at[0]-aim[0],dz=at[2]-aim[2],length=Math.max(.01,Math.hypot(dx,dz));let side=-1;for(const light of scene.children.filter(n=>n.isPointLight)){light.position.set(aim[0]+dx/length*1.5-dz/length*side,2.8,aim[2]+dz/length*1.5+dx/length*side);side=1;}window.setView(at,aim)};window.setView(actual?.at??[2.4,1.62,1.3],actual?.aim??[0,1.65,-1.5]);window.ready=true;
+</script></body></html>
