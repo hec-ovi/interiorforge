@@ -170,7 +170,8 @@ function planFloorWith(
   let rooms: PlanRoom[] = [corridorRoom, ...(corridorTail ? [corridorTail] : [])];
 
   const facadePlan = hasFacadeGrid
-    ? planFacadeRooms(request, floor, kind, core, floorFrame, slabPlate, uvOutline, ids, rng, fallback > 0) : null;
+    ? planFacadeRooms(request, floor, kind, core, floorFrame, slabPlate, uvOutline, ids, rng, fallback > 0,
+      templateRun !== null) : null;
   const backing = facadePlan ? { rooms: [], sealed: [] }
     : fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
   rooms.push(...backing.rooms);
@@ -230,6 +231,7 @@ function planFloorWith(
     const probeCeiling = ceilingUnder(floor.openings, spaceHeight);
     const applied = applySpaceTemplates({
       request, floor, kind, core, plate: slabPlate, outline: uvOutline, rooms, ids, exclude: templateRun.exclude,
+      ceiling: { height: probeCeiling, glassHead: Math.max(0, ...floor.openings.map(o => o.sill + o.height)) },
       furnishes: (candidate) => {
         try {
           furnish(candidate.map(room => ({ ...room, doors: [...room.doors] })), kind,

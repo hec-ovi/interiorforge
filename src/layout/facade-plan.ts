@@ -50,7 +50,10 @@ export interface FacadeRoomPlan { rooms: PlanRoom[]; sealed: UvRect[]; changes: 
 /** Complete facade bays belong to one room; the shared remainder carries public routes. */
 export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor, kind: FloorKind,
   core: CorePlan, frame: FloorFrame, plate: Point[], outline: Point[], ids: IdGen, rng: Rng,
-  previous = false): FacadeRoomPlan {
+  previous = false, templates = false): FacadeRoomPlan {
+  // Only a floor that is fitting its reference templates sizes and keeps homes for them;
+  // the plain retry of a floor reproduces the generic allocation exactly.
+  const sizing = templates && (kind === 'apartment' || kind === 'residence_studio') ? unitSizing(request, kind) : null;
   // Keep the stable core datum. The extra clear public width comes from the
   // floor allocation in front of it, not from moving stairs or lift shafts.
   if (request.building.type === 'residential' && ['rich', 'high_rich'].includes(request.building.tier)
@@ -88,7 +91,7 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
     const damaged = planDamagedResidential(request, floor, core, frame, plate, outline, ids);
     if (damaged) return { rooms: damaged, sealed: [], changes: [] };
     const diagnostics: string[] = [];
-    const complete = planPerimeterResidential(request, floor, core, frame, corridor, plate, outline, ids, diagnostics);
+    const complete = planPerimeterResidential(request, floor, core, frame, corridor, plate, outline, ids, diagnostics, sizing);
     if (complete) return { rooms: complete, sealed: [], changes: [] };
     if (diagnostics.length) throw new InteriorError('E_FLOOR_TOO_SMALL',
       `complete luxury floor allocation failed: ${diagnostics.slice(-3).join('; ')}`, floor.index);
@@ -108,7 +111,6 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
     ];
     // A kind building sizes its homes toward its reference apartments and accepts the
     // shallower strips its smallest template still furnishes.
-    const sizing = residential ? unitSizing(request, kind) : null;
     const minDepth = sizing ? Math.min(MIN_UNIT.depth, sizing.depth[0]) : MIN_UNIT.depth;
     for (const [strip, side] of strips) {
       if (strip.lv < minDepth) continue;
@@ -153,7 +155,8 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
         }
         // A worn standard home keeps its separate sleeping, cooking and wet rooms.
         // A failed programme cannot silently become the old studio fallback.
-        if (residential && isDamagedResidential(request) && !previous) continue;
+        // (A kind C floor keeps a plain studio here instead: its compact templates refit it.)
+        if (residential && isDamagedResidential(request) && !previous && !sizing) continue;
         const services = fittedServices(rect, side, polygon, serviceSize);
         const serviceRect = services[Math.floor(rng.next() * services.length)]!;
         const mainShape = new RoomRegion(polygon).subtract([serviceRect]);
@@ -190,7 +193,7 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
     }
   }
 
-  if (!previous && isDamagedResidential(request) && ['apartment', 'residence_studio'].includes(kind)
+  if (!previous && !sizing && isDamagedResidential(request) && ['apartment', 'residence_studio'].includes(kind)
     && !rooms.some(room => room.unit)) throw new InteriorError('E_FLOOR_TOO_SMALL',
     'worn residential floor cannot retain a complete bedroom, bathroom, kitchen and furnished living programme', floor.index);
   const singleUnit = program && !rooms.some(room => room.unit);

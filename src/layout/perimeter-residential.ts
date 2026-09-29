@@ -10,7 +10,7 @@ import { RoomRegion } from './room-region.js';
 import { roomArea, roomClearance, roomCoversRect, roomPolygon, sharedRoomEdges, type RoomShape } from './room-shape.js';
 import { BAND_CLEAR, doorBetween, doorWidthOn, MIN_STRETCH, type IdGen } from './rooms.js';
 import { makeFrame, snap, toUvPolygon, toWorldPolygon, uvRectCorners, worldToUv, type UvRect } from './uv.js';
-import { unitSizing } from './templates/registry.js';
+import type { UnitSizing } from './templates/registry.js';
 
 interface Part extends RoomShape { kind: RoomKind }
 interface Seat { rect: UvRect; shape: RoomShape }
@@ -24,7 +24,8 @@ export const LUXURY_ROOM_OPENING = 1.2;
  * rear dwellings wrap the actual shafts instead of rejecting their entire rectangle.
  * The existing cross corridor is the only shared horizontal allocation. */
 export function planPerimeterResidential(request: InteriorRequest, floor: BlueprintFloor, core: CorePlan,
-  frame: FloorFrame, corridor: PlanRoom, plate: Point[], outline: Point[], ids: IdGen, diagnostics: string[] = []): PlanRoom[] | null {
+  frame: FloorFrame, corridor: PlanRoom, plate: Point[], outline: Point[], ids: IdGen, diagnostics: string[] = [],
+  sizing: UnitSizing | null = null): PlanRoom[] | null {
   if (core.mode !== 'compact' || !['rich', 'high_rich'].includes(request.building.tier)) return null;
   const bounds = polygonBounds(plate), plateArea = Math.abs(polygonArea(plate));
   if (plateArea < 800 || plateArea < bounds.w * bounds.d * .98) return null;
@@ -127,7 +128,6 @@ export function planPerimeterResidential(request: InteriorRequest, floor: Bluepr
     for (let attempt = 0; attempt < 12 && !completed; attempt++) {
       // A kind building aims its homes at its reference apartment's frontage, within the
       // same complete-home area window.
-      const sizing = unitSizing(request, 'apartment');
       const preferred = sizing ? Math.max(135 / strip.lv, Math.min(sizing.preferred[0], 290 / strip.lv)) : 150 / strip.lv;
       const slots = facadeSlots(ends, preferred, accepts);
       if (!slots.length || Math.abs(slots.reduce((sum, [low, high]) => sum + high - low, 0) - strip.lu) > 1e-5) {

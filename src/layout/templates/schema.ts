@@ -116,6 +116,8 @@ export interface TemplateTarget {
   /** whether a partition may meet the facade at this uv point (a legal pier/seat) */
   seatLegal(point: Point): boolean;
   gridOrigin: Point;
+  /** floor ceiling above the finished floor and the highest glass head, for per-room ceilings */
+  ceiling?: { height: number; glassHead: number };
   /** entry door the allocator validated; the template keeps its width and prefers its place */
   entryDoor?: { width: number; leaves: 1 | 2 | 3 | 4; clearDepth?: number; at: Point };
 }

@@ -34,6 +34,8 @@ export interface TemplateContext {
   furnishes: (rooms: PlanRoom[]) => boolean;
   /** units (or common room ids) a previous attempt of this floor could not keep templated */
   exclude?: ReadonlySet<string>;
+  /** floor ceiling height and glass head, floor-local metres */
+  ceiling?: { height: number; glassHead: number };
   /** test override of the registry */
   templates?: { dwellings?: SpaceTemplate[]; hall?: SpaceTemplate[] };
 }
@@ -69,6 +71,7 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
     return legal;
   };
   const origin = gridOrigin(ctx.outline);
+  const ceiling = ctx.ceiling;
   const probe = (candidate: PlanRoom[], own: PlanRoom[]): boolean => {
     const conflicts = partitionConflicts({ rooms: own.map(room => ({ id: room.id, kind: room.kind,
       polygon: toWorldPolygon(roomPolygon(room), ctx.core.frame), doors: [] })) }, ctx.floor,
@@ -81,7 +84,7 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
     const units = discoverUnits(rooms, ctx);
     units.forEach((unit, index) => {
       if (ctx.exclude?.has(unit.id)) return;
-      const target: TemplateTarget = { ...unit.target, seatLegal, gridOrigin: origin };
+      const target: TemplateTarget = { ...unit.target, seatLegal, gridOrigin: origin, ...(ceiling ? { ceiling } : {}) };
       let fit: TemplateFit | null = null;
       let key = "";
       for (let k = 0; k < dwellings.length && !fit; k++) {
@@ -117,7 +120,7 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
       for (const entryEdge of entryEdges(slot.slot, room, facadeEdges, template, street)) {
         const target: TemplateTarget = { rect: room.rect, polygon: roomPolygon(room, ctx.outline),
           ...(room.holes?.length ? { holes: room.holes } : {}), entryEdge, publicRoom: room, facadeEdges,
-          seatLegal, gridOrigin: origin };
+          seatLegal, gridOrigin: origin, ...(ceiling ? { ceiling } : {}) };
         const fit = safeFit(template, target, undefined, ctx.ids, (candidate) => {
           const kept = candidate.find(item => item.id === room.id)!;
           const reaches = (a: PlanRoom, b: PlanRoom) => sharedRoomEdges(a, b).some(edge => edge.hi - edge.lo >= MIN_STRETCH);

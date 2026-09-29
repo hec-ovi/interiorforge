@@ -121,7 +121,7 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
     const rect = rectToUv(frame, x0!, x1!, y0!, y1!);
     if (!roomCoversRect(targetShape, rect)) return refuse(`${t.id}: ${room.id} leaves the target shape`);
     const plan: PlanRoom = { id: probeId(), kind: room.kind, rect, polygon: uvRectCorners(rect), doors: [],
-      ...(unit ? { unit } : {}), ...stamp(t, room) };
+      ...(unit ? { unit } : {}), ...stamp(t, room, target, onFacade(rect, target)) };
     const keepouts = (room.keepouts ?? []).flatMap(k => {
       const kx0 = at("u", k.u[0]), kx1 = at("u", k.u[1]), ky0 = at("v", k.v[0]), ky1 = at("v", k.v[1]);
       return kx0 === undefined || kx1 === undefined || ky0 === undefined || ky1 === undefined ? []
@@ -152,7 +152,7 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
   if (!livingConnected(shape)) return refuse(`${t.id}: remainder necked`);
   const rest: PlanRoom = { ...shape, id: keepRemainder?.id ?? probeId(), kind: keepRemainder?.kind ?? remainder.kind,
     doors: keepRemainder ? keepRemainder.doors.map(door => ({ ...door })) : [],
-    ...(unit ? { unit } : {}), ...stamp(t, remainder) };
+    ...(unit ? { unit } : {}), ...stamp(t, remainder, target, target.facadeEdges.length > 0) };
   const remainderKeepouts = (remainder.keepouts ?? []).flatMap(k => {
     const kx0 = at("u", k.u[0]), kx1 = at("u", k.u[1]), ky0 = at("v", k.v[0]), ky1 = at("v", k.v[1]);
     return kx0 === undefined || kx1 === undefined || ky0 === undefined || ky1 === undefined ? []
@@ -197,10 +197,21 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
     exact: solved.u.exact && solved.v.exact && !dropped.length };
 }
 
-function stamp(t: SpaceTemplate, room: TemplateRoom): Pick<PlanRoom, "style" | "template" | "role" | "ceilingDrop"> {
+function stamp(t: SpaceTemplate, room: TemplateRoom, target: TemplateTarget, glazed: boolean): Pick<PlanRoom, "style" | "template" | "role" | "ceilingDrop"> {
+  // the reference room height as a drop below the floor's ceiling, never below the glass head
+  let drop = room.ceilingDrop ?? (room.ceiling !== undefined && target.ceiling ? target.ceiling.height - room.ceiling : 0);
+  if (glazed && target.ceiling) drop = Math.min(drop, target.ceiling.height - target.ceiling.glassHead);
+  drop = Math.round(Math.min(2, Math.max(0, drop)) * 100) / 100;
   return { style: room.style ?? t.style, template: `${t.id}/${room.id}`,
     ...(room.role ? { role: room.role } : {}),
-    ...(room.ceilingDrop !== undefined ? { ceilingDrop: room.ceilingDrop } : {}) };
+    ...(drop > 0 ? { ceilingDrop: drop } : {}) };
+}
+
+/** Whether a rectangle reaches one of the target's facade edges. */
+function onFacade(rect: UvRect, target: TemplateTarget): boolean {
+  const r = target.rect, eps = 1e-6;
+  return target.facadeEdges.some(edge => edge === "v0" ? rect.v <= r.v + eps : edge === "v1" ? rect.v + rect.lv >= r.v + r.lv - eps
+    : edge === "u0" ? rect.u <= r.u + eps : rect.u + rect.lu >= r.u + r.lu - eps);
 }
 
 /** The active lines of one axis and the spans between them. A span that merges several
