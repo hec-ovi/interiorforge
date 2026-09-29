@@ -88,6 +88,18 @@ export function levelFloorRects(rect: UvRect, zones: readonly LevelZone[]): UvRe
     return subtractAll(rect, active(zones).map(zoneRect)).filter(part => part.lu > 1e-3 && part.lv > 1e-3);
 }
 
+/** The parts of a floor rectangle under raised zones. A raised zone stands on the storey's
+ *  structural slab, so the floor keeps its support there; a sunken tray replaces the slab
+ *  where it hangs, so a pit takes none. */
+export function raisedFloorRects(rect: UvRect, zones: readonly LevelZone[]): UvRect[] {
+    const out: UvRect[] = [];
+    for (const zone of active(zones)) {
+        const part = zone.delta > 0 ? clipRect(zoneRect(zone), rect) : undefined;
+        if (part) out.push(...subtractAll(part, out).filter(piece => piece.lu > 1e-3 && piece.lv > 1e-3));
+    }
+    return out;
+}
+
 /** One solid slab of a zone: a rectangle standing from `bottom` to `top`. */
 export interface LevelSlab { rect: UvRect; top: number; bottom: number; module: 'platform' | 'tread' | 'sunken' }
 /** A straight edge of a zone at height y: a nosing (step edge) or a guard (drop edge).

@@ -42,6 +42,11 @@ const inside = (a: UvRect, b: UvRect) => a.u >= b.u - 1e-6 && a.v >= b.v - 1e-6 
 /** Where tiles count from: the building grid, or the room's low corner. */
 export const floorOrigin = (spec: FloorSystem, room: SurfaceRoom): Point => spec.tile.phase === 'grid' ? room.gridOrigin : [room.bounds.u, room.bounds.v];
 
+/** The support slab alone over a rectangle: the structure under a raised level zone. */
+export function placeFloorSupport(builder: PlacementBuilder, spec: FloorSystem, room: string, rect: UvRect, y: number, frame: Frame): void {
+    if (rect.lu >= 1e-3 && rect.lv >= 1e-3) lay(builder, spec.support, room, rect, y, frame, [rect.lu / CELL, rect.lv / CELL]);
+}
+
 /** One floor rectangle of a room in a floor system. Returns the pit's lens records. */
 export function placeFloorSystem(builder: PlacementBuilder, spec: FloorSystem, room: SurfaceRoom, rect: UvRect, y: number, frame: Frame): LightFixture[] {
     if (rect.lu < 1e-3 || rect.lv < 1e-3) return [];

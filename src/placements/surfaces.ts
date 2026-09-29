@@ -13,8 +13,8 @@ import { isLoft1702Ceiling, LOFT1702_FINISH, placeLoft1702Ceiling } from '../sty
 import type { LightFixture } from '../core/types.js';
 import { CEILINGS, FLOORS } from '../styles/reference/registry.js';
 import { placeCeilingSystem } from '../styles/systems/ceiling.js';
-import { placeFloorSystem } from '../styles/systems/floor.js';
-import { levelFloorRects, placeLevels } from '../styles/systems/levels.js';
+import { placeFloorSupport, placeFloorSystem } from '../styles/systems/floor.js';
+import { levelFloorRects, placeLevels, raisedFloorRects } from '../styles/systems/levels.js';
 import type { SurfaceRoom } from '../styles/systems/types.js';
 
 /** Fitted ceiling band width, one construction cell. */
@@ -101,7 +101,14 @@ export function slabs(builder: PlacementBuilder, module: string, room: string, r
             placeLuxuryStoneFloor(builder, room, part, y, frame, module === 'floor-slab-luxury-polished' ? 'floor-finish-luxury-polished' : undefined);
         else surface(builder, module, room, part, y, frame);
     }
-    if (zones && whole) lights.push(...placeLevels(builder, whole.style ?? module.replace(/^floor-slab-/, ''), whole, rect, frame));
+    if (zones && whole) {
+        // A raised zone stands on the storey's structural slab, which stays whole under it.
+        for (const part of raisedFloorRects(rect, zones)) {
+            if (system) placeFloorSupport(builder, system, room, part, y, frame);
+            else surface(builder, module, room, part, y, frame);
+        }
+        lights.push(...placeLevels(builder, whole.style ?? module.replace(/^floor-slab-/, ''), whole, rect, frame));
+    }
     return lights;
 }
 
