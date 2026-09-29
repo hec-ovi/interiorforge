@@ -121,7 +121,7 @@ function attempt(t: SpaceTemplate, target: TemplateTarget, frame: LocalFrame, dr
     const clear = room.minClear ?? [MIN_SIDE, MIN_SIDE];
     if (w < Math.max(MIN_SIDE, clear[0]) - 1e-6 || d < Math.max(MIN_SIDE, clear[1]) - 1e-6) return refuse(`${t.id}: ${room.id} ${w.toFixed(2)}x${d.toFixed(2)} under its clear minimum`);
     const rect = rectToUv(frame, x0!, x1!, y0!, y1!);
-    if (!roomCoversRect(targetShape, rect)) return refuse(`${t.id}: ${room.id} leaves the target shape`);
+    if (!roomCoversRect(targetShape, rect)) return refuse(`${t.id}: ${room.id} leaves the target shape at ${rect.u.toFixed(2)},${rect.v.toFixed(2)} ${rect.lu.toFixed(2)}x${rect.lv.toFixed(2)}`);
     const plan: PlanRoom = { id: probeId(), kind: room.kind, rect, polygon: uvRectCorners(rect), doors: [],
       ...(unit ? { unit } : {}), ...stamp(t, room, target, onFacade(rect, target)) };
     const keepouts = (room.keepouts ?? []).flatMap(k => {
