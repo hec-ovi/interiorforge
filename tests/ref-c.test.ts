@@ -59,10 +59,13 @@ describe('kind C styles', () => {
     it('keeps the capsule homes templates exact in their rigid spans', () => {
         const c1 = TEMPLATES.get('c1-capsule')!, c7 = TEMPLATES.get('c7-room')!;
         const rigid = (t: typeof c1, from: string) => t.spans.find(span => span.from === from)!;
-        expect(rigid(c1, 'u0').weight).toBe(0);
+        expect(rigid(c1, 'u4').weight).toBe(0);
         expect(rigid(c7, 'u0').weight).toBe(0);
-        // the hooded Japantown kitchen is authored at its module's own size, never scaled
-        const kitchen = c7.fixtures.find(f => f.id === 'kitchen')!;
+        // the hooded Japantown kitchen is authored at its module's own size, never scaled,
+        // in its own alcove room, and the capsule home sinks its lounge
+        expect(c7.rooms.find(room => room.id === 'kitchen')?.kind).toBe('kitchen');
+        expect(c1.rooms.find(room => room.remainder)!.levels?.map(level => level.delta)).toEqual([-.36]);
+        const kitchen = c7.fixtures.find(f => f.id === 'kitchen-run')!;
         expect(kitchen.size).toEqual(capsuleFurnitureFor('kitchen_block', 'japantown')!.size);
         for (const t of [c1, c7]) for (const fixture of t.fixtures.filter(f => f.fit?.startsWith('fit-'))) {
             const recipe = catalog.get(fixture.fit!);

@@ -70,14 +70,14 @@ describe('template fitting', () => {
   });
 
   it('keeps rigid rooms exact in a larger target and grows the living', () => {
-    const fit = fitTemplate(e1, target({ u: 0, v: 0, lu: 19, lv: 12 }), 'unit', idGen(1), () => true)!;
+    const fit = fitTemplate(e1, target({ u: 0, v: 0, lu: 29, lv: 12.5 }), 'unit', idGen(1), () => true)!;
     expect(fit).not.toBeNull();
     const bath = fit.rooms.find(room => room.template === 'e1-apartment/bath')!;
     const spec = e1.rooms.find(room => room.id === 'bath')!;
     const ref = (id: string) => e1.lines.find(line => line.id === id)!.ref;
     expect(bath.rect.lu).toBeCloseTo(ref(spec.u![1]) - ref(spec.u![0]), 6);
-    const living = fit.rooms.find(room => room.template === 'e1-apartment/living')!;
-    expect(roomArea(living)).toBeGreaterThan(80);
+    const living = fit.rooms.find(room => room.template === 'e1-apartment/great')!;
+    expect(roomArea(living)).toBeGreaterThan(100);
   });
 
   it('opens exactly one public door with room for both pocket cassettes', () => {
@@ -106,7 +106,6 @@ describe('template fitting', () => {
     const [mw, md] = e1.envelope.min;
     const small = fitTemplate(e1, target({ u: 0, v: 0, lu: mw + 0.3, lv: md + 0.3 }), 'unit', idGen(1), () => true);
     expect(small).not.toBeNull();
-    expect(small!.exact).toBe(false);
     expect(small!.changes.length).toBeGreaterThan(0);
     for (const change of small!.changes) expect(change.requested).toHaveLength(2);
     expect(fitTemplate(e1, target({ u: 0, v: 0, lu: mw - 1, lv: md }), 'unit', idGen(1), () => true)).toBeNull();
@@ -131,8 +130,7 @@ describe('template fitting', () => {
   });
 
   it('turns required fixtures into authored pieces inside their rooms', () => {
-    const fit = fitTemplate(e1, target({ u: 0, v: 0, lu: 15, lv: 10 }, 'u1'), 'unit', idGen(1), () => true)
-      ?? fitTemplate(e1, { ...target({ u: 0, v: 0, lu: 10, lv: 15 }, 'u1') }, 'unit', idGen(1), () => true);
+    const fit = fitTemplate(e1, target({ u: 0, v: 0, lu: 11.55, lv: 26.45 }, 'u1'), 'unit', idGen(1), () => true);
     expect(fit).not.toBeNull();
     const bed = fit!.rooms.find(room => room.kind === 'bedroom')!;
     const piece = bed.authored!.find(item => item.kind === 'bed_double')!;

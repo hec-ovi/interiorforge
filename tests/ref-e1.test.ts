@@ -95,30 +95,40 @@ describe('the E1 suite template', () => {
     return room ? [room.rect.lu, room.rect.lv].map(v => Math.round(v * 100) / 100) : null;
   };
 
-  it.each([[16.5, 10], [13, 17], [12.5, 17], [26, 7.5], [12, 9.5]])('fits %s x %s with its service rooms at their reference size', (w, d) => {
+  it.each([[26.45, 11.55], [22, 10], [28, 12.5], [28.5, 15]])('fits %s x %s as a chain of rooms along the facade', (w, d) => {
     const fit = fitTemplate(e1, target(w, d), 'unit', idGen(1), () => true);
     expect(fit).not.toBeNull();
     const roles = fit!.rooms.map(room => room.template);
-    for (const role of ['kitchen', 'living', 'bed', 'bath']) expect(roles).toContain(`e1-apartment/${role}`);
-    // the bath keeps its reference 3.0 x 3.0 m whenever the unit is as wide as the reference
-    if (w >= 16.5) {
-      expect(size(fit!.rooms, 'bath')).toEqual([3, 3]);
-      expect(fit!.rooms.find(r => r.template === 'e1-apartment/bed')!.authored?.some(p => p.fit === 'asm-e1-bed')).toBe(true);
-    }
+    for (const role of ['hall', 'bed', 'bath', 'rock', 'great']) expect(roles).toContain(`e1-apartment/${role}`);
+    // the entry hall, the bedroom, the rock lounge and the great room follow each other: the
+    // kitchen is the great room's own zone, never a walled room or a corridor-deep stripe
+    expect(fit!.rooms.some(room => room.kind === 'kitchen')).toBe(false);
+    const great = fit!.rooms.find(r => r.template === 'e1-apartment/great')!;
+    expect(great.authored?.some(p => p.fit === 'asm-e1-kitchen-window' && p.required)).toBe(true);
+    expect(fit!.rooms.find(r => r.template === 'e1-apartment/bed')!.authored?.some(p => p.fit === 'asm-e1-bed')).toBe(true);
+    // the great room's lounge steps down one riser, its sofa inside the step
+    expect(great.levels?.map(zone => zone.delta)).toEqual([-.18]);
+    expect(great.authored?.filter(p => p.kind === 'sofa').some(p => p.elevation === -.18)).toBe(true);
+    // reference ceilings: hall 3.5, great room 3.9
+    const hall = fit!.rooms.find(r => r.template === 'e1-apartment/hall')!;
+    expect(hall.role).toBe('foyer');
+    // a deeper unit keeps its rooms and takes the extra depth as service rooms on the entry wall
+    if (d > e1.envelope.max[1]) expect(fit!.rooms.filter(r => /\/band-\d+$/.test(r.template ?? '')).length).toBeGreaterThan(0);
   });
 
   it('is exact on its reference envelope, mirrored or not', () => {
     for (const entry of ['v0'] as const) {
       const fit = fitTemplate(e1, target(e1.envelope.width, e1.envelope.depth, entry), 'unit', idGen(1), () => true)!;
       expect(fit.exact).toBe(true);
-      expect(size(fit.rooms, 'kitchen')).toEqual([5.5, 10]);
-      expect(size(fit.rooms, 'bed')).toEqual([5, 7]);
-      expect(size(fit.rooms, 'dressing')).toEqual([2, 3]);
+      expect(size(fit.rooms, 'hall')).toEqual([4.4, 5.3]);
+      expect(size(fit.rooms, 'bath')).toEqual([3.2, 5.3]);
+      expect(size(fit.rooms, 'rock')).toEqual([11.6, 6.25]);
     }
   });
 
   it('refuses a unit below its minimum instead of failing', () => {
     expect(fitTemplate(e1, target(11, 8), 'unit', idGen(1), () => true)).toBeNull();
+    expect(fitTemplate(e1, target(20, 11), 'unit', idGen(1), () => true)).toBeNull();
   });
 });
 

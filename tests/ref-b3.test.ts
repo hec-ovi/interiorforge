@@ -10,26 +10,31 @@ const b3 = (TEMPLATE_DATA as SpaceTemplate[]).find(t => t.id === 'b3-apartment')
 const ids = new Set(moduleRecipes().map(recipe => recipe.id));
 
 describe('b3 apartment', () => {
-    it('raises the bar on a stepped platform and sinks the lounge into a stepped pit, clear of the entry', () => {
+    it('sinks the lounge three risers behind a guard, raises the bar one riser and opens the bedroom onto the main room', () => {
         const living = b3.rooms.find(room => room.id === 'living')!;
         const levels = living.levels ?? [];
-        expect(levels.map(level => [level.delta, level.edge])).toEqual([[-0.3, 'step'], [0.3, 'step']]);
+        expect(levels.map(level => [level.delta, level.edge])).toEqual([[-0.54, 'guard'], [0.15, 'step']]);
         const ref = (id: string) => b3.lines.find(line => line.id === id)!.ref;
-        for (const level of levels) {
-            // Never over the entry's approach: every zone starts beyond the foyer.
-            expect(ref(level.v[0])).toBeGreaterThanOrEqual(2);
+        const outline = [uvRectCorners({ u: 0, v: 0, lu: b3.envelope.width, lv: b3.envelope.depth })];
+        const [pit, bar] = levels.map(level => {
             const rect = { u: ref(level.u[0]), v: ref(level.v[0]), lu: ref(level.u[1]) - ref(level.u[0]), lv: ref(level.v[1]) - ref(level.v[0]) };
-            const plan = levelPlan({ polygon: uvRectCorners(rect), delta: level.delta, edge: level.edge }, [uvRectCorners({ u: 0, v: 0, lu: 14, lv: 11 })]);
-            const rises = [...new Set(plan.slabs.map(s => +Math.abs(s.top).toFixed(3)))].sort();
-            expect(rises.length).toBeGreaterThan(1);
-            expect(Math.abs(level.delta) / (rises.length - (level.delta < 0 ? 1 : 0) || 1)).toBeLessThanOrEqual(RISE_MAX + 1e-9);
-        }
-        // The back bar and counter stand on the platform, the pit keeps its floor clear.
-        const bar = b3.fixtures.find(f => f.fit === 'asm-b3-bar')!;
-        expect(bar.required).toBe(true);
-        expect(ref((bar.along as { line: string }).line)).toBeGreaterThanOrEqual(ref(levels[1]!.v[0]));
-        expect(living.keepouts).toEqual([{ u: levels[0]!.u, v: levels[0]!.v }]);
-        expect(b3.source?.revision).toBe('hand-2');
+            return { level, plan: levelPlan({ polygon: uvRectCorners(rect), delta: level.delta, edge: level.edge,
+                ...(level.stair ? { stair: { at: [rect.u, rect.v + level.stair.at] as [number, number], axis: level.stair.along, width: level.stair.width } } : {}) }, outline) };
+        });
+        // three risers down into the pit, each under the body step, one flight and a glass guard
+        expect(pit!.plan.nosings.length).toBe(3);
+        expect(.54 / 3).toBeLessThanOrEqual(RISE_MAX + 1e-9);
+        expect(pit!.plan.guards.length).toBeGreaterThan(0);
+        // one riser up to the bar, which carries the island and the window run
+        expect(bar!.plan.slabs.map(slab => +slab.top.toFixed(2))).toEqual([.15]);
+        for (const id of ['bar-island', 'bar-window-run'])
+            expect(b3.fixtures.find(f => f.id === id)!.required, id).toBe(true);
+        // the pit holds its sofas and table, the bedroom opens onto the main room, the closet
+        // through its portal
+        expect(b3.fixtures.filter(f => f.room === 'living' && f.id.startsWith('pit-')).length).toBeGreaterThanOrEqual(3);
+        expect(b3.doors.find(d => d.id === 'bed-open')).toMatchObject({ between: ['bed', 'living'], kind: 'open' });
+        expect(b3.doors.find(d => d.id === 'closet-portal')).toMatchObject({ kind: 'portal', width: 2.5 });
+        expect(b3.source?.revision).toBe('hand-3');
     });
 
     it('registers the b1, b2 and b3 styles with every system and level piece in the catalog', () => {

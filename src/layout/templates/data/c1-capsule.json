@@ -3,352 +3,69 @@
   "version": 1,
   "scope": "dwelling",
   "style": "c1",
-  "use": {
-    "floorKinds": [
-      "apartment",
-      "residence_studio",
-      "hotel_rooms"
-    ],
-    "kinds": [
-      "C"
-    ]
-  },
-  "envelope": {
-    "width": 8.5,
-    "depth": 9.0,
-    "min": [
-      5.3,
-      6.0
-    ],
-    "max": [
-      22.5,
-      24.0
-    ]
-  },
-  "entry": {
-    "room": "studio",
-    "door": "entry"
-  },
-  "daylight": [
-    "v1"
-  ],
+  "use": {"floorKinds": ["apartment", "residence_studio", "hotel_rooms"], "kinds": ["C"]},
+  "envelope": {"width": 14.1, "depth": 13.0, "min": [12.5, 11.5], "max": [16.0, 14.5]},
+  "entry": {"room": "studio", "door": "entry"},
+  "daylight": ["v1"],
   "mirror": "allow",
   "lines": [
-    {
-      "id": "u0",
-      "axis": "u",
-      "ref": 0
-    },
-    {
-      "id": "u1",
-      "axis": "u",
-      "ref": 3.3
-    },
-    {
-      "id": "u2",
-      "axis": "u",
-      "ref": 8.5
-    },
-    {
-      "id": "v0",
-      "axis": "v",
-      "ref": 0
-    },
-    {
-      "id": "v1",
-      "axis": "v",
-      "ref": 2.6
-    },
-    {
-      "id": "v2",
-      "axis": "v",
-      "ref": 9.0
-    }
+    {"id": "u0", "axis": "u", "ref": 0},
+    {"id": "u1", "axis": "u", "ref": 3.45, "exact": true},
+    {"id": "u2", "axis": "u", "ref": 6.6, "exact": true},
+    {"id": "u3", "axis": "u", "ref": 9.5},
+    {"id": "u4", "axis": "u", "ref": 11.7, "exact": true},
+    {"id": "u5", "axis": "u", "ref": 14.1, "exact": true},
+    {"id": "v0", "axis": "v", "ref": 0},
+    {"id": "v1", "axis": "v", "ref": 1.9, "exact": true},
+    {"id": "v2", "axis": "v", "ref": 3.5},
+    {"id": "v3", "axis": "v", "ref": 5.1, "exact": true},
+    {"id": "v4", "axis": "v", "ref": 6.2, "exact": true},
+    {"id": "v5", "axis": "v", "ref": 8.85, "exact": true},
+    {"id": "v6", "axis": "v", "ref": 9.8, "exact": true},
+    {"id": "v7", "axis": "v", "ref": 13.0}
   ],
   "spans": [
-    {
-      "from": "u0",
-      "to": "u1",
-      "min": 2.4,
-      "max": 3.3,
-      "weight": 0
-    },
-    {
-      "from": "u1",
-      "to": "u2",
-      "min": 2.9,
-      "max": null,
-      "weight": 5.5
-    },
-    {
-      "from": "v0",
-      "to": "v1",
-      "min": 2.2,
-      "max": 2.6,
-      "weight": 0
-    },
-    {
-      "from": "v1",
-      "to": "v2",
-      "min": 3.4,
-      "max": null,
-      "weight": 6.4
-    }
+    {"from": "u0", "to": "u1", "min": 2.6, "max": 3.6, "weight": 0.2},
+    {"from": "u1", "to": "u2", "min": 2.6, "max": 3.6, "weight": 0.3},
+    {"from": "u2", "to": "u3", "min": 1.6, "max": null, "weight": 1.0},
+    {"from": "u3", "to": "u4", "min": 1.6, "max": 3.0, "weight": 0.3},
+    {"from": "u4", "to": "u5", "min": 2.2, "max": 2.6, "weight": 0},
+    {"from": "v0", "to": "v1", "min": 1.5, "max": 2.2, "weight": 0},
+    {"from": "v1", "to": "v2", "min": 1.0, "max": 2.2, "weight": 0.3},
+    {"from": "v2", "to": "v3", "min": 1.0, "max": 2.2, "weight": 0.3},
+    {"from": "v3", "to": "v4", "min": 0.8, "max": 1.6, "weight": 0.3},
+    {"from": "v4", "to": "v5", "min": 1.4, "max": null, "weight": 1.0},
+    {"from": "v5", "to": "v6", "min": 0.6, "max": 1.4, "weight": 0.2},
+    {"from": "v6", "to": "v7", "min": 2.8, "max": 3.6, "weight": 0.2}
   ],
   "rooms": [
-    {
-      "id": "studio",
-      "kind": "studio_main",
-      "role": "studio",
-      "remainder": true
-    },
-    {
-      "id": "bath",
-      "kind": "bathroom",
-      "role": "bath",
-      "u": [
-        "u0",
-        "u1"
-      ],
-      "v": [
-        "v0",
-        "v1"
-      ],
-      "minClear": [
-        2.2,
-        2.2
-      ]
-    }
+    {"id": "studio", "kind": "studio_main", "role": "studio", "remainder": true, "ceiling": 3.4, "levels": [{"u": ["u3", "u5"], "v": ["v5", "v7"], "delta": -0.36, "edge": "step"}]},
+    {"id": "office", "kind": "office_private", "role": "office", "u": ["u1", "u2"], "v": ["v0", "v2"], "minClear": [2.6, 2.4], "ceiling": 3.45},
+    {"id": "closet", "kind": "storage", "role": "utility", "u": ["u0", "u1"], "v": ["v0", "v3"], "optional": {"drop": 1}, "minClear": [2.0, 2.0]},
+    {"id": "bath", "kind": "bathroom", "role": "bath", "u": ["u0", "u1"], "v": ["v3", "v6"], "minClear": [2.8, 3.6], "ceiling": 2.65},
+    {"id": "niche", "kind": "bedroom", "role": "niche", "u": ["u0", "u1"], "v": ["v6", "v7"], "minClear": [2.6, 2.8], "ceiling": 2.8}
   ],
   "doors": [
-    {
-      "id": "entry",
-      "between": [
-        "studio",
-        "@public"
-      ],
-      "width": 1.2,
-      "leaves": 1,
-      "kind": "pocket",
-      "along": 0.5,
-      "owner": "studio"
-    },
-    {
-      "id": "bath-portal",
-      "between": [
-        "bath",
-        "studio"
-      ],
-      "width": 1.8,
-      "leaves": 1,
-      "kind": "portal",
-      "portal": "c1-bath",
-      "along": 0.5,
-      "owner": "bath"
-    }
+    {"id": "entry", "between": ["studio", "@public"], "width": 1.3, "leaves": 1, "kind": "pocket", "along": 0.17, "owner": "studio"},
+    {"id": "office-open", "between": ["office", "studio"], "width": 2.9, "leaves": 2, "kind": "open", "along": 0.5, "owner": "office"},
+    {"id": "bath-portal", "between": ["bath", "studio"], "width": 2.26, "leaves": 2, "kind": "portal", "portal": "c1-bath", "along": 0.3, "owner": "bath"},
+    {"id": "niche-open", "between": ["niche", "studio"], "width": 2.6, "leaves": 2, "kind": "open", "along": 0.4, "owner": "niche"},
+    {"id": "closet-door", "between": ["closet", "studio"], "width": 0.9, "leaves": 1, "kind": "pocket", "along": 0.5, "owner": "closet", "optional": true}
   ],
   "fixtures": [
-    {
-      "id": "niche",
-      "room": "studio",
-      "kind": "sleeping_pod",
-      "fit": "fit-capsule-h10-niche",
-      "required": true,
-      "wall": "u0",
-      "along": {
-        "line": "v2",
-        "offset": -2.85
-      },
-      "size": [
-        2.5,
-        1.5,
-        2.0
-      ],
-      "rotationDeg": 90
-    },
-    {
-      "id": "lounge-sofa",
-      "room": "studio",
-      "kind": "sofa",
-      "fit": "fit-capsule-curved-sofa",
-      "required": false,
-      "wall": "v1",
-      "along": {
-        "line": "u0",
-        "offset": 2.1
-      },
-      "size": [
-        1.8,
-        0.85,
-        0.8
-      ],
-      "rotationDeg": 180
-    },
-    {
-      "id": "lounge-table",
-      "room": "studio",
-      "kind": "low_table",
-      "fit": "fit-capsule-low-table",
-      "required": false,
-      "wall": "free",
-      "along": {
-        "centred": true
-      },
-      "size": [
-        0.9,
-        0.5,
-        0.4
-      ],
-      "rotationDeg": 0,
-      "at": [
-        5.1,
-        6.6
-      ]
-    },
-    {
-      "id": "kitchen",
-      "room": "studio",
-      "kind": "kitchen_block",
-      "fit": "fit-capsule-kitchen",
-      "required": false,
-      "wall": "u1",
-      "along": {
-        "line": "v2",
-        "offset": -3.5
-      },
-      "size": [
-        2.4,
-        0.65,
-        1.05
-      ],
-      "rotationDeg": 270
-    },
-    {
-      "id": "storage",
-      "room": "studio",
-      "kind": "ornament_wall",
-      "fit": "asm-c1-niche",
-      "required": false,
-      "wall": "u1",
-      "along": {
-        "line": "v0",
-        "offset": 1.7
-      },
-      "size": [
-        1.8,
-        0.38,
-        2.2
-      ],
-      "rotationDeg": 270
-    },
-    {
-      "id": "wardrobe",
-      "room": "studio",
-      "kind": "wardrobe",
-      "fit": "fit-capsule-h10-wardrobe",
-      "required": false,
-      "wall": "u1",
-      "along": {
-        "line": "v0",
-        "offset": 3.7
-      },
-      "size": [
-        1.6,
-        0.65,
-        2.0
-      ],
-      "rotationDeg": 270
-    },
-    {
-      "id": "vending",
-      "room": "studio",
-      "kind": "ornament_wall",
-      "fit": "fit-c1-vending",
-      "required": false,
-      "wall": "v0",
-      "along": {
-        "line": "u1",
-        "offset": 0.1
-      },
-      "size": [
-        0.9,
-        0.56,
-        2.1
-      ],
-      "rotationDeg": 0
-    },
-    {
-      "id": "desk",
-      "room": "studio",
-      "kind": "desk",
-      "fit": "fit-capsule-desk",
-      "required": false,
-      "wall": "u0",
-      "along": {
-        "line": "v1",
-        "offset": 1.4
-      },
-      "size": [
-        1.6,
-        0.8,
-        0.75
-      ],
-      "rotationDeg": 90
-    },
-    {
-      "id": "toilet",
-      "room": "bath",
-      "kind": "toilet",
-      "required": true,
-      "wall": "v0",
-      "along": {
-        "line": "u0",
-        "offset": 0.35
-      },
-      "size": [
-        0.4,
-        0.65,
-        0.75
-      ],
-      "rotationDeg": 0
-    },
-    {
-      "id": "sink",
-      "room": "bath",
-      "kind": "sink",
-      "required": false,
-      "wall": "v0",
-      "along": {
-        "line": "u0",
-        "offset": 1.0
-      },
-      "size": [
-        0.5,
-        0.45,
-        1.05
-      ],
-      "rotationDeg": 0
-    },
-    {
-      "id": "shower",
-      "room": "bath",
-      "kind": "shower",
-      "required": false,
-      "wall": "v0",
-      "along": {
-        "line": "u1",
-        "offset": -1.4
-      },
-      "size": [
-        1.3,
-        1.1,
-        2.2
-      ],
-      "rotationDeg": 0
-    }
+    {"id": "storage-block", "room": "studio", "kind": "wardrobe", "required": false, "wall": "u1", "along": {"line": "v1", "offset": 0}, "size": [4.3, 2.4, 4.0], "rotationDeg": 270},
+    {"id": "divider", "room": "studio", "kind": "room_divider", "required": false, "wall": "u1", "along": {"line": "v5", "offset": -0.55}, "size": [0.45, 3.6, 0.55], "rotationDeg": 270},
+    {"id": "sofa-media", "room": "studio", "kind": "sofa", "fit": "fit-capsule-curved-sofa", "required": true, "wall": "free", "along": {"centred": true}, "at": [13.6, 10.95], "size": [4.0, 0.95, 0.8], "rotationDeg": 90},
+    {"id": "sofa-window", "room": "studio", "kind": "sofa", "fit": "fit-capsule-curved-sofa", "required": false, "wall": "free", "along": {"centred": true}, "at": [11.2, 12.45], "size": [3.4, 0.95, 0.8], "rotationDeg": 0},
+    {"id": "pit-table", "room": "studio", "kind": "low_table", "fit": "fit-capsule-low-table", "required": false, "wall": "free", "along": {"centred": true}, "at": [11.4, 10.6], "size": [0.9, 0.5, 0.4], "rotationDeg": 0},
+    {"id": "vending", "room": "studio", "kind": "ornament_wall", "fit": "fit-c1-vending", "required": false, "wall": "free", "along": {"centred": true}, "at": [3.78, 8.3], "size": [1.05, 0.6, 2.1], "rotationDeg": 90},
+    {"id": "entry-bench", "room": "studio", "kind": "bench", "required": false, "wall": "v0", "along": {"line": "u3", "offset": 0.4}, "size": [2.2, 0.35, 1.1], "rotationDeg": 0},
+    {"id": "office-desk", "room": "office", "kind": "desk", "fit": "fit-capsule-desk", "required": false, "wall": "v0", "along": {"line": "u1", "offset": 0.3}, "size": [2.4, 0.6, 0.76], "rotationDeg": 0},
+    {"id": "office-return", "room": "office", "kind": "counter", "required": false, "wall": "u0", "along": {"line": "v0", "offset": 0.7}, "size": [2.6, 0.7, 0.8], "rotationDeg": 90},
+    {"id": "niche-bed", "room": "niche", "kind": "sleeping_pod", "fit": "fit-capsule-h10-niche", "required": true, "wall": "u0", "along": {"line": "v6", "offset": 0.3}, "size": [2.6, 2.15, 2.0], "rotationDeg": 90},
+    {"id": "shower", "room": "bath", "kind": "shower", "fit": "fit-capsule-shower", "required": true, "wall": "u0", "along": {"line": "v3", "offset": 0.05}, "size": [1.35, 1.6, 2.2], "rotationDeg": 90},
+    {"id": "toilet", "room": "bath", "kind": "toilet", "required": true, "wall": "u0", "along": {"line": "v6", "offset": -1.2}, "size": [0.45, 0.7, 0.8], "rotationDeg": 90},
+    {"id": "sink", "room": "bath", "kind": "sink", "fit": "fit-capsule-basin", "required": false, "wall": "v0", "along": {"line": "u1", "offset": -1.3}, "size": [1.0, 0.5, 0.9], "rotationDeg": 0}
   ],
-  "source": {
-    "key": "c1-capsule",
-    "revision": "hand-2"
-  }
+  "source": {"key": "c1-capsule", "revision": "hand-3"}
 }
