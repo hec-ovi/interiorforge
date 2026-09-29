@@ -42,6 +42,7 @@ import type { ProgramChange } from "./service-program.js";
 import { capsuleProfile } from '../styles/capsule/profile.js';
 import { planResidentialLivingGroups } from '../styles/capsule/composition-plan.js';
 import { applySpaceTemplates } from "./templates/apply.js";
+import { templateTrace } from "./templates/fit.js";
 import { dwellingTemplates, publicTemplates, stampStyles } from "./templates/registry.js";
 
 /** uv-space working data a floor keeps for geometry and npc passes */
@@ -83,17 +84,19 @@ export function planFloor(
     || (["hall", "ground-front", "service"] as const).some(slot => publicTemplates(request, kind, slot).length > 0));
   if (!offered) return planFloorWith(request, core, floor, kind, isSpanUpper, spaceHeight, fallback, null);
   const run: TemplateRun = { exclude: new Set(), templated: new Map() };
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 10; attempt++) {
     run.templated = new Map();
     try {
       return planFloorWith(request, core, floor, kind, isSpanUpper, spaceHeight, fallback, run);
     } catch (error) {
       if (!run.templated.size) throw error;
       const message = error instanceof Error ? error.message : String(error);
+      templateTrace(`floor ${floor.index} retry after: ${message.slice(0, 200)}`);
       const named = (id: string) => new RegExp(`(^|[^\\w-])${id.replace(/[-]/g, "\\-")}(?![\\w-])`).test(message);
-      const culprits = [...run.templated].filter(([id, entry]) => named(id) || entry.rooms.some(named)).map(([id]) => id);
+      // the unit keeps trying its other templates before it stays generic
+      const culprits = [...run.templated].filter(([id, entry]) => named(id) || entry.rooms.some(named));
       if (!culprits.length) break;
-      for (const id of culprits) run.exclude.add(id);
+      for (const [id, entry] of culprits) run.exclude.add(`${id}:${entry.key}`);
     }
   }
   return planFloorWith(request, core, floor, kind, isSpanUpper, spaceHeight, fallback, null);
@@ -229,13 +232,14 @@ function planFloorWith(
     const family = familyOf(request.building.type, request.building.tier);
     const probeStyle = request.building.interiorStyle ?? (family === 'capsule' ? capsuleProfile(request) : undefined);
     const probeCeiling = ceilingUnder(floor.openings, spaceHeight);
+    const probeKeepouts = openingKeepouts(floor, frame, bounds.facadeDepth).map(item => item.rect);
     const applied = applySpaceTemplates({
       request, floor, kind, core, plate: slabPlate, outline: uvOutline, rooms, ids, exclude: templateRun.exclude,
       ceiling: { height: probeCeiling, glassHead: Math.max(0, ...floor.openings.map(o => o.sill + o.height)) },
       furnishes: (candidate) => {
         try {
           furnish(candidate.map(room => ({ ...room, doors: [...room.doors] })), kind,
-            createRng(request.seed, "template-probe", floor.index), idGen(0), bounds, [], request.building.tier, [],
+            createRng(request.seed, "template-probe", floor.index), idGen(0), bounds, probeKeepouts, request.building.tier, [],
             family, [], probeStyle, probeCeiling, true);
           return true;
         } catch {

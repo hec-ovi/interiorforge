@@ -26,6 +26,7 @@ const WALL_GAP = 0.06;
 /** Optional diagnostics sink for tuning templates (tests and review scripts). */
 let trace: ((message: string) => void) | undefined;
 export function traceTemplates(sink: ((message: string) => void) | undefined): void { trace = sink; }
+export function templateTrace(message: string): void { trace?.(message); }
 const refuse = (why: string): null => { trace?.(why); return null; };
 
 interface AxisModel { lines: TemplateLine[]; spans: AxisSpan[]; rigid: boolean[] }
@@ -58,6 +59,7 @@ export function fitTemplate(t: SpaceTemplate, target: TemplateTarget, unit: stri
   }
   if (!best) return null;
   const { frame: _frame, ...fit } = best;
+  trace?.(`fitted ${t.id} ${fit.exact ? "exact" : fit.dropped.length ? "dropped" : "scaled"} ${best.frame.width.toFixed(1)}x${best.frame.depth.toFixed(1)}`);
   return { ...fit, rooms: reId(fit.rooms, ids, keepRemainder) };
 }
 

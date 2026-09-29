@@ -84,11 +84,13 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
     const units = discoverUnits(rooms, ctx);
     units.forEach((unit, index) => {
       if (ctx.exclude?.has(unit.id)) return;
+      const allowed = (template: SpaceTemplate) => !ctx.exclude?.has(`${unit.id}:${template.id}`);
       const target: TemplateTarget = { ...unit.target, seatLegal, gridOrigin: origin, ...(ceiling ? { ceiling } : {}) };
       let fit: TemplateFit | null = null;
       let key = "";
       for (let k = 0; k < dwellings.length && !fit; k++) {
         const template = dwellings[(index + k) % dwellings.length]!;
+        if (!allowed(template)) continue;
         fit = safeFit(template, target, unit.id, ctx.ids, (candidate) =>
           probe(candidate, candidate.filter(room => room.unit === unit.id)));
         if (fit) key = template.id;
@@ -113,7 +115,8 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
     const targets = rooms.filter(room => !room.unit && slot.kinds.includes(room.kind) && !ctx.exclude?.has(room.id))
       .sort((a, b) => roomArea(b) - roomArea(a) || a.id.localeCompare(b.id)).slice(0, slot.count);
     targets.forEach((room, index) => {
-      const fitting = slot.templates.filter(t => remainderKind(t) === room.kind || slot.slot === "hall");
+      const fitting = slot.templates.filter(t => (remainderKind(t) === room.kind || slot.slot === "hall")
+        && !ctx.exclude?.has(`${room.id}:${t.id}`));
       if (!fitting.length) return;
       const template = fitting[index % fitting.length]!;
       const facadeEdges = facadeEdgesOf(room.rect, ctx.plate);
