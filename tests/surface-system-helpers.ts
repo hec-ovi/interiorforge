@@ -98,3 +98,25 @@ export function local(face: RecordingFace, v: V3): V3 {
     const t = face.axis === 'H' ? uv[0] : uv[1], across = (face.axis === 'H' ? uv[1] : uv[0]) - face.c;
     return [t, v[1], across * face.side];
 }
+
+export interface RecordingBuilder { placements: Placement[]; module: PlacementBuilder['module'] }
+
+/** A builder that records placements without the module catalog. */
+export function recordingBuilder(): RecordingBuilder & PlacementBuilder {
+    const placements: Placement[] = [];
+    return {
+        placements,
+        module(module: string, room: string, position: V3, scale: V3 = [1, 1, 1], rotationY = 0, extra: Partial<Pick<Placement, 'id' | 'opening'>> = {}) {
+            const p: Placement = { id: `module:${placements.length}`, module, room, position, scale, rotationY, ...extra };
+            placements.push(p);
+            return p;
+        },
+    } as unknown as RecordingBuilder & PlacementBuilder;
+}
+
+/** The uv extent of a placed module (from its authored vertices). */
+export function uvExtent(p: Placement, k: Kit, frame: Frame): { u0: number; u1: number; v0: number; v1: number; y0: number; y1: number } {
+    const pts = placed(p, k), uv = pts.map(v => worldToUv([v[0], v[2]], frame)), ys = pts.map(v => v[1]);
+    return { u0: Math.min(...uv.map(q => q[0])), u1: Math.max(...uv.map(q => q[0])), v0: Math.min(...uv.map(q => q[1])), v1: Math.max(...uv.map(q => q[1])),
+        y0: Math.min(...ys), y1: Math.max(...ys) };
+}
