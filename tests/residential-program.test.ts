@@ -3,7 +3,8 @@ import { polygonArea } from '../src/core/geom.js';
 import { residentialProgram } from '../src/layout/residential-program.js';
 import { idGen } from '../src/layout/rooms.js';
 import { uvRectCorners } from '../src/layout/uv.js';
-import { generate } from '../src/index.js';
+import { generate, type PlacementResult } from '../src/index.js';
+import { templateSwitch } from '../src/layout/templates/registry.js';
 
 it.each(['v0', 'v1'] as const)('packs a 75m² home from either corridor side (%s) with direct private-room access', side => {
   const rect = { u: 0, v: 0, lu: 7.5, lv: 10 };
@@ -47,7 +48,14 @@ it.each([[40, 'mid'], [60, 'rich']] as const)('generates distinct serviced dwell
     parcel: { footprint: [[0, 0], [width, 0], [width, 40], [0, 40]], accessPoint: [0, 20], maxHeight: 20 },
     building: { type: 'residential', tier, floors: 3 }, options: { architecture: 'faceted-bays', glb: 'merged' } },
     { textures: { mode: 'keys' } });
-  const built = await generate({ seed: blueprint.seed, building: { id: 'home', type: 'residential', tier }, blueprint, materialTheme: 'cyberpunk' });
+  // A rich home on faceted-bays is kind B, whose reference apartments cook in the living room; these are the generic serviced dwellings it falls back to.
+  templateSwitch.enabled = false;
+  let built: PlacementResult;
+  try {
+    built = await generate({ seed: blueprint.seed, building: { id: 'home', type: 'residential', tier }, blueprint, materialTheme: 'cyberpunk' });
+  } finally {
+    templateSwitch.enabled = true;
+  }
   const floor = built.layouts.middle!.floor;
   const homes = [...new Set(floor.rooms.map(room => room.unit).filter(Boolean))];
   expect(homes.length).toBeGreaterThan(1);
