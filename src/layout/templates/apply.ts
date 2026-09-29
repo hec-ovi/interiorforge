@@ -123,11 +123,19 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
       // an office hall takes one reference office per facade side it can, the rest one each
       const perRoom = slot.slot === "hall" ? 2 : 1;
       let current = room, placed = 0;
-      for (const entryEdge of entryEdges(slot.slot, room, facadeEdges, template, street)) {
+      const tries = entryEdges(slot.slot, room, facadeEdges, template, street)
+        .flatMap(entryEdge => windows(room.rect, entryEdge, slot.slot === "hall" ? template.envelope.width * 1.5 : Infinity,
+          slot.slot === "hall" ? [template.envelope.depth, template.envelope.min[1] + 0.5] : [])
+          .map(rect => ({ entryEdge, rect })));
+      const used = new Set<EdgeName>();
+      for (const { entryEdge, rect } of tries) {
         if (placed >= perRoom) break;
+        if (used.has(entryEdge)) continue;
         const shape = current;
-        const target: TemplateTarget = { rect: shape.rect, polygon: roomPolygon(shape, ctx.outline),
-          ...(shape.holes?.length ? { holes: shape.holes } : {}), entryEdge, publicRoom: shape, facadeEdges,
+        const windowFacade = rect === room.rect ? facadeEdges : facadeEdgesOf(rect, ctx.plate);
+        if (template.daylight.length && !windowFacade.includes(opposite(entryEdge))) continue;
+        const target: TemplateTarget = { rect, polygon: roomPolygon(shape, ctx.outline),
+          ...(shape.holes?.length ? { holes: shape.holes } : {}), entryEdge, publicRoom: shape, facadeEdges: windowFacade,
           seatLegal, gridOrigin: origin, ...(ceiling ? { ceiling } : {}) };
         const fit = safeFit(template, target, undefined, ctx.ids, (candidate) => {
           const kept = candidate.find(item => item.id === shape.id)!;
@@ -139,7 +147,9 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
               const other = rooms.find(item => item.id === door.to);
               return !other || reaches(kept, other);
             });
-          return stillReached && probe(candidate, candidate.filter(item => item.id !== shape.id));
+          // the refined room itself furnishes as it always has; its carved rooms are probed
+          const carved = candidate.filter(item => item.id !== shape.id);
+          return stillReached && probe(carved, carved);
         }, shape);
         if (!fit) continue;
         rooms = replaceRooms(rooms, [shape], fit.rooms);
@@ -147,6 +157,7 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
         templated.set(room.id, { key: template.id, rooms: [...previous?.rooms ?? [], ...fit.rooms.map(item => item.id)] });
         changes.push(...fit.changes);
         current = fit.rooms.find(item => item.id === room.id) ?? current;
+        used.add(entryEdge);
         placed++;
       }
     });
@@ -271,6 +282,28 @@ export function facadeEdgesOf(rect: UvRect, plate: readonly Point[]): EdgeName[]
   ];
   return edges.filter(([, a, b]) => [0.2, 0.5, 0.8].every(t =>
     boundaryDistance([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], plate) < 0.05)).map(([edge]) => edge);
+}
+
+/** Sub-rectangles of a large common room, full depth from the entry edge, sliding along it
+ *  in 1.5 m steps, so a reference office finds a stretch of facade clear of the core. */
+function windows(rect: UvRect, entry: EdgeName, width: number, depths: number[]): UvRect[] {
+  const alongU = entry === "v0" || entry === "v1";
+  const length = alongU ? rect.lu : rect.lv, full = alongU ? rect.lv : rect.lu;
+  const out: UvRect[] = [rect];
+  const add = (window: UvRect) => {
+    if (!out.some(item => item.u === window.u && item.v === window.v && item.lu === window.lu && item.lv === window.lv)) out.push(window);
+  };
+  const w = Math.min(width, length);
+  const froms: number[] = [];
+  for (let offset = 0; offset + w <= length + 1e-6 && froms.length < 16; offset += 1.5) froms.push(offset, length - w - offset);
+  for (const depth of [full, ...depths.filter(d => d < full - 1e-6)]) for (const from of froms) {
+    // the window keeps the far (facade) wall and reaches `depth` in from it
+    const nearCut = full - depth;
+    const cut = entry === "v0" ? { v: rect.v + nearCut, lv: depth } : entry === "v1" ? { v: rect.v, lv: depth }
+      : entry === "u0" ? { u: rect.u + nearCut, lu: depth } : { u: rect.u, lu: depth };
+    add(alongU ? { ...rect, ...cut, u: rect.u + from, lu: w } : { ...rect, ...cut, v: rect.v + from, lv: w });
+  }
+  return out.slice(0, 40);
 }
 
 function opposite(edge: EdgeName): EdgeName {
