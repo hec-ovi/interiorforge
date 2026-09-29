@@ -246,7 +246,8 @@ function axisModel(t: SpaceTemplate, axis: "u" | "v", placed: TemplateRoom[]): A
       return lo! <= a.ref + EPS && hi! >= b.ref - EPS;
     });
     if (parts.length > 1 && !covered) {
-      spans.push({ ref, min: Math.max(MIN_SIDE * 0.5, 0.6 * ref), max: Infinity, weight: ref });
+      // a remainder-only axis (every room on it dropped) takes whatever the target has
+      spans.push({ ref, min: lines.length === 2 ? MIN_SIDE : Math.max(MIN_SIDE * 0.5, 0.6 * ref), max: Infinity, weight: ref });
       rigid.push(false);
       continue;
     }

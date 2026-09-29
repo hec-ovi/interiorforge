@@ -4,7 +4,7 @@
   "scope": "public",
   "style": "e2",
   "use": { "floorKinds": ["apartment", "hotel_rooms", "residence_studio"], "kinds": ["A"], "slot": "core-front" },
-  "envelope": { "width": 12.0, "depth": 6.0, "min": [6.4, 5.0], "max": [60.0, 12.0] },
+  "envelope": { "width": 12.0, "depth": 6.0, "min": [3.0, 2.0], "max": [80.0, 12.0] },
   "entry": { "room": "lobby", "door": "lift-front" },
   "daylight": [],
   "mirror": "allow",
@@ -27,7 +27,7 @@
   "rooms": [
     { "id": "corridor", "kind": "corridor", "role": "corridor", "remainder": true, "ceiling": 3.0 },
     { "id": "lobby", "kind": "elevator_lobby", "role": "lift-lobby", "u": ["u1", "u2"], "v": ["v0", "v1"],
-      "minClear": [4.0, 3.5], "ceiling": 3.0 }
+      "optional": { "drop": 1 }, "minClear": [4.0, 3.5], "ceiling": 3.0 }
   ],
   "doors": [
     { "id": "lift-front", "between": ["lobby", "@public"], "width": 3.0, "leaves": 3, "kind": "open", "along": 0.5,

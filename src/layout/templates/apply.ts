@@ -3,7 +3,7 @@ import { boundaryDistance, clipPolygonToRect, polygonArea, polygonBounds } from 
 import type { BlueprintFloor, FloorKind, InteriorRequest, RoomKind } from "../../core/types.js";
 import { commonTransit } from "../architecture-access.js";
 import { WALL } from "../constants.js";
-import type { CorePlan } from "../core-plan.js";
+import { elevatorWaitUv, type CorePlan } from "../core-plan.js";
 import { Facade, partitionConflicts } from "../openings.js";
 import { coreRectsOf } from "../pier-align.js";
 import type { EdgeName, PlanDoor, PlanRoom } from "../plan-types.js";
@@ -111,6 +111,7 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
   // Common rooms an authored public template refines in place: it keeps the room's id and
   // doors and carves its own rooms out of it (office halls, lobbies, restrooms, plant rooms).
   const street = streetDoor(ctx);
+  const lifts = ctx.core.elevators.length ? elevatorWaitUv(ctx.core, 0) as Point : null;
   for (const slot of slots) {
     const targets = rooms.filter(room => !room.unit && slot.kinds.includes(room.kind) && !ctx.exclude?.has(room.id))
       .sort((a, b) => roomArea(b) - roomArea(a) || a.id.localeCompare(b.id)).slice(0, slot.count);
@@ -123,7 +124,7 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
       // an office hall takes one reference office per facade side it can, the rest one each
       const perRoom = slot.slot === "hall" ? 2 : 1;
       let current = room, placed = 0;
-      const tries = entryEdges(slot.slot, room, facadeEdges, template, street)
+      const tries = entryEdges(slot.slot, room, facadeEdges, template, street, lifts)
         .flatMap(entryEdge => windows(room.rect, entryEdge, slot.slot === "hall" ? template.envelope.width * 1.5 : Infinity,
           slot.slot === "hall" ? [template.envelope.depth, template.envelope.min[1] + 0.5] : [])
           .map(rect => ({ entryEdge, rect })));
@@ -142,8 +143,16 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
           const reaches = (a: PlanRoom, b: PlanRoom) => sharedRoomEdges(a, b).some(edge => edge.hi - edge.lo >= MIN_STRETCH);
           // every room that opened onto it still shares a wall with what is left of it, and so
           // does every room its own doors lead to
+          // a door into the refined room keeps its opening and both pocket returns on a shared wall
+          const keepsDoor = (owner: PlanRoom, door: PlanDoor) => {
+            const at = doorUvPoint(door, owner), along = door.edge.startsWith("v") ? 0 : 1;
+            return sharedRoomEdges(owner, kept).some(edge => edge.edge === door.edge
+              && Math.abs(edge.c - at[1 - along]!) < 1e-6
+              && at[along]! - door.width - 0.3 >= edge.lo - 1e-6 && at[along]! + door.width + 0.3 <= edge.hi + 1e-6);
+          };
           const stillReached = rooms.every(other => other === shape || !other.doors.some(door => door.to === shape.id)
-            || reaches(other, kept)) && kept.doors.every(door => {
+            || reaches(other, kept) && other.doors.filter(door => door.to === shape.id).every(door => keepsDoor(other, door)))
+            && kept.doors.every(door => {
               const other = rooms.find(item => item.id === door.to);
               return !other || reaches(kept, other);
             });
@@ -184,6 +193,7 @@ const SLOT_TARGETS: { slot: PublicSlot; kinds: RoomKind[]; count: number }[] = [
   { slot: "ground-front", kinds: ["reception"], count: 1 },
   { slot: "service", kinds: ["toilets", "mechanical_room"], count: 4 },
   { slot: "corridor", kinds: ["corridor"], count: 2 },
+  { slot: "core-front", kinds: ["corridor"], count: 1 },
 ];
 
 function remainderKind(template: SpaceTemplate): RoomKind | undefined {
@@ -193,11 +203,12 @@ function remainderKind(template: SpaceTemplate): RoomKind | undefined {
 /** Local entry edges to try for a refined common room: a hall looks out of its far wall,
  *  a lobby turns its front to the street door, a service room to its own door. */
 function entryEdges(slot: PublicSlot, room: PlanRoom, facade: EdgeName[], template: SpaceTemplate,
-  street: Point | null): EdgeName[] {
+  street: Point | null, lifts: Point | null): EdgeName[] {
   const all: EdgeName[] = ["v0", "v1", "u0", "u1"];
   if (slot === "hall" || template.daylight.length) return all.filter(edge => facade.includes(opposite(edge)));
   const r = room.rect;
-  const at = slot === "ground-front" ? street : room.doors[0] ? doorUvPoint(room.doors[0], room) : null;
+  const at = slot === "ground-front" ? street : slot === "core-front" ? lifts
+    : room.doors[0] ? doorUvPoint(room.doors[0], room) : null;
   if (!at) return all;
   const distance = (edge: EdgeName) => edge === "v0" ? Math.abs(at[1] - r.v) : edge === "v1" ? Math.abs(at[1] - r.v - r.lv)
     : edge === "u0" ? Math.abs(at[0] - r.u) : Math.abs(at[0] - r.u - r.lu);
