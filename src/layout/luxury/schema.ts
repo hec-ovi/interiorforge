@@ -22,7 +22,7 @@ export interface GroupFit {
   kind: LuxuryGroup;
   bounds: UvRect;
   rng: Rng;
-  accepts: (reservation: UvRect) => boolean;
+  accepts: (reservation: UvRect, pieces: readonly GroupPiece[]) => boolean;
 }
 
 export interface FittedGroup {
