@@ -251,9 +251,14 @@ For paired `balcony-grid`, `corporate-sectors`, `faceted-bays`, `white-grid`,
 `mirror-shutters`, `mirror-frame` and `garden-taper` blueprints with a room envelope, Exterior owns
 the closed inner facade, window frames and finished returns. Interior keeps those
 exact surfaces instead of adding scaled window-return rings or a second wall around
-the inset construction rectangle. That rectangle bounds room partitions; the band
-out to the real facade remains open. Core enclosures retain their walls. The rule
-uses each generated blueprint and applies at every supported footprint and floor count.
+the inset construction rectangle. That rectangle is where the rooms are planned; once the
+building is planned, every room, sealed void, shaft and loft void standing on its edge
+reaches out to the shell's inner face (its wall depth plus a 25 mm seam), so partitions,
+floors and ceilings meet the facade and no band behind it joins the rooms of a floor. A
+point of that band belongs to whatever stands where it lands pulled straight back into the
+rectangle; a curved or chamfered facade is met by steps on the construction axes that start
+and end on its face and carry no wall of their own. Core enclosures retain their walls. The
+rule uses each generated blueprint and applies at every supported footprint and floor count.
 
 A room's face on the shell is cut once by the union of every opening carried by any floor
 that reuses this layout, the passage its own doors land on included, projected inward onto each facing lining even when a recessed or curved facade
@@ -315,11 +320,13 @@ furnishes by its floor area, not by a fixed handful: a shop floor takes its chec
 shelving along the walls, display aisles across the plate and, past 80 m2, a seated bay on
 its carpet, so a 2000 m2 room reads as a shop and not as an empty plate.
 
-Rooms, surfaces, walls, the vertical core and prop bounds fit the floor's published `roomEnvelope`,
-kept behind `facade.wallDepth`, defaulting to 0.12 m; a floor without one uses its
-outline inset by that depth. The band between that rectangle and the outline is the
-exterior's own slab: open floor, walkable, carrying no partition and no interior
-surface, and an exterior door reaches its room across it, through the part of its span that meets that room's floor. Window returns fit between
+Rooms are planned in the floor's published `roomEnvelope`, kept behind `facade.wallDepth`,
+defaulting to 0.12 m; a floor without one uses its outline inset by that depth. Once planned,
+the rooms reach out across the band between that rectangle and the facade: to the shell's
+inner face where the shell closes the facade, to the inner face of Interior's lining where
+Interior lines it. Furniture, the vertical core, circulation and the doors between rooms keep
+their planned places; a street door moves out to the face with its wall. The band beyond the
+face is the exterior's own slab, and an exterior door reaches its room across it, through the part of its span that meets that room's floor. Window returns fit between
 adjacent backing planes. Door thresholds join the floor to source passages; a pocket door's passage is its published `door.clearance`, its connection carries `clearDepth` 0 (the leaves retract into the cassette), and the cassette beside it is solid wall.
 
 Construction uses the 0.5 m grid. Measured facade attachments and closing boundaries
@@ -357,7 +364,7 @@ against the consumer's resource base. Layout file paths resolve beside building.
 Modules carry their finish keys; prop materials belong to their existing models.
 
 `building.floors[].openings` maps the layout's door IDs to this floor's door IDs, and
-`treatments` carries this floor's own window returns, built from its own openings, and the next shared stair flight's uniquely owned soffits and enclosure finish skins. The upper wall retains an opaque recessed body for downward views; every piece stays within the original structural volume. Exterior door placement and room connection IDs match the blueprint.
+`treatments` carries this floor's own window returns and partition caps, built from its own openings (where a partition meets one of its windows, a jamb stands on the partition's line from the glazing's back plane to the partition's end over the glazed height, closing the reveal behind it), and the next shared stair flight's uniquely owned soffits and enclosure finish skins. The upper wall retains an opaque recessed body for downward views; every piece stays within the original structural volume. Exterior door placement and room connection IDs match the blueprint.
 Core placements carry `connector` and an actual corridor room ID. `building.corePlacement`
 is the stair the building was furnished around, the shape `coreFeasibility` returns for
 the same blueprint and building type, so a window measured against the gate stays clear. A second stair is built
