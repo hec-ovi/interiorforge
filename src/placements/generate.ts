@@ -46,9 +46,13 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
     // floors and explicit programmes keep their own geometry and navigation.
     const samples: BlueprintFloor[] = [], names: LayoutId[] = [], layoutByFloor = new Map<number, LayoutId>();
     const reusable = new Map<string, LayoutId>();
+    // Unpaired middle layouts by their plain signature: a paired floor whose optional loft
+    // does not fit falls back onto one of them.
+    const plainKeys = new Map<number, string>(), plainLayouts = new Map<string, LayoutId>();
     for (const [index, floor] of floors.entries()) {
-        const key = signature(floor, assignments.find(a => a.floor === floor.index)!.kind)
-            + (pairedFloors.has(floor.index) ? `:duplex:${floor.index}` : '');
+        const plainKey = signature(floor, assignments.find(a => a.floor === floor.index)!.kind);
+        const key = plainKey + (pairedFloors.has(floor.index) ? `:duplex:${floor.index}` : '');
+        plainKeys.set(floor.index, plainKey);
         let name: LayoutId;
         if (index === 0) name = 'ground';
         else if (index === floors.length - 1) name = 'crown';
@@ -56,6 +60,7 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
         layoutByFloor.set(floor.index, name);
         if (!names.includes(name)) { samples.push(floor); names.push(name); }
         if (index > 0 && index < floors.length - 1) reusable.set(key, name);
+        if (index > 0 && index < floors.length - 1 && !pairedFloors.has(floor.index) && !plainLayouts.has(plainKey)) plainLayouts.set(plainKey, name);
     }
     let plan;
     try {
@@ -70,7 +75,13 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
         return generate({ ...request, blueprint: { ...request.blueprint, floors: [floors[0]!], roof: undefined },
             ...(request.assignments ? { assignments: request.assignments.filter(a => a.floor === 0) } : {}) }, { models: present });
     }
-    applyLoftPairs(plan, duplexPairs, request);
+    for (const pair of applyLoftPairs(plan, duplexPairs, request)) for (const index of [pair.lower, pair.upper]) {
+        const name = layoutByFloor.get(index)!, reuse = plainLayouts.get(plainKeys.get(index)!);
+        if (name === 'ground' || name === 'crown' || !reuse) continue;
+        layoutByFloor.set(index, reuse);
+        const at = names.indexOf(name);
+        if (at >= 0 && ![...layoutByFloor.values()].includes(name)) { names.splice(at, 1); samples.splice(at, 1); }
+    }
     stampStyles(plan, request);
     const roof = planRoofAccess(request, plan.core);
     const crown = samples.length - 1;
@@ -83,7 +94,7 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
     const npc = buildNpcSupport(plan, request);
     const layouts: LayoutMap<FloorPlacement> = {};
     samples.forEach((bp, i) => {
-        const floor = structuredClone(plan.floors[i]!);
+        const floor = structuredClone(plan.floors.find(f => f.floor === bp.index)!);
         floor.ceilingElevation -= floor.elevation;
         for (const light of floor.lights)
             light.position[1] -= floor.elevation;
@@ -178,19 +189,23 @@ function stampPublishedStyles(result: GeneratedInterior, request: InteriorReques
     }
 }
 /** Requested pairs must hold a loft; a derived pair no unit holds leaves its two floors
- *  single and records the loft it could not fit on the lower floor's program. */
-function applyLoftPairs(plan: BuildingPlan, pairs: readonly DuplexPair[], request: InteriorRequest): void {
+ *  single and records the loft it could not fit on the upper floor's program. Returns the
+ *  pairs that fell back. */
+function applyLoftPairs(plan: BuildingPlan, pairs: readonly DuplexPair[], request: InteriorRequest): DuplexPair[] {
     applyDuplexPairs(plan, pairs.filter(pair => !pair.optional), request);
+    const failed: DuplexPair[] = [];
     for (const pair of pairs.filter(pair => pair.optional)) {
         try {
             applyDuplexPairs(plan, [pair], request);
         }
         catch (error) {
             if (!(error instanceof InteriorError) || error.code !== 'E_FLOOR_TOO_SMALL') throw error;
-            const uv = plan.uvFloors.get(pair.lower);
+            const uv = plan.uvFloors.get(pair.upper);
             if (uv) (uv.programChanges ??= []).push({ kind: 'living', requested: [15, 10], fitted: null });
+            failed.push(pair);
         }
     }
+    return failed;
 }
 /** Geometry and program only. Windows and exterior dressing (material, panes, glazing,
  *  scenery, section ids) vary per floor by design; doors and portals hold the layout. */
