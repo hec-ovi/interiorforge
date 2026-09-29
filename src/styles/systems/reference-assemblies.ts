@@ -5,7 +5,6 @@ import { placeIsland, placeTallRun, type IslandSpec, type TallRunSpec } from './
 import { registerModuleSizes, xyPrism, yzPrism } from './built-ins.js';
 import { placeGlassPlanter, type GlassPlanterSpec } from './planter.js';
 import { LOOK } from './reference-looks.js';
-import { referenceCasings } from './reference-portals.js';
 import type { AssemblySpec, HousingSpec, KitchenWallSpec, PlanterSpec, RunSpec } from './types.js';
 
 /** The built-in assemblies of the reference interiors, as data plus their modules. A kind
@@ -442,7 +441,7 @@ export const BUILT_INS_A: { assemblies: Record<string, AssemblySpec>; housings: 
     'asm-e5-bar': { type: 'run', spec: E5_BAR },
   },
   housings: [E1_HOUSING_DOORS, E1_HOUSING_PORTALS],
-  recipes: [kindA, referenceCasings('e1')],
+  recipes: [kindA],
 };
 /** Opt-in kind A built-ins (see `kindAExtra`). */
 export const BUILT_INS_A_EXTRA: typeof BUILT_INS_A = {
@@ -461,7 +460,7 @@ export const BUILT_INS_B: typeof BUILT_INS_A = {
     'asm-b3-media': { type: 'run', spec: B3_MEDIA },
   },
   housings: [],
-  recipes: [kindB, referenceCasings('b3')],
+  recipes: [kindB],
 };
 export const BUILT_INS_C: typeof BUILT_INS_A = {
   assemblies: {
@@ -469,10 +468,10 @@ export const BUILT_INS_C: typeof BUILT_INS_A = {
     'asm-c4-stall': { type: 'run', spec: C4_STALLS },
   },
   housings: [C2_DUCT, C7_AC],
-  recipes: [kindC, referenceCasings('c1', 'c2')],
+  recipes: [kindC],
 };
 export const BUILT_INS_R: typeof BUILT_INS_A = {
   assemblies: { 'asm-r1-library': { type: 'run', spec: R1_LIBRARY } },
   housings: [],
-  recipes: [kindR, referenceCasings('r1')],
+  recipes: [kindR],
 };
