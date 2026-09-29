@@ -10,6 +10,7 @@ session
 !/docs/INDEX.md
 !/docs/RESEARCH.md
 !/docs/ISSUES.md
+!/docs/stair-construction.md
 inbox/
 .research/
 
@@ -21,6 +22,7 @@ inbox/
 [Ss]creenshot*.webp
 preview-captures/
 review-captures/
+/fixtures/reference-review-sets.json
 
 # Licensed source models and local-only normalized derivatives.
 assets-sources/
