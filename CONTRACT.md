@@ -315,7 +315,16 @@ damaged families stand their own modules for the pieces they author, beds and wa
 included (`fit-capsule-bed`, `fit-capsule-wardrobe` or the H10 profile's
 `fit-capsule-h10-wardrobe`, `fit-sandra-bed`, `fit-damaged-bed`, `fit-damaged-wardrobe`),
 whatever models are present; the luxury and corporate families prefer a present catalog
-model and stand their own module otherwise. Programs: a lobby stands its concierge desk at
+model and stand their own module otherwise. A style may also stand a generic record as one of
+its assemblies (E6 stands its kitchen record as `asm-e6-kitchen`, a full joinery wall unless a
+window is behind it). Once the furniture stands, the dressing pass
+(`src/placements/dressing.ts`) reads the tops the placed pieces offer off their own geometry
+(upward faces with clear space over them: worktops round their cut-outs, islands, bar and
+counter tops, tables, consoles, nightstands, desks and shelf boards) and stands a few seeded
+pieces on each, props (catalog decor, the CC0 Poly Haven models among them) or `decor-*`
+modules, tier by tier; islands and counters take their stools at the front where the room is
+clear of walls, doorways and other pieces. A floor takes at most 140 such pieces; their ids are
+`<piece>/dress-<n>` and `<record>/stool-<n>`. Programs: a lobby stands its concierge desk at
 the arrival, beside the entrance axis, facing the door or, where that would stand it in the
 route to the core, the arrival aisle, with waiting bays flanking the entrance and planted
 displays against opaque walls, or planters on the floor of a glazed arrival; a restaurant

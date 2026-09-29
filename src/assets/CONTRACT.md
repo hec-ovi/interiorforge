@@ -26,6 +26,7 @@ Error when it is unavailable. `npm run assets:import` normalizes licensed origin
 rebuilds the catalog; a source this machine lacks keeps its published entry, and the
 import lists those sources as a warning.
 
+A plan entry's `maxTexture` resizes its maps on import (small decor keeps 512 px maps).
 Models are centered in XZ, grounded at Y zero, and preserve source materials.
 Availability is `redistributable`, `local-only` or `source-only`.
 Depends on [Core](../core/CONTRACT.md), glTF Transform and provider metadata during import.

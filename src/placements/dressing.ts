@@ -66,7 +66,8 @@ const SHELF_TOP = 1.9;
  *  something standing on it (a baked stack of books), not a place to stand more. */
 const BOARD_SHARE = .4;
 /** One per room: nobody keeps two coffee machines in one kitchen. */
-const ONCE_PER_ROOM = new Set(['decor-coffee-machine', 'decor-kettle', 'decor-knife-block', 'sketchfab-laptop', 'polyhaven-desk-lamp-arm-01', 'polyhaven-wine-bottles-01', 'decor-bottles']);
+const ONCE_PER_ROOM = new Set(['decor-coffee-machine', 'decor-kettle', 'decor-knife-block', 'sketchfab-laptop', 'polyhaven-desk-lamp-arm-01', 'polyhaven-wine-bottles-01', 'decor-bottles',
+  'polyhaven-katana-stand-01', 'polyhaven-marble-bust-01', 'polyhaven-horse-head']);
 
 interface Level { y: number; x0: number; x1: number; z0: number; z1: number; tris: number[][]; slot?: string }
 interface Solid { min: [number, number, number]; max: [number, number, number] }
