@@ -812,7 +812,16 @@ export function furnish(
     const area = roomArea(room);
     // A templated room stands its authored pieces first; the family dispatch still runs for
     // a room whose template did not author the piece that makes it what it is.
-    if (room.authored?.length && p.authored(room.authored, ceilingHeight) && authoredComplete(room, out)) continue;
+    if (room.authored?.length && p.authored(room.authored, ceilingHeight) && authoredComplete(room, out)) {
+      // an authored salon still gets the companions its template left to the room: a table
+      // before the sofa and a screen on a free wall
+      if (room.kind === 'living' || room.kind === 'studio_main') {
+        const own = out.filter(item => item.room === room.id);
+        if (!own.some(item => item.kind === 'low_table')) p.center('low_table');
+        if (!own.some(item => item.kind === 'display_screen')) p.wallPiece('display_screen');
+      }
+      continue;
+    }
     if (family === 'industrial' && furnishIndustrial(room, floorKind, p)) continue;
     if (family === 'corporate' && furnishCorporate(room, floorKind, p)) continue;
     if (domestic && furnishResidentialComposition(room, p, residentialProfile)) continue;
