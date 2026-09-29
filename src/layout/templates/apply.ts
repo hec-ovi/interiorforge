@@ -96,7 +96,9 @@ export function applySpaceTemplates(ctx: TemplateContext): TemplateResult {
     units.forEach((unit, index) => {
       if (ctx.exclude?.has(unit.id)) return;
       const allowed = (template: SpaceTemplate) => !ctx.exclude?.has(`${unit.id}:${template.id}`);
-      const target: TemplateTarget = { ...unit.target, seatLegal, gridOrigin: origin, ...(ceiling ? { ceiling } : {}) };
+      // A dwelling's partitions seat against the facade within reach, as the generic homes do;
+      // only a refined common room carries its lines on to the outline (below).
+      const target: TemplateTarget = { ...unit.target, seatLegal: (point: Point) => seatLegal(point), gridOrigin: origin, ...(ceiling ? { ceiling } : {}) };
       let fit: TemplateFit | null = null;
       let key = "";
       for (let k = 0; k < dwellings.length && !fit; k++) {
