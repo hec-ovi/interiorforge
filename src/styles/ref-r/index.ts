@@ -1,5 +1,6 @@
 import type { KindExports } from '../systems/types.js';
 import { referenceCasings } from '../systems/reference-portals.js';
+import { R1_ASSEMBLIES, r1FurnitureRecipes } from './furniture.js';
 import { R1_STYLE } from './style.js';
 import { R1_PANEL } from './systems.js';
 
@@ -13,7 +14,7 @@ export const kind: KindExports = {
     ceilings: [],
     floors: [],
     portals: [],
-    assemblies: {},
+    assemblies: { ...R1_ASSEMBLIES },
     housings: [],
-    recipes: [R1_PANEL.recipes, referenceCasings('r1')],
+    recipes: [R1_PANEL.recipes, referenceCasings('r1'), r1FurnitureRecipes],
 };
