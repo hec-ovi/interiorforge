@@ -33,7 +33,7 @@ const GENERATION_SECONDS = 30;
  *  bays and boards put some 6 k placements on each of its floors. Kind C's damaged planner
  *  and kind A's luxury planner are slow today; their time allowances are that cost under load. */
 const PRE_REFERENCE: Partial<Record<ReferenceKind, { placements?: number; triangles?: number; seconds?: number; bytes?: number }>> = {
-    A: { placements: 4020, triangles: 2_050_000, seconds: 60 },
+    A: { placements: 3400, triangles: 1_250_000, seconds: 45 },
     B: { placements: 7000, triangles: 1_557_000, seconds: 45, bytes: 3_700_000 },
     C: { triangles: 600_000, seconds: 200 },
 };
