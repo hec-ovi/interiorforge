@@ -130,7 +130,7 @@
       "width": 1.2,
       "leaves": 1,
       "kind": "pocket",
-      "along": 0.72,
+      "along": 0.5,
       "owner": "studio"
     },
     {
@@ -139,7 +139,7 @@
         "bath",
         "studio"
       ],
-      "width": 1.2,
+      "width": 1.8,
       "leaves": 1,
       "kind": "portal",
       "portal": "c1-bath",
@@ -265,13 +265,10 @@
       "kind": "ornament_wall",
       "fit": "fit-c1-vending",
       "required": false,
-      "wall": "free",
-      "at": [
-        2.95,
-        2.95
-      ],
+      "wall": "v0",
       "along": {
-        "centred": true
+        "line": "u1",
+        "offset": 0.1
       },
       "size": [
         0.9,
@@ -320,17 +317,17 @@
       "room": "bath",
       "kind": "sink",
       "required": false,
-      "wall": "u0",
+      "wall": "v0",
       "along": {
-        "line": "v0",
-        "offset": 1.05
+        "line": "u0",
+        "offset": 1.0
       },
       "size": [
         0.5,
         0.45,
         1.05
       ],
-      "rotationDeg": 90
+      "rotationDeg": 0
     },
     {
       "id": "shower",
