@@ -1,6 +1,7 @@
 import type { Point } from "../../core/geom.js";
 import { pointInPolygon, polygonArea } from "../../core/geom.js";
 import { doorApproachFits, pocketInterval } from "../door-fit.js";
+import { doorApproach, zoneUvRect } from "../levels.js";
 import { livingConnected } from "../living-connectivity.js";
 import type { AuthoredPiece, EdgeName, PlanDoor, PlanRoom } from "../plan-types.js";
 import { RoomRegion } from "../room-region.js";
@@ -413,10 +414,12 @@ function placeEntry(owner: PlanRoom, publicRoom: PlanRoom, door: TemplateDoor, t
       const snapped = Math.min(interval[1], Math.max(interval[0], Math.round(centre * 4) / 4));
       for (const at of [snapped, centre]) {
         if (!doorApproachFits(owner, publicRoom, edge, stretch.c, at, width, 1.25)) continue;
-        owner.doors.push({ id: nextId(), to: publicRoom.id, leaves, width, edge, at,
+        const entry: PlanDoor = { id: "", to: publicRoom.id, leaves, width, edge, at,
           position: alongU ? [at, stretch.c] : [stretch.c, at],
           ...(target.entryDoor?.clearDepth !== undefined ? { clearDepth: target.entryDoor.clearDepth }
-            : door.kind !== "swing" ? { clearDepth: 0 } : {}) });
+            : door.kind !== "swing" ? { clearDepth: 0 } : {}) };
+        if (approachTakesLevel(entry, owner, [owner])) continue;
+        owner.doors.push({ ...entry, id: nextId() });
         return true;
       }
     }
@@ -436,11 +439,24 @@ function placeInternal(owner: PlanRoom, other: PlanRoom, door: Pick<TemplateDoor
     for (const fraction of [door.along, 0.5, 0.25, 0.75, 0.1, 0.9]) {
       const at = span > 0 ? stretch.lo + w / 2 + BAND_CLEAR + span * fraction : (stretch.lo + stretch.hi) / 2;
       if (!doorApproachFits(owner, other, stretch.edge, stretch.c, at, w)) continue;
-      owner.doors.push(internalDoor(nextId(), other.id, w, leaves, stretch, at, door.kind));
+      const placed = internalDoor("", other.id, w, leaves, stretch, at, door.kind);
+      // A level zone never takes a door's approach: a raised zone's side or flight standing
+      // there would wall the doorway shut, a pit would open under it.
+      if (approachTakesLevel(placed, owner, [owner, other])) continue;
+      owner.doors.push({ ...placed, id: nextId() });
       return true;
     }
   }
   return false;
+}
+
+/** Whether a door's approach overlaps a level zone of any of the given rooms. */
+function approachTakesLevel(door: PlanDoor, owner: PlanRoom, rooms: readonly PlanRoom[]): boolean {
+  const a = doorApproach(door, owner);
+  return rooms.some(room => (room.levels ?? []).some(zone => {
+    const z = zoneUvRect(zone);
+    return a.u < z.u + z.lu - EPS && z.u < a.u + a.lu - EPS && a.v < z.v + z.lv - EPS && z.v < a.v + a.lv - EPS;
+  }));
 }
 
 function internalDoor(id: string, to: string, width: number, leaves: 1 | 2 | 3 | 4, stretch: RoomStretch, at: number,
