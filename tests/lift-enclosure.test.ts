@@ -10,6 +10,8 @@ import { ELEVATOR } from '../src/layout/constants.js';
 import { elevatorDoorHole } from '../src/geometry/core-geo.js';
 import { makeFrame, uvRectToFrameRect } from '../src/layout/uv.js';
 import type { CorePlan } from '../src/layout/core-plan.js';
+import type { Placement } from '../src/placements/types.js';
+import { LIFT_CAR } from '../src/geometry/lift-spec.js';
 
 const recipes = new Map(moduleRecipes().map(recipe => [recipe.id, recipe]));
 const plan = { frame: makeFrame(0), vFace: 10,
@@ -63,6 +65,67 @@ it('opaque inward-facing walls close every view except the real entrance, includ
         for (const direction of [new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0)]) {
             ray.set(new THREE.Vector3(...eye as [number, number, number]), direction);
             expect(ray.intersectObjects(meshes).length).toBeGreaterThan(0);
+        }
+    }
+});
+
+/** One placement's module as a mesh standing where the placement puts it. */
+function placedMeshes(placement: Placement): THREE.Mesh[] {
+    const recipe = recipes.get(placement.module!)!;
+    return recipe.mesh.materials().map(slot => {
+        const data = recipe.mesh.getGroup(slot)!, geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
+        geometry.setIndex(Array.from(data.indices));
+        const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ side: THREE.FrontSide }));
+        mesh.position.set(...placement.position);
+        mesh.rotation.y = placement.rotationY;
+        mesh.scale.set(...placement.scale);
+        mesh.updateMatrixWorld(true);
+        return mesh;
+    });
+}
+
+it('closes every view out of the travelling car on its walls, its shut leaves, its head or its sill', () => {
+    const { builder, car } = placed();
+    const meshes = builder.placements.filter(p => /^lift-car/.test(p.module!)).flatMap(placedMeshes);
+    expect(new Set(builder.placements.filter(p => /^lift-car/.test(p.module!)).map(p => p.module)))
+        .toEqual(new Set(['lift-car', 'lift-car-doors', 'lift-car-head']));
+    const ray = new THREE.Raycaster(), [cx, , cz] = car.position;
+    // Eyes across the car, down to one a step from the doors, at seated and standing height.
+    for (const [x, y, z] of [[0, 1.7, 0], [.9, 1.7, .9], [-.9, 1.7, .9], [0, 1.05, .8], [-.8, 1.7, -1.3], [.8, 1.2, -1.3], [0, 1.9, -1.3]]) {
+        const eye = new THREE.Vector3(cx + x!, y!, cz + z!);
+        for (const pitch of [-70, -45, -20, 0, 20, 45, 70]) {
+            for (let i = 0; i < 96; i++) {
+                const yaw = i * Math.PI * 2 / 96, p = pitch * Math.PI / 180;
+                const direction = new THREE.Vector3(Math.cos(yaw) * Math.cos(p), Math.sin(p), Math.sin(yaw) * Math.cos(p));
+                ray.set(eye, direction);
+                const [hit] = ray.intersectObjects(meshes);
+                expect(hit, `view out of the car from ${[x, y, z]} at yaw ${i}/96, pitch ${pitch}`).toBeTruthy();
+                // A hit lies on the car itself, never past its shaft.
+                expect(Math.abs(hit!.point.x - cx)).toBeLessThan(ELEVATOR.shaft / 2);
+                expect(Math.abs(hit!.point.z - cz)).toBeLessThan(ELEVATOR.shaft / 2);
+            }
+        }
+    }
+});
+
+it('keeps every member that stands still at a landing out of the car front the car carries past it', () => {
+    for (const storey of [3.4, 4.5]) {
+        const builder = new PlacementBuilder();
+        lifts(builder, plan, 'floor-slab-stone', 'lobby', 3.4, storey, 0);
+        const rect = plan.elevators[0]!.rect, car = builder.placements.find(p => p.module === 'lift-car')!;
+        const carFront = rect.v + 0.10, reach = LIFT_CAR.door.leaf * car.scale[0] + 0.02;
+        // The car's leaves, head and sill pass every floor in this slab of the shaft.
+        const envelope = new THREE.Box3(new THREE.Vector3(car.position[0] - reach, -1, carFront + LIFT_CAR.door.plane[0]),
+            new THREE.Vector3(car.position[0] + reach, storey + 1, carFront));
+        for (const placement of builder.placements.filter(p => !/^lift-car/.test(p.module!))) {
+            for (const mesh of placedMeshes(placement)) {
+                mesh.geometry.computeBoundingBox();
+                const box = mesh.geometry.boundingBox!.clone().applyMatrix4(mesh.matrixWorld);
+                const overlap = box.intersect(envelope);
+                const reachesIn = !overlap.isEmpty() && Math.min(...overlap.getSize(new THREE.Vector3()).toArray()) > 1e-6;
+                expect(reachesIn, `${placement.module} reaches into the car front`).toBe(false);
+            }
         }
     }
 });

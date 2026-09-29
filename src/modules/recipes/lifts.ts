@@ -20,8 +20,9 @@ function leaf(k: Kit, side: -1 | 1, width: number, [y0, y1]: readonly [number, n
   stud(k, FINISH.zinc, [(a + b) / 2, y1 - 0.075], [b - a, 0.035], front, front + 0.003);
 }
 
-/** Moving car and leaves retain their consumer IDs. Stationary landing fittings must
- * remain separate: the consumer splits every triangle of lift-doors into sliding leaves. */
+/** Moving car, car front and leaves retain their consumer IDs. Stationary landing fittings
+ * must remain separate: the consumer splits every triangle of `lift-doors` and
+ * `lift-car-doors` into sliding leaves at x = 0. */
 export const liftRecipes: RecipeSet = (add) => {
   add("lift-car", (k) => {
     // Canonical 2.30 m car. Placement expands it to a generous 3.30 m
@@ -80,6 +81,24 @@ export const liftRecipes: RecipeSet = (add) => {
         line([-.007, -.007], [.007, .007]); line([-.007, .007], [.007, -.007]);
       }
     }
+  });
+  // The car's own front rides with it, placed at the car front plane unscaled in depth and
+  // height: its leaves close the car whenever it is not standing open at a landing, and the
+  // head and sill close the car front above and below them, so nothing of the shaft shows.
+  add("lift-car-doors", (k) => {
+    const d = LIFT_CAR.door;
+    for (const side of [-1, 1] as const) leaf(k, side, d.leaf, [d.bottom, d.height], d.plane);
+  });
+  add("lift-car-head", (k) => {
+    const c = LIFT_CAR, d = c.door, half = c.doorWidth / 2 + 0.04, reach = c.width / 2;
+    k.box(FINISH.liftCar, [-half, d.head, d.plane[0]], [2 * half, c.ceiling - d.head, c.wall - d.plane[0]]);
+    k.box(FINISH.zinc, [-c.doorWidth / 2, d.head, c.wall], [c.doorWidth, 0.03, 0.003], undefined, ["north", "east", "west", "top", "bottom"]);
+    // The sill carries the leaves across their whole travel, flush with the car floor, with
+    // the groove their guides run in under the leaves' middle.
+    const mid = (d.plane[0] + d.plane[1]) / 2, groove = [mid - 0.004, mid + 0.004] as const;
+    k.box(FINISH.zinc, [-reach, -0.03, -d.sill], [2 * reach, 0.03, groove[0] + d.sill]);
+    k.box(FINISH.zinc, [-reach, -0.03, groove[1]], [2 * reach, 0.03, -groove[1]]);
+    k.box(FINISH.charcoal, [-reach, -0.03, groove[0]], [2 * reach, 0.022, groove[1] - groove[0]], undefined, ["top"]);
   });
   add("lift-doors", (k) => {
     // Sheet-metal geometry supplies the split; a texture of a whole elevator must never be

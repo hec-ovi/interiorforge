@@ -6,10 +6,10 @@ import * as THREE from 'three/webgpu';
 import { moduleRecipes } from '../src/modules/recipes.js';
 import { PlacementBuilder } from '../src/placements/builder.js';
 import { lifts } from '../src/placements/lifts.js';
-import { LIFT_LANDING } from '../src/geometry/lift-spec.js';
+import { LIFT_CAR, LIFT_LANDING } from '../src/geometry/lift-spec.js';
 import { elevatorDoorHole } from '../src/geometry/core-geo.js';
 import type { CorePlan } from '../src/layout/core-plan.js';
-import { makeFrame, uvRectToFrameRect } from '../src/layout/uv.js';
+import { makeFrame, uvRectToFrameRect, worldToUv } from '../src/layout/uv.js';
 
 const recipes = new Map(moduleRecipes().map(recipe => [recipe.id, recipe]));
 function core(angle = 0, size = 2.5): CorePlan {
@@ -28,7 +28,8 @@ it('fits a full-sized car and bridges the landing without a shaft gap at every o
         expect(recipe.size[2] * car.scale[2]).toBeCloseTo(size - 0.20, 6);
         expect(car.rotationY).toBeCloseTo(-angle * Math.PI / 180, 7);
         const reveal = builder.placements.find(p => p.module === 'lift-reveal-jamb')!;
-        expect(reveal.scale[2]).toBeCloseTo(0.10, 6);
+        // The reveal lines the passage from the wall line to just short of the car's leaves.
+        expect(reveal.scale[2]).toBeCloseTo(0.10 + LIFT_CAR.door.plane[0] - 0.004, 6);
         const doors = builder.placements.find(p => p.module === 'lift-doors')!;
         expect(reveal.rotationY).toBeCloseTo(doors.rotationY - Math.PI, 7);
         expect(builder.placements.filter(p => p.module === 'lift-car')).toHaveLength(1);
@@ -50,15 +51,27 @@ it('keeps standing headroom when the same car serves short and tall storeys', ()
             if (Math.abs(x) < 0.54 && z < -1.04 && y > 0.1) expect(y).toBeGreaterThan(2.1);
         }
     }
+    // The car's own head keeps the landing's doorway height in the shortest storey too.
+    const head = builder.placements.find(p => p.module === 'lift-car-head')!;
+    const front = recipes.get('lift-car-head')!;
+    for (const slot of front.mesh.materials()) {
+        const group = front.mesh.getGroup(slot)!;
+        for (let i = 0; i < group.positions.length; i += 3) {
+            const x = group.positions[i]!, y = group.positions[i + 1]! * head.scale[1];
+            if (Math.abs(x) < 0.54 && y > 0.1) expect(y).toBeGreaterThanOrEqual(2.20);
+        }
+    }
 });
 
 it('keeps all leaf triangles on one side of the split and all fixed fittings outside the clear aperture', () => {
-    const door = recipes.get('lift-doors')!;
-    for (const slot of door.mesh.materials()) {
-        const group = door.mesh.getGroup(slot)!;
-        for (let i = 0; i < group.indices.length; i += 3) {
-            const xs = group.indices.slice(i, i + 3).map(index => group.positions[index * 3]!);
-            expect(Math.min(...xs) >= 0 || Math.max(...xs) <= 0).toBe(true);
+    for (const id of ['lift-doors', 'lift-car-doors']) {
+        const door = recipes.get(id)!;
+        for (const slot of door.mesh.materials()) {
+            const group = door.mesh.getGroup(slot)!;
+            for (let i = 0; i < group.indices.length; i += 3) {
+                const xs = group.indices.slice(i, i + 3).map(index => group.positions[index * 3]!);
+                expect(Math.min(...xs) >= 0 || Math.max(...xs) <= 0).toBe(true);
+            }
         }
     }
     const builder = new PlacementBuilder(), plan = core();
@@ -85,6 +98,41 @@ it('shuts a landing with two leaves that meet at zero and close behind both jamb
         expect(LIFT_LANDING.leaf * leaves.scale[0] - passage.width / 2).toBeGreaterThan(0.01);
         // Slid by half the module's width, each leaf's inner edge clears the doorway.
         expect(LIFT_LANDING.leaf * leaves.scale[0]).toBeGreaterThanOrEqual(passage.width / 2);
+    }
+});
+
+it("rides the car's own leaves, head and sill at its front, between the landing leaves and the car", () => {
+    for (const size of [2.5, 3.5]) for (const angle of [0, 90, 35]) {
+        const builder = new PlacementBuilder(), plan = core(angle, size);
+        lifts(builder, plan, 'floor-slab-stone', 'lobby', 3.4);
+        const car = builder.placements.find(p => p.module === 'lift-car')!;
+        for (const id of ['lift-car-doors', 'lift-car-head']) {
+            const front = builder.placements.filter(p => p.module === id);
+            expect(front).toHaveLength(1);
+            const [placed] = front;
+            expect(placed!.connector).toBe(car.connector);
+            expect(placed!.rotationY).toBeCloseTo(car.rotationY, 9);
+            // Across the car it scales with the car; its depth and height stay metres.
+            expect(placed!.scale[0]).toBeCloseTo(car.scale[0], 9);
+            expect(placed!.scale[1]).toBe(1);
+            expect(placed!.scale[2]).toBe(1);
+            // It stands on the car's front plane, inside the shaft.
+            const [u, v] = worldToUv([placed!.position[0], placed!.position[2]], plan.frame);
+            const rect = plan.elevators[0]!.rect;
+            expect(u).toBeCloseTo(rect.u + rect.lu / 2, 6);
+            expect(v).toBeCloseTo(rect.v + 0.10, 6);
+        }
+        // The leaves run clear of the landing leaves and the landing head, and short of the car.
+        const gap = 0.10;
+        expect(gap + LIFT_CAR.door.plane[0]).toBeGreaterThan(LIFT_LANDING.plane[1] + 0.02);
+        expect(gap + LIFT_CAR.door.plane[0]).toBeGreaterThan(0.045 + 0.01);
+        expect(LIFT_CAR.door.plane[1]).toBeLessThan(0);
+        const recipe = recipes.get('lift-car-doors')!;
+        expect(recipe.size[0]).toBeCloseTo(2 * LIFT_CAR.door.leaf, 9);
+        // Nothing of a leaf, its plates included, reaches the car front.
+        expect(recipe.size[2] - recipe.origin[2]).toBeLessThan(0);
+        // Shut, each car leaf runs past the car's cheek; open, it clears the car's doorway.
+        expect(LIFT_CAR.door.leaf).toBeGreaterThan(LIFT_CAR.doorWidth / 2 + 0.02);
     }
 });
 
