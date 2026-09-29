@@ -1,8 +1,12 @@
 /**
- * node interior/scripts/capture-review.mjs engine/out/reviews/<id> [--out <new-dir>] [--lifts]
+ * node interior/scripts/capture-review.mjs engine/out/reviews/<id> [--out <new-dir>] [--lifts] [--host <host:port>]
  * Captures the real game in a disposable browser. --lifts rides each shaft to
- * every served floor through its normal selection/press/update paths. Placement
- * into a cab is explicit in the report; this is not an entrance traversal test.
+ * every served floor through its normal selection/press/update paths, facing
+ * the car's doors: it shoots them travelling and open, and fails a ride on
+ * which the car's own leaves or any landing's stood open between floors or the
+ * eye moved against the cab. Placement into a cab is explicit in the report;
+ * this is not an entrance traversal test. A floor that fails to build fails
+ * the capture at once, naming the floor and the game's warning.
  */
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -13,7 +17,7 @@ import { reviewApartments } from './review-apartments.mjs';
 import { pressLiftPanel, reviewLiftPanel } from './review-lift-panel.mjs';
 
 const { positionals, values } = parseArgs( { allowPositionals: true, options: {
-  out: { type: 'string' }, browser: { type: 'string' },
+  out: { type: 'string' }, browser: { type: 'string' }, host: { type: 'string' },
   lifts: { type: 'boolean', default: false }, stairs: { type: 'boolean', default: false },
   'stairs-up-only': { type: 'boolean', default: false }, 'apartment-doors': { type: 'boolean', default: false },
   'lift-controls': { type: 'boolean', default: false }, quick: { type: 'boolean', default: false }, exposure: { type: 'string' }
@@ -27,8 +31,11 @@ const out = resolve( values.out ?? join( directory, `captures-${Date.now()}` ) )
 if ( existsSync( out ) ) throw new Error( `Capture output already exists: ${out}` );
 await mkdir( out, { recursive: true } );
 const url = new URL( review.playUrl );
+// --host plays the world on another engine server, one serving a working tree for instance.
+if ( values.host ) url.host = values.host;
 for ( const [ key, value ] of Object.entries( { automation: '', crowd: '0', voice: 'off', backend: 'webgl', quality: url.searchParams.get( 'quality' ) ?? 'high', details: 'off', exposure: values.exposure ?? url.searchParams.get( 'exposure' ) ?? '0.04' } ) ) url.searchParams.set( key, value );
-const report = { url: url.href, parcel: building.parcelId, screenshots: [], console: [], failedRequests: [], lifts: [], stairs: [] };
+const report = { url: url.href, parcel: building.parcelId, screenshots: [], console: [], warnings: [], failedRequests: [], lifts: [], stairs: [] };
+const parcel = JSON.stringify( building.parcelId );
 report.scope = values.quick ? 'Representative fresh-build check: entrance, first apartment, one lift trip, first stair storey, and indoor upward views.' : 'Full requested scenarios';
 const browser = new Browser( browserPath( values.browser ) );
 process.once( 'exit', () => browser.kill() );
@@ -41,6 +48,11 @@ try {
     } );
   } );
   page.on( 'Runtime.exceptionThrown', event => report.console.push( event.exceptionDetails.exception?.description ?? event.exceptionDetails.text ) );
+  // The game's own warnings, a floor that failed to build among them.
+  page.on( 'Runtime.consoleAPICalled', event => {
+    if ( ! [ 'warning', 'error' ].includes( event.type ) ) return;
+    report.warnings.push( event.args.map( arg => arg.value ?? arg.description ?? '' ).join( ' ' ).slice( 0, 600 ) );
+  } );
   page.on( 'Network.responseReceived', event => { if ( event.response.status >= 400 && ! event.response.url.endsWith( '/favicon.ico' ) ) report.failedRequests.push( { url: event.response.url, status: event.response.status } ); } );
   await page.send( 'Emulation.setDeviceMetricsOverride', { width: 1600, height: 900, deviceScaleFactor: 1, mobile: false } );
   await page.navigate( url.href );
@@ -56,6 +68,23 @@ try {
     return state.probe && state.draws && state.hidden;
   }, Boolean, 180000, 'game loading' );
   const evaluate = code => page.evaluate( `(async () => { const game = window.urbe; ${code} })()` );
+  const bands = () => evaluate( `return (game.stream.live.get(${parcel})?.bands??[]).map(b=>({floor:b.floor,state:b.state,live:b.live}));` );
+  const failure = floor => {
+    const warning = report.warnings.filter( line => line.startsWith( `floor ${building.parcelId}:${floor}` ) ).at( -1 );
+    return `floor ${floor} failed to build: ${warning ?? 'no warning published'}`;
+  };
+  // Waits for a floor to stand, and fails at once when it failed to build: a failed floor is never retried.
+  const showFloor = async ( floor, label ) => {
+    try {
+      return await until( async () => {
+        if ( ( await bands() ).find( one => one.floor === floor )?.state === 'failed' ) throw new Error( `${label}: ${failure( floor )}` );
+        return evaluate( `return game.stream.floorShown(${parcel},${floor});` );
+      }, Boolean, 60000, `floor ${floor} streaming (${label})` );
+    } catch ( error ) {
+      report.bands = await bands().catch( () => null );
+      throw error;
+    }
+  };
   await evaluate( `if (!game.view.pause.element.hidden) game.view.pause.buttons.get('resume').click(); game.input.onLockChange(game.input.locked=true);` );
   const shot = async name => { await page.screenshot( join( out, `${name}.png` ) ); report.screenshots.push( `${name}.png` ); };
   await sleep( 500 );
@@ -86,7 +115,7 @@ try {
     const stair = layout.floor.core.stairs[ 0 ];
     const floorSpot = xyz( [ stair.entry[ 0 ], floor.elevation + .025, stair.entry[ 1 ] ] );
     await evaluate( `game.body.beginCarry(${JSON.stringify( floorSpot )}); game.stream.requestFloor(${JSON.stringify( building.parcelId )},${floor.index});` );
-    await until( () => evaluate( `return game.stream.floorShown(${JSON.stringify( building.parcelId )},${floor.index});` ), Boolean, 60000, `floor ${floor.index} streaming` );
+    await showFloor( floor.index, 'room views' );
     await evaluate( `game.body.endCarry(${JSON.stringify( floorSpot )});` );
     let rooms = floor.index === 0
       ? layout.floor.rooms.filter( room => ! [ 'corridor', 'elevator_lobby', 'concourse' ].includes( room.kind ) )
@@ -128,13 +157,41 @@ try {
   if ( values.lifts && ! shafts.length ) throw new Error( 'No runtime elevator shafts were loaded for the review building.' );
   if ( values.lifts ) for ( const shaft of values.quick ? shafts.slice( 0, 1 ) : shafts ) {
     const selector = `game.elevators.shafts.find(s=>s.id===${JSON.stringify( shaft.id )})`;
+    const name = shaft.id.replace( /[^\w-]/g, '_' );
     for ( const stop of values.quick ? shaft.stops.filter( stop => stop.floor === 1 ) : shaft.stops ) {
-      await evaluate( `const s=${selector}; game.placePlayer({x:s.centre.x,y:s.at+.025,z:s.centre.z},{x:s.centre.x+.5,y:s.at+1.5,z:s.centre.z}); s.select(s.stops.findIndex(t=>t.floor===${stop.floor})-s.selected);` );
+      // Standing in the car facing its doors, a step back from them.
+      await evaluate( `const s=${selector}; game.placePlayer(s.worldPoint([0,.025/s.carScale.y,.35]),s.worldPoint([0,1.45/s.carScale.y,-1.4])); s.select(s.stops.findIndex(t=>t.floor===${stop.floor})-s.selected);` );
+      await sleep( 300 );
+      const departs = await evaluate( `const s=${selector}; return Math.abs(s.at-${stop.elevation})>.05;` );
       if ( values[ 'lift-controls' ] ) await pressLiftPanel( evaluate, selector, 'go' );
       else await evaluate( `const s=${selector};s.press({inside:true});` );
-      const arrival = await until( () => evaluate( `const s=${selector}; return {floor:${stop.floor},at:s.at,target:s.target,moving:s.moving,ready:s.ready,car:Boolean(s.car),floorReady:s.floorReady,carried:game.body.carried,feet:game.body.feet.toArray(),doors:s.stopAt(${stop.floor})?.open,leaves:s.stopAt(${stop.floor})?.leaves.length,footing:game.automation.footing()};` ),
-        state => ! state.moving && state.ready && state.floorReady && state.doors > 0.99 && ! state.carried, 60000, `lift ${shaft.id} to ${stop.floor}` );
-      arrival.ok = Math.abs( arrival.feet[ 1 ] - stop.elevation ) < 0.1 && arrival.leaves === 2 && arrival.car;
+      // Every frame of the ride, in the page: what stands open between floors and where the eye is in the car.
+      await evaluate( `const s=${selector}; window.__liftRide=(async()=>{
+        const out={frames:0,between:0,carOpen:0,landingOpen:0,eye:[],carDoors:Boolean(s.carDoors)}, started=performance.now();
+        for(;;){
+          await new Promise(requestAnimationFrame);
+          out.frames++;
+          const level=s.stops.some(t=>Math.abs(t.elevation-s.at)<.05);
+          if(!level){out.between++;out.carOpen=Math.max(out.carOpen,s.carOpen??1);out.landingOpen=Math.max(out.landingOpen,...s.stops.map(t=>t.open));}
+          if(!level&&game.body.carried)out.eye.push(game.camera.position.y-s.cab.position.y);
+          if((!s.moving&&s.stopAt(${stop.floor})?.open>.99)||performance.now()-started>60000)break;
+        }
+        const eye=out.eye.length?Math.max(...out.eye)-Math.min(...out.eye):0;
+        return {frames:out.frames,between:out.between,carDoors:out.carDoors,carOpen:out.carOpen,landingOpen:out.landingOpen,eyeSpread:eye};
+      })();` );
+      let travelShot = ! departs;
+      const arrival = await until( async () => {
+        const state = await evaluate( `const s=${selector}; return {floor:${stop.floor},at:s.at,target:s.target,moving:s.moving,ready:s.ready,car:Boolean(s.car),floorReady:s.floorReady,carried:game.body.carried,feet:game.body.feet.toArray(),doors:s.stopAt(${stop.floor})?.open,carOpen:s.carOpen,leaves:s.stopAt(${stop.floor})?.leaves.length,between:!s.stops.some(t=>Math.abs(t.elevation-s.at)<.05),footing:game.automation.footing()};` );
+        if ( ! travelShot && state.between ) { travelShot = true; await shot( `${name}-to-${stop.floor}-travelling` ); }
+        if ( ( await bands() ).find( band => band.floor === stop.floor )?.state === 'failed' ) throw new Error( `Lift ${shaft.id}: ${failure( stop.floor )}` );
+        return state;
+      }, state => ! state.moving && state.ready && state.floorReady && state.doors > 0.99 && ! state.carried, 60000, `lift ${shaft.id} to ${stop.floor}` );
+      arrival.ride = await evaluate( 'return await window.__liftRide;' );
+      // Shut between floors, the car's own leaves and every landing's, and the eye at one height in the car.
+      arrival.ride.ok = ! departs || ( arrival.ride.carDoors && arrival.ride.between > 0 && arrival.ride.carOpen === 0
+        && arrival.ride.landingOpen === 0 && arrival.ride.eyeSpread < 0.002 );
+      if ( departs ) await shot( `${name}-to-${stop.floor}-open` );
+      arrival.ok = Math.abs( arrival.feet[ 1 ] - stop.elevation ) < 0.1 && arrival.leaves === 2 && arrival.car && arrival.ride.ok;
       arrival.enclosure = await evaluate( `return {room:game.standing?.roomId,indoors:game.indoors,rainVisible:game.rain?.mesh.visible};` );
       if ( values.quick ) await shot( 'lift-cab-arrival-controls' );
       if ( values[ 'lift-controls' ] && stop.floor === 0 ) {
@@ -152,7 +209,7 @@ try {
       arrival.ok &&= arrival.exit.ok;
       report.lifts.push( { shaft: shaft.id, ...arrival } );
       console.log( `Lift ${shaft.id}: floor ${stop.floor} ${arrival.ok ? 'pass' : 'FAIL'}` );
-      if ( stop.floor === 0 || stop === shaft.stops.at( -1 ) ) await shot( `${shaft.id.replace( /[^\w-]/g, '_' )}-floor-${stop.floor}` );
+      if ( stop.floor === 0 || stop === shaft.stops.at( -1 ) ) await shot( `${name}-floor-${stop.floor}` );
     }
   }
   if ( values.stairs ) {
@@ -160,7 +217,7 @@ try {
       const sections = stairRoute( manifest, layouts, stair.id ).slice( 0, values.quick ? 1 : undefined );
       const start = xyz( sections[ 0 ].points[ 0 ] ); start.y += .025;
       await evaluate( `game.body.beginCarry(${JSON.stringify( start )});game.stream.requestFloor(${JSON.stringify( building.parcelId )},0);` );
-      await until( () => evaluate( `return game.stream.floorShown(${JSON.stringify( building.parcelId )},0);` ), Boolean, 60000, 'stair ground floor' );
+      await showFloor( 0, 'stair ground floor' );
       await evaluate( `game.body.endCarry(${JSON.stringify( start )});` );
       for ( const direction of values[ 'stairs-up-only' ] ? [ 'up' ] : [ 'up', 'down' ] ) for ( const section of direction === 'up' ? sections : [ ...sections ].reverse() ) {
         const points = direction === 'up' ? section.points : [ ...section.points ].reverse();
