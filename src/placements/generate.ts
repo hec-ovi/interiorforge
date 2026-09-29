@@ -18,6 +18,10 @@ import { publishApartmentEntrances } from './apartment-doors.js';
 import { duplexAssignments } from '../layout/duplex/assignments.js';
 import { applyDuplexPairs } from '../layout/duplex/apply.js';
 import { capsuleProfile } from '../styles/capsule/profile.js';
+import { defaultStyle, KIND_POLICY, referenceKind } from '../styles/reference/kinds.js';
+import type { FloorKind, StyleId } from '../core/types.js';
+import type { BuildingPlan } from '../layout/index.js';
+import type { DuplexPair } from '../layout/duplex/assignments.js';
 export interface GenerateOptions {
     /** catalog ids whose model file the consumer holds; default presentModels() */
     models?: ReadonlySet<string>;
@@ -66,7 +70,8 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
         return generate({ ...request, blueprint: { ...request.blueprint, floors: [floors[0]!], roof: undefined },
             ...(request.assignments ? { assignments: request.assignments.filter(a => a.floor === 0) } : {}) }, { models: present });
     }
-    applyDuplexPairs(plan, duplexPairs, request);
+    applyLoftPairs(plan, duplexPairs, request);
+    stampStyles(plan, request);
     const roof = planRoofAccess(request, plan.core);
     const crown = samples.length - 1;
     // A layout lines the shell for every floor that reuses it, so one lining clears the
@@ -125,6 +130,8 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
         building: {
             version: 1, generatorVersion: version.version, buildingId: request.building.id, modules: 'modules.json', props: 'catalog.json',
             ...(interiorRecipe(request) ? { architecture: interiorRecipe(request)!.id } : {}),
+            ...(referenceKind(request) ? { kind: referenceKind(request)! } : {}),
+            ...(request.building.references ? { references: [...request.building.references] } : {}),
             materialTheme: request.materialTheme, tier: request.building.tier, layouts: Object.fromEntries(names.map(name => [name, `layouts/${name}.json`])), floors: refs, connectors, corePlacement: corePlacement(plan.core),
             ...(request.building.interiorStyle ? { interiorStyle: request.building.interiorStyle }
                 : request.building.tier === 'mid' && ['residential', 'hotel'].includes(request.building.type)
@@ -137,6 +144,44 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
     publishStairSpaces(result, request, plan.core);
     publishStairSoffits(result.building.floors, result.layouts);
     return result;
+}
+/** Every room of a kind building wears a reference style: the one its template gave it, the
+ *  kind's loft style inside a paired storey, the floor policy's default otherwise. Planned
+ *  and published rooms carry the same id. */
+function stampStyles(plan: BuildingPlan, request: InteriorRequest): void {
+    const kind = referenceKind(request);
+    if (!kind) return;
+    const loft = KIND_POLICY[kind].loft;
+    for (const floor of plan.floors) {
+        const lofts = new Set((floor.duplexes ?? []).map(slice => slice.unit));
+        const styleFor = (room: { kind: Parameters<typeof defaultStyle>[2]['kind']; unit?: string }): StyleId | undefined =>
+            loft && room.unit && lofts.has(room.unit) ? loft.style : defaultStyle(request, floor.kind as FloorKind, room);
+        const planned = plan.uvFloors.get(floor.floor)?.rooms ?? [];
+        for (const room of planned as { id: string; kind: Parameters<typeof defaultStyle>[2]['kind']; unit?: string; style?: StyleId }[]) {
+            const style = room.style ?? styleFor(room);
+            if (style) room.style = style;
+        }
+        const byId = new Map(planned.map(room => [room.id, (room as { style?: StyleId }).style]));
+        for (const room of floor.rooms) {
+            const style = room.style ?? byId.get(room.id) ?? styleFor(room);
+            if (style) room.style = style;
+        }
+    }
+}
+/** Requested pairs must hold a loft; a derived pair no unit holds leaves its two floors
+ *  single and records the loft it could not fit on the lower floor's program. */
+function applyLoftPairs(plan: BuildingPlan, pairs: readonly DuplexPair[], request: InteriorRequest): void {
+    applyDuplexPairs(plan, pairs.filter(pair => !pair.optional), request);
+    for (const pair of pairs.filter(pair => pair.optional)) {
+        try {
+            applyDuplexPairs(plan, [pair], request);
+        }
+        catch (error) {
+            if (!(error instanceof InteriorError) || error.code !== 'E_FLOOR_TOO_SMALL') throw error;
+            const uv = plan.uvFloors.get(pair.lower);
+            if (uv) (uv.programChanges ??= []).push({ kind: 'living', requested: [15, 10], fitted: null });
+        }
+    }
 }
 /** Geometry and program only. Windows and exterior dressing (material, panes, glazing,
  *  scenery, section ids) vary per floor by design; doors and portals hold the layout. */

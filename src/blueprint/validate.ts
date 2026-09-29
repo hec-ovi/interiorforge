@@ -7,6 +7,7 @@ import { createRng } from "../core/rng.js";
 import type { BuildingType, FloorAssignment, FloorKind, InteriorRequest } from "../core/types.js";
 import { validateWindowGlazing } from "./validate-glazing.js";
 import { validatePocketDoors } from "./validate-pocket.js";
+import { keysOf, kindAllows, referenceKind } from "../styles/reference/kinds.js";
 
 const ajv = new Ajv2020({ allErrors: false, strict: false });
 ajv.addSchema(blueprintSchema);
@@ -29,9 +30,25 @@ export function validateRequest(input: unknown): InteriorRequest {
     || !['residential', 'hotel'].includes(request.building.type))) {
     throw new InteriorError('E_BLUEPRINT_INVALID', 'selected interiorStyle requires a mid-tier residential or hotel building');
   }
+  validateKind(request);
   validateBlueprint(request);
   validateAssignments(request);
   return request;
+}
+
+/** An explicit reference kind must furnish the building's type and tier, and template
+ *  references must belong to the building's kind. */
+function validateKind(request: InteriorRequest): void {
+  const { kind, type, tier, references } = request.building;
+  if (kind && !kindAllows(kind, type, tier))
+    throw new InteriorError("E_BLUEPRINT_INVALID", `reference kind ${kind} does not furnish a ${tier} ${type} building`);
+  if (!references) return;
+  const resolved = referenceKind(request);
+  if (!resolved)
+    throw new InteriorError("E_BLUEPRINT_INVALID", "template references require a building of a reference kind");
+  const foreign = references.filter((key) => !keysOf(resolved).includes(key));
+  if (foreign.length)
+    throw new InteriorError("E_BLUEPRINT_INVALID", `template references ${foreign.join(", ")} do not belong to kind ${resolved}`);
 }
 
 function validateBlueprint({ blueprint }: InteriorRequest): void {
@@ -130,20 +147,26 @@ function validateAssignments({ blueprint, assignments }: InteriorRequest): void 
 /** Assignments win when provided; otherwise each floor derives from its blueprint kind slug.
  *  A slug that names no program of its own takes the parcel's: a shared plan's dressing class
  *  (`commerce`, `residential`), the parcel type Exterior repeats on every typed floor, and the
- *  entrance hall (`lobby`, `entry`) at street level. Deterministic. */
+ *  entrance hall (`lobby`, `entry`) at street level. Deterministic.
+ *  A home building of a reference kind is apartments throughout, whatever its seed, and a
+ *  kind B home of three or more floors above the ground pairs its crown with the floor below
+ *  into one two-storey loft (an optional pair: it falls back to two floors where no unit
+ *  holds it). */
 export function resolveAssignments(request: InteriorRequest): FloorAssignment[] {
   if (request.assignments) return request.assignments;
   const type = request.building.type;
+  const reference = referenceKind(request);
   const ground = Math.min(...request.blueprint.floors.map((floor) => floor.index).filter((index) => index >= 0));
   // A home building is studios or apartments throughout, drawn once so its floors share a layout.
   let home: FloorKind | undefined;
   const program = (level: 0 | 1): FloorKind => {
     const kind = PARCEL_PROGRAM[type][level];
     if (kind !== "apartment") return kind;
-    home ??= createRng(request.seed, "assignments").next() < 0.35 ? "residence_studio" : "apartment";
+    home ??= reference && reference !== "R" ? "apartment"
+      : createRng(request.seed, "assignments").next() < 0.35 ? "residence_studio" : "apartment";
     return home;
   };
-  return request.blueprint.floors.map((floor) => {
+  const derived = request.blueprint.floors.map((floor): FloorAssignment => {
     const slug = floor.kind, level = floor.index === ground ? 0 : 1;
     if (floor.index < 0) return { floor: floor.index, kind: SLUG_KIND[slug] ?? "parking" };
     const generic = GENERIC_SLUGS.has(slug) || slug === type || (level === 0 && ENTRY_SLUGS.has(slug));
@@ -151,6 +174,17 @@ export function resolveAssignments(request: InteriorRequest): FloorAssignment[] 
     const kind = generic ? program(level) : slug === "shop" ? VENUE_BY_TYPE[type] ?? "retail" : SLUG_KIND[slug] ?? program(level);
     return { floor: floor.index, kind };
   });
+  return reference === "B" ? loftPair(derived, ground) : derived;
+}
+
+/** Kind B's derived loft: the crown and the floor below it become one paired-storey
+ *  apartment assignment when at least three apartment floors stand above the ground. */
+function loftPair(assignments: FloorAssignment[], ground: number): FloorAssignment[] {
+  const above = assignments.filter((a) => a.floor > ground);
+  const crown = above[above.length - 1], below = above[above.length - 2];
+  if (above.length < 3 || !crown || !below || crown.kind !== "apartment" || below.kind !== "apartment"
+    || crown.floor !== below.floor + 1) return assignments;
+  return assignments.filter((a) => a !== crown).map((a) => a === below ? { floor: a.floor, kind: a.kind, spans: 2 } : a);
 }
 
 /** Each parcel type's own program: at street level, and on every floor above it. A venue

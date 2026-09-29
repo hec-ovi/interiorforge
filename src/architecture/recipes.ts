@@ -44,7 +44,11 @@ export function shellOwnsFacade(request: InteriorRequest, floor: BlueprintFloor)
     ].includes(interiorRecipe(request)?.id ?? '');
 }
 
-export function architectureFinish(request: InteriorRequest, family: Family, room: RoomKind, base: RoomFinish): RoomFinish {
+/** The family finish in the architecture's palette. A room wearing a registered reference
+ *  style keeps the family base untouched: its style finishes it, and the recipe palette must
+ *  not overwrite the reference surfaces. */
+export function architectureFinish(request: InteriorRequest, family: Family, room: RoomKind, base: RoomFinish, styled = false): RoomFinish {
+    if (styled) return base;
     if (family === 'capsule') return request.building.interiorStyle === 'sandra-dorsett'
         ? sandraRoomFinish(room, 'apartment', base) : capsuleProfileFinish(capsuleProfile(request), room, base);
     if (family === 'damaged') {
