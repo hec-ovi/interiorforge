@@ -121,7 +121,17 @@ proves its required fixtures furnish before it is kept; hung pieces stand only o
 walls. A template that cannot fit leaves the generic unit and records
 `{kind: 'living', requested, fitted: null}`, and a floor that fails downstream is planned
 again without it, then without templates, so a template never fails a building. Kind
-buildings size their homes toward their first template's reference envelope.
+buildings cut their homes to their templates' reference frontage and depth: a rich kind's
+floor composes each strip the core leaves whole from one of its dwelling templates at its
+own frontage, the next floor from the next (one layout per turn, so a tower holds every
+apartment style its reference has), and turns frontage no home takes into a residents'
+`lounge` on the corridor (`f<i>-amenity-<n>`); a poor kind's floor cuts its homes to its
+templates' frontage and depth. A template keeps its rooms within their authored spans: a
+home deeper than its envelope takes the extra depth as a band of `storage` rooms along its
+entry wall (`<key>/band-<n>`, a utility, pantry or dressing room opening into the room
+beside or behind it) rather than stretching its rooms. A templated home holds the pieces
+its template authored and no generic salon, dining set or desk; its foyer and passage
+rooms hold nothing else.
 
 Rooms fitted from a template publish `template` (`<key>/<template room>`), `role`,
 `ceilingDrop` (the metres the room's reference ceiling hangs below the floor's, never below
