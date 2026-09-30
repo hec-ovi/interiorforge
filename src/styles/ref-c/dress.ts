@@ -3,6 +3,8 @@ import type { LightFixture, Room } from '../../core/types.js';
 import type { CapsuleProfile } from '../capsule/profile.js';
 import { LocalFrame, lensRecord } from '../systems/built-ins.js';
 import type { DressContext } from '../systems/types.js';
+import { elevatorDoorHole } from '../../geometry/core-geo.js';
+import { uvToWorld } from '../../layout/uv.js';
 
 /** Dress passes of kind C, run after walls, surfaces and props and before the room lights are
  *  balanced. Housings (the capsule beams and ducts, the corridor ducts, the AC units) are
@@ -43,7 +45,12 @@ export function dressPublic(ctx: DressContext, sid: 'c2' | 'c3'): LightFixture[]
     const lights: LightFixture[] = [];
     const rooms = new Map(ctx.rooms.filter(room => !/^(stair|elev)-/.test(room.id)).map(room => [room.id, room]));
     const backing = 'ceiling-field-c2';
-    const doors = ctx.floor.rooms.flatMap(room => room.doors.map(door => ({ at: door.position, width: door.width })));
+    // The lift landings are doorways too, though their rooms publish them after dressing.
+    const landings = ctx.core.elevators.map((_, i) => {
+        const { c, hole } = elevatorDoorHole(ctx.core, i, 0);
+        return { at: uvToWorld([hole.at, c], ctx.core.frame), width: hole.width };
+    });
+    const doors = [...ctx.floor.rooms.flatMap(room => room.doors.map(door => ({ at: door.position, width: door.width }))), ...landings];
     if (ctx.ceilingY >= 2.75) for (const p of ctx.builder.placements.filter(q => q.module === backing && rooms.has(q.room))) {
         const room = rooms.get(p.room)!;
         if (!TRUNK_ROOMS.has(room.kind)) continue;

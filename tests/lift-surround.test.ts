@@ -3,6 +3,13 @@ import * as THREE from 'three/webgpu';
 import { generate, type InteriorRequest } from '../src/index.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
 import type { Placement } from '../src/placements/types.js';
+import type { Room } from '../src/core/types.js';
+import type { CorePlan } from '../src/layout/core-plan.js';
+import type { DressContext } from '../src/styles/systems/types.js';
+import { PlacementBuilder } from '../src/placements/builder.js';
+import { dressPublic } from '../src/styles/ref-c/dress.js';
+import { elevatorDoorHole } from '../src/geometry/core-geo.js';
+import { makeFrame } from '../src/layout/uv.js';
 
 const recipes = new Map(moduleRecipes().map(recipe => [recipe.id, recipe]));
 
@@ -48,3 +55,22 @@ it.each([['balcony-grid', 'high_rich'], ['mirror-frame', 'high_rich']] as const)
     }
     expect(landings).toBeGreaterThan(0);
 }, 180000);
+
+// Nothing a style dresses a room with stands in the way out of a lift: the landings are
+// doorways the corridor's own doors do not list while the floor is dressed.
+it('keeps the poor corridors\' debris off the floor in front of every lift landing', () => {
+    const hall = { id: 'hall', kind: 'corridor', polygon: [[0, 0], [14, 0], [14, 6], [0, 6]], doors: [] } as unknown as Room;
+    const core = { frame: makeFrame(0), vFace: 6, elevators: [
+        { id: 'elev-0', rect: { u: 2.65, v: 6, lu: 3.5, lv: 3.5 } }, { id: 'elev-1', rect: { u: 7.85, v: 6, lu: 3.5, lv: 3.5 } }] } as CorePlan;
+    const builder = new PlacementBuilder();
+    const ctx = { builder, core, floor: { rooms: [hall], lights: [] }, rooms: [hall], ceilingY: 2.5, frame: core.frame,
+        bp: { outline: [[-20, -20], [40, -20], [40, 30], [-20, 30]] } } as unknown as DressContext;
+    dressPublic(ctx, 'c2');
+    const debris = builder.placements.filter(p => p.module === 'trim-c2-debris');
+    // The wall across from the lifts is dressed, so the rule has something to keep clear.
+    expect(debris.some(p => p.position[2] < 1.5)).toBe(true);
+    for (const [index] of core.elevators.entries()) {
+        const { c, hole } = elevatorDoorHole(core, index, 0);
+        for (const p of debris) expect(Math.hypot(p.position[0] - hole.at, p.position[2] - c)).toBeGreaterThan(hole.width / 2 + 1.5);
+    }
+});
