@@ -5,6 +5,7 @@ import { admissibleLevels, levelAt, raisedZoneRects, walkableZone } from '../src
 import { makeFrame, uvRectCorners, worldToUv, type UvRect } from '../src/layout/uv.js';
 import { PlacementBuilder } from '../src/placements/builder.js';
 import { walkingSlabs } from '../src/placements/thresholds.js';
+import { floorDoorways } from '../src/geometry/door-clear.js';
 import { kind as kindB } from '../src/styles/ref-b/index.js';
 import { GUARD_HEIGHT, RISE_MAX, TREAD, levelFloorRects, levelIds, levelPlan, placeLevels, riserCount } from '../src/styles/systems/levels.js';
 import type { SurfaceRoom } from '../src/styles/systems/types.js';
@@ -137,5 +138,12 @@ describe('level zones', () => {
         // a deeper platform never marks a threshold, and a doorway off its sides takes none
         expect(levelPlan(zone(alcove, .45, 'step'), [uvRectCorners(alcove)], [[[2.85, .15], [2.85, 4.25]]]).nosings).toHaveLength(0);
         expect(levelPlan(lip, [uvRectCorners(alcove)], [[[4, .15], [4, 4.25]]]).nosings).toHaveLength(0);
+        // the doorway's clear volume starts on the platform, not through it
+        const living = { id: 'l', kind: 'living' as const, rect: { u: 2.85, v: 0, lu: 6, lv: 6.5 }, polygon: uvRectCorners({ u: 2.85, v: 0, lu: 6, lv: 6.5 }), doors: [] };
+        const frame = makeFrame(0);
+        const [raised] = floorDoorways([room, living], frame, 0, 3);
+        const [flat] = floorDoorways([{ ...room, levels: [] }, living], frame, 0, 3);
+        expect(raised!.center[1] - raised!.half[1]).toBeCloseTo(flat!.center[1] - flat!.half[1] + .1);
+        expect(raised!.center[1] + raised!.half[1]).toBeCloseTo(flat!.center[1] + flat!.half[1]);
     });
 });

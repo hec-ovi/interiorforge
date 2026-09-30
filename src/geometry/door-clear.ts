@@ -2,6 +2,7 @@ import { InteriorError } from "../core/errors.js";
 import type { BlueprintFloor } from "../core/types.js";
 import type { MeshBuilder } from "../glb/mesh-builder.js";
 import { DOOR, WALL } from "../layout/constants.js";
+import { walkableZone, zoneUvRect } from "../layout/levels.js";
 import { doorUvPoint } from "../layout/plan-floor.js";
 import type { PlanRoom } from "../layout/plan-types.js";
 import { roomEdges } from '../layout/room-shape.js';
@@ -41,11 +42,14 @@ export function floorDoorways(
   rooms: readonly PlanRoom[], frame: Frame, elevation: number, ceilingY: number, floor?: BlueprintFloor,
 ): Doorway[] {
   const out: Doorway[] = [];
+  const byId = new Map(rooms.map(room => [room.id, room]));
   for (const room of rooms) {
     for (const door of room.doors) {
       if (door.openFront) continue;
       const point = doorUvPoint(door, room);
       const alongU = door.edge === "v0" || door.edge === "v1";
+      // A walkable platform meeting the doorway is its threshold: the clear volume starts on it.
+      const step = thresholdStep(door.width, point, alongU, [room, byId.get(door.to)]);
       let width = door.width;
       if (door.to === 'outside') {
         // A broad exterior passage may meet only part of a narrower room/corridor.
@@ -64,16 +68,31 @@ export function floorDoorways(
       const [x, z] = uvToWorld(point, frame);
       const rad = ((alongU ? 0 : 90) + frame.angleDeg) * Math.PI / 180;
       const shell = door.to === "outside" && floor ? outsideDoorHead(floor, uvToWorld(doorUvPoint(door, room), frame), ceilingY - elevation) : null;
-      const clear = Math.min(doorHeadHeight(door.leaves, ceilingY - elevation), DOOR.clearHeight, shell ?? Infinity) - 2 * MARGIN;
+      const clear = Math.min(doorHeadHeight(door.leaves, ceilingY - elevation), DOOR.clearHeight, shell ?? Infinity) - 2 * MARGIN - step;
       out.push({
         id: `${room.id}/${door.id}`,
-        center: [x, elevation + MARGIN + clear / 2, z],
+        center: [x, elevation + MARGIN + step + clear / 2, z],
         along: [Math.cos(rad), Math.sin(rad)],
         half: [width / 2 - MARGIN, clear / 2, HALF_DEPTH],
       });
     }
   }
   return out;
+}
+
+/** The height of the walkable platform (one riser) either room lays across a doorway's
+ *  wall line, 0 where none does. */
+function thresholdStep(width: number, [u, v]: [number, number], alongU: boolean, rooms: readonly (PlanRoom | undefined)[]): number {
+  const box = alongU ? { u: u - width / 2, v: v - HALF_DEPTH, lu: width, lv: 2 * HALF_DEPTH }
+    : { u: u - HALF_DEPTH, v: v - width / 2, lu: 2 * HALF_DEPTH, lv: width };
+  let step = 0;
+  for (const room of rooms) for (const zone of room?.levels ?? []) {
+    if (!walkableZone(zone)) continue;
+    const z = zoneUvRect(zone);
+    if (z.u < box.u + box.lu - 1e-6 && box.u < z.u + z.lu - 1e-6 && z.v < box.v + box.lv - 1e-6 && box.v < z.v + z.lv - 1e-6)
+      step = Math.max(step, zone.delta);
+  }
+  return step;
 }
 
 /** Clear volumes through permanently open street fronts, from the exterior's fixed frame to
