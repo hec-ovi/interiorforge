@@ -30,6 +30,18 @@ function strip(k: Kit, x: number, y: number, z: number, width: number): void {
   k.cbox(F.lensWarm, [x, y + 0.006, z + 0.014], [width, 0.012, 0.005]);
 }
 
+/** Plan sizes the luxury low table is authored at (id, width, depth). */
+export const LOW_TABLE_SIZES: readonly (readonly [string, number, number])[] = [['fit-low-table-luxury', 1.6, .9], ['fit-low-table-luxury-80', .8, .8]];
+
+/** A low table w x d x 0.4: a black plinth, two bronze panels standing on it 0.28 in from
+ *  the ends, a bronze tray and a stone top with rounded corners. */
+function lowTable(k: Kit, w: number, d: number): void {
+  rounded(k, F.black, 0, 0, 0, w - 0.44, 0.07, d - 0.42, 0.05);
+  for (const x of [-(w / 2 - 0.28), w / 2 - 0.28]) rounded(k, F.bronze, x, 0.07, 0, 0.065, 0.27, d - 0.32, 0.02);
+  rounded(k, F.bronze, 0, 0.34, 0, w, 0.014, d, 0.10);
+  rounded(k, counterStone, 0, 0.354, 0, w - 0.01, 0.046, d - 0.01, 0.095);
+}
+
 /** One stone slab with a real sink aperture. Shared plane/UVs remove false
  * grout lines where the four sides of the opening meet. */
 function kitchenCounter(k: Kit): void {
@@ -91,12 +103,9 @@ function kitchenBasin(k: Kit): void {
 export const luxuryFurnitureRecipes: RecipeSet = add => {
   add('fit-sofa-luxury', k => biotechnicaSeat(k));
   add('fit-chair-luxury', k => biotechnicaSeat(k, true));
-  add('fit-low-table-luxury', k => {
-    rounded(k, F.black, 0, 0, 0, 1.16, 0.07, 0.48, 0.05);
-    for (const x of [-0.52, 0.52]) rounded(k, F.bronze, x, 0.07, 0, 0.065, 0.27, 0.58, 0.02);
-    rounded(k, F.bronze, 0, 0.34, 0, 1.6, 0.014, 0.9, 0.10);
-    rounded(k, counterStone, 0, 0.354, 0, 1.59, 0.046, 0.89, 0.095);
-  });
+  // a long coffee table and a square side table of the same make: a small record stands
+  // the square one instead of squeezing the long one's bronze panels (placements/props.ts)
+  for (const [id, w, d] of LOW_TABLE_SIZES) add(id, k => lowTable(k, w, d));
   add('fit-reception-desk-luxury', k => {
     // A substantial two-height concierge counter, with a real staff work surface
     // and a low accessible return. Coordinates fit the composition's 3.8m bay.

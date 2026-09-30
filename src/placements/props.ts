@@ -20,6 +20,8 @@ import { LUXURY_REFERENCE_FITS } from '../styles/luxury/profile.js';
 import { CORPO_BATH_DIVIDER_FIT } from '../styles/luxury/corpo-bathroom.js';
 import { usesResidentialVanity, residentialVanityFit } from '../styles/luxury/vanity-policy.js';
 import { luxuryDiningFit } from '../styles/luxury/dining.js';
+import { BAR_COUNTER_SIZES, TABLE_SIZES, WALL_SCREEN_SIZES } from '../modules/recipes/furniture.js';
+import { LOW_TABLE_SIZES } from '../styles/luxury/modules.js';
 
 type Size = [number, number, number];
 interface Fit { module: string; size: Size }
@@ -64,6 +66,25 @@ const BUILT_IN: Record<Family, Partial<Record<FurnitureKind, Fit>>> = {
     damaged: { ...DAMAGED, ...DAMAGED_FURNITURE },
     industrial: { ...DAMAGED, sink: CAPSULE.sink!, shelf: LUXURY.shelf!, bench: LUXURY.bench!, ...INDUSTRIAL_FITS },
 };
+/** Pieces whose legs, panels, flutes or frames keep a fixed section, authored at a few sizes:
+ *  the size nearest the record stands and only a small per-axis scale is left to fill it,
+ *  so a 2.8 m table does not stretch a square table's legs into planks. */
+const SIZE_VARIANTS: Readonly<Record<string, readonly Fit[]>> = (() => {
+    const out: Record<string, Fit[]> = {};
+    const group = (sizes: Fit[]) => { for (const fit of sizes) out[fit.module] = sizes; };
+    group(TABLE_SIZES.map(([module, w, d]) => ({ module, size: [w, d, .75] })));
+    group(LOW_TABLE_SIZES.map(([module, w, d]) => ({ module, size: [w, d, .4] })));
+    group(BAR_COUNTER_SIZES.map(([module, w]) => ({ module, size: [w, .65, 1.1] })));
+    group(WALL_SCREEN_SIZES.map(([module, w, h]) => ({ module, size: [w, .08, h] })));
+    return out;
+})();
+
+/** The authored size of `fit` that needs the least scaling to fill `size` (w, d, h). */
+export function nearestSize(fit: Fit, size: Size): Fit {
+    const strain = (candidate: Fit) => candidate.size.reduce((sum, s, i) => sum + Math.abs(Math.log(size[i]! / s)), 0);
+    return (SIZE_VARIANTS[fit.module] ?? []).reduce((best, candidate) => strain(candidate) < strain(best) - 1e-9 ? candidate : best, fit);
+}
+
 /** A family's own bed and wardrobe, for a record no present catalog model fills. */
 const fitted = (look: string): Partial<Record<FurnitureKind, Fit>> => ({
     bed_double: { module: `fit-bed-${look}`, size: LUXURY.bed_double!.size }, bed_single: { module: `fit-bed-${look}`, size: LUXURY.bed_single!.size },
@@ -129,7 +150,8 @@ export function props(builder: PlacementBuilder, floor: FloorInterior, uv: UvFlo
                 ? sandraFurnitureFor(item.kind) : capsuleFurnitureFor(item.kind, capsuleProfile(request))) : null);
         const builtIn = preferredAsset ? undefined : roomFit ?? (family === 'damaged' ? damagedFurnitureFor(item.kind, roomKinds.get(item.room)) ?? table[item.kind] : table[item.kind]);
         const asset = preferredAsset ?? (builtIn ? null : chooseFurnitureAsset(item, models));
-        const fit = asset ? undefined : builtIn ?? FALLBACK[family][item.kind];
+        const chosen = asset ? undefined : builtIn ?? FALLBACK[family][item.kind];
+        const fit = chosen && nearestSize(chosen, item.size);
         if (fit) {
             const scale: [number, number, number] = [item.size[0] / fit.size[0], item.size[2] / fit.size[2], item.size[1] / fit.size[1]];
             const showerParts = SHOWER_PARTS[fit.module];

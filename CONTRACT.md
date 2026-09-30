@@ -308,7 +308,10 @@ lenses published with their `furniture` id; a piece standing as a catalog prop o
 module publishes none. Furniture kinds with a built-in module (desks, office chairs,
 counters, kitchen runs, beds with planted headboards, wardrobes, showers, toilets, basins,
 lit planters, planted screens, aquarium walls, screens, art, shelves, stools, chairs,
-sofas, tables, capsule pods, crates) are scaled per axis to their record; the rest resolve
+sofas, tables, capsule pods, crates) are scaled per axis to their record; tables, the
+luxury low table, the bar counter and the wall screen are authored at a few sizes and the
+size nearest the record stands, so their legs, panels, flutes and frames keep their section
+under the small scale left; the rest resolve
 catalog props, each turned by its catalog `frontYawDeg` to face its piece's front and
 filling at least three fifths of the record's width and depth. The capsule, Sandra and
 damaged families stand their own modules for the pieces they author, beds and wardrobes

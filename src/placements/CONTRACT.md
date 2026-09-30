@@ -43,7 +43,9 @@ and the family's services; a leftover inside the rectangle the rooms and core st
 its neighbour's slab and a plain ceiling field. Each room-plan light stands as its module: spot, strip or cove,
 and [balanceIllumination](../layout/lighting.ts) sets what each delivers so the room lands
 in its kind's lux band.
-Furniture with a built-in module scales per axis to its record; other furniture
+Furniture with a built-in module scales per axis to its record, from the authored size
+nearest it where the module has several (`nearestSize`: tables, the luxury low table, the
+bar counter, the wall screen); other furniture
 references existing catalog IDs at one uniform scale, turned by the model's `frontYawDeg`,
 then the family's own bed or wardrobe where no present model fills the record, and
 furnishings fitting none produce no prop or furniture anchor. Only a lit module keeps its

@@ -52,6 +52,51 @@ function frame(k: Kit, slot: string, w: number, h: number, fw: number, depth: nu
   k.sweep(slot, profile.map(([a, d]) => [z0 + d, w / 2 - a]), y0 + fw, y0 + h - fw, { axis: "y" });
 }
 
+/** Plan sizes the dining table is authored at (id, width, depth). */
+export const TABLE_SIZES: readonly (readonly [string, number, number])[] = [
+  ["fit-table", 0.9, 0.9], ["fit-table-140", 1.4, 0.9], ["fit-table-200", 2.0, 1.0], ["fit-table-280", 2.8, 1.2],
+];
+/** Widths the fluted bar counter is authored at. */
+export const BAR_COUNTER_SIZES: readonly (readonly [string, number])[] = [["fit-bar-counter", 3.0], ["fit-bar-counter-200", 2.0]];
+/** Faces the framed wall screen is authored at (id, width, height). */
+export const WALL_SCREEN_SIZES: readonly (readonly [string, number, number])[] = [["wall-screen", 1.2, 0.7], ["wall-screen-200", 2.0, 1.1]];
+
+/** A table w x d x 0.75: 50 mm bevelled legs 85 mm in from each corner, a bronze apron
+ *  40 mm in from the edge, a 40 mm rounded top. */
+function table(k: Kit, w: number, d: number): void {
+  const lx = w / 2 - 0.085, lz = d / 2 - 0.085;
+  for (const x of [-lx, lx]) for (const z of [-lz, lz]) k.cbevel(FINISH.bronze, [x, 0, z], [0.05, 0.63, 0.05], 0.008);
+  k.cbevel(FINISH.bronze, [0, 0.63, 0], [w - 0.08, 0.08, d - 0.08], 0.006);
+  k.slab(FINISH.obsidian, rounded(w, d, 0.03), 0.71, 0.75, 0.01, 0.004);
+}
+
+/** A bar counter w x 0.65 x 1.1 with its front panel fluted in 125 mm rounded staves. */
+function barCounter(k: Kit, w: number): void {
+  k.cbevel(FINISH.bronze, [0, 0, -0.09], [w - 0.16, 0.08, 0.47], 0.006);
+  // the top overhangs the front 0.1, so the front panel stands back from the counter edge;
+  // the panel is fluted, rounded staves across it
+  k.cbevel(FINISH.dark, [0, 0.12, 0.2], [w, 0.92, 0.03], 0.006);
+  const staves = Math.round(w / 0.125);
+  for (let i = 0; i < staves; i++) k.cbevel(FINISH.dark, [-w / 2 + 0.0625 + i * 0.125, 0.14, 0.21], [0.11, 0.88, 0.035], 0.012);
+  k.cbevel(FINISH.timber, [0, 0.85, -0.2125], [w - 0.2, 0.04, 0.225], 0.005);
+  k.slab(FINISH.obsidian, rounded(w, 0.65, 0.05), 1.04, 1.1, 0.014, 0.005);
+  // a round foot rail on brackets about 1.2 m apart
+  k.tube(FINISH.bronze, [[-w / 2 + 0.05, 0.22, 0.3], [w / 2 - 0.05, 0.22, 0.3]], 0.02, false, 16);
+  const brackets = Math.max(2, Math.floor(w / 1.2) + 1), span = w - 0.6;
+  for (let i = 0; i < brackets; i++) {
+    const x = -span / 2 + span * i / (brackets - 1);
+    k.tube(FINISH.bronze, [[x, 0.22, 0.235], [x, 0.22, 0.3]], 0.012, false, 10);
+  }
+  lens(k, [0, 0.09, 0.295], w - 0.3);
+}
+
+/** A moulded bronze frame round a screen w x h set 10 mm back in it, a dark back plate. */
+function wallScreen(k: Kit, w: number, h: number): void {
+  frame(k, FINISH.bronze, w, h, 0.03, 0.06, -0.04);
+  k.cbox(FINISH.black, [0, 0.03, -0.015], [w - 0.06, h - 0.06, 0.05]);
+  k.cbox(FINISH.screen, [0, 0.03, 0.03], [w - 0.06, h - 0.06, 0.02]);
+}
+
 /** A tuft that keeps inside its planter: the leaves fan along x, their reach and rise capped
  *  by the box they grow in, so no leaf crosses the module footprint. */
 function tuft(k: Kit, [x, y, z]: Vector3, height: number, reach: number, seed: number, leaves = 7): void {
@@ -129,12 +174,9 @@ export const furnitureRecipes: RecipeSet = (add) => {
     k.slab(FINISH.obsidian, rounded(0.9, 0.5, 0.04), 0.36, 0.4, 0.008, 0.003);
   });
 
-  add("fit-table", (k) => {
-    // legs stay at the corners: the same module is scaled to a 2.8 x 1.2 meeting table
-    for (const x of [-0.365, 0.365]) for (const z of [-0.365, 0.365]) k.cbevel(FINISH.bronze, [x, 0, z], [0.05, 0.63, 0.05], 0.008);
-    k.cbevel(FINISH.bronze, [0, 0.63, 0], [0.82, 0.08, 0.82], 0.006);
-    k.slab(FINISH.obsidian, rounded(0.9, 0.9, 0.03), 0.71, 0.75, 0.01, 0.004);
-  });
+  // one table per plan size, legs 85 mm in from each corner: a long record stands the size
+  // nearest it (placements/props.ts) instead of stretching the square one's legs into planks
+  for (const [id, w, d] of TABLE_SIZES) add(id, (k) => table(k, w, d));
 
   add("fit-reception-desk", (k) => {
     for (const x of [-1.27, 1.27]) k.cbevel(FINISH.obsidian, [x, 0, 0], [0.06, 1.06, 0.9], 0.008);
@@ -145,19 +187,7 @@ export const furnitureRecipes: RecipeSet = (add) => {
     lens(k, [0, 0.02, 0.43], 2.3);
   });
 
-  add("fit-bar-counter", (k) => {
-    k.cbevel(FINISH.bronze, [0, 0, -0.09], [2.84, 0.08, 0.47], 0.006);
-    // the top overhangs the front 0.1, so the front panel stands back from the counter edge;
-    // the panel is fluted, twelve rounded staves across it
-    k.cbevel(FINISH.dark, [0, 0.12, 0.2], [3.0, 0.92, 0.03], 0.006);
-    for (let i = 0; i < 24; i++) k.cbevel(FINISH.dark, [-1.4375 + i * 0.125, 0.14, 0.21], [0.11, 0.88, 0.035], 0.012);
-    k.cbevel(FINISH.timber, [0, 0.85, -0.2125], [2.8, 0.04, 0.225], 0.005);
-    k.slab(FINISH.obsidian, rounded(3.0, 0.65, 0.05), 1.04, 1.1, 0.014, 0.005);
-    // a round foot rail on three brackets
-    k.tube(FINISH.bronze, [[-1.45, 0.22, 0.3], [1.45, 0.22, 0.3]], 0.02, false, 16);
-    for (const x of [-1.2, 0, 1.2]) k.tube(FINISH.bronze, [[x, 0.22, 0.235], [x, 0.22, 0.3]], 0.012, false, 10);
-    lens(k, [0, 0.09, 0.295], 2.7);
-  });
+  for (const [id, w] of BAR_COUNTER_SIZES) add(id, (k) => barCounter(k, w));
 
   add("fit-kitchen-run", (k) => {
     k.cbox(FINISH.black, [0, 0, -0.0450], [2.4, 0.1, 0.56]);
@@ -312,12 +342,7 @@ export const furnitureRecipes: RecipeSet = (add) => {
     k.cbox(FINISH.timber, [0, 1.85, 0.22], [3.0, 0.15, 0.06]);
   });
 
-  add("wall-screen", (k) => {
-    // a moulded bronze frame round a screen set 10 mm back in it, a dark back plate
-    frame(k, FINISH.bronze, 1.2, 0.7, 0.03, 0.06, -0.04);
-    k.cbox(FINISH.black, [0, 0.03, -0.015], [1.14, 0.64, 0.05]);
-    k.cbox(FINISH.screen, [0, 0.03, 0.03], [1.14, 0.64, 0.02]);
-  });
+  for (const [id, w, h] of WALL_SCREEN_SIZES) add(id, (k) => wallScreen(k, w, h));
 
   add("wall-art", (k) => {
     // a moulded bronze frame, a pale mat round the print, the print set back in it
