@@ -36,12 +36,29 @@ function ring(cy: number, radius: number, a0: number, a1: number, n: number): [n
 }
 const sphere = (k: Kit, slot: string, at: Vec3, r: number) => k.turned(slot, [at[0], at[1] + r, at[2]], ring(0, r, -Math.PI / 2, Math.PI / 2, 8), 16);
 
-/** A hardcover standing on its tail: a rounded cloth case with the page block showing at
- *  its head. `lean` tips it about z (radians) against its neighbour. */
+/** A hardcover standing on its tail, spine to +z, `w` thick, `h` tall and `d` deep: two
+ *  boards joined by a rounded spine, swept up its height, round a page block set 3 mm in
+ *  from the boards' head, tail and fore-edge. About 80 triangles. */
+export function hardcover(k: Kit, slot: string, pages: string, x: number, y: number, z: number, w: number, h: number, d: number): void {
+  const t = Math.min(.0025, w * .12), bulge = Math.min(.006, w * .3), back = z - d / 2, spine = z + d / 2 - bulge;
+  // (z, x) section: one board from the fore-edge to the spine, round the spine, back along
+  // the other board, then in by the board thickness and back round the inside.
+  const arc = (halfWidth: number, depth: number, from: number, to: number): Point[] => Array.from({ length: 5 }, (_, i) => {
+    const a = Math.PI * (from + (to - from) * (i + 1) / 6);
+    return [spine + Math.sin(a) * depth, x - Math.cos(a) * halfWidth] as Point;
+  });
+  const outer = w / 2, inner = w / 2 - t;
+  const section: Point[] = [[back, x - outer], [spine, x - outer], ...arc(outer, bulge, 0, 1), [spine, x + outer], [back, x + outer],
+    [back, x + inner], [spine, x + inner], ...arc(inner, Math.max(.0005, bulge - t), 1, 0), [spine, x - inner], [back, x - inner]];
+  k.sweep(slot, section, y, y + h, { axis: "y" });
+  k.box(pages, [x - inner, y + .003, back + .003], [2 * inner, h - .006, spine - back - .003], undefined, ["top", "south"]);
+}
+
+/** A book standing on its tail; `lean` tips it about z (radians) against its neighbour, as a
+ *  rounded cloth block. */
 function book(k: Kit, slot: string, x: number, y: number, z: number, w: number, h: number, d: number, lean = 0): void {
   if (lean) { softBox(k, slot, [x, y + .004, z], [w, h, d], { radius: Math.min(.003, w * .3), detail: 0, rotation: [0, 0, lean] }); return; }
-  k.bevelBox(slot, [x - w / 2, y, z - d / 2], [w, h, d], Math.min(.003, w * .3));
-  k.box(PAGES, [x - w / 2 + .0025, y + h, z - d / 2 + .002], [w - .005, .0005, d - .008], undefined, ["top"]);
+  hardcover(k, slot, PAGES, x, y, z, w, h, d);
 }
 
 /** A row of upright books from x0, `count` of them, colours from `seed`; the last leans on

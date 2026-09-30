@@ -4,7 +4,7 @@ import type { RecipeSet } from '../../modules/recipes.js';
 import type { Vector3 } from '../../modules/types.js';
 import { FINISH as F } from '../../modules/finishes.js';
 import { softBox, tube, welt } from '../luxury/model-geometry.js';
-import { vase } from '../../modules/recipes/decor.js';
+import { hardcover, vase } from '../../modules/recipes/decor.js';
 import { SANDRA_MATERIALS as M } from './materials.js';
 
 function timber(k: Kit, at: Vector3, size: Vector3): void {
@@ -18,15 +18,17 @@ function handles(k: Kit, x: number, y: number, z: number, width: number): void {
   tube(k, M.trim, [[x - width / 2, y, z - 0.007], [x - width / 2, y, z],
     [x + width / 2, y, z], [x + width / 2, y, z - 0.007]], 0.006, false, 10);
 }
+/** Books along a shelf from the left of `span`: hardcovers 22 to 46 mm thick in a rotation
+ *  of red, dark and ivory cloth, two gilt bands on each spine, `count` sevenths of the span
+ *  filled and the rest left open. */
 function books(k: Kit, x: number, y: number, z: number, count: number, span: number): void {
-  const pitch = span / count;
-  for (let i = 0; i < count; i++) {
-    const width = pitch * (0.56 + (i % 3) * 0.12), h = 0.21 + (i % 4) * 0.032;
-    const at = x - span / 2 + pitch * (i + 0.5);
-    // A rounded cloth case, the page block showing at the head, two gilt bands on the spine.
-    k.cbevel(i % 4 === 0 ? M.red : i % 2 ? M.dark : M.panel, [at, y, z], [width, h, 0.20], Math.min(0.003, width * 0.25));
-    k.box(F.paper, [at - width / 2 + 0.0025, y + h, z - 0.098], [width - 0.005, 0.0005, 0.19], undefined, ["top"]);
-    for (const sy of [0.035, h - 0.04]) k.cbevel(M.trim, [at, y + sy, z + 0.1], [width - 0.012, 0.004, 0.0025], 0.001);
+  const end = x - span / 2 + span * Math.min(1, count / 7);
+  for (let i = 0, at = x - span / 2 + 0.01; ; i++) {
+    const width = 0.022 + ((i * 7) % 5) * 0.006, h = 0.21 + ((i * 3) % 4) * 0.022;
+    if (at + width > end) break;
+    hardcover(k, i % 4 === 0 ? M.red : i % 2 ? M.dark : M.panel, F.paper, at + width / 2, y, z, width, h, 0.20);
+    for (const sy of [0.035, h - 0.04]) k.cbox(M.trim, [at + width / 2, y + sy, z + 0.1 + 0.0005], [width * 0.55, 0.004, 0.0015]);
+    at += width + 0.0015;
   }
 }
 
