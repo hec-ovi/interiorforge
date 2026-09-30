@@ -92,6 +92,28 @@ describe('dressing pass', () => {
     }
   });
 
+  it('stands nothing behind a bookcase\'s baked books, where it would show over them and never be reached', () => {
+    const { floor, builder } = kitchen([{ id: 'case', kind: 'shelf', room: 'room', position: [-3.7, 1], rotationDeg: 90, size: [1.8, .5, 2], fit: 'fit-sandra-bookcase' }]);
+    const added = dressFloor(builder, floor, { seed: 'case', models: ALL_MODELS, tier: 'rich' });
+    const shelf = builder.placements.find(p => p.id === 'case')!, recipe = placementRecipe('fit-sandra-bookcase')!;
+    const onShelf = added.filter(p => p.id.startsWith('case/'));
+    expect(onShelf.length).toBeGreaterThan(0);
+    for (const p of onShelf) {
+      const dx = p.position[0] - shelf.position[0], dz = p.position[2] - shelf.position[2], c = Math.cos(shelf.rotationY), s = Math.sin(shelf.rotationY);
+      const x = dx * c - dz * s, z = dx * s + dz * c, y = p.position[1], [w, d, h] = size(p);
+      for (const slot of recipe.mesh.materials()) {
+        const g = recipe.mesh.getGroup(slot)!;
+        for (let t = 0; t < g.indices.length; t += 3) {
+          const v = [0, 1, 2].map(k => g.indices[t + k]!).map(i => [g.positions[3 * i]!, g.positions[3 * i + 1]!, g.positions[3 * i + 2]!]);
+          const min = [0, 1, 2].map(a => Math.min(...v.map(q => q[a]!))), max = [0, 1, 2].map(a => Math.max(...v.map(q => q[a]!)));
+          // Nothing of the bookcase between the piece and the front, at the piece's height.
+          const hidden = max[1]! > y + .003 && min[1]! < y + h && max[0]! > x - w / 2 && min[0]! < x + w / 2 && max[2]! > z - d / 2;
+          expect(hidden, `${p.module ?? p.prop} at ${x.toFixed(2)},${y.toFixed(2)},${z.toFixed(2)}`).toBe(false);
+        }
+      }
+    }
+  });
+
   it('dresses a poor home from the plain list and holds a floor to its cap', () => {
     const { floor, builder } = kitchen();
     const plain = dressFloor(builder, floor, { seed: 'poor', models: ALL_MODELS, tier: 'poor' });

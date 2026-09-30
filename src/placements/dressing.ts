@@ -202,8 +202,10 @@ export function dressFloor(builder: PlacementBuilder, floor: FloorInterior, opti
           if (placed.some(o => o[0] < box[1] + .02 && box[0] < o[1] + .02 && o[2] < box[3] + .02 && box[2] < o[3] + .02)) continue;
           if (level.tris.length && ![[box[0], box[2]], [box[1], box[2]], [box[1], box[3]], [box[0], box[3]], [cx, cz]]
             .every(([x, z]) => level.tris.some(t => inTriangle(x! / sx, z! / sz, t)))) continue;
-          const lo = y + .003, hi = y + h;
-          if (solids.some(b => b.max[1] * sy > lo && b.min[1] * sy < hi && b.max[0] * sx > box[0] && b.min[0] * sx < box[1] && b.max[2] * sz > box[2] && b.min[2] * sz < box[3])) continue;
+          // A piece stood at the back keeps the board clear in front of it as well, so it never
+          // hides behind a baked row of books or bottles.
+          const lo = y + .003, hi = y + h, front = back ? rect.z1 : box[3];
+          if (solids.some(b => b.max[1] * sy > lo && b.min[1] * sy < hi && b.max[0] * sx > box[0] && b.min[0] * sx < box[1] && b.max[2] * sz > box[2] && b.min[2] * sz < front)) continue;
           placed.push(box);
           if (ONCE_PER_ROOM.has(id)) roomUsed.add(id);
           const yaw = placement.rotationY + (role === 'shelf' || role === 'console' || id.includes('frame') || id.includes('laptop') || id.includes('machine') ? 0 : (unit(`${key}|${li}|${s}|r`) - .5) * .6);
