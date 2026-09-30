@@ -7,6 +7,8 @@ import { uvRectCorners } from '../src/layout/uv.js';
 import { fitTemplate } from '../src/layout/templates/fit.js';
 import { TEMPLATES } from '../src/layout/templates/registry.js';
 import type { TemplateTarget } from '../src/layout/templates/schema.js';
+import { referenceFrontage } from '../src/layout/facade-plan.js';
+import type { UnitSizing } from '../src/layout/templates/registry.js';
 
 /** The reference homes as their references separate them: each keeps its own rooms, its
  *  level changes and its reference size in a fitted target and in a generated tower, a
@@ -23,7 +25,7 @@ const role = (rooms: PlanRoom[], key: string, id: string) => rooms.find(room => 
 /** reference level changes: [template, room, delta] */
 const LEVELS: [string, string, number][] = [
   ['e6-apartment2', 'living', -.4], ['e1-apartment', 'great', -.18], ['b3-apartment', 'living', -.54],
-  ['b3-apartment', 'living', .15], ['b3-apartment', 'bed', .12], ['c1-capsule', 'studio', -.36],
+  ['b3-apartment', 'living', .15], ['b3-apartment', 'bed', .12], ['c1-capsule', 'studio', -.36], ['c7-room', 'kitchen', .1],
 ];
 
 describe('reference homes fitted', () => {
@@ -52,6 +54,16 @@ describe('reference homes fitted', () => {
     expect(t.rooms.find(room => room.id === 'kitchen')!.ceiling).toBe(2.85);
   });
 
+  it('raise the c7 kitchen alcove one tiled riser and open it to the living at that lip', () => {
+    const fit = fitTemplate(TEMPLATES.get('c7-room')!, target(19.15, 8.85), 'unit', idGen(1), () => true)!;
+    const [kitchen, living] = ['kitchen', 'living'].map(id => role(fit.rooms, 'c7-room', id)!) as [PlanRoom, PlanRoom];
+    expect(kitchen.levels?.map(zone => [zone.delta, zone.edge])).toEqual([[.1, 'step']]);
+    const mouth = kitchen.doors.find(door => door.to === living.id)!;
+    expect(mouth.width).toBeCloseTo(4.1);
+    // the whole alcove is the platform, so the mouth's approach stands on it
+    expect(kitchen.authored?.find(piece => piece.id === 'kitchen-run')?.elevation).toBeCloseTo(.1);
+  });
+
   it('turn the depth a unit has beyond its envelope into service rooms along the entry wall', () => {
     const t = TEMPLATES.get('e6-apartment2')!;
     const plain = fitTemplate(t, target(15, t.envelope.max[1]), 'unit', idGen(1), () => true)!;
@@ -72,6 +84,17 @@ describe('reference homes fitted', () => {
     // the pit sofa still stands in the pit
     const living = role(deep.rooms, 'e6-apartment2', 'living')!;
     expect(living.authored?.find(piece => piece.id === 'pit-west')?.elevation).toBe(-.4);
+  });
+
+  it('cut a strip for the reference home whose depth it has, not the first one listed', () => {
+    const sizing = { area: [0, 0], width: [0, 0], depth: [0, 0], preferred: [26.45, 11.55], references: [
+      { key: 'e1-apartment', width: [22, 26.45, 30], depth: [10, 11.55, 13] },
+      { key: 'e6-apartment2', width: [13, 14.5, 17], depth: [9.4, 10.5, 12.5] },
+    ] } as UnitSizing;
+    expect(referenceFrontage(sizing, 10)).toBe(14.5);
+    expect(referenceFrontage(sizing, 11.8)).toBe(26.45);
+    // a strip shallower than every reference aims at the shallowest one
+    expect(referenceFrontage(sizing, 7.5)).toBe(14.5);
   });
 
   it('refuse a unit its envelope cannot hold instead of stretching it', () => {

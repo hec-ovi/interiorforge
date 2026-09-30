@@ -11,17 +11,27 @@ import type { UvRect } from "./uv.js";
 
 /** Zones at least this high are closed to the nav grid (a step, not a finish change). */
 export const NAV_LEVEL_MIN = 0.05;
+/** One riser the body walks up without a flight (`RISE_MAX` of the level system). */
+export const WALK_RISE = 0.18;
 
 type Zone = NonNullable<PlanRoom["levels"]>[number];
+
+/** A platform one stepped riser high (the C7 kitchen's tiled lip, the B3 bar): people walk
+ *  onto it, so it stays open to routes and may meet a door's approach, its edge there being
+ *  the threshold's nosing. Deeper zones, pits and guarded edges never do. */
+export function walkableZone(zone: Pick<Zone, "delta" | "edge">): boolean {
+  return zone.edge === "step" && zone.delta > 0 && zone.delta <= WALK_RISE + 1e-9;
+}
 
 export function zoneUvRect(zone: Pick<Zone, "polygon">): UvRect {
   const b = polygonBounds(zone.polygon);
   return { u: b.x, v: b.z, lu: b.w, lv: b.d };
 }
 
-/** Rectangles of the room's raised and sunken zones that close nav cells. */
+/** Rectangles of the room's raised and sunken zones that close nav cells (a walkable
+ *  platform does not). */
 export function raisedZoneRects(room: Pick<PlanRoom, "levels">): UvRect[] {
-  return (room.levels ?? []).filter(zone => Math.abs(zone.delta) >= NAV_LEVEL_MIN).map(zoneUvRect);
+  return (room.levels ?? []).filter(zone => Math.abs(zone.delta) >= NAV_LEVEL_MIN && !walkableZone(zone)).map(zoneUvRect);
 }
 
 const overlaps = (a: UvRect, b: UvRect) =>
@@ -37,10 +47,11 @@ export function doorApproach(door: PlanRoom["doors"][number], room: PlanRoom): U
 }
 
 /** The room's zones that keep every approach clear (its own doors and `keep`, e.g. stair
- *  and lift entries); a zone over an approach is left out, so the floor stays flat there. */
+ *  and lift entries); a zone over an approach is left out, so the floor stays flat there,
+ *  unless it is a walkable platform. */
 export function admissibleLevels(room: PlanRoom, keep: readonly UvRect[] = []): Zone[] {
   const approaches = [...room.doors.map(door => doorApproach(door, room)), ...keep];
-  return (room.levels ?? []).filter(zone => !approaches.some(rect => overlaps(zoneUvRect(zone), rect)));
+  return (room.levels ?? []).filter(zone => walkableZone(zone) || !approaches.some(rect => overlaps(zoneUvRect(zone), rect)));
 }
 
 /** The furniture height at a uv point of the room: the highest raised zone under it. */

@@ -31,7 +31,7 @@ import { lifts } from './lifts.js';
 import { duplexVoids, duplexCeilingRects, duplexGalleryEdges, placeDuplexStructure } from './duplex.js';
 import { LOFT1702_FINISH, loft1702Finish, placeLoft1702GalleryFascia } from '../styles/luxury/loft-finish.js';
 import { placeDuplexLivingFloor } from './duplex-finish.js';
-import { boundaryDistance, polygonBounds } from '../core/geom.js';
+import { boundaryDistance, polygonBounds, type Point } from '../core/geom.js';
 import { worldToUv } from '../layout/uv.js';
 import type { LevelZone, LightFixture, Room, StyleId } from '../core/types.js';
 import type { PlanRoom } from '../layout/plan-types.js';
@@ -89,7 +89,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         return [room.id, {
             id: room.id, kind: room.kind, ...(style ? { style } : {}), polygon, ...(room.holes ? { holes: room.holes } : {}),
             bounds: { u: b.x, v: b.z, lu: b.w, lv: b.d }, gridOrigin: grid, ceilingY, soffitY: bp.height, elevation: floor.elevation,
-            ...(styled.levels?.length ? { levels: styled.levels } : {}), ...(drop > 0 ? { ceilingDrop: drop } : {}),
+            ...(styled.levels?.length ? { levels: styled.levels, doorways: doorwaysOf(room, uv.rooms) } : {}), ...(drop > 0 ? { ceilingDrop: drop } : {}),
         }];
     }));
     // Planned fixtures follow their room's style: its light colour, its own coves or none,
@@ -267,4 +267,19 @@ function sharedSide(a: UvRect, b: UvRect): number {
 function clipUv(a: UvRect, b: UvRect): UvRect | null {
     const u0 = Math.max(a.u, b.u), u1 = Math.min(a.u + a.lu, b.u + b.lu), v0 = Math.max(a.v, b.v), v1 = Math.min(a.v + a.lv, b.v + b.lv);
     return u1 - u0 > 1e-3 && v1 - v0 > 1e-3 ? { u: u0, v: v0, lu: u1 - u0, lv: v1 - v0 } : null;
+}
+
+/** The doorways in a room's walls, as uv segments: its own doors and every neighbour's door
+ *  into it (a walkable platform marks its threshold there). */
+function doorwaysOf(room: PlanRoom, rooms: readonly PlanRoom[]): [Point, Point][] {
+    const out: [Point, Point][] = [];
+    for (const owner of rooms) for (const door of owner.doors) {
+        if (owner !== room && door.to !== room.id) continue;
+        if (door.openFront) continue;
+        const r = owner.rect, half = door.width / 2;
+        const [u, v] = door.position ?? (door.edge === 'v0' ? [door.at, r.v] : door.edge === 'v1' ? [door.at, r.v + r.lv]
+            : door.edge === 'u0' ? [r.u, door.at] : [r.u + r.lu, door.at]);
+        out.push(door.edge.startsWith('v') ? [[u - half, v], [u + half, v]] : [[u, v - half], [u, v + half]]);
+    }
+    return out;
 }

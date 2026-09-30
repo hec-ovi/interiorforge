@@ -1,7 +1,7 @@
 import type { Point } from "../../core/geom.js";
 import { pointInPolygon, polygonArea } from "../../core/geom.js";
 import { doorApproachFits, pocketInterval } from "../door-fit.js";
-import { doorApproach, zoneUvRect } from "../levels.js";
+import { doorApproach, walkableZone, zoneUvRect } from "../levels.js";
 import { livingConnected } from "../living-connectivity.js";
 import type { AuthoredPiece, EdgeName, PlanDoor, PlanRoom } from "../plan-types.js";
 import { RoomRegion } from "../room-region.js";
@@ -473,7 +473,8 @@ function placeInternal(owner: PlanRoom, other: PlanRoom, door: Pick<TemplateDoor
       if (!doorApproachFits(owner, other, stretch.edge, stretch.c, at, w)) continue;
       const placed = internalDoor("", other.id, w, leaves, stretch, at, door.kind);
       // A level zone never takes a door's approach: a raised zone's side or flight standing
-      // there would wall the doorway shut, a pit would open under it.
+      // there would wall the doorway shut, a pit would open under it. A one-riser platform
+      // may: the door is its threshold.
       if (approachTakesLevel(placed, owner, [owner, other])) continue;
       owner.doors.push({ ...placed, id: nextId() });
       return true;
@@ -490,10 +491,12 @@ function alongUv(frame: LocalFrame, stretch: RoomStretch, along: number): number
   return local.sign > 0 ? along : 1 - along;
 }
 
-/** Whether a door's approach overlaps a level zone of any of the given rooms. */
+/** Whether a door's approach overlaps a level zone of any of the given rooms (a walkable
+ *  platform one riser high may meet it: its edge is the threshold). */
 function approachTakesLevel(door: PlanDoor, owner: PlanRoom, rooms: readonly PlanRoom[]): boolean {
   const a = doorApproach(door, owner);
   return rooms.some(room => (room.levels ?? []).some(zone => {
+    if (walkableZone(zone)) return false;
     const z = zoneUvRect(zone);
     return a.u < z.u + z.lu - EPS && z.u < a.u + a.lu - EPS && a.v < z.v + z.lv - EPS && z.v < a.v + a.lv - EPS;
   }));

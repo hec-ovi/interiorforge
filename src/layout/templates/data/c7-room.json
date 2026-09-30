@@ -30,7 +30,7 @@
   ],
   "rooms": [
     {"id": "passage", "kind": "living", "role": "passage", "remainder": true, "ceiling": 3.45},
-    {"id": "kitchen", "kind": "kitchen", "role": "kitchen", "u": ["u0", "u1"], "v": ["v1", "v2"], "minClear": [2.5, 4.2], "ceiling": 3.0},
+    {"id": "kitchen", "kind": "kitchen", "role": "kitchen", "u": ["u0", "u1"], "v": ["v1", "v2"], "minClear": [2.5, 4.2], "ceiling": 3.0, "levels": [{"u": ["u0", "u1"], "v": ["v1", "v2"], "delta": 0.1, "edge": "step"}]},
     {"id": "bath", "kind": "bathroom", "role": "bath", "u": ["u0", "u2"], "v": ["v0", "v1"], "minClear": [3.6, 2.2], "ceiling": 2.9},
     {"id": "living", "kind": "living", "role": "living", "u": ["u1", "u3"], "v": ["v1", "v2"], "minClear": [4.6, 5.0], "ceiling": 3.45},
     {"id": "bed", "kind": "bedroom", "role": "bedroom", "u": ["u4", "u5"], "v": ["v0", "v2"], "minClear": [5.2, 6.8], "ceiling": 3.65}

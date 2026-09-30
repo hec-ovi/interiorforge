@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Point } from '../src/core/geom.js';
 import type { LevelZone } from '../src/core/types.js';
-import { admissibleLevels, levelAt, raisedZoneRects } from '../src/layout/levels.js';
+import { admissibleLevels, levelAt, raisedZoneRects, walkableZone } from '../src/layout/levels.js';
 import { makeFrame, uvRectCorners, worldToUv, type UvRect } from '../src/layout/uv.js';
 import { PlacementBuilder } from '../src/placements/builder.js';
 import { walkingSlabs } from '../src/placements/thresholds.js';
@@ -111,5 +111,31 @@ describe('level zones', () => {
         const blocked = { ...room, doors: [{ ...room.doors[0]!, at: 9 }], levels: [zone({ u: 8, v: 0, lu: 4, lv: 4 }, .45, 'step')] };
         expect(admissibleLevels(blocked)).toHaveLength(0);
         void worldToUv;
+    });
+
+    it('walks onto a one-riser platform: open to routes, meeting a doorway whose threshold takes its nosing', () => {
+        // a kitchen alcove raised 0.10 m wall to wall, its 4.1 m mouth in the u1 wall
+        const alcove: UvRect = { u: 0, v: 0, lu: 2.85, lv: 6.5 };
+        const lip = zone(alcove, .1, 'step');
+        expect(walkableZone(lip)).toBe(true);
+        expect(walkableZone(zone(alcove, .3, 'step'))).toBe(false);
+        expect(walkableZone(zone(alcove, .15, 'guard'))).toBe(false);
+        expect(walkableZone(zone(alcove, -.15, 'step'))).toBe(false);
+        const room = { id: 'k', kind: 'kitchen' as const, rect: alcove, polygon: uvRectCorners(alcove), levels: [lip],
+            doors: [{ id: 'd', to: 'l', edge: 'u1' as const, at: 2.2, width: 4.1, leaves: 2 as const }] };
+        expect(raisedZoneRects(room)).toHaveLength(0);
+        expect(admissibleLevels(room)).toHaveLength(1);
+        expect(levelAt(room, [1, 3])).toBeCloseTo(.1);
+        // walled on every side, it takes a nosing across the doorway alone
+        const plan = levelPlan(lip, [uvRectCorners(alcove)], [[[2.85, .15], [2.85, 4.25]]]);
+        expect(plan.slabs.map(slab => [slab.module, slab.top])).toEqual([['platform', .1]]);
+        expect(plan.nosings).toHaveLength(1);
+        const [nosing] = plan.nosings;
+        expect(nosing!.y).toBeCloseTo(.1);
+        expect(nosing!.out).toEqual([1, 0]);
+        expect(Math.hypot(nosing!.b[0] - nosing!.a[0], nosing!.b[1] - nosing!.a[1])).toBeCloseTo(4.1);
+        // a deeper platform never marks a threshold, and a doorway off its sides takes none
+        expect(levelPlan(zone(alcove, .45, 'step'), [uvRectCorners(alcove)], [[[2.85, .15], [2.85, 4.25]]]).nosings).toHaveLength(0);
+        expect(levelPlan(lip, [uvRectCorners(alcove)], [[[4, .15], [4, 4.25]]]).nosings).toHaveLength(0);
     });
 });

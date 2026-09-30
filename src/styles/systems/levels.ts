@@ -162,14 +162,39 @@ const edgeAt = (side: Side, z: UvRect, s0: number, s1: number, y: number, offset
     return side[0] === 'v' ? { a: [s0, c], b: [s1, c], y, out } : { a: [c, s0], b: [c, s1], y, out };
 };
 
+/** Whether a zone is a platform one stepped riser high, which people walk onto: it may
+ *  meet a doorway, whose threshold its nosing then marks. */
+export const walkablePlatform = (zone: Pick<LevelZone, 'delta' | 'edge'>): boolean =>
+    zone.edge === 'step' && zone.delta >= LEVEL_MIN && zone.delta <= RISE_MAX + EPS;
+
+/** Nosings across the doorways a walkable platform meets in the walls it backs onto: the
+ *  platform's edge is the threshold there, so it takes the step's nosing like a free side. */
+function thresholdNosings(zone: LevelZone, z: UvRect, open: Record<Side, [number, number][]>,
+    doorways: readonly (readonly [Point, Point])[]): LevelEdge[] {
+    const out: LevelEdge[] = [];
+    if (!walkablePlatform(zone)) return out;
+    for (const [a, b] of doorways) for (const side of SIDE_LIST) {
+        const [p, q] = sideSegment(z, side), along = side[0] === 'v' ? 0 : 1, cross = 1 - along;
+        if (Math.abs(a[cross]! - p[cross]!) > 1e-3 || Math.abs(b[cross]! - p[cross]!) > 1e-3) continue;
+        let runs: [number, number][] = [[Math.max(Math.min(a[along]!, b[along]!), p[along]!), Math.min(Math.max(a[along]!, b[along]!), q[along]!)]];
+        // a free stretch of the side already carries its nosing
+        for (const [o0, o1] of open[side]) runs = runs.flatMap(([s0, s1]) =>
+            ([[s0, Math.min(s1, o0)], [Math.max(s0, o1), s1]] as [number, number][]).filter(([m, n]) => n - m > 1e-4));
+        for (const [s0, s1] of runs) if (s1 - s0 > .05) out.push(edgeAt(side, z, s0, s1, zone.delta));
+    }
+    return out;
+}
+
 /** The solid slabs, nosings and guards of one zone, in uv, before clipping to a floor
- *  rectangle. `rings` are the room's outline and holes: sides lying on them are walls. */
-export function levelPlan(zone: LevelZone, rings: readonly (readonly Point[])[]): LevelPlan {
+ *  rectangle. `rings` are the room's outline and holes: sides lying on them are walls;
+ *  `doorways` are the openings in those walls. */
+export function levelPlan(zone: LevelZone, rings: readonly (readonly Point[])[], doorways: readonly (readonly [Point, Point])[] = []): LevelPlan {
     const plan: LevelPlan = { slabs: [], nosings: [], guards: [] };
     if (zone.delta > -LEVEL_MIN && zone.delta < LEVEL_MIN) return plan;
     if (zone.delta < 0) return sunkenPlan(zone, rings, plan);
     const z = zoneRect(zone), n = riserCount(zone.delta), rise = Math.abs(zone.delta) / n;
     const open = exposedSides(z, rings);
+    plan.nosings.push(...thresholdNosings(zone, z, open, doorways));
     const sides = SIDE_LIST.filter(side => open[side].length);
     // Steps never eat more than half the zone across.
     const going = Math.min(TREAD, ...sides.map(side => (side[0] === 'u' ? z.lu : z.lv) / (2 * Math.max(1, n - 1) + 1)));
@@ -311,7 +336,7 @@ export function placeLevels(builder: PlacementBuilder, sid: string, room: Surfac
     const ids = levelIds(look), lit = PROFILES.get(look)?.lit, rings = [room.polygon, ...(room.holes ?? [])];
     const yaw = -frame.angleDeg * Math.PI / 180;
     for (const zone of active(room.levels ?? [])) {
-        const plan = levelPlan(zone, rings);
+        const plan = levelPlan(zone, rings, room.doorways ?? []);
         for (const slab of plan.slabs) {
             const part = clipRect(slab.rect, rect);
             if (!part) continue;

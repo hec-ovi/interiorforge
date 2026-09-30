@@ -310,6 +310,8 @@ export interface SurfaceRoom {
     /** raised or sunken zones, uv polygons */
     levels?: LevelZone[];
     ceilingDrop?: number;
+    /** doorways in the room's walls (its own and its neighbours' doors into it), uv segments */
+    doorways?: [Point, Point][];
 }
 
 /** Everything one reference kind contributes, as data; the registry merges the four. */
