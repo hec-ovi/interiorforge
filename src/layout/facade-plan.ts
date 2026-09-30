@@ -24,7 +24,7 @@ import { planCapsuleResidential } from '../styles/capsule/layout.js';
 import { absorbDamagedSlivers, damagedCorridorRect, isDamagedResidential, planDamagedResidential } from '../styles/damaged/layout.js';
 import { damagedDwellingProgram } from '../styles/damaged/dwelling-program.js';
 import { fitDamagedGroundPublicDoors, planDamagedGround } from '../styles/damaged/ground-program.js';
-import { unitSizing } from './templates/registry.js';
+import { unitSizing, type UnitSizing } from './templates/registry.js';
 
 const UNIT_PROGRAM: Partial<Record<FloorKind, { main: RoomKind; service: RoomKind }>> = {
   apartment: { main: "studio_main", service: "bathroom" },
@@ -122,7 +122,7 @@ export function planFacadeRooms(request: InteriorRequest, floor: BlueprintFloor,
         return residential ? residentialEnvelope(available, side) : available;
       };
       const targetArea = residentialTarget(request.building.tier);
-      const preferred = residential ? sizing ? sizing.preferred[0] : targetArea / Math.min(10, strip.lv)
+      const preferred = residential ? sizing ? referenceFrontage(sizing, strip.lv) : targetArea / Math.min(10, strip.lv)
         : rng.range(frontage[0]!, frontage[1]!);
       const fits = (minimum: number) => (low: number, high: number): boolean => {
         const rect = envelope(low, high);
@@ -244,6 +244,16 @@ function absorbSlivers(occupied: readonly UvRect[]): UvRect[] {
     return { u: rect.u - uLow, v: rect.v - vLow,
       lu: rect.lu + uLow + gap(rect, true, false), lv: rect.lv + vLow + gap(rect, false, false) };
   });
+}
+
+/** The frontage a kind building aims a strip's homes at: the reference width of the
+ *  dwelling template whose own depth this strip is nearest (one it can take first), so a
+ *  shallow strip is cut for the shallower apartment rather than the first one listed. */
+export function referenceFrontage(sizing: UnitSizing, depth: number): number {
+  const takes = sizing.references.filter(ref => depth >= ref.depth[0] - 1e-6);
+  const pool = takes.length ? takes : [...sizing.references].sort((a, b) => a.depth[0] - b.depth[0]).slice(0, 1);
+  const off = (ref: UnitSizing['references'][number]) => Math.abs(Math.min(depth, ref.depth[2]) - ref.depth[1]) / ref.depth[1];
+  return (pool.length ? [...pool].sort((a, b) => off(a) - off(b))[0]!.width[1] : sizing.preferred[0]);
 }
 
 /** A bay starts behind the core solids it runs past: a lift shaft deeper than the stair
