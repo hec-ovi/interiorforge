@@ -5,6 +5,7 @@ import type { RecipeSet } from '../../modules/recipes.js';
 import type { Vector3 } from '../../modules/types.js';
 import { smoothSurface, softBox, tube, welt } from '../luxury/model-geometry.js';
 import { pipe, vessel } from '../../modules/recipes/sanitary.js';
+import { roundedSection } from '../systems/kitchen-modules.js';
 import { capsuleShowerRecipes } from './shower.js';
 
 const ENAMEL = 'cyberpunk/interior-capsule-enamel/mid#ivory';
@@ -55,6 +56,19 @@ function tap(k: Kit, x: number, base: number, spring: number, back: number, radi
   }
   path.push([x, spring - 0.02, back + 2 * radius]);
   pipe(k, path, 0.010);
+}
+
+/** An electric coil ring of `radius` on the hob at (x, y, z): a chrome trim ring, a flat
+ *  spiral of round element two and a half turns in, its tail dropping into the plate. */
+function coil(k: Kit, x: number, y: number, z: number, radius: number): void {
+  k.turned(FINISH.chrome, [x, y, z], [[radius * 0.3, 0], [radius + 0.012, 0], [radius + 0.013, 0.003], [radius + 0.004, 0.003], [radius * 0.3, 0.001]], 32);
+  const turns = 2.5, n = 72, path: Vector3[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, a = t * turns * Math.PI * 2, r = radius - t * (radius - 0.018);
+    path.push([x + Math.cos(a) * r, y + 0.007, z + Math.sin(a) * r]);
+  }
+  path.push([x + 0.012, y + 0.003, z], [x + 0.012, y, z]);
+  tube(k, FINISH.zinc, path, 0.0035, false, 6);
 }
 
 function roundedFace(w: number, h: number, y: number, radius: number): Point[] {
@@ -228,9 +242,12 @@ export const capsuleRecipes: RecipeSet = add => {
     }
     // Counter has a real basin opening; no solid countertop covers the sink recess.
     const sinkX = 0.65, sinkW = 0.50, sinkD = 0.38;
-    k.cbox(ENAMEL, [-0.40, 0.88, 0], [1.6, 0.055, 0.65]);
-    k.cbox(ENAMEL, [1.05, 0.88, 0], [0.3, 0.055, 0.65]);
-    for (const z of [-0.2575, 0.2575]) k.cbox(ENAMEL, [sinkX, 0.88, z], [sinkW, 0.055, 0.135]);
+    // The slab stops 22 mm short of the front, where a rounded nose runs the whole length.
+    k.cbox(ENAMEL, [-0.40, 0.88, -0.011], [1.6, 0.055, 0.628]);
+    k.cbox(ENAMEL, [1.05, 0.88, -0.011], [0.3, 0.055, 0.628]);
+    k.cbox(ENAMEL, [sinkX, 0.88, -0.2575], [sinkW, 0.055, 0.135]);
+    k.cbox(ENAMEL, [sinkX, 0.88, 0.2465], [sinkW, 0.055, 0.113]);
+    k.sweep(ENAMEL, roundedSection(0.88, 0.935, 0.303, 0.325, { topFront: 0.014, bottomFront: 0.006 }), -1.2, 1.2);
     // Fill the rectangular cut's corners up to the pressed bowl's rounded perimeter.
     const cut = (angle: number): Vector3 => {
       const c = Math.cos(angle), s = Math.sin(angle), reach = Math.min(0.25 / Math.max(1e-9, Math.abs(c)), 0.19 / Math.max(1e-9, Math.abs(s)));
@@ -258,8 +275,10 @@ export const capsuleRecipes: RecipeSet = add => {
     ], 40);
     k.cylinder(FINISH.black, [sinkX, 0.76, 0], 0.020, 0.002, 24);
     tap(k, 0.65, 0.936, 0.99, -0.255, 0.04);
-    k.cbox(FINISH.black, [-0.66, 0.935, 0], [0.60, 0.009, 0.45]);
-    for (const x of [-0.80, -0.51]) for (const z of [-0.1, 0.1]) k.cylinder(FINISH.zinc, [x, 0.944, z], 0.072, 0.003, 16);
+    // A black enamel hob plate with four coil rings on chrome trims and a row of knobs.
+    k.cbevel(FINISH.black, [-0.66, 0.935, 0], [0.60, 0.011, 0.47], 0.004);
+    for (const x of [-0.80, -0.51]) for (const z of [-0.1, 0.1]) coil(k, x, 0.946, z, x < -0.6 === z < 0 ? 0.072 : 0.06);
+    for (let i = 0; i < 4; i++) k.turned(FINISH.black, [-0.75 + i * 0.06, 0.946, 0.205], [[0, 0], [0.013, 0], [0.013, 0.012], [0.009, 0.017], [0, 0.017]], 16);
     k.cbox(ENAMEL, [0, 0.935, -0.3175], [2.4, 0.115, 0.015]);
   };
   add('fit-capsule-kitchen', kitchenBase);
