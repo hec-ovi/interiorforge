@@ -34,6 +34,7 @@ import { luxuryRugRecipes } from "../styles/luxury/rugs.js";
 import { luxuryDiningRecipes } from "../styles/luxury/dining.js";
 import { loft1702FinishRecipes } from "../styles/luxury/loft-finish.js";
 import { referenceRecipes, panelPieces } from "../styles/reference/recipes.js";
+import { openInteriorRecipes } from './recipes/open-interiors.js';
 
 export type { ModuleRecipe } from "./types.js";
 
@@ -42,7 +43,7 @@ export type RecipeSet = (add: (id: string, draw: (kit: Kit) => void) => void) =>
 
 const SETS: RecipeSet[] = [surfaceRecipes, lightRecipes, coreRecipes, doorRecipes, liftRecipes, capsuleArchitecturalRecipes, sandraRecipes, corpoBathroomRecipes, loftBathroomRecipes, luxuryRugRecipes, luxuryDiningRecipes, loft1702FinishRecipes,
   stairGuardRecipes, stairFinishRecipes, furnitureRecipes, decorRecipes, capsuleRecipes, damagedRecipes, industrialRecipes, corporateRecipes, luxuryPortalRecipes, luxurySurfaceRecipes, luxuryFurnitureRecipes, luxuryCeilingRecipes, apartmentDoorRecipes, capsuleApartmentDoorRecipes, luxuryBathroomRecipes, luxuryAccessoryRecipes, referenceFurnitureRecipes, referenceBotanicalRecipes,
-  referenceRecipes];
+  referenceRecipes, openInteriorRecipes];
 
 /** Every shared module, authored in metres. `tile` gives UV units per metre per material
  *  slot, so tiled faces wear one UV unit per map repeat; without it metres stay. `alignment`
