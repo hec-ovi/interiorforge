@@ -1,4 +1,4 @@
-# Interior 0.41.0
+# Interior 0.42.0
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
