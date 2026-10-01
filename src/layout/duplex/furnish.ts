@@ -80,6 +80,17 @@ export function furnishDuplexProgram(program: DuplexProgram, section: DuplexSect
           if (piece.room === room.id && piece.kind === 'counter' && approaches.some(zone => overlaps(zone, furnitureUvRect(piece)))) pieces.splice(i, 1);
         }
       }
+      // A wall-stair loft's living is furnished as one plan: the lounge on the double-height
+      // windows, dining by the kitchen, a reading corner under the mezzanine, and a sitting
+      // group in the middle of a deep loft.
+      if (section.stairWall && level === 'lower') {
+        const living = rooms.find(room => program.roles[room.id] === 'living')!;
+        for (let i = pieces.length - 1; i >= 0; i--) if (pieces[i]!.room === living.id) pieces.splice(i, 1);
+        carpets.lower = carpets.lower.filter(carpet => carpet.room !== living.id);
+        const loft = loftLiving(section, living.id);
+        pieces.push(...loft.pieces);
+        carpets.lower.push(...loft.carpets.map(rect => ({ room: living.id, rect })));
+      }
       pieces.forEach((piece, index) => { piece.id = `${program.unit}-${level}-furniture-${index}`; });
       levels[level] = pieces;
     }
@@ -114,4 +125,52 @@ function missingEssentials(program: DuplexProgram, levels: Pick<DuplexFurniture,
     for (const kind of required) if (!present.has(kind)) failures.push(`${room.id}: ${kind}`);
   }
   return failures;
+}
+
+/** The living of a wall-stair loft (Apartment 1702) in its section frame, planned with the stair
+ *  on the low side and mirrored for the high one: a sofa and chairs on the double-height windows
+ *  round a low table, a screen on the side wall, dining by the kitchen's doorway, two chairs and
+ *  a bookcase under the mezzanine behind the stair, and on a deep loft a second sitting group in
+ *  the middle. */
+function loftLiving(section: DuplexSection, room: string): { pieces: PlanFurniture[]; carpets: UvRect[] } {
+  const { width: w, depth: d, stairOpening } = section, high = section.stairWall === 'high';
+  const od = stairOpening.lv, stairEnd = stairOpening.v + od;
+  const voidV = Math.min(...section.loungeVoids.map(r => r.v));
+  const pieces: PlanFurniture[] = [], carpets: UvRect[] = [];
+  const turn = (r: PlanFurniture['rotationDeg']): PlanFurniture['rotationDeg'] => !high ? r : r === 90 ? 270 : r === 270 ? 90 : r;
+  const put = (kind: PlanFurniture['kind'], at: [number, number], size: [number, number, number], rotationDeg: PlanFurniture['rotationDeg'], elevation?: number) =>
+    pieces.push({ id: '', kind, room, at: [high ? w - at[0] : at[0], at[1]], size, rotationDeg: turn(rotationDeg), ...(elevation ? { elevation } : {}) });
+  const rug = (r: UvRect) => carpets.push(high ? { ...r, u: w - r.u - r.lu } : r);
+  // the window lounge, facing the glass across the double-height void
+  const lc = (w - 4) / 2;
+  put('sofa', [lc, d - 3.5], [3.6, .95, .8], 0);
+  put('low_table', [lc, d - 2.2], [1.4, .8, .4], 0);
+  for (const side of [-1, 1]) put('chair', [lc + side * 2.45, d - 2.2], [.8, .8, .8], side < 0 ? 90 : 270);
+  put('plant', [.7, d - .7], [.7, .7, 1.6], 0);
+  put('plant', [w - 4.8, d - .7], [.7, .7, 1.6], 0);
+  rug({ u: lc - 3.2, v: d - 4.2, lu: 6.4, lv: 3.4 });
+  // a screen on the side wall beside the lounge
+  put('display_screen', [.06, (voidV + d) / 2], [1.8, .08, 1.0], 90, 1.2);
+  // dining by the kitchen's doorway on the far wall
+  const du = w - 7.0, dv = Math.max(stairOpening.v + 3, 5.75);
+  put('dining_table', [du, dv], [1.0, 2.2, .75], 0);
+  for (const t of [-.7, 0, .7]) {
+    put('chair', [du - .85, dv + t], [.5, .5, .9], 90);
+    put('chair', [du + .85, dv + t], [.5, .5, .9], 270);
+  }
+  // reading under the mezzanine, behind the stair
+  if (voidV - stairEnd >= 3.0) {
+    const mv = stairEnd + 1.6;
+    put('shelf', [.25, mv], [1.8, .45, 2.0], 90);
+    put('low_table', [1.5, mv], [.6, .6, .45], 0);
+    for (const side of [-1, 1]) put('chair', [1.5, mv + side * .85], [.8, .8, .8], side < 0 ? 0 : 180);
+  }
+  // a deep loft's middle: two sofas facing over a table
+  if (voidV - (stairEnd + 4) >= 6) {
+    const cv = (stairEnd + 4 + voidV) / 2;
+    for (const side of [-1, 1]) put('sofa', [lc, cv + side * 1.35], [3.2, .95, .8], side < 0 ? 0 : 180);
+    put('low_table', [lc, cv], [1.4, .8, .4], 0);
+    rug({ u: lc - 2.4, v: cv - 2.2, lu: 4.8, lv: 4.4 });
+  }
+  return { pieces, carpets };
 }

@@ -208,6 +208,9 @@ describe('composed kind B two-storey loft', () => {
         // the upper storey is the loft's own: bedroom, bathroom, dressing and study off its gallery
         const kinds = layoutOf(2).floor.rooms.filter(r => r.unit === upper!.unit).map(r => r.kind);
         for (const kind of ['bedroom', 'bathroom', 'corridor', 'office_private']) expect(kinds).toContain(kind);
+        // its living is furnished as one plan: the lounge on the windows, dining, a screen, books under the mezzanine
+        const living = layoutOf(1).floor.furniture.filter(f => f.room.endsWith('-lower-living'));
+        for (const kind of ['sofa', 'low_table', 'dining_table', 'display_screen', 'shelf']) expect(living.some(f => f.kind === kind), kind).toBe(true);
         // people climb it: the loft's stair joins its two floors in the building's navigation
         const nav = expandBuilding(built).npc.nav;
         expect(nav.connectors.some(c => c.id === lower!.id && c.floors.includes(1) && c.floors.includes(2))).toBe(true);
