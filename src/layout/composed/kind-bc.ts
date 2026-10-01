@@ -1,7 +1,7 @@
 import type { PlanRoom } from '../plan-types.js';
 import type { Composer, PlanRect } from './composer.js';
 import { conversation, type Composed, type CoreBox, type HomeLook } from './kind-a.js';
-import { art, bathroom, kitchen, mechanical, plant, storage } from './kits.js';
+import { art, bathroom, dining, kitchen, lounge, mechanical, plant, storage } from './kits.js';
 
 /** Kinds B and C on the composed core. B is the warm, dark glass building (its plans are
  *  drawn with the stair on the left and stand mirrored, the stair against the right wall);
@@ -45,6 +45,11 @@ export function groundB(c: Composer, core: CoreBox, plate: readonly [number, num
   art(c, hall, [sw + .05, 9.6], 'left', 2.4);
   art(c, hall, [(l0 + l1) / 2, lv1 + .05], 'back', 2.4);
   plant(c, hall, [W - .7, D - .7], true); plant(c, hall, [9.7, D - .7], true);
+  // the window lounge beside the entrance (B1's long benches on the glass), a dining table by
+  // the stair behind a lit bamboo planter
+  if (W - .2 - (entrance + 3.5) >= 6) lounge(c, hall, [entrance + 3.5, D - 6.2, W - .2, D - .1], 'front', 'b', { media: false, returnAt: 'high' });
+  dining(c, hall, [sw + 1.0, core.stair[3] + 1.0, sw + 6.0, core.stair[3] + 5.0], 'u', 6);
+  c.piece(hall, { kind: 'plant', at: [sw + 7.0, core.stair[3] + 3.0], size: [2.85, .6, 2.6], facing: 'left', fit: 'asm-b3-bamboo' });
   // the salon: two sofas, a library wall on the solid side, a desk
   conversation(c, salon, [4.5, D - 5.2], 'v', 2.6);
   c.piece(salon, { kind: 'shelf', at: [.3, D - 2.0], size: [2.0, .5, 2.2], facing: 'right', fit: 'fit-bookcase-luxury' });
