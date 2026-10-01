@@ -62,7 +62,7 @@ export function planComposedFloor(request: InteriorRequest, floor: BlueprintFloo
     ? (kind === 'lobby' ? groundR(c, box, plate as [number, number][], entrance)
       : officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!))
     : composed.kind === 'B' ? (floor.index === top || floor.index % 2 === 0 ? crownA(c, box) : typicalA(c, box, 2))
-    : kind === 'lobby' ? groundA(c, box, plate as [number, number][])
+    : kind === 'lobby' ? groundA(c, box, plate as [number, number][], entrance)
     : office ? officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!)
     : floor.index === top ? crownA(c, box)
     : typicalA(c, box, (((floor.index - 1) % 3) + 3) % 3);

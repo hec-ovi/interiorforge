@@ -45,25 +45,29 @@ export interface Composed {
  *  back-right corner and a loft office below it, the closed back row (mechanical, storage,
  *  toilets) with the glass meeting room between them, two glass lounges flush with the side
  *  walls and the facade, and the front desk facing the entrance. */
-export function groundA(c: Composer, core: CoreBox, plate: readonly [number, number][]): Composed {
+export function groundA(c: Composer, core: CoreBox, plate: readonly [number, number][], entrance = 13): Composed {
   const { W, D } = c;
   const s = (W - 8) / 26;
   const [, , liftR] = core.lifts;
   const xm = 8 * s, xs = xm + 6 * s, xg = xs + 6 * s, xt = W - 8;
+  // the user's plan on its own plate: the entrance at u 11.5-14.5, the small lounge left of it and
+  // the big one right of it; on another plate the lounges keep a clear arrival either side of the
+  // entrance, and one that would close it is left out
+  const smallR = Math.min(6, entrance - 4.5), bigL = Math.max(W - 14, entrance + 5.5);
   const mech = c.room('mechanical', 'mechanical_room', [[0, 0, xm, core.stair[1]]], { style: 'e2' });
   const stores = c.room('stores', 'storage', [[xm, 0, xs, 4.3]], { style: 'e2' });
   const meeting = c.room('meeting', 'meeting', [[xs, 0, xg, 4.5]], { style: 'e1' });
   const toilets = c.room('toilets', 'toilets', [[xg, 0, xt, 4.5]], { style: 'e1', authored: false });
-  const small = c.room('small-lounge', 'lounge', [[0, D - 12, 6, D]], { style: 'e1' });
-  const big = c.room('large-lounge', 'lounge', [[W - 14, D - 12, W, D]], { style: 'e1' });
+  const small = smallR >= 4 ? c.room('small-lounge', 'lounge', [[0, D - 12, smallR, D]], { style: 'e1' }) : null;
+  const big = W - bigL >= 6 ? c.room('large-lounge', 'lounge', [[bigL, D - 12, W, D]], { style: 'e1' }) : null;
   const hall = c.remainder('lobby', 'elevator_lobby', plate, core.cut, { style: 'e1' });
 
   c.door(mech, hall, [(core.stair[2] + xm) / 2, core.stair[1]], 1.2);
   c.door(stores, hall, [(xm + xs) / 2, 4.3], 1.2);
   c.door(meeting, hall, [(xs + xg) / 2, 4.5], 1.6);
   c.door(toilets, hall, [xg + 1.2, 4.5], 1.0);
-  c.door(small, hall, [6, D - 6], 2.4);
-  c.door(big, hall, [W - 14, D - 6], 2.4);
+  if (small) c.door(small, hall, [smallR, D - 6], 2.4);
+  if (big) c.door(big, hall, [bigL, D - 6], 2.4);
 
   // café bar, back-right corner: the kitchen wall on the back wall, the bar counter in front of
   // it with a staff aisle, a row of eight stools, café tables toward the open hall
@@ -86,18 +90,19 @@ export function groundA(c: Composer, core: CoreBox, plate: readonly [number, num
 
   // the front desk facing the entrance, staff chairs behind it
   const dv = D - 12.6;
-  c.piece(hall, { kind: 'reception_desk', at: [10.85, dv], size: [6.1, 2.0, 1.12], facing: 'front', fit: 'fit-open-concierge' });
-  for (const du of [-1.6, 1.6]) c.piece(hall, { kind: 'office_chair', at: [10.85 + du, dv - 1.5], size: [.65, .65, 1.1], facing: 'front' });
+  const deskU = Math.max(3.6, Math.min(W - 3.6, entrance - 2.15));
+  c.piece(hall, { kind: 'reception_desk', at: [deskU, dv], size: [6.1, 2.0, 1.12], facing: 'front', fit: 'fit-open-concierge' });
+  for (const du of [-1.6, 1.6]) c.piece(hall, { kind: 'office_chair', at: [deskU + du, dv - 1.5], size: [.65, .65, 1.1], facing: 'front' });
   // bamboo enclosures either side of the arrival (E2), benches along the lounge glass
-  c.piece(hall, { kind: 'plant', at: [8.0, D - 3.2], size: [2.7, 1.1, 3.0], facing: 'right', fit: 'asm-e1-bamboo' });
-  c.piece(hall, { kind: 'plant', at: [18.0, D - 3.2], size: [2.7, 1.1, 3.0], facing: 'left', fit: 'asm-e1-bamboo' });
-  plant(c, hall, [7.4, D - .8], true);
-  plant(c, hall, [18.6, D - .8], true);
+  c.piece(hall, { kind: 'plant', at: [entrance - 5.0, D - 3.2], size: [2.7, 1.1, 3.0], facing: 'right', fit: 'asm-e1-bamboo' });
+  c.piece(hall, { kind: 'plant', at: [entrance + 5.0, D - 3.2], size: [2.7, 1.1, 3.0], facing: 'left', fit: 'asm-e1-bamboo' });
+  plant(c, hall, [entrance - 5.6, D - .8], true);
+  plant(c, hall, [entrance + 5.6, D - .8], true);
   // pictures on the lift core's columns, either side of the landing
   art(c, hall, [core.lifts[0] + .9, core.lifts[3] + .05], 'back', 1.2);
   art(c, hall, [core.lifts[2] - .9, core.lifts[3] + .05], 'back', 1.2);
-  c.piece(hall, { kind: 'bench', at: [6.35, D - 9.5], size: [1.8, .45, .45], facing: 'right' });
-  c.piece(hall, { kind: 'bench', at: [W - 14.35, D - 9.5], size: [1.8, .45, .45], facing: 'left' });
+  if (small) c.piece(hall, { kind: 'bench', at: [smallR + .35, D - 9.5], size: [1.8, .45, .45], facing: 'right' });
+  if (big) c.piece(hall, { kind: 'bench', at: [bigL - .35, D - 9.5], size: [1.8, .45, .45], facing: 'left' });
   // a seating bay between the stair and the lift core, art on the stair wall
   lounge(c, hall, [4.6, 6.2, liftR - 11.2 + 11.1, 12.4], 'left', 'a', { media: false });
   art(c, hall, [core.stair[2] + .05, 9.6], 'left', 2.2);
@@ -107,14 +112,19 @@ export function groundA(c: Composer, core: CoreBox, plate: readonly [number, num
   plant(c, hall, [core.lifts[0] - .5, 14.0]);
 
   // glass lounges
-  conversation(c, small, [3, D - 6], 'v', 2.4);
-  plant(c, small, [.55, D - .6], true);
-  plant(c, small, [5.4, D - 11.4]);
-  conversation(c, big, [W - 7, D - 4.0], 'u', 3.4);
-  conversation(c, big, [W - 7, D - 9.4], 'u', 2.6);
-  plant(c, big, [W - .6, D - .6], true);
-  plant(c, big, [W - 13.4, D - .6], true);
-  c.piece(big, { kind: 'shelf', at: [W - .3, D - 6.7], size: [1.6, .45, 2.0], facing: 'left' });
+  if (small) {
+    conversation(c, small, [smallR / 2, D - 6], 'v', 2.4);
+    plant(c, small, [.55, D - .6], true);
+    plant(c, small, [smallR - .6, D - 11.4]);
+  }
+  if (big) {
+    const bm = (bigL + W) / 2;
+    conversation(c, big, [bm, D - 4.0], 'u', Math.min(3.4, W - bigL - 4));
+    conversation(c, big, [bm, D - 9.4], 'u', Math.min(2.6, W - bigL - 4));
+    plant(c, big, [W - .6, D - .6], true);
+    plant(c, big, [bigL + .6, D - .6], true);
+    c.piece(big, { kind: 'shelf', at: [W - .3, D - 6.7], size: [1.6, .45, 2.0], facing: 'left' });
+  }
 
   // meeting room: a table on the long axis, six chairs, the screen on the solid end wall
   const mmid = (xs + xg) / 2;
