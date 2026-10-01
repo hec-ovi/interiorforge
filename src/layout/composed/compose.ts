@@ -64,11 +64,11 @@ export function planComposedFloor(request: InteriorRequest, floor: BlueprintFloo
     : composed.kind === 'R'
     ? (kind === 'lobby' ? groundR(c, box, plate as [number, number][], entrance)
       : officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!))
-    : composed.kind === 'B' ? (floor.index === top || (floor.index + turn) % 2 === 0 ? crownA(c, box) : typicalA(c, box, 2))
+    : composed.kind === 'B' ? (floor.index === top || (floor.index + turn) % 2 === 0 ? crownA(c, box) : typicalA(c, box, 2, turn >= 2))
     : kind === 'lobby' ? groundA(c, box, plate as [number, number][], entrance)
     : office ? officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!)
     : floor.index === top ? crownA(c, box)
-    : typicalA(c, box, (((floor.index - 1 + turn) % 3) + 3) % 3);
+    : typicalA(c, box, (((floor.index - 1 + turn) % 3) + 3) % 3, turn >= 2);
   // the stair's mouth and every lift landing the floor serves stay clear of furniture
   const stair = core.stairA, keep: UvRect[] = [{ u: stair.u, v: stair.v - 1.8, lu: stair.lu, lv: 1.8 }];
   for (const { rect } of core.elevators) {

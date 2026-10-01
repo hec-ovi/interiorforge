@@ -250,8 +250,11 @@ function entryWall(loft: Loft): Side {
  *  corner on the gallery side, a wardrobe wall on the gallery wall, the kitchen wall on the
  *  party wall with its island, dining in the middle, the lounge on the facade, the bed's head
  *  on the party wall below the kitchen. `party` is the side of its party wall. */
-function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number, bathAt: 'low' | 'high', party: 'left' | 'right', galleryEnd = core.lifts[2]): Loft {
+function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number, asked: 'low' | 'high', party: 'left' | 'right', galleryEnd = core.lifts[2]): Loft {
   const g1 = core.lifts[3] + 4.4, bw = 4.6, bd = 4.4;
+  // the bathroom keeps the end that leaves the loft a doorway onto the gallery
+  const meets = (at: 'low' | 'high') => Math.min(galleryEnd, at === 'high' ? u1 - bw : u1) - (at === 'low' ? u0 + bw : u0) >= 1.8;
+  const bathAt: 'low' | 'high' = meets(asked) ? asked : asked === 'low' ? 'high' : 'low';
   const bath: PlanRect = bathAt === 'low' ? [u0, g1, u0 + bw, g1 + bd] : [u1 - bw, g1, u1, g1 + bd];
   // the entrance: the middle of the part of the gallery's front edge this loft meets beside its bath
   const lo = bathAt === 'low' ? u0 + bw : u0, hi = Math.min(galleryEnd, bathAt === 'high' ? u1 - bw : u1);
@@ -299,7 +302,9 @@ function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number,
  *  opening directly off it, each one open loft room around its closed bathroom. Three
  *  arrangements turn with the floor index: four lofts split evenly, four split off-centre and
  *  mirrored, three lofts with one wide back loft wrapping the core. */
-export function typicalA(c: Composer, core: CoreBox, variant: number): Composed {
+export function typicalA(c: Composer, core: CoreBox, variant: number, flip = false): Composed {
+  // half the buildings stand their front lofts' bathrooms at the other end of their front
+  const end = (at: 'low' | 'high'): 'low' | 'high' => flip ? (at === 'low' ? 'high' : 'low') : at;
   const { W, D } = c;
   const [l0, lv0, l1, lv1] = core.lifts;
   const sw = core.stair[2], g1 = lv1 + 4.4, mid = Math.round(W / 2 * 2) / 2;
@@ -339,9 +344,9 @@ export function typicalA(c: Composer, core: CoreBox, variant: number): Composed 
       });
     }
     const a = Math.round(W * (variant === 1 ? .3 : 1 / 3) * 2) / 2, b = Math.round(W * (variant === 1 ? .65 : 2 / 3) * 2) / 2;
-    list.push(frontLoft(core, D, `loft-${list.length + 1}`, 0, a, 'high', 'right', W));
-    list.push(frontLoft(core, D, `loft-${list.length + 1}`, a, b, variant === 1 ? 'low' : 'high', 'left', W));
-    list.push(frontLoft(core, D, `loft-${list.length + 1}`, b, W, 'high', 'left', W));
+    list.push(frontLoft(core, D, `loft-${list.length + 1}`, 0, a, end('high'), 'right', W));
+    list.push(frontLoft(core, D, `loft-${list.length + 1}`, a, b, end(variant === 1 ? 'low' : 'high'), 'left', W));
+    list.push(frontLoft(core, D, `loft-${list.length + 1}`, b, W, end('high'), 'left', W));
     lofts(c, core, list, W);
     return { rooms: c.rooms, rearLanding: false };
   }
@@ -360,8 +365,8 @@ export function typicalA(c: Composer, core: CoreBox, variant: number): Composed 
         study(k, r, [sw + .2, lv0 + .2, l0 - .3, lv1 - .3], 'left', L.look);
       },
     });
-    list.push(frontLoft(core, D, 'loft-2', 0, mid + 2.5, 'high', 'right'));
-    list.push(frontLoft(core, D, 'loft-3', mid + 2.5, W, 'high', 'left'));
+    list.push(frontLoft(core, D, 'loft-2', 0, mid + 2.5, end('high'), 'right'));
+    list.push(frontLoft(core, D, 'loft-3', mid + 2.5, W, end('high'), 'left'));
   } else {
     if (variant === 0 && l0 - sw >= 6.6) list.push({
       // the user's drawing of the floor: the built-in kitchen along the back wall, behind the
@@ -403,8 +408,8 @@ export function typicalA(c: Composer, core: CoreBox, variant: number): Composed 
       },
     });
     const split = variant === 1 ? 14.5 : mid;
-    list.push(frontLoft(core, D, 'loft-3', 0, split, variant === 1 ? 'low' : 'high', 'right'));
-    list.push(frontLoft(core, D, 'loft-4', split, W, 'high', 'left'));
+    list.push(frontLoft(core, D, 'loft-3', 0, split, end(variant === 1 ? 'low' : 'high'), 'right'));
+    list.push(frontLoft(core, D, 'loft-4', split, W, end('high'), 'left'));
   }
   lofts(c, core, list);
   return { rooms: c.rooms, rearLanding: false };
