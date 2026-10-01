@@ -27,7 +27,9 @@ export function groundB(c: Composer, core: CoreBox, plate: readonly [number, num
   c.door(mech, hall, [9.75, 4.3], 1.2);
   c.door(stores, hall, [14.75, 4.3], 1.2);
   c.door(salon, hall, [9, D - 5], 2.0);
-  // the bar in the back-right corner: back bar on the wall, counter and stools before it
+  // the bar in the back-right corner, raised one step (B3): back bar on the wall, counter and
+  // stools before it
+  c.level(hall, [W - 8.2, 0, W, 4.8], .15);
   c.piece(hall, { kind: 'kitchen_block', at: [W - 4.6, .42], size: [5.6, .8, .95], facing: 'front', fit: 'asm-b3-bar' });
   c.piece(hall, { kind: 'bar_counter', at: [W - 4.6, 2.9], size: [4.2, 1.0, 1.1], facing: 'front', fit: 'asm-b3-counter' });
   for (let i = 0; i < 5; i++) c.piece(hall, { kind: 'stool', at: [W - 6.4 + i * .9, 4.05], size: [.45, .45, .75], facing: 'back', fit: 'fit-bar-stool-b3' });

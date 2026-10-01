@@ -126,12 +126,20 @@ export class Composer {
     return door;
   }
 
-  /** Stands an authored piece in a room at its plan pose. */
+  /** Stands an authored piece in a room at its plan pose; a piece standing in one of the
+   *  room's level zones stands on that zone's floor. */
   piece(room: PlanRoom, p: Piece): void {
     const [u, v] = this.pt(p.at[0], p.at[1]);
+    const zone = (room.levels ?? []).find(level => inside([u, v], level.polygon));
+    const elevation = p.elevation ?? zone?.delta;
     room.authored!.push({ id: `${room.role}-${room.authored!.length}`, kind: p.kind, at: [u, v],
       size: [p.size[0], p.size[1], p.size[2]], rotationDeg: this.rotation(p.facing), required: true,
-      ...(p.fit ? { fit: p.fit } : {}), ...(p.elevation !== undefined ? { elevation: p.elevation } : {}) });
+      ...(p.fit ? { fit: p.fit } : {}), ...(elevation !== undefined ? { elevation } : {}) });
+  }
+
+  /** A raised platform or a sunken pit in a room, one riser deep, stepped at its edge. */
+  level(room: PlanRoom, r: PlanRect, delta: number): void {
+    room.levels = [...room.levels ?? [], { polygon: uvRectCornersOf(this.rect(r)), delta, edge: 'step' }];
   }
 
   /** A sealed void (shaft column, service riser) in plan terms. */
@@ -220,6 +228,10 @@ function decompose(room: PlanRoom): UvRect[] {
       out.push({ u: us[i]!, v: vs[j]!, lu: us[i + 1]! - us[i]!, lv: vs[j + 1]! - vs[j]! });
   }
   return out;
+}
+
+function uvRectCornersOf(r: UvRect): Point[] {
+  return [[r.u, r.v], [r.u + r.lu, r.v], [r.u + r.lu, r.v + r.lv], [r.u, r.v + r.lv]];
 }
 
 function inside([x, y]: Point, poly: readonly Point[]): boolean {

@@ -165,7 +165,7 @@ interface Loft {
 }
 
 /** Makes the lofts' rooms, their bathrooms and doors, and the gallery in front of the core. */
-function lofts(c: Composer, core: CoreBox, list: Loft[]): PlanRoom {
+function lofts(c: Composer, core: CoreBox, list: Loft[], galleryEnd = core.lifts[2]): PlanRoom {
   const [, , l1, lv1] = core.lifts;
   const g1 = lv1 + 4.4;
   const made = list.map((loft, i) => {
@@ -174,7 +174,7 @@ function lofts(c: Composer, core: CoreBox, list: Loft[]): PlanRoom {
     const room = c.room(loft.id, 'studio_main', loft.rects, { style: L.home, unit, cut: loft.baths.map(b => c.rect(b.rect)) });
     return { loft, baths, room };
   });
-  const gallery = c.room('gallery', 'elevator_lobby', [[0, core.stair[3], core.stair[2], g1], [core.stair[2], lv1, l1, g1]], { style: L.common });
+  const gallery = c.room('gallery', 'elevator_lobby', [[0, core.stair[3], core.stair[2], g1], [core.stair[2], lv1, galleryEnd, g1]], { style: L.common });
   for (const { loft, baths, room } of made) {
     for (const b of baths) {
       c.door(b.room, room, b.spec.door, .9);
@@ -222,11 +222,11 @@ function entryWall(loft: Loft): Side {
  *  corner on the gallery side, a wardrobe wall on the gallery wall, the kitchen wall on the
  *  party wall with its island, dining in the middle, the lounge on the facade, the bed's head
  *  on the party wall below the kitchen. `party` is the side of its party wall. */
-function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number, bathAt: 'low' | 'high', party: 'left' | 'right'): Loft {
+function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number, bathAt: 'low' | 'high', party: 'left' | 'right', galleryEnd = core.lifts[2]): Loft {
   const g1 = core.lifts[3] + 4.4, bw = 4.6, bd = 4.4;
   const bath: PlanRect = bathAt === 'low' ? [u0, g1, u0 + bw, g1 + bd] : [u1 - bw, g1, u1, g1 + bd];
   // the entrance: the middle of the part of the gallery's front edge this loft meets beside its bath
-  const lo = bathAt === 'low' ? u0 + bw : u0, hi = Math.min(core.lifts[2], bathAt === 'high' ? u1 - bw : u1);
+  const lo = bathAt === 'low' ? u0 + bw : u0, hi = Math.min(galleryEnd, bathAt === 'high' ? u1 - bw : u1);
   const entrance: [number, number] = [Math.round((lo + hi) / 2 * 10) / 10, g1];
   const width = u1 - u0;
   const pu = party === 'left' ? u0 : u1, away = party === 'left' ? 1 : -1;
@@ -270,6 +270,46 @@ export function typicalA(c: Composer, core: CoreBox, variant: number): Composed 
   const sw = core.stair[2], g1 = lv1 + 4.4, mid = Math.round(W / 2 * 2) / 2;
   const list: Loft[] = [];
   const behindStair = { rect: [0, 0, sw, core.stair[1]] as PlanRect, door: [sw, core.stair[1] / 2] as const, vanity: 'back' as Side };
+  if (W >= 38) {
+    // a wide plate: the gallery runs the whole width in front of the core, the back band is two
+    // lofts (or one wrapping the core) entered from it, and the front band takes three
+    if (variant === 2) list.push({
+      id: 'loft-1', rects: [[sw, 0, W, lv0], [sw, lv0, l0, lv1], [l1, lv0, W, lv1]], entrance: [(sw + l0) / 2, lv1],
+      baths: [behindStair, { rect: [W - 4.6, lv0, W, lv1], door: [W - 4.6, (lv0 + lv1) / 2], vanity: 'right' }],
+      furnish: (k, r) => {
+        kitchen(k, r, [l0 - .6, 0, l1 + .6, lv0], 'front', L.look);
+        dining(k, r, [sw + .4, .6, l0 - 1.0, lv0 - .6], 'u', 8);
+        lounge(k, r, [l1 + 1.0, 0, W - .2, lv0 - .2], 'back', L.look, { media: false, ledge: true });
+        bedroom(k, r, [l1 + .2, lv0, W - 4.8, lv1], 'left', L.look, { wardrobe: false });
+        study(k, r, [sw + .2, lv0 + .2, l0 - .3, lv1 - .3], 'left', L.look);
+      },
+    });
+    else {
+      list.push({
+        id: 'loft-1', rects: [[sw, 0, mid, lv0], [sw, lv0, l0, lv1]], entrance: [(sw + l0) / 2, lv1], baths: [behindStair],
+        furnish: (k, r) => {
+          kitchen(k, r, [mid - 5.6, 0, mid, lv0], 'right', L.look, { island: true });
+          lounge(k, r, [sw + .2, 0, mid - 5.8, lv0 - .1], 'back', L.look, { media: false, ledge: true });
+          bedroom(k, r, [sw + .1, lv0, l0 - .1, lv1], 'left', L.look, { wardrobe: false });
+        },
+      });
+      list.push({
+        id: 'loft-2', rects: [[mid, 0, W, lv0], [l1, lv0, W, lv1]], entrance: [(l1 + W) / 2 + 1.5, lv1],
+        baths: [{ rect: [W - 4.6, lv0, W, lv1], door: [W - 4.6, (lv0 + lv1) / 2], vanity: 'right' }],
+        furnish: (k, r) => {
+          kitchen(k, r, [mid, 0, mid + 6.4, lv0], 'left', L.look, { island: true });
+          lounge(k, r, [mid + 6.8, 0, W - .2, lv0 - .1], 'back', L.look, { media: false, ledge: true });
+          bedroom(k, r, [l1 + .1, lv0, W - 4.8, lv1], 'left', L.look, { wardrobe: false });
+        },
+      });
+    }
+    const a = Math.round(W * (variant === 1 ? .3 : 1 / 3) * 2) / 2, b = Math.round(W * (variant === 1 ? .65 : 2 / 3) * 2) / 2;
+    list.push(frontLoft(core, D, `loft-${list.length + 1}`, 0, a, 'high', 'right', W));
+    list.push(frontLoft(core, D, `loft-${list.length + 1}`, a, b, variant === 1 ? 'low' : 'high', 'left', W));
+    list.push(frontLoft(core, D, `loft-${list.length + 1}`, b, W, 'high', 'left', W));
+    lofts(c, core, list, W);
+    return { rooms: c.rooms, rearLanding: false };
+  }
   if (variant === 2) {
     list.push({
       id: 'loft-1', rects: [[sw, 0, W, lv0], [sw, lv0, l0, lv1], [l1, lv0, W, g1]], entrance: [(sw + l0) / 2, lv1],
@@ -348,7 +388,9 @@ export function crownA(c: Composer, core: CoreBox): Composed {
       dining(k, r, [13.6, g1 + 1.2, W - 5.2, g1 + 5.4], 'u', 10);
       lounge(k, r, [.2, D - 6.6, 11.6, D - .1], 'front', L.look, { media: false, ledge: true });
       lounge(k, r, [12.2, D - 6.6, W - 9.2, D - .1], 'front', L.look, { media: false, ledge: true });
-      // the great room's centre: a conversation round a table, a bamboo enclosure beside it
+      // the great room's centre: a conversation sunk one step round a table (the E1 lounge
+      // pit), a bamboo enclosure beside it
+      if (L.look === 'a') k.level(r, [W / 2 - 6.4, g1 + 6.2, W / 2 + 2.4, g1 + 11.8], -.18);
       conversation(k, r, [W / 2 - 2.0, g1 + 9.0], 'u', 3.6);
       if (L.look === 'a') k.piece(r, { kind: 'plant', at: [W / 2 + 3.6, g1 + 9.0], size: [2.7, 1.1, 3.0], facing: 'front', fit: 'asm-e1-bamboo' });
       bedroom(k, r, [W - 8.8, g1 + 4.8, W, D - .1], 'right', L.look, { wardrobe: 'low' });
