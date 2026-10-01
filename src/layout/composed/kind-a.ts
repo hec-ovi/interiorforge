@@ -444,9 +444,9 @@ export function crownA(c: Composer, core: CoreBox): Composed {
       lounge(k, r, [12.2, D - 6.6, W - 9.2, D - .1], 'front', L.look, { media: false, ledge: true });
       // the great room's centre: a conversation sunk one step round a table (the E1 lounge
       // pit), a bamboo enclosure beside it
-      if (L.look === 'a') k.level(r, [W / 2 - 6.4, g1 + 6.2, W / 2 + 2.4, g1 + 11.8], -.18);
+      if (L.look === 'a' || L.look === 'b') k.level(r, [W / 2 - 6.4, g1 + 6.2, W / 2 + 2.4, g1 + 11.8], -.18);
       conversation(k, r, [W / 2 - 2.0, g1 + 9.0], 'u', 3.6);
-      if (L.look === 'a') k.piece(r, { kind: 'plant', at: [W / 2 + 3.6, g1 + 9.0], size: [2.7, 1.1, 3.0], facing: 'front', fit: 'asm-e1-bamboo' });
+      if (L.look === 'a' || L.look === 'b') screen(k, r, [W / 2 + 3.6, g1 + 9.0], 'u', L.look);
       bedroom(k, r, [W - 8.8, g1 + 4.8, W, D - .1], 'right', L.look, { wardrobe: 'low' });
       screen(k, r, [W - 9.0, (g1 + 4.8 + D) / 2 + 1.0], 'v', L.look);
       bedroom(k, r, [0, g1 + 4.8, 5.6, D - 6.8], 'left', L.look, { wardrobe: false });
