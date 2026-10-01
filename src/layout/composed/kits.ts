@@ -127,6 +127,27 @@ export function bedroom(c: Composer, room: PlanRoom, zone: PlanRect, wall: Side,
   }
 }
 
+/** The screen a loft's sleeping corner stands behind: a glass bamboo enclosure (kinds A and B,
+ *  the references' own) or a planted screen, running along `along` through its centre. */
+export function screen(c: Composer, room: PlanRoom, at: readonly [number, number], along: 'u' | 'v', look: Look): void {
+  const facing: Side = along === 'u' ? 'front' : 'left';
+  if (look === 'a') c.piece(room, { kind: 'plant', at, size: [2.7, 1.1, 3.0], facing, fit: 'asm-e1-bamboo' });
+  else if (look === 'b') c.piece(room, { kind: 'plant', at, size: [2.85, .6, 2.6], facing, fit: 'asm-b3-bamboo' });
+  else c.piece(room, { kind: 'room_divider', at, size: [2.5, .5, 2.0], facing });
+}
+
+/** A reading corner: two lounge chairs turned to each other over a low table, a tall plant,
+ *  and against a solid wall a bookcase behind them (by a window, the window is their view). */
+export function reading(c: Composer, room: PlanRoom, zone: PlanRect, wall: Side, look: Look, opts: { shelf?: boolean } = {}): void {
+  const f = new Frame(zone, wall);
+  if (f.length < 3.0 || f.depth < 2.2) return;
+  const chair = look === 'r' ? 'fit-chair-corpo' : 'fit-chair-luxury', out = opts.shelf ? 1.55 : 1.0;
+  if (opts.shelf) c.piece(room, { kind: 'shelf', at: f.at(f.mid, .25), size: [1.8, .45, 2.0], facing: opposite(wall), ...(look === 'a' || look === 'b' ? { fit: 'fit-bookcase-luxury' } : {}) });
+  c.piece(room, { kind: 'low_table', at: f.at(f.mid, out), size: [.6, .6, .45], facing: opposite(wall) });
+  for (const s of [-1, 1]) c.piece(room, { kind: 'chair', at: f.at(f.mid + s * .85, out), size: [.8, .8, .8], facing: s < 0 ? f.highSide : f.lowSide, fit: chair });
+  c.piece(room, { kind: 'plant', at: f.at(f.along1 - .4, .4), size: [.6, .6, 1.3], facing: opposite(wall) });
+}
+
 /** A work corner: desk against the wall, chair, a bookcase beside it. */
 export function study(c: Composer, room: PlanRoom, zone: PlanRect, wall: Side, look: Look): void {
   const f = new Frame(zone, wall);

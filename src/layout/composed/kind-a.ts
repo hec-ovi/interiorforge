@@ -3,7 +3,7 @@ import type { PlanRoom } from '../plan-types.js';
 import type { UvRect } from '../uv.js';
 import type { Composer, PlanRect, Side } from './composer.js';
 import { COMPOSED_CORE } from './core.js';
-import { art, bathroom, bedroom, dining, kitchen, lounge, mechanical, opposite, plant, storage, study } from './kits.js';
+import { art, bathroom, bedroom, dining, kitchen, lounge, mechanical, opposite, plant, reading, screen, storage, study } from './kits.js';
 
 /** Kind A, the high-tech tower, composed floor by floor in plan terms (u from the user's left
  *  wall, v from the back wall; see composer.ts). The ground floor is the user's plan; the
@@ -277,11 +277,16 @@ function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number,
         const du = pu + away * 8.6;
         dining(k, r, [du - 1.6, kv0 + 1.0, du + 1.6, kv0 + 5.0], 'v', 6);
       }
+      // the sleeping corner stands behind a screen from the lounge on the facade
+      screen(k, r, [party === 'left' ? u0 + 6.9 : u1 - 6.9, kv0 + 7.2 + 1.6], 'v', L.look);
       plant(k, r, [party === 'left' ? u1 - .6 : u0 + .6, g1 + (bathOnParty ? .7 : bd + .7)], true);
       // a study on the outer facade between the arrival and the lounge, looking out
       const outer: Side = party === 'left' ? 'right' : 'left';
       const sv0 = bathOnParty ? g1 + 1.6 : g1 + bd + .4, sv1 = Math.min(D - 7.0, sv0 + 5.2);
       if (sv1 - sv0 >= 3.6) study(k, r, outer === 'left' ? [u0, sv0, u0 + 3.0, sv1] : [u1 - 3.0, sv0, u1, sv1], outer, L.look);
+      // two chairs at the window between the study and the lounge
+      const rv0 = Math.max(sv0, sv1) + .3, rv1 = D - 6.7;
+      if (rv1 - rv0 >= 3.0) reading(k, r, outer === 'left' ? [u0, rv0, u0 + 2.6, rv1] : [u1 - 2.6, rv0, u1, rv1], outer, L.look);
     },
   };
 }
@@ -347,6 +352,7 @@ export function typicalA(c: Composer, core: CoreBox, variant: number): Composed 
         dining(k, r, [sw + .4, .6, l0 - 1.0, lv0 - .6], 'u', 6);
         lounge(k, r, [l1 + 1.0, 0, W - .2, lv0 - .2], 'back', L.look, { media: false, ledge: true });
         bedroom(k, r, [l1, lv0 + .2, W - 4.8, g1 - .2], 'left', L.look, { wardrobe: false });
+        screen(k, r, [(l1 + W - 4.8) / 2, lv0 + .65], 'u', L.look);
         study(k, r, [sw + .2, lv0 + .2, l0 - .3, lv1 - .3], 'left', L.look);
       },
     });
@@ -373,6 +379,7 @@ export function typicalA(c: Composer, core: CoreBox, variant: number): Composed 
         dining(k, r, [l1 + .6, lv0 + .4, W - .6, g1 - 5.4], 'u', variant === 0 ? 6 : 4);
         lounge(k, r, variant === 0 ? [mid + 6.4, 0, W - .2, lv0 - .2] : [mid + .2, 0, W - 6.4, lv0 - .2], 'back', L.look, { media: false });
         bedroom(k, r, variant === 0 ? [mid, .2, mid + 6.2, lv0 - .2] : [W - 6.2, .2, W, lv0 - .2], variant === 0 ? 'left' : 'right', L.look, { wardrobe: false });
+        screen(k, r, [variant === 0 ? mid + 6.3 : W - 6.3, lv0 / 2], 'v', L.look);
       },
     });
     const split = variant === 1 ? 14.5 : mid;
@@ -402,6 +409,7 @@ export function crownA(c: Composer, core: CoreBox): Composed {
       dining(k, r, [sw + .4, .6, l0 - 1.0, lv0 - .6], 'u', 8);
       lounge(k, r, [l1 + 1.0, 0, W - .2, lv0 - .2], 'back', L.look, { media: false, ledge: true });
       bedroom(k, r, [l1, lv0 + .2, W - 4.8, g1 - .2], 'left', L.look, { wardrobe: false });
+      screen(k, r, [(l1 + W - 4.8) / 2, lv0 + .65], 'u', L.look);
       study(k, r, [sw + .2, lv0 + .2, l0 - .3, lv1 - .3], 'left', L.look);
     },
   };
@@ -420,7 +428,9 @@ export function crownA(c: Composer, core: CoreBox): Composed {
       conversation(k, r, [W / 2 - 2.0, g1 + 9.0], 'u', 3.6);
       if (L.look === 'a') k.piece(r, { kind: 'plant', at: [W / 2 + 3.6, g1 + 9.0], size: [2.7, 1.1, 3.0], facing: 'front', fit: 'asm-e1-bamboo' });
       bedroom(k, r, [W - 8.8, g1 + 4.8, W, D - .1], 'right', L.look, { wardrobe: 'low' });
+      screen(k, r, [W - 9.0, (g1 + 4.8 + D) / 2 + 1.0], 'v', L.look);
       bedroom(k, r, [0, g1 + 4.8, 5.6, D - 6.8], 'left', L.look, { wardrobe: false });
+      screen(k, r, [5.9, (g1 + 4.8 + D - 6.8) / 2], 'v', L.look);
     },
   };
   lofts(c, core, [back, front]);
