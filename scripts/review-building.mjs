@@ -35,7 +35,7 @@ const options = {
 	architecture: 'residential-megablock', tier: 'poor', type: 'residential',
 	width: 40, depth: 40, floors: 6, entrance: 'south', theme: 'cyberpunk',
 	seed: 'interior-reference-review', name: 'Ashcourt House', exposure: 0.04, interiorStyle: null, duplexFloors: null,
-	clearHeight: null, floorHeight: null, out: null, planOnly: false
+	clearHeight: null, floorHeight: null, out: null, planOnly: false, neighbours: 0
 };
 while ( args.length ) {
 	const flag = args.shift();
@@ -43,7 +43,7 @@ while ( args.length ) {
 	const key = flag.replace( /^--/, '' );
 	if ( ! flag.startsWith( '--' ) || ! Object.hasOwn( options, key ) || key === 'planOnly' || ! args.length ) throw new Error( `Unknown or incomplete option: ${flag}` );
 	const value = args.shift();
-	options[ key ] = [ 'width', 'depth', 'floors', 'exposure', 'clearHeight', 'floorHeight' ].includes( key ) ? Number( value ) : value;
+	options[ key ] = [ 'width', 'depth', 'floors', 'exposure', 'clearHeight', 'floorHeight', 'neighbours' ].includes( key ) ? Number( value ) : value;
 }
 for ( const key of [ 'width', 'depth', 'floors', 'exposure' ] ) {
 	if ( ! Number.isFinite( options[ key ] ) || options[ key ] <= 0 ) throw new Error( `${key} must be positive.` );
@@ -79,15 +79,19 @@ const atlas = JSON.parse( await readFile( options.blueprint, 'utf8' ) );
 const root = join( engineRoot, 'out/reviews' );
 const target = join( root, options.out );
 if ( existsSync( target ) ) throw new Error( `Output exists: ${target}. Choose a new --out; existing review worlds are preserved.` );
-const fixtures = [ options ];
+// `--neighbours n` stands n more buildings of the same request on the nearest free lots, each
+// with a seed of its own, to compare neighbours' interiors side by side.
+if ( ! Number.isInteger( options.neighbours ) || options.neighbours < 0 ) throw new Error( 'neighbours must be a whole number.' );
+const fixtures = [ options, ...Array.from( { length: options.neighbours }, ( _, index ) =>
+	( { ...options, seed: `${options.seed}-${index + 2}`, name: `${options.name} ${index + 2}` } ) ) ];
 const used = new Set();
 const selection = fixtures.map( fixture => select( atlas, fixture, used ) );
 const requests = new Map( selection.map( entry => [ entry.parcelId, entry.request ] ) );
 // This is a new review set, not a hospital merely wearing a residential shell.
 // Keep native land and access unchanged, and publish the chosen building's use.
-for ( const entry of selection ) {
+for ( const [ index, entry ] of selection.entries() ) {
 	const parcel = atlas.parcels.find( parcel => parcel.id === entry.parcelId );
-	Object.assign( parcel, { type: options.type, tier: options.tier, name: options.name,
+	Object.assign( parcel, { type: options.type, tier: options.tier, name: fixtures[ index ].name,
 		footprint: entry.request.parcel.footprint } );
 }
 const report = {

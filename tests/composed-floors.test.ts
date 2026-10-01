@@ -3,6 +3,7 @@ import { generate } from '../src/index.js';
 import type { FloorPlacement as FloorLayout, InteriorRequest } from '../src/index.js';
 import { composedCore } from '../src/layout/composed/core.js';
 import { GALLERY_RUN, ISLAND_HALF, galleryIslands } from '../src/layout/composed/kind-a.js';
+import { officePlan } from '../src/layout/composed/compose.js';
 import { resolveAssignments, validateRequest } from '../src/blueprint/validate.js';
 import { duplexAssignments } from '../src/layout/duplex/assignments.js';
 import { planBuilding } from '../src/layout/index.js';
@@ -164,4 +165,25 @@ describe('composed galleries', () => {
         const islands = floor.furniture.filter(f => f.room === gallery.id && f.fit === 'asm-e1-bamboo');
         expect(islands.length).toBeGreaterThanOrEqual(2);
     }, 240000);
+});
+
+describe('composed office plans across buildings', () => {
+    it('turns each building through all four office types in an order and variant of its own', () => {
+        const plans = new Map<string, string>();
+        for (let n = 0; n < 64; n++) {
+            const seed = `city:p${n}`;
+            const floors = [1, 2, 3, 4].map(i => officePlan(seed, i));
+            expect(new Set(floors.map(f => f.type)).size).toBe(4);
+            plans.set(seed, floors.map(f => `${f.type}${f.pods}${f.rooms}`).join(' '));
+        }
+        // many orders and every variant appear across a street of buildings
+        expect(new Set(plans.values()).size).toBeGreaterThan(30);
+        // and neighbours rarely show the same plan at a level: well under one level in four
+        let same = 0, levels = 0;
+        for (let n = 0; n + 1 < 64; n++) for (let i = 1; i <= 4; i++) {
+            const a = officePlan(`city:p${n}`, i), b = officePlan(`city:p${n + 1}`, i);
+            levels++; if (a.type === b.type && a.pods === b.pods && a.rooms === b.rooms) same++;
+        }
+        expect(same / levels).toBeLessThan(.15);
+    });
 });

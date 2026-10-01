@@ -10,7 +10,7 @@ import { templateTrace } from '../templates/fit.js';
 import { COMPOSED_PROGRAMS, composedPlate } from './core.js';
 import { coreBox, crownA, groundA, LOOK_A, LOOK_R, typicalA, wearing } from './kind-a.js';
 import { groundB, groundC, LOOK_B, LOOK_C, typicalC } from './kind-bc.js';
-import { groundR, OFFICE_TYPES, officeR } from './kind-r.js';
+import { groundR, OFFICE_TYPES, officeR, type OfficePlan } from './kind-r.js';
 
 export interface ComposedFloor {
   rooms: PlanRoom[];
@@ -24,10 +24,31 @@ const COMPOSED_FLOORS: ReadonlySet<string> = COMPOSED_PROGRAMS;
 // kind C's ground floor plans as its lobby whatever the blueprint calls it (`entry`)
 
 /** A building's own turn through the office plan types, from its seed. */
+/** FNV-1a over the seed, finished with a 32-bit avalanche, so seeds that differ in their last
+ *  character land far apart. */
+function seedHash(seed: string): number {
+  let h = 0x811c9dc5;
+  for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+}
 function seedOffset(seed: string): number {
-  let h = 0;
-  for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return h % OFFICE_TYPES.length;
+  return seedHash(seed) % OFFICE_TYPES.length;
+}
+
+/** The office plan of a floor: each building turns through the four types in an order of its
+ *  own (one of the 24), and furnishes them in one of four variants (desk pods of four or six;
+ *  the meeting rooms where the type puts them or moved), so two buildings show the same plan
+ *  at a level once in sixteen. */
+export function officePlan(seed: string, floorIndex: number): OfficePlan {
+  const h = seedHash(`${seed}:offices`), order = [...OFFICE_TYPES];
+  // the seed's permutation of the types (a factorial-number index)
+  let k = h % 24;
+  const types: OfficePlan['type'][] = [];
+  for (let n = order.length; n > 0; n--) { types.push(order.splice(k % n, 1)[0]!); k = Math.floor(k / n); }
+  const bits = seedHash(`${seed}:variant`);
+  return { type: types[((floorIndex - 1) % 4 + 4) % 4]!, pods: (bits & 1) as 0 | 1, rooms: ((bits >>> 1) & 1) as 0 | 1 };
 }
 
 /** How many arrangements a composed building's typical floors turn through (1 when the
@@ -63,10 +84,10 @@ export function planComposedFloor(request: InteriorRequest, floor: BlueprintFloo
     : composed.kind === 'C' ? (kind === 'lobby' ? groundC(c, box, plate as [number, number][], entrance) : typicalC(c, box, floor.index + turn))
     : composed.kind === 'R'
     ? (kind === 'lobby' ? groundR(c, box, plate as [number, number][], entrance)
-      : officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!))
+      : officeR(c, box, plate as [number, number][], officePlan(String(request.seed), floor.index)))
     : composed.kind === 'B' ? (floor.index === top || (floor.index + turn) % 2 === 0 ? crownA(c, box) : typicalA(c, box, 2, turn >= 2))
     : kind === 'lobby' ? groundA(c, box, plate as [number, number][], entrance)
-    : office ? officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!)
+    : office ? officeR(c, box, plate as [number, number][], officePlan(String(request.seed), floor.index))
     : floor.index === top ? crownA(c, box)
     : typicalA(c, box, (((floor.index - 1 + turn) % 3) + 3) % 3, turn >= 2);
   // the stair's mouth and every lift landing the floor serves stay clear of furniture

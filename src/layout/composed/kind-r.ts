@@ -13,6 +13,8 @@ import { art, dining, mechanical, plant, storage } from './kits.js';
 
 export type OfficeType = 'loft' | 'studio' | 'executive' | 'cowork';
 export const OFFICE_TYPES: readonly OfficeType[] = ['loft', 'studio', 'executive', 'cowork'];
+/** One office floor's plan: its type and its variant bits (pod size; moved meeting rooms). */
+export interface OfficePlan { type: OfficeType; pods: 0 | 1; rooms: 0 | 1 }
 
 const facingOf = (wall: Side): Side => wall === 'left' ? 'right' : wall === 'right' ? 'left' : wall === 'back' ? 'front' : 'back';
 
@@ -26,7 +28,7 @@ function deskPods(c: Composer, room: PlanRoom, zone: PlanRect, opts: { podDesks?
   const rows = Math.max(1, Math.floor((v1 - v0 + gapV) / (podD + 2 * .7 + gapV)));
   const spanU = cols * podW + (cols - 1) * gapU, spanV = rows * (podD + 1.4) + (rows - 1) * gapV;
   const su = u0 + (u1 - u0 - spanU) / 2, sv = v0 + (v1 - v0 - spanV) / 2 + .7;
-  for (let r = 0; r < rows; r++) for (let k = 0; k < cols; k++) {
+  for (let r = 0; r < rows; r++) for (let k = 0; k < cols; k++) c.together(() => {
     const pu = su + k * (podW + gapU), pv = sv + r * (podD + 1.4 + gapV);
     for (let i = 0; i < per; i++) {
       const cu = pu + deskW / 2 + i * deskW;
@@ -35,7 +37,7 @@ function deskPods(c: Composer, room: PlanRoom, zone: PlanRect, opts: { podDesks?
       c.piece(room, { kind: 'desk', at: [cu, pv + deskD * 1.5], size: [deskW - .05, deskD, .75], facing: 'front' });
       c.piece(room, { kind: 'office_chair', at: [cu, pv + podD + .42], size: [.62, .62, 1.1], facing: 'back' });
     }
-  }
+  });
 }
 
 /** A glass meeting room island: the room (made before the open floor is cut round it). */
@@ -149,7 +151,8 @@ export function groundR(c: Composer, core: CoreBox, plate: readonly [number, num
 /** An office floor of the given plan type. The service block (toilets, a print and store
  *  room) fills the alcove between the stair and the lift core; the lifts open front and back
  *  onto the open floor. */
-export function officeR(c: Composer, core: CoreBox, plate: readonly [number, number][], type: OfficeType): Composed {
+export function officeR(c: Composer, core: CoreBox, plate: readonly [number, number][], plan: OfficePlan): Composed {
+  const { type } = plan, variant = plan.rooms;
   const { W, D } = c;
   const [l0, lv0, l1, lv1] = core.lifts;
   const sw = core.stair[2];
@@ -157,11 +160,15 @@ export function officeR(c: Composer, core: CoreBox, plate: readonly [number, num
   const service = c.room('service', 'storage', [[l1, lv0, Math.min(W - 5, l1 + 4), lv1]], { style: 'r1' });
   const meetings: [string, PlanRect, readonly [number, number], number][] = [];
   const front = lv1 + 3.4; // the clear band in front of the lifts
+  // the rooms variant moves the meeting rooms: the loft floor's to the front corner, the
+  // studio's cluster off the middle
+  const shift = variant ? -Math.min(3, W / 2 - 9.5) : 0;
   if (type === 'loft') {
-    meetings.push(['meeting-1', [l1 + 4.6, 1.6, W - 1.6, 6.6], [l1 + 4.6, 4.1], 6]);
+    if (variant) meetings.push(['meeting-1', [W - 7.0, D - 6.6, W - 1.6, D - 1.6], [W - 7.0, D - 4.1], 6]);
+    else meetings.push(['meeting-1', [l1 + 4.6, 1.6, W - 1.6, 6.6], [l1 + 4.6, 4.1], 6]);
   } else if (type === 'studio') {
     // a cluster of three glass rooms in the middle of the front band round a lounge
-    const cu = W / 2, cv = front + 5.2;
+    const cu = W / 2 + shift, cv = front + 5.2;
     meetings.push(['meeting-1', [cu - 7.2, cv - 2.4, cu - 2.4, cv + 2.4], [cu - 4.8, cv - 2.4], 6]);
     meetings.push(['meeting-2', [cu + 2.4, cv - 2.4, cu + 7.2, cv + 2.4], [cu + 4.8, cv - 2.4], 6]);
     meetings.push(['meeting-3', [cu - 2.4, cv + 1.0, cu + 2.4, cv + 5.0], [cu, cv + 5.0], 4]);
@@ -198,19 +205,20 @@ export function officeR(c: Composer, core: CoreBox, plate: readonly [number, num
     plant(c, exec, [side > 0 ? u1 - .6 : u0 + .6, D - 7.8]);
   }
   // the floor: a band of work in front, a lounge and the café by the core, work along the back
-  const pods = (zone: PlanRect, per: 2 | 3 = 2) => deskPods(c, floorRoom, zone, { podDesks: per });
+  // pods of four or six desks, the other size in the pods variant
+  const pods = (zone: PlanRect, per: 2 | 3 = 2) => deskPods(c, floorRoom, zone, { podDesks: plan.pods ? (per === 2 ? 3 : 2) : per });
   if (type === 'loft') {
     pods([1.2, front + 1.0, W - 1.2, D - 1.0], 3);
-    pods([sw + 1.0, .8, l1 + 3.6, lv0 - 1.6], 2);
+    pods([sw + 1.0, .8, variant ? W - 1.2 : l1 + 3.6, lv0 - 1.6], 2);
     cafeBar(c, floorRoom, [l1 + 4, lv0 - .4, W - .2, lv1 + .6], 'left', 5, 1);
   } else if (type === 'studio') {
     pods([1.2, D - 7.0, W - 1.2, D - 1.0], 2);
     pods([sw + 1.0, .8, l1 + 3.6, lv0 - 1.6], 2);
     // a pod either side of the meeting cluster
-    pods([1.2, front + 1.0, W / 2 - 8.4, D - 8.0], 2);
-    pods([W / 2 + 8.4, front + 1.0, W - 1.2, D - 8.0], 2);
+    pods([1.2, front + 1.0, W / 2 + shift - 8.4, D - 8.0], 2);
+    pods([W / 2 + shift + 8.4, front + 1.0, W - 1.2, D - 8.0], 2);
     cafeBar(c, floorRoom, [l1 + 4, lv0 - .4, W - .2, lv1 + .6], 'left', 4, 1);
-    windowLounge(c, floorRoom, [W / 2, front + 7.0], 'u', 2.0);
+    windowLounge(c, floorRoom, [W / 2 + shift, front + 7.0], 'u', 2.0);
   } else if (type === 'executive') {
     // assistants' desks before the executive suite, a lounge on the front windows, the café by the core
     // the assistants' desks between the two suites, a lounge on the front windows between
