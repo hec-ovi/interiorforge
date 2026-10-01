@@ -225,7 +225,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
             surface(builder, stairFloor, 'stair-a', uncovered, climb, core.frame);
     }
     floor.lights.push(...lifts(builder, core, plain.floor, common.id, Math.min(...request.blueprint.floors.map(f => f.height)), bp.height, floor.elevation,
-        styleOfRoom(common.id)?.lift));
+        styleOfRoom(common.id)?.lift, !!uv.rearLanding));
     const incomingLandings = lowest ? [] : [core.stairA, ...(core.stairB ? [core.stairB] : [])]
         .map((shaft, i) => stairLandingRect(shaft, baseLanding(shaft, entryAtLowEnd(core, i === 0 ? 'a' : 'b'), 0)));
     thresholds(builder, core.frame, room => finishOf(room).floor, incomingLandings);

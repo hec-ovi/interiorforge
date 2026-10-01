@@ -6,96 +6,49 @@ import { uvToWorld } from '../layout/uv.js';
 import type { PlacementBuilder } from './builder.js';
 import { surface } from './surfaces.js';
 
-/** Fit one shared rideable car pose into each shaft and a landing at every served
- * floor. The engine mounts one lift-car per shaft with its own front (`lift-car-doors`,
- * `lift-car-head`), and slides the car's leaves and each landing's `lift-doors`. A lobby
- * wearing a reference style frames its landings in that style's jamb and header, whose
- * bounds match the plain `lift-landing-jamb` and `lift-landing-header`. */
-export function lifts(builder: PlacementBuilder, core: CorePlan, floorModule: string, room: string, minimumStoreyHeight: number, storeyHeight = minimumStoreyHeight, elevation = 0,
-    surround: { jamb: string; header: string } = { jamb: 'lift-landing-jamb', header: 'lift-landing-header' }): LightFixture[] {
-    const lights: LightFixture[] = [];
-    const angle = -core.frame.angleDeg * Math.PI / 180;
-    // All landings use the same car height, including taller ground floors.
-    const heightScale = Math.min(1, (minimumStoreyHeight - 0.15) / (LIFT_CAR.ceiling + LIFT_CAR.roof));
-    for (const [index, elevator] of core.elevators.entries()) {
-        const rect = elevator.rect;
-        const width = rect.lu - 0.20, depth = rect.lv - 0.20;
-        const [x, z] = uvToWorld([rect.u + rect.lu / 2, rect.v + rect.lv / 2], core.frame);
-        const car = builder.module('lift-car', elevator.id, [x, 0, z], [width / LIFT_CAR.width, heightScale, depth / LIFT_CAR.depth], angle);
-        // The car's leaves, head and sill stand at its front plane, scaled across the car only,
-        // so they keep the clearance between the landing leaves and the car in every shaft.
-        const carFront = rect.v + (rect.lv - depth) / 2;
-        const [fx, fz] = uvToWorld([rect.u + rect.lu / 2, carFront], core.frame);
-        const frontScale: [number, number, number] = [width / LIFT_CAR.width,
-            Math.min(1, LIFT_CAR.ceiling * heightScale / LIFT_CAR.door.height), 1];
-        builder.module('lift-car-doors', elevator.id, [fx, 0, fz], frontScale, angle);
-        builder.module('lift-car-head', elevator.id, [fx, 0, fz], frontScale, angle);
-        // The source is owned by the actual moving car module's broad ceiling
-        // diffuser. A real landing source lights its opaque passenger enclosure;
-        // an emissive panel by itself did not illuminate the walls.
-        lights.push({ id: car.id, kind: 'strip', room,
-            position: [x, elevation + LIFT_CAR.lens.center[1] * heightScale - 0.002, z],
-            length: LIFT_CAR.lens.depth * depth / LIFT_CAR.depth, angleDeg: core.frame.angleDeg + 90,
-            axis: [-core.frame.sin, 0, core.frame.cos], direction: [0, -1, 0],
-            intensity: LIFT_CAR.lens.lumens, colorTemperatureK: 3500, range: 4, beamDeg: 170,
-            diffuse: 0.95, facing: 'down' });
-        const [dx, dz] = uvToWorld([rect.u + rect.lu / 2, core.vFace], core.frame);
-        const passage = elevatorDoorHole(core, index, 0).hole;
-        const doorScale: [number, number, number] = [passage.width / LIFT_CAR.doorWidth, 1, 1];
-        // The runtime's call plate is on local +Z: face it out into the corridor.
-        builder.module('lift-doors', elevator.id, [dx, 0, dz], doorScale, angle + Math.PI);
-        for (const side of [-1, 1]) {
-            const [jx, jz] = uvToWorld([passage.at + side * (passage.width / 2 + 0.05), core.vFace], core.frame);
-            builder.module(surround.jamb, elevator.id, [jx, 0, jz], [1, 1, 1], angle);
-        }
-        builder.module(surround.header, elevator.id, [dx, 2.20, dz], doorScale, angle);
-        const solid = (u: number, v: number, w: number, d: number, y0 = 0) => {
-            const [sx, sz] = uvToWorld([u, v], core.frame);
-            builder.module('elevator-shaft-wall', elevator.id, [sx, y0, sz], [w, storeyHeight - y0, d], angle);
-        };
-        // The consumer carries the car floor but gives its walls no collision.
-        // Solid shaft linings follow 40 mm behind the car's inner skins, keeping
-        // the player/camera inside the visible enclosure at every landing.
-        const sideLining = 0.10 + LIFT_CAR.wall * width / LIFT_CAR.width - 0.04;
-        const rearLining = 0.10 + LIFT_CAR.wall * depth / LIFT_CAR.depth - 0.04;
-        for (const u of [rect.u + sideLining / 2, rect.u + rect.lu - sideLining / 2])
-            solid(u, rect.v + rect.lv / 2, sideLining, rect.lv);
-        solid(rect.u + rect.lu / 2, rect.v + rect.lv - rearLining / 2,
-            rect.lu - 2 * sideLining, rearLining);
-        // Front cheeks cannot rely on an adjacent room drawing a partition:
-        // service-only neighbours and shaft voids also need a solid enclosure. They
-        // stand in the wall line, short of the car's leaves, and a face closes the
-        // wall line from the landing head to the next floor, so the lining of the
-        // corridor or lobby, finished on its room side only, is never seen from the
-        // shaft and no slot opens under the slab above.
-        // The cheeks stand a centimetre clear of the doorway, so their faces stay
-        // behind the landing's jambs instead of sharing the jambs' plane.
-        const cheek = (rect.lu - passage.width) / 2 - 0.01, front = LIFT_SHAFT_FRONT.depth;
-        for (const u of [rect.u + cheek / 2, rect.u + rect.lu - cheek / 2])
-            solid(u, rect.v + front / 2, cheek, front);
-        solid(passage.at, rect.v + front / 2, passage.width + 0.04, front, LIFT_SHAFT_FRONT.faceFrom);
-        const gap = carFront - core.vFace;
-        if (gap > 1e-6) {
-            // No exposed shaft gap between the corridor slab and the car floor: the
-            // landing's threshold runs to the car's own sill.
-            const threshold = gap - LIFT_CAR.door.sill;
-            if (threshold > 1e-6) surface(builder, floorModule, room,
-                { u: passage.at - passage.width / 2, v: core.vFace, lu: passage.width, lv: threshold }, 0, core.frame);
-            // The reveal lines the passage from the back of the landing's frame to
-            // just short of the car's leaves, so it shares no face with the frame and
-            // nothing standing at a landing reaches into the car's front as it
-            // passes the floor.
-            const from = core.vFace + LIFT_LANDING.frame[1];
-            const reveal = carFront + LIFT_CAR.door.plane[0] - 0.004 - from;
-            if (reveal > 1e-3) {
-                for (const side of [-1, 1]) {
-                    const [jx, jz] = uvToWorld([passage.at + side * (passage.width / 2 + 0.01), from], core.frame);
-                    builder.module('lift-reveal-jamb', elevator.id, [jx, 0, jz], [1, 1, reveal], angle);
-                }
-                const [hx, hz] = uvToWorld([passage.at, from], core.frame);
-                builder.module('lift-reveal-header', elevator.id, [hx, 2.20, hz], [doorScale[0], 1, reveal], angle);
-            }
-        }
+/** One moving cab per shaft, with independently published front and rear doors.
+ * Landing leaves, reveals and full-height shaft cheeks remain on their floor. */
+export function lifts(builder:PlacementBuilder,core:CorePlan,floorModule:string,room:string,minimumStoreyHeight:number,storeyHeight=minimumStoreyHeight,elevation=0,
+  surround={jamb:'lift-landing-jamb',header:'lift-landing-header'}, rearLanding=false):LightFixture[]{
+  // A through car opens its back doors only on floors whose plan keeps the back public; on the
+  // others its back stands closed against a solid shaft lining.
+  const rearServed=!!core.openPlan&&rearLanding;
+  const lights:LightFixture[]=[], angle=-core.frame.angleDeg*Math.PI/180;
+  const heightScale=Math.min(1,(minimumStoreyHeight-.15)/(LIFT_CAR.ceiling+LIFT_CAR.roof));
+  for(const [index,elevator] of core.elevators.entries()){
+    const r=elevator.rect,width=r.lu-.2,depth=r.lv-.2;
+    const world=(u:number,v:number)=>uvToWorld([u,v],core.frame);
+    const mid=r.u+r.lu/2,[x,z]=world(mid,r.v+r.lv/2);
+    const car=builder.module(core.openPlan?'lift-car-through':'lift-car',elevator.id,[x,0,z],[width/LIFT_CAR.width,heightScale,depth/LIFT_CAR.depth],angle);
+    lights.push({id:car.id,kind:'strip',room,position:[x,elevation+LIFT_CAR.lens.center[1]*heightScale-.002,z],
+      length:LIFT_CAR.lens.depth*depth/LIFT_CAR.depth,angleDeg:core.frame.angleDeg+90,axis:[-core.frame.sin,0,core.frame.cos],direction:[0,-1,0],
+      intensity:LIFT_CAR.lens.lumens,colorTemperatureK:3500,range:4,beamDeg:170,diffuse:.95,facing:'down'});
+    const solid=(u:number,v:number,w:number,d:number,y=0)=>{const [sx,sz]=world(u,v);builder.module('elevator-shaft-wall',elevator.id,[sx,y,sz],[w,storeyHeight-y,d],angle);};
+    const side=.1+LIFT_CAR.wall*width/LIFT_CAR.width-.04;
+    for(const u of [r.u+side/2,r.u+r.lu-side/2])solid(u,r.v+r.lv/2,side,r.lv);
+    if(!rearServed){const rear=.1+LIFT_CAR.wall*depth/LIFT_CAR.depth-.04;solid(mid,r.v+r.lv-rear/2,r.lu-2*side,rear);}
+    for(const rear of rearServed?[false,true]:[false]){
+      const sign=rear?-1:1,face=rear?r.v+r.lv:r.v,carFace=face+sign*.1,yaw=angle+(rear?Math.PI:0);
+      const [cx,cz]=world(mid,carFace), [dx,dz]=world(mid,face);
+      const prefix=rear?'lift-car-rear':'lift-car';
+      const frontScale:[number,number,number]=[width/LIFT_CAR.width,Math.min(1,LIFT_CAR.ceiling*heightScale/LIFT_CAR.door.height),1];
+      builder.module(`${prefix}-doors`,elevator.id,[cx,0,cz],frontScale,yaw);
+      builder.module(`${prefix}-head`,elevator.id,[cx,0,cz],frontScale,yaw);
+      const p=elevatorDoorHole(core,index,0,rear).hole,scale:[number,number,number]=[p.width/LIFT_CAR.doorWidth,1,1];
+      builder.module(rear?'lift-rear-doors':'lift-doors',elevator.id,[dx,0,dz],scale,yaw+Math.PI);
+      for(const s of [-1,1]){const [jx,jz]=world(mid+s*(p.width/2+.05),face);builder.module(surround.jamb,elevator.id,[jx,0,jz],[1,1,1],yaw);}
+      builder.module(surround.header,elevator.id,[dx,2.20,dz],scale,yaw);
+      const cheek=(r.lu-p.width)/2-.01,thick=LIFT_SHAFT_FRONT.depth;
+      for(const u of [r.u+cheek/2,r.u+r.lu-cheek/2])solid(u,face+sign*thick/2,cheek,thick);
+      solid(mid,face+sign*thick/2,p.width+.04,thick,LIFT_SHAFT_FRONT.faceFrom);
+      const threshold=.1-LIFT_CAR.door.sill;
+      surface(builder,floorModule,room,{u:mid-p.width/2,v:rear?face-threshold:face,lu:p.width,lv:threshold},0,core.frame);
+      const from=face+sign*LIFT_LANDING.frame[1],reveal=.1+LIFT_CAR.door.plane[0]-.004-LIFT_LANDING.frame[1];
+      if(reveal>.001){
+        for(const s of [-1,1]){const [jx,jz]=world(mid+s*(p.width/2+.01),from);builder.module('lift-reveal-jamb',elevator.id,[jx,0,jz],[1,1,reveal],yaw);}
+        const [hx,hz]=world(mid,from);builder.module('lift-reveal-header',elevator.id,[hx,2.20,hz],[scale[0],1,reveal],yaw);
+      }
     }
-    return lights;
+  }
+  return lights;
 }

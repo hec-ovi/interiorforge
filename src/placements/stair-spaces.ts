@@ -47,22 +47,25 @@ export function publishStairSpaces(result: GeneratedInterior, request: InteriorR
         for (const [index, elevator] of core.elevators.entries()) {
             if (!layout.floor.core.elevators.some(shaft => shaft.id === elevator.id)) continue;
             const { id, rect } = elevator;
-            const entry = uvToWorld([rect.u + rect.lu / 2, core.vFace - .6], core.frame);
-            const owner = layout.floor.rooms.find(room => roomFootprintContains(room, entry));
-            const passage = elevatorDoorHole(core, index, 0);
             const room: Room = { id, kind: 'corridor', polygon: uvRectCorners(rect).map(point => uvToWorld(point, core.frame)), doors: [] };
+            for (const rear of core.openPlan ? [false, true] : [false]) {
+            const entry = uvToWorld([rect.u + rect.lu / 2, rear ? rect.v + rect.lv + .6 : rect.v - .6], core.frame);
+            // a back landing opens only onto public floor: a home behind the core keeps its wall
+            const owner = layout.floor.rooms.find(room => roomFootprintContains(room, entry) && !(rear && room.unit));
+            const passage = elevatorDoorHole(core, index, 0, rear);
             if (owner) {
-                const portal = { id: `${id}:portal`, position: uvToWorld([passage.hole.at, passage.c], core.frame),
+                const portal = { id: `${id}:portal${rear ? ":rear" : ""}`, position: uvToWorld([passage.hole.at, passage.c], core.frame),
                     width: passage.hole.width, angleDeg: core.frame.angleDeg, leaves: 2 as const, clearDepth: 0 };
                 room.doors.push({ ...portal, to: owner.id });
                 owner.doors.push({ ...portal, to: id });
+            }
             }
             layout.floor.rooms.push(room);
             // The car already owns one authored diffuser record. Move that record's
             // room association, preserving its flux and identity. The interactive
             // consumer owns moving cab lights; publication creates no light here.
             const cars = new Set(layout.placements.filter(placement => placement.connector === id
-                && placement.module === 'lift-car').map(placement => placement.id));
+                && ['lift-car','lift-car-through'].includes(placement.module ?? '')).map(placement => placement.id));
             for (const light of layout.floor.lights) if (cars.has(light.id)) light.room = id;
             for (const placement of layout.placements) if (placement.connector === id) placement.room = id;
         }

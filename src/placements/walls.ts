@@ -137,7 +137,8 @@ export function walls(
         // its floor instead of the low domestic doorway formerly masking both lanes.
         if (entry.hole.width > 3) entry.hole.y1 = Math.min(bp.height - .15, 2.8);
     }
-    for (const h of [...stairHoles, ...core.elevators.map((_, i) => elevatorDoorHole(core, i, 0))])
+    const rearServed = !!core.openPlan && !!uv.rearLanding;
+    for (const h of [...stairHoles, ...core.elevators.flatMap((_, i) => [elevatorDoorHole(core, i, 0), ...(rearServed ? [elevatorDoorHole(core, i, 0, true)] : [])])])
         line(h.axis, h.c).holes.push(h.hole);
     // Every opening any floor sharing this layout puts in the shell cuts the lining, so one
     // lined run serves a floor whose windows sit somewhere else.
@@ -291,7 +292,7 @@ export function walls(
             const matches = (entry: ReturnType<typeof stairEntryHole>) => entry.axis === l.axis
                 && Math.abs(entry.c - l.c) < 1e-6 && Math.abs(entry.hole.at - h.at) < 1e-6;
             // Lift-specific fitted members own this complete reveal and casing.
-            if (core.elevators.some((_, i) => matches(elevatorDoorHole(core, i, 0)))) continue;
+            if (core.elevators.some((_, i) => matches(elevatorDoorHole(core, i, 0)) || rearServed && matches(elevatorDoorHole(core, i, 0, true)))) continue;
             const inside = (r: Run) => h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01;
             const owner = l.runs.find(r => r.draw && inside(r)) ?? l.runs.find(inside);
             if (!owner) continue;

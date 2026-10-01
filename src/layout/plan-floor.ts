@@ -44,6 +44,7 @@ import { planResidentialLivingGroups } from '../styles/capsule/composition-plan.
 import { applySpaceTemplates } from "./templates/apply.js";
 import { templateTrace } from "./templates/fit.js";
 import { dwellingTemplates, publicTemplates, stampStyles } from "./templates/registry.js";
+import { planComposedFloor } from './composed/compose.js';
 
 /** uv-space working data a floor keeps for geometry and npc passes */
 export interface UvFloorData {
@@ -58,6 +59,8 @@ export interface UvFloorData {
   face?: Point[];
   /** band in front of a loft void, open air like the void: no floor above, no ceiling below */
   openAir?: OpenAir[];
+  /** a composed floor whose through cars open their back doors here */
+  rearLanding?: boolean;
 }
 
 /** The band a loft void reaches out to the shell across, on one of its two floors. */
@@ -189,9 +192,10 @@ function planFloorWith(
     : undefined;
   let rooms: PlanRoom[] = [corridorRoom, ...(corridorTail ? [corridorTail] : [])];
 
-  const facadePlan = hasFacadeGrid
+  const openPlan = planComposedFloor(request, floor, kind, core, slabPlate, ids);
+  const facadePlan = openPlan ? { rooms: openPlan.rooms, sealed: openPlan.sealed, changes: [] } : (hasFacadeGrid
     ? planFacadeRooms(request, floor, kind, core, floorFrame, slabPlate, uvOutline, ids, rng, fallback > 0,
-      templateRun !== null) : null;
+      templateRun !== null) : null);
   const backing = facadePlan ? { rooms: [], sealed: [] }
     : fillCoreBacking(core, floorFrame, kind, ids, corridorRoom, uvOutline);
   rooms.push(...backing.rooms);
@@ -245,7 +249,7 @@ function planFloorWith(
   // Authored reference spaces replace generic units and halls where they fit. Every room
   // they emit carries a polygon, so the grid and pier passes below leave it in place.
   const templateChanges: ProgramChange[] = [];
-  if (templateRun) {
+  if (templateRun && !openPlan) {
     const family = familyOf(request.building.type, request.building.tier);
     const probeStyle = request.building.interiorStyle ?? (family === 'capsule' ? capsuleProfile(request) : undefined);
     const probeCeiling = ceilingUnder(floor.openings, spaceHeight);
@@ -314,7 +318,7 @@ function planFloorWith(
   // A partition the facade gives no pier to is never built, so the room it would close is
   // not a room: the floor drops it and keeps the rest, the same way it drops one nobody
   // can reach. Only a floor left with circulation alone still fails.
-  while (facadePlan) {
+  while (facadePlan && !openPlan) {
     const conflicts = partitionConflicts({ rooms: rooms.map(room => roomToWorld(room, uvOutline, frame)) },
       floor, request.blueprint.facade, toWorldPolygon(bounds.inner, frame));
     if (!conflicts.length) break;
@@ -382,7 +386,7 @@ function planFloorWith(
         .concat(loft ? loftLights(loft.plan, floor.elevation, ceilingElevation, request.building.tier).filter(light => light.room === loft.plan.lowerRoom) : []),
     },
     grid,
-    uv: { outline: uvOutline, rooms, furniture, sealed, carpets,
+    uv: { outline: uvOutline, rooms, furniture, sealed, carpets, ...(openPlan?.rearLanding ? { rearLanding: true } : {}),
       ...(facadePlan?.changes.length || templateChanges.length
         ? { programChanges: [...(facadePlan?.changes ?? []), ...templateChanges] } : {}) },
   };

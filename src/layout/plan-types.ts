@@ -39,6 +39,8 @@ export type PlanDoor = PlanConnection & ({
 });
 
 export interface PlanRoom {
+  /** Composed floor: use only its authored furniture and preserve its exact poses. */
+  authoredOnly?: boolean;
   id: string;
   kind: RoomKind;
   rect: UvRect;

@@ -3,11 +3,11 @@ import type { CorePlan } from '../layout/core-plan.js';
 import type { UvRect } from '../layout/uv.js';
 import type { UvWallHole } from './walls.js';
 const DOOR_H = 2.2;
-export function elevatorDoorHole(core: CorePlan, elevatorIndex: number, elevation: number): UvWallHole {
+export function elevatorDoorHole(core: CorePlan, elevatorIndex: number, elevation: number, rear = false): UvWallHole {
     const rect = core.elevators[elevatorIndex]!.rect;
     return {
         axis: "H",
-        c: core.vFace,
+        c: rear ? rect.v + rect.lv : rect.v,
         hole: { at: rect.u + rect.lu / 2, width: LIFT_CAR.doorWidth * (rect.lu - 0.2) / LIFT_CAR.width, y0: elevation, y1: elevation + DOOR_H },
     };
 }

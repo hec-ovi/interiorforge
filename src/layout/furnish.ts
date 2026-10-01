@@ -841,6 +841,33 @@ export function furnish(
     ...(interiorStyle === 'sandra-dorsett'
       ? Object.fromEntries(Object.entries(SANDRA_FURNITURE).map(([kind, fit]) => [kind, fit.size])) : {}) };
   for (const room of rooms) {
+    if (room.authoredOnly) {
+      // These poses are architecture: routes were reserved around their exact
+      // physical bounds. Do not move a concierge or replace a designed cafe
+      // because a generic furnishing margin overlaps the edge of that route.
+      for (const piece of room.authored ?? []) {
+        if (!roomCoversRect(room, footprintOf(piece))) throw new InteriorError('E_UNREACHABLE_SPACE', `authored ${piece.id} leaves ${room.id}`);
+        // built-in walls reach the ceiling; hung pieces keep their mounting height
+        const size: [number, number, number] = piece.fit?.startsWith('asm-') && (piece.kind === 'kitchen_block' || piece.kind === 'wardrobe')
+          && Number.isFinite(ceilingHeight) ? [piece.size[0], piece.size[1], Math.max(piece.size[2], ceilingHeight - (piece.elevation ?? 0))] : piece.size;
+        const elevation = piece.elevation ?? MOUNT[piece.kind];
+        out.push({ id: ids.furniture(), kind: piece.kind, room: room.id, at: piece.at, rotationDeg: piece.rotationDeg, size,
+          ...(elevation !== undefined ? { elevation } : {}), ...(piece.fit ? { fit: piece.fit } : {}) });
+      }
+      // a rug under every seating group (round its low table) and every bed, as the fitted
+      // groups of the generic rooms lay theirs
+      const pieces = room.authored ?? [];
+      for (const centre of pieces.filter(p => p.kind === 'low_table' && p.size[0] >= .8 || p.kind === 'bed_double')) {
+        const near = pieces.filter(p => (p.kind === 'sofa' || p.kind === 'chair' || p === centre)
+          && Math.hypot(p.at[0] - centre.at[0], p.at[1] - centre.at[1]) < 2.6).map(footprintOf);
+        const u0 = Math.min(...near.map(r => r.u)), v0 = Math.min(...near.map(r => r.v));
+        const u1 = Math.max(...near.map(r => r.u + r.lu)), v1 = Math.max(...near.map(r => r.v + r.lv));
+        const pad = centre.kind === 'bed_double' ? .5 : -.1;
+        const rect = { u: u0 - pad, v: v0 - pad, lu: u1 - u0 + 2 * pad, lv: v1 - v0 + 2 * pad };
+        if (rect.lu > 1.2 && rect.lv > 1.2 && roomCoversRect(room, rect)) carpets.push({ room: room.id, rect });
+      }
+      continue;
+    }
     // Legacy layouts label private arrival bands as living rooms too. Keep those
     // approaches empty; the largest living/studio space owns the dwelling's salon.
     if (domestic && room.kind === 'living' && room.unit && primaryLiving.get(room.unit) !== room) continue;

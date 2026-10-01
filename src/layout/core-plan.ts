@@ -1,7 +1,7 @@
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
 import { polygonArea, polygonBounds } from "../core/geom.js";
-import type { CoreAdjacencyFailure, FloorAssignment, InteriorRequest } from "../core/types.js";
+import type { CoreAdjacencyFailure, FloorAssignment, InteriorRequest, Tier } from "../core/types.js";
 import type { StairStyle } from "../core/types.js";
 import { CORRIDOR, DOOR, ELEVATOR, RISER_SHAFT, ROOM, SINGLE_LOADED_BELOW, STAIR, TWO_STAIRS, WALKUP } from "./constants.js";
 import { fullCoverageU } from "./frame.js";
@@ -12,6 +12,7 @@ import { CoreFacadeClearance } from "./core-adjacency.js";
 import { coreComponents, coreSolids, type CoreComponents } from "./core-solids.js";
 import type { Frame, UvRect } from "./uv.js";
 import { coversRect, makeFrame, snap, snapDown, snapUp, uvToWorld, worldToUv } from "./uv.js";
+import { composedCore } from './composed/core.js';
 
 /** standard: elevator core in the shaft row. compact: stairs turn into columns reaching
  *  into the rear strip so near-miss bands keep elevators. walkup: stair-only, capped. */
@@ -19,6 +20,8 @@ export type CoreMode = "standard" | "compact" | "walkup";
 
 /** Building-wide vertical core, all in uv (frame) space; identical on every floor. */
 export interface CorePlan {
+  /** Authored open floor composition, with a wall-side stair and through-car lifts. */
+  openPlan?: boolean;
   frame: Frame;
   mode: CoreMode;
   /** v of the core block's corridor-side face; corridors hang below it, the core above */
@@ -50,7 +53,7 @@ export function stairEntryUv(core: CorePlan, stair: "a" | "b"): Point {
 /** Frame-space elevator wait point in front of a shaft. */
 export function elevatorWaitUv(core: CorePlan, elevatorIndex: number): Point {
   const rect = core.elevators[elevatorIndex]!.rect;
-  return [rect.u + ELEVATOR.shaft / 2, core.vFace - 0.8];
+  return [rect.u + rect.lu / 2, rect.v - 0.8];
 }
 
 /** Shared inputs behind planCore and coreFeasibility: same frame, same candidate bands. */
@@ -533,7 +536,14 @@ function round2(v: number): number {
  *  thresholds (see schemas/core-feasibility.json). */
 /** `buildingType` picks the same lift demand the furnishing pass uses, so the published
  *  placement is the one `generate` builds for a building of that type. */
-export function coreFeasibility(blueprint: InteriorRequest["blueprint"], buildingType = "residential"): CoreFeasibility {
+export function coreFeasibility(blueprint: InteriorRequest["blueprint"], buildingType = "residential", tier?: Tier): CoreFeasibility {
+  // A composed building stands its core where its plan puts it (`composed/core.ts`).
+  const open = composedCore(blueprint, { type: buildingType, ...(tier ? { tier } : {}) });
+  if (open) return { fits: true, mode: 'compact', frameAngleDeg: open.frame.angleDeg,
+    bandLength: round2(open.u1 - open.u0), minCoreLength: round2(open.u1 - open.u0), minCompactCoreLength: round2(open.u1 - open.u0),
+    minWalkupCoreLength: open.stairA.lu, walkupMaxFloors: WALKUP.maxFloors, maxElevators: open.elevators.length,
+    plateDepth: round2(open.stairA.lv), plateDepthFloor: 0, minCrossDepth: MIN_CROSS_DEPTH, crossDepthOk: true,
+    minCompactDepth: round2(open.stairA.lv), compactDepthOk: true, placement: corePlacement(open) };
   const { env, placement } = selectEnvelope(blueprint);
   const blocker = blockerOf(env, placement);
   const chosen = placement ?? selectPlacement(env, "entrances");
@@ -583,6 +593,8 @@ function fitCore(env: CoreEnvelope, chosen: Placement, buildingType: string):
 
 /** Places the vertical core once per building; every floor reuses these rects. */
 export function planCore(request: InteriorRequest, assignments: FloorAssignment[], singleStair = false): CorePlan {
+  const open = composedCore(request.blueprint, request.building);
+  if (open) return open;
   const { env, placement } = selectEnvelope(request.blueprint, singleStair);
   const { frame, stairDepth } = env;
 
@@ -628,7 +640,7 @@ export function stairAccess(
     // End-facing public stair exposes both lanes; a row stair opens its full landing.
     const span = core.mode === "compact" ? shaft.lu - 0.1 : landing;
     const at = core.mode === "compact" ? shaft.u + shaft.lu / 2 : shaft.u + shaft.lu - 0.05 - landing / 2;
-    return { entry: [at, core.vFace - 0.6], axis: "H", c: core.vFace, at, width: span - 0.16 };
+    return { entry: [at, shaft.v - 0.6], axis: "H", c: shaft.v, at, width: span - 0.16 };
   }
   // inline stair B: door on the face looking down the corridor
   const at = shaft.v + shaft.lv / 2;

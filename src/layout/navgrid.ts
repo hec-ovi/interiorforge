@@ -81,8 +81,8 @@ export function buildNavGrid(
   // A template's required pieces stand where its reference puts them: the routes planned
   // before furnishing go round them, as the furnished floor's routes will.
   if (physical) for (const room of rooms) for (const piece of room.authored ?? []) {
-    if (!piece.required || NON_BLOCKING.has(piece.kind) || (piece.elevation ?? 0) > 0) continue;
-    blockUvRect(grid, frame, furnitureUvRect({ ...piece, room: room.id }), 0);
+    if (!piece.required || !room.authoredOnly && NON_BLOCKING.has(piece.kind) || (piece.elevation ?? 0) > 0) continue;
+    blockUvRect(grid, frame, furnitureUvRect({ ...piece, room: room.id }), room.authoredOnly ? AGENT_RADIUS : 0);
   }
 
   for (const room of rooms) {
@@ -106,7 +106,13 @@ export function buildNavGrid(
     }
     openUvRect(grid, frame, channel, worldOutline);
   }
-  if (physical) blockPhysicalFurniture(grid, frame, furniture);
+  if (physical) {
+    blockPhysicalFurniture(grid, frame, furniture);
+    // Designed furniture is already present when routes are found. Door
+    // channels cut walls, never a chair or counter standing beside the opening.
+    blockPhysicalFurniture(grid, frame, rooms.filter(room => room.authoredOnly).flatMap(room =>
+      (room.authored ?? []).map(piece => ({ ...piece, room:room.id }))));
+  }
 
   return grid;
 }
