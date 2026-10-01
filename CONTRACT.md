@@ -1,4 +1,4 @@
-# Interior 0.40.1
+# Interior 0.41.0
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
@@ -134,18 +134,24 @@ rooms of a floor and its core tile the plate, the open floor being what the othe
   front of the stair and lifts from which three to five loft homes open, each one open room round a closed
   bathroom with a built-in kitchen wall, island, dining, lounge, bed behind a glass bamboo
   screen, a reading corner and wardrobes; three arrangements turn with the floor and the
-  building's seed. Crown: two penthouses round a sunken great-room lounge.
+  building's seed. A gallery longer than 24 m (a wide plate's) is broken by planter islands on
+  its middle line, never before the lifts, so no straight run along it is over 20 m. Crown: two
+  penthouses round a sunken great-room lounge.
 - Kind `B` wears the same home plans in its own look on its own ground (a low lounge, a window
   lounge, a raised bar, a dining table behind a lit planter, a salon behind glass); its lofts'
-  kitchens and bars stand one step up, and its homes stay whole on their floors (no derived
-  duplex). Kind `C`: an entry hall with caretaker, mail
+  kitchens and bars stand one step up. On a building with five or more home floors its first
+  two hold its two-storey loft (an `apartment-1702` duplex, below) in a front loft at least 15 m
+  wide, its stair against the party wall; its other homes stay whole on their floors (no
+  derived duplex). Kind `C`: an entry hall with caretaker, mail
   bank, vending, kiosk and canteen counter, on a deep plate a public street front (a noodle bar
   and a launderette) before studio homes off the hall; home floors packed as a poor block's,
   back homes off the gallery, and on a deep plate windowless studios between the gallery and a
   corridor joined to it by a passage, compact homes on the facade beyond it.
 - Kind `R` and office floors: the lobby with reception, security desk, waiting lounges, a long
-  shared table, the café bar and a boardroom for ten; office floors turn through four plan
-  types chosen per floor from the building's seed: an open loft floor of desk pods, a studio
+  shared table, the café bar and a boardroom for ten; office floors turn through the four plan
+  types in an order of the building's own, one of 24 by its seed, each in one of four variants
+  (desk pods of four or six; meeting rooms where the type puts them or moved): an open loft
+  floor of desk pods, a studio
   round a glass meeting cluster, an executive floor with its boardroom and two corner suites,
   a co-working floor round a big café. Nothing but the core meets a window wall: glass rooms
   stand as islands in the open floor.
@@ -486,7 +492,12 @@ kitchen and utility stand below; the primary bedroom, bathroom, dressing, linen,
 a gallery above, joined by the home's own stair. The public core and corridor stay on both
 levels, the lower dwelling keeps its number and the upper slice gets none. Only identical
 rectangular homes of at least 15 by 10 m that seat their partitions on both storeys
-convert; a pair with none keeps its two ordinary apartment storeys.
+convert; a pair with none keeps its two ordinary apartment storeys. A composed kind `B`
+loft's slice publishes `stairWall` (`low` or `high`, the side wall of its section the stair
+stands against, its party wall): the stair rises against that wall to a mezzanine walkway, the
+double-height lounge spans the back of the home from it, and its rooms are the open living,
+bathroom, kitchen and store below, the bedroom with its bathroom and dressing, a study and the
+walkway above.
 
 Layout NPC records use `sourceFloor` and local identities. `expandBuilding` applies
 floor identities, opening mappings, elevations and building connectors for Simulation.
