@@ -132,9 +132,27 @@ export class Composer {
     const [u, v] = this.pt(p.at[0], p.at[1]);
     const zone = (room.levels ?? []).find(level => inside([u, v], level.polygon));
     const elevation = p.elevation ?? zone?.delta;
-    room.authored!.push({ id: `${room.role}-${room.authored!.length}`, kind: p.kind, at: [u, v],
+    const id = `${room.role}-${room.authored!.length}`;
+    room.authored!.push({ id, kind: p.kind, at: [u, v],
       size: [p.size[0], p.size[1], p.size[2]], rotationDeg: this.rotation(p.facing), required: true,
       ...(p.fit ? { fit: p.fit } : {}), ...(elevation !== undefined ? { elevation } : {}) });
+    if (this.groupKey) {
+      this.groups.set(id, this.groupKey);
+      if (!this.anchors.has(this.groupKey)) this.anchors.set(this.groupKey, id);
+    }
+  }
+
+  private groupKey: string | null = null;
+  private groupSeq = 0;
+  private readonly groups = new Map<string, string>();
+  private readonly anchors = new Map<string, string>();
+
+  /** Pieces placed inside `place` stand or fall with the first of them: chairs leave with
+   *  their table, stools with their counter. */
+  together(place: () => void): void {
+    const outer = this.groupKey;
+    this.groupKey = `g${this.groupSeq++}`;
+    try { place(); } finally { this.groupKey = outer; }
   }
 
   /** A raised platform or a sunken pit in a room, one riser deep, stepped at its edge. */
@@ -169,16 +187,23 @@ export class Composer {
     }
     const hits = (a: UvRect, b: UvRect, pad = 0) => a.u < b.u + b.lu + pad - EPS && b.u < a.u + a.lu + pad - EPS
       && a.v < b.v + b.lv + pad - EPS && b.v < a.v + a.lv + pad - EPS;
+    const fallen = new Set<string>();
     for (const room of this.rooms) {
       const kept: UvRect[] = [];
       room.authored = (room.authored ?? []).filter(piece => {
         const fp = footprint(piece);
         const hung = (piece.elevation ?? 0) > .5;
-        const why = !coversRect(room, fp) || !roomCoversRect(room, fp) ? 'outside its room'
+        const group = this.groups.get(piece.id);
+        const why = group && fallen.has(group) ? 'with the piece it belongs to'
+          : !coversRect(room, fp) || !roomCoversRect(room, fp) ? 'outside its room'
           : !hung && zones.some(z => hits(fp, z)) ? 'in a doorway or landing'
           : hung && (piece.elevation ?? 0) < 2.3 && doorways.some(z => hits(fp, z)) ? 'over a doorway'
           : !hung && kept.some(k => hits(fp, k, -.02)) ? 'on another piece' : null;
-        if (why) { dropped.push(`${piece.id} ${piece.kind} ${why}`); return false; }
+        if (why) {
+          if (group && this.anchors.get(group) === piece.id) fallen.add(group);
+          dropped.push(`${piece.id} ${piece.kind} ${why}`);
+          return false;
+        }
         if (!hung) kept.push(fp);
         return true;
       });

@@ -47,7 +47,16 @@ function meetingRoom(c: Composer, id: string, rect: PlanRect): PlanRoom {
 function furnishMeeting(c: Composer, room: PlanRoom, floor: PlanRoom, rect: PlanRect, door: readonly [number, number], seats: number): void {
   c.door(room, floor, door, 1.4);
   const [u0, v0, u1, v1] = rect, along = u1 - u0 >= v1 - v0;
-  const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2, len = Math.min(along ? u1 - u0 - 1.6 : v1 - v0 - 1.6, seats >= 10 ? 4.2 : seats >= 8 ? 3.2 : 2.4);
+  const len = Math.min(along ? u1 - u0 - 1.6 : v1 - v0 - 1.6, seats >= 10 ? 4.2 : seats >= 8 ? 3.2 : 2.4);
+  // the table and its chairs stand clear of the doorway: moved off the door's wall as far as
+  // the room allows
+  const half = (along ? [len / 2, .6 + .95 + .25] : [.6 + .95 + .25, len / 2]) as [number, number], clear = 1.2;
+  let cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
+  if (Math.abs(door[0] - u0) < .01) cu = Math.min(Math.max(cu, u0 + clear + half[0]), u1 - half[0]);
+  if (Math.abs(door[0] - u1) < .01) cu = Math.max(Math.min(cu, u1 - clear - half[0]), u0 + half[0]);
+  if (Math.abs(door[1] - v0) < .01) cv = Math.min(Math.max(cv, v0 + clear + half[1]), v1 - half[1]);
+  if (Math.abs(door[1] - v1) < .01) cv = Math.max(Math.min(cv, v1 - clear - half[1]), v0 + half[1]);
+  c.together(() => {
   c.piece(room, { kind: 'meeting_table', at: [cu, cv], size: [len, 1.2, .75], facing: along ? 'back' : 'left' });
   const per = Math.max(1, Math.floor(seats / 2));
   for (let i = 0; i < per; i++) {
@@ -60,6 +69,7 @@ function furnishMeeting(c: Composer, room: PlanRoom, floor: PlanRoom, rect: Plan
       c.piece(room, { kind: 'chair', at: [cu + .95, cv + t], size: [.5, .5, .9], facing: 'left' });
     }
   }
+  });
 }
 
 /** The open café bar of a floor: a counter facing the floor with stools, a back counter
@@ -74,13 +84,13 @@ function cafeBar(c: Composer, room: PlanRoom, zone: PlanRect, wall: Side, stools
   c.piece(room, { kind: 'bar_counter', at: at(mid, 2.35), size: [len, .75, 1.1], facing: facingOf(wall) });
   const n = Math.min(stools, Math.floor(len / .7));
   for (let i = 0; i < n; i++) c.piece(room, { kind: 'stool', at: at(mid - (n - 1) * .7 / 2 + i * .7, 3.25), size: [.45, .45, .75], facing: wall });
-  for (let i = 0; i < tables; i++) {
+  for (let i = 0; i < tables; i++) c.together(() => {
     const a = mid - (tables - 1) * 1.9 / 2 + i * 1.9;
     const p = at(a, 5.0);
     c.piece(room, { kind: 'dining_table', at: p, size: [.9, .9, .75], facing: 'front' });
     for (const s of [-1, 1]) c.piece(room, { kind: 'chair', at: alongU ? [p[0], p[1] + s * .75] : [p[0] + s * .75, p[1]], size: [.5, .5, .9],
       facing: alongU ? (s < 0 ? 'front' : 'back') : (s < 0 ? 'right' : 'left') });
-  }
+  });
 }
 
 /** A lounge along a window: sofas facing each other, armchairs, plants. */
@@ -158,7 +168,7 @@ export function officeR(c: Composer, core: CoreBox, plate: readonly [number, num
   } else if (type === 'executive') {
     meetings.push(['boardroom', [l1 + 4.6, 1.2, W - 1.2, 7.2], [l1 + 4.6, 4.2], 10]);
   } else {
-    meetings.push(['booth-1', [W - 5.2, front + 1.0, W - 1.6, front + 4.2], [W - 5.2, front + 2.6], 4]);
+    meetings.push(['booth-1', [W - 6.0, front + 1.0, W - 1.6, front + 4.2], [W - 6.0, front + 2.6], 4]);
   }
   // the executive floor's two suites stand as islands in the front corners
   const execs = type === 'executive' ? [
@@ -214,7 +224,7 @@ export function officeR(c: Composer, core: CoreBox, plate: readonly [number, num
   } else {
     // co-working: a big café bar as the heart, communal tables, soft booths on the windows
     cafeBar(c, floorRoom, [l0, 0, l1, lv0], 'front', 9, 3);
-    for (const [i, u] of [[0, W * .25], [1, W * .5], [2, W * .75]] as const) {
+    for (const [i, u] of [[0, W * .2], [1, W * .45], [2, W * .7]] as const) {
       dining(c, floorRoom, [u - 1.8, front + 1.4 + (i % 2) * .4, u + 1.8, front + 4.6 + (i % 2) * .4], 'u', 8);
     }
     pods([1.2, D - 7.0, W - 6.0, D - 1.0], 3);

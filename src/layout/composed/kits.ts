@@ -54,7 +54,7 @@ export function kitchen(c: Composer, room: PlanRoom, zone: PlanRect, wall: Side,
     if (look === 'a') c.piece(room, { kind: 'display_rack', at: f.at(tallMid, .3), size: [tallLen, .5, 2.6], facing: opposite(wall), fit: 'asm-e1-display' });
     else c.piece(room, { kind: 'fridge', at: f.at(tallMid, .35), size: [tallLen, .7, 2.2], facing: opposite(wall) });
   }
-  if ((opts.island ?? true) && f.depth >= 4.6) {
+  if ((opts.island ?? true) && f.depth >= 4.6) c.together(() => {
     const len = Math.min(3.2, Math.max(2.2, run - 2));
     const islandFit = look === 'a' ? 'asm-e1-island' : look === 'b' ? 'asm-b3-counter' : undefined;
     c.piece(room, { kind: 'bar_counter', at: f.at(f.mid, 2.0), size: [len, 1.0, 1.0], facing: wall, ...(islandFit ? { fit: islandFit } : {}) });
@@ -64,11 +64,14 @@ export function kitchen(c: Composer, room: PlanRoom, zone: PlanRect, wall: Side,
       c.piece(room, { kind: 'stool', at: f.at(a, 3.0), size: [.45, .45, .75], facing: wall,
         ...(look === 'a' ? { fit: 'fit-bar-stool-e1' } : look === 'b' ? { fit: 'fit-bar-stool-b3' } : {}) });
     }
-  }
+  });
 }
 
 /** A dining table centred in the zone with chairs on both long sides. */
 export function dining(c: Composer, room: PlanRoom, zone: PlanRect, axis: 'u' | 'v', seats = 6): void {
+  c.together(() => diningSet(c, room, zone, axis, seats));
+}
+function diningSet(c: Composer, room: PlanRoom, zone: PlanRect, axis: 'u' | 'v', seats: number): void {
   const [u0, v0, u1, v1] = zone, cu = (u0 + u1) / 2, cv = (v0 + v1) / 2;
   const len = seats >= 8 ? 2.8 : seats >= 6 ? 2.2 : 1.4;
   const per = Math.max(1, Math.floor(seats / 2));
