@@ -56,17 +56,19 @@ export function planComposedFloor(request: InteriorRequest, floor: BlueprintFloo
     return c.planPoint(worldToUv([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], core.frame))[0];
   })() : c.W / 2;
   const office = kind === 'office' || kind === 'corpo_office';
+  // each building turns through its arrangements from its own starting point
+  const turn = seedOffset(String(request.seed));
   wearing(composed.kind === 'B' ? LOOK_B : composed.kind === 'C' ? LOOK_C : composed.kind === 'R' ? LOOK_R : LOOK_A);
   const result = composed.kind === 'B' && kind === 'lobby' ? groundB(c, box, plate as [number, number][], entrance)
-    : composed.kind === 'C' ? (kind === 'lobby' ? groundC(c, box, plate as [number, number][], entrance) : typicalC(c, box, floor.index))
+    : composed.kind === 'C' ? (kind === 'lobby' ? groundC(c, box, plate as [number, number][], entrance) : typicalC(c, box, floor.index + turn))
     : composed.kind === 'R'
     ? (kind === 'lobby' ? groundR(c, box, plate as [number, number][], entrance)
       : officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!))
-    : composed.kind === 'B' ? (floor.index === top || floor.index % 2 === 0 ? crownA(c, box) : typicalA(c, box, 2))
+    : composed.kind === 'B' ? (floor.index === top || (floor.index + turn) % 2 === 0 ? crownA(c, box) : typicalA(c, box, 2))
     : kind === 'lobby' ? groundA(c, box, plate as [number, number][], entrance)
     : office ? officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!)
     : floor.index === top ? crownA(c, box)
-    : typicalA(c, box, (((floor.index - 1) % 3) + 3) % 3);
+    : typicalA(c, box, (((floor.index - 1 + turn) % 3) + 3) % 3);
   // the stair's mouth and every lift landing the floor serves stay clear of furniture
   const stair = core.stairA, keep: UvRect[] = [{ u: stair.u, v: stair.v - 1.8, lu: stair.lu, lv: 1.8 }];
   for (const { rect } of core.elevators) {
