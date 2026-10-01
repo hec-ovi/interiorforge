@@ -1,3 +1,4 @@
+import { templateTrace } from "./templates/fit.js";
 import { InteriorError } from "../core/errors.js";
 import type { Point } from "../core/geom.js";
 import { DOOR, SPINE_KINDS } from "./constants.js";
@@ -37,6 +38,7 @@ export function validateArchitecture(
     const obsolete = rooms.flatMap(room => room.doors.map(door => ({ room, door })))
       .find(({ room, door }) => !doorApproachesFit(access, room, door, rooms, core));
     if (obsolete) {
+      templateTrace(`floor ${floorIndex}: closes ${obsolete.room.id}'s door to ${obsolete.door.to}, an approach is blocked`);
       for (const room of rooms) room.doors = room.doors.filter(door => door.id !== obsolete.door.id);
       access = rebuild();
       continue;
@@ -58,6 +60,7 @@ export function validateArchitecture(
         throw new InteriorError("E_UNREACHABLE_SPACE",
           `no ${commonTransit(room) ? "public" : "access-domain"} shared-wall repair for ${room.id}(${room.kind}): ${missing(access, room)} unreachable body-clear cells`, floorIndex);
       }
+      templateTrace(`floor ${floorIndex}: drops ${room.id}, ${missing(access, room)} of ${access.cells(room).length} cells unreached`);
       rooms.splice(rooms.indexOf(room), 1);
       for (const other of rooms) other.doors = other.doors.filter(door => door.to !== room.id);
       access = rebuild();
