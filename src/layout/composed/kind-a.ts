@@ -361,7 +361,23 @@ export function typicalA(c: Composer, core: CoreBox, variant: number): Composed 
     list.push(frontLoft(core, D, 'loft-2', 0, mid + 2.5, 'high', 'right'));
     list.push(frontLoft(core, D, 'loft-3', mid + 2.5, W, 'high', 'left'));
   } else {
-    list.push({
+    if (variant === 0 && l0 - sw >= 6.6) list.push({
+      // the user's drawing of the floor: the built-in kitchen along the back wall, behind the
+      // stair as well; the big bathroom beside the stair, entered from the loft; the entrance
+      // down a short hall beside the bathroom; the bed against the stair wall, dining between
+      // them, the lounge on the back facade by the party wall
+      id: 'loft-1', rects: [[0, 0, mid, core.stair[1]], [sw, core.stair[1], mid, lv0], [sw + 4.6, lv0, l0, lv1]],
+      entrance: [(sw + 4.6 + l0) / 2, lv1],
+      baths: [{ rect: [sw, lv0, sw + 4.6, lv1], door: [sw + 3.8, lv0], vanity: 'left' }],
+      furnish: (k, r) => {
+        const ke = Math.min(mid - 5.4, 11.6);
+        kitchen(k, r, [0, 0, ke, 5.0], 'back', L.look, { island: true, tall: 'low' });
+        lounge(k, r, [ke + .2, 0, mid - .2, lv0 - .2], 'back', L.look, { media: false, ledge: true });
+        bedroom(k, r, [sw + .1, core.stair[1], ke - .2, lv0 - .1], 'left', L.look, { wardrobe: false });
+        dining(k, r, [sw + 2.9, core.stair[1] + .2, ke - .2, lv0 - .2], 'u', 4);
+      },
+    });
+    else list.push({
       id: 'loft-1', rects: [[sw, 0, mid, lv0], [sw, lv0, l0, lv1]], entrance: [(sw + l0) / 2, lv1], baths: [behindStair],
       furnish: (k, r) => {
         // kitchen on the party wall with loft 2, the lounge facing the back facade, the bed in
