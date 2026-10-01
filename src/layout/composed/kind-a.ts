@@ -226,7 +226,9 @@ function lofts(c: Composer, core: CoreBox, list: Loft[], galleryEnd = core.lifts
     if (gap >= 5) art(c, gallery, [(stops[i]! + stops[i + 1]!) / 2, g1 - .05], 'front', 1.4);
   }
   // the floor's bamboo enclosure between the stair and the lifts (E2), pictures on the columns
-  if (L.look === 'a') c.piece(gallery, { kind: 'plant', at: [(core.stair[2] + core.lifts[0]) / 2, lv1 + 1.2], size: [2.7, 1.1, 3.0], facing: 'front', fit: 'asm-e1-bamboo' });
+  // (between the back loft's doorway, mid-alcove, and the first lift's landing)
+  const doorEdge = (core.stair[2] + core.lifts[0]) / 2 + .7, liftKeep = core.lifts[0] + COMPOSED_CORE.lifts.column - .3;
+  if (L.look === 'a' && liftKeep - doorEdge >= 2.9) c.piece(gallery, { kind: 'plant', at: [(doorEdge + liftKeep) / 2, lv1 + .7], size: [2.7, 1.1, 3.0], facing: 'front', fit: 'asm-e1-bamboo' });
   art(c, gallery, [core.lifts[0] + .9, lv1 + .05], 'back', 1.2);
   art(c, gallery, [l1 - .9, lv1 + .05], 'back', 1.2);
   return gallery;
