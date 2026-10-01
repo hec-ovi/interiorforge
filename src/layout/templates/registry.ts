@@ -8,8 +8,8 @@ import type { PublicSlot, SpaceTemplate, TemplateKey } from "./schema.js";
 export const TEMPLATES: ReadonlyMap<TemplateKey, SpaceTemplate> = new Map(
   (TEMPLATE_DATA as SpaceTemplate[]).map(template => [template.id, template]));
 
-/** Test and review switch: false plans every floor with its generic program alone. */
-export const templateSwitch = { enabled: true };
+export { templateSwitch } from './switch.js';
+import { templateSwitch } from './switch.js';
 
 /** The reference kind of a request (plan §2.2, `styles/reference/kinds.ts`). */
 export const templateKind = referenceKind;

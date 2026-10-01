@@ -4,6 +4,7 @@ import type { BuildingType, InteriorRequest, ReferenceKind, Tier } from '../../c
 import { referenceKind } from '../../styles/reference/kinds.js';
 import type { CorePlan } from '../core-plan.js';
 import { constructionPlate, shellWallDepth } from '../shell.js';
+import { templateSwitch } from '../templates/switch.js';
 import { makeFrame, type UvRect } from '../uv.js';
 
 /** The composed core of a reference-kind building: one stair against a side wall, opening on
@@ -36,6 +37,11 @@ export interface ComposedPlate {
 
 type CoreBlueprint = InteriorRequest['blueprint'];
 
+/** Composed floors are authored reference spaces like the space templates: switching the
+ *  templates off switches them off too, and a caller may keep the corridor planner and the
+ *  templates on a composable plate by switching this off. */
+export const composedSwitch = { enabled: true };
+
 /** Which kinds compose their floors. */
 const COMPOSED_KINDS: ReadonlySet<ReferenceKind> = new Set(['A', 'B', 'C', 'R']);
 
@@ -56,6 +62,7 @@ export function composedPlate(blueprint: CoreBlueprint, building: { type: Buildi
   const request = { building: { id: '', type: building.type, tier: building.tier ?? 'high_rich', ...(building.kind ? { kind: building.kind } : {}) },
     blueprint } as unknown as InteriorRequest;
   if (!building.tier && !building.kind) return null;
+  if (!composedSwitch.enabled || !templateSwitch.enabled) return null;
   const kind = referenceKind(request);
   if (!kind || !COMPOSED_KINDS.has(kind) || !COMPOSED_TYPES[kind]!.has(building.type)) return null;
   if (blueprint.floors.some(f => f.index >= 0 && !COMPOSED_FLOOR_KINDS[kind]!.has(f.kind))) return null;

@@ -406,8 +406,8 @@
           },
           "elevation": {
             "type": "number",
-            "minimum": 0,
-            "description": "base height above the floor; wall pieces hang, everything else stands at 0"
+            "minimum": -0.6,
+            "description": "base height above the floor; wall pieces hang, a piece standing in a level zone stands on its floor (a sunken pit's below 0), everything else stands at 0"
           },
           "fit": {
             "type": "string",

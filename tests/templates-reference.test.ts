@@ -6,6 +6,7 @@ import { idGen } from '../src/layout/rooms.js';
 import { uvRectCorners } from '../src/layout/uv.js';
 import { fitTemplate } from '../src/layout/templates/fit.js';
 import { TEMPLATES } from '../src/layout/templates/registry.js';
+import { composedSwitch } from '../src/layout/composed/core.js';
 import type { TemplateTarget } from '../src/layout/templates/schema.js';
 import { referenceFrontage } from '../src/layout/facade-plan.js';
 import type { UnitSizing } from '../src/layout/templates/registry.js';
@@ -112,8 +113,14 @@ async function kitRequest(family: string, tier: InteriorRequest['building']['tie
 
 const towers = new Map<string, GeneratedInterior>();
 beforeAll(async () => {
-  towers.set('A', await generate(await kitRequest('mirror-frame', 'high_rich'), { models: new Set() }));
-  towers.set('B', await generate(await kitRequest('balcony-grid', 'rich'), { models: new Set() }));
+  // the towers are planned by the templates, not composed floor by floor
+  composedSwitch.enabled = false;
+  try {
+    towers.set('A', await generate(await kitRequest('mirror-frame', 'high_rich'), { models: new Set() }));
+    towers.set('B', await generate(await kitRequest('balcony-grid', 'rich'), { models: new Set() }));
+  } finally {
+    composedSwitch.enabled = true;
+  }
 }, 300_000);
 
 describe('reference homes in a generated tower', () => {
