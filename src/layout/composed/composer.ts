@@ -40,7 +40,7 @@ export class Composer {
   /** pieces stood after every room is cut, so a piece can name any room */
   private readonly sealedRects: UvRect[] = [];
 
-  constructor(plate: readonly Point[], readonly floorIndex: number, private readonly ids: IdGen, readonly mirror = false) {
+  constructor(private readonly plate: readonly Point[], readonly floorIndex: number, private readonly ids: IdGen, readonly mirror = false) {
     const b = polygonBounds(plate as Point[]);
     this.W = b.w; this.D = b.d; this.U1 = b.x + b.w; this.V1 = b.z + b.d;
   }
@@ -85,7 +85,7 @@ export class Composer {
    *  it (the core). */
   room(id: string, kind: RoomKind, rects: readonly PlanRect[], opts: { style?: StyleId; unit?: string; role?: string;
     authored?: boolean; cut?: readonly UvRect[] } = {}): PlanRoom {
-    const shape = unionShape(rects.map(r => this.rect(r)), opts.cut ?? []);
+    const shape = unionShape(rects.map(r => this.rect(r)), opts.cut ?? [], this.plate);
     const room: PlanRoom = { id: `f${this.floorIndex}-${id}`, kind, rect: shape.rect, polygon: shape.polygon,
       ...(shape.holes?.length ? { holes: shape.holes } : {}), doors: [],
       ...(opts.style ? { style: opts.style } : {}), ...(opts.unit ? { unit: opts.unit } : {}),
@@ -187,10 +187,12 @@ function coversRect(room: PlanRoom, r: UvRect): boolean {
   return pts.every(p => inside(p, room.polygon!) && !(room.holes ?? []).some(h => inside(p, h)));
 }
 
-/** The footprint of the union of rectangles less the cut rectangles. */
-export function unionShape(rects: readonly UvRect[], cut: readonly UvRect[] = []): { rect: UvRect; polygon: Point[]; holes?: Point[][] } {
-  const us = [...new Set(rects.flatMap(r => [r.u, r.u + r.lu]).map(round))].sort((a, b) => a - b);
-  const vs = [...new Set(rects.flatMap(r => [r.v, r.v + r.lv]).map(round))].sort((a, b) => a - b);
+/** The footprint of the union of rectangles less the cut rectangles, inside `outline` (the
+ *  plate, whose chamfered or cut corners trim a room standing in them) when given. */
+export function unionShape(rects: readonly UvRect[], cut: readonly UvRect[] = [], outline?: readonly Point[]): { rect: UvRect; polygon: Point[]; holes?: Point[][] } {
+  const ob = outline ? polygonBounds(outline as Point[]) : null;
+  const us = [...new Set([...rects.flatMap(r => [r.u, r.u + r.lu]), ...(ob ? [ob.x, ob.x + ob.w] : [])].map(round))].sort((a, b) => a - b);
+  const vs = [...new Set([...rects.flatMap(r => [r.v, r.v + r.lv]), ...(ob ? [ob.z, ob.z + ob.d] : [])].map(round))].sort((a, b) => a - b);
   const box: UvRect = { u: us[0]!, v: vs[0]!, lu: us.at(-1)! - us[0]!, lv: vs.at(-1)! - vs[0]! };
   const missing: UvRect[] = [];
   for (let i = 0; i + 1 < us.length; i++) for (let j = 0; j + 1 < vs.length; j++) {
@@ -198,8 +200,8 @@ export function unionShape(rects: readonly UvRect[], cut: readonly UvRect[] = []
     if (!rects.some(r => cu > r.u && cu < r.u + r.lu && cv > r.v && cv < r.v + r.lv))
       missing.push({ u: us[i]!, v: vs[j]!, lu: us[i + 1]! - us[i]!, lv: vs[j + 1]! - vs[j]! });
   }
-  const outline: Point[] = [[box.u, box.v], [box.u + box.lu, box.v], [box.u + box.lu, box.v + box.lv], [box.u, box.v + box.lv]];
-  const shapes = new RoomRegion(outline).subtract([...missing, ...cut]);
+  const region: Point[] = outline ? [...outline] as Point[] : [[box.u, box.v], [box.u + box.lu, box.v], [box.u + box.lu, box.v + box.lv], [box.u, box.v + box.lv]];
+  const shapes = new RoomRegion(region).subtract([...missing, ...cut]);
   if (shapes.length !== 1) throw new Error(`composed room splits into ${shapes.length} parts`);
   const shape = shapes[0]!;
   const polygon = isCcw(shape.polygon!) ? shape.polygon! : [...shape.polygon!].reverse();

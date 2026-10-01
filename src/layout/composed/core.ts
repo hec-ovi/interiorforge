@@ -20,6 +20,10 @@ export const COMPOSED_CORE = {
   lifts: { back: 8.2, depth: 4.5, column: 1.8, widths: [3.9, 3.5] as const },
   /** the smallest plate a composed floor plans */
   minPlate: 26,
+  /** the share of its bounding rectangle a plate with cut corners must fill */
+  minFill: .96,
+  /** how far a cut corner may reach along either side */
+  maxCorner: 3.2,
 } as const;
 
 export interface ComposedPlate {
@@ -63,11 +67,23 @@ export function composedPlate(blueprint: CoreBlueprint, building: { type: Buildi
   const box = plates[0]!;
   if (box.w < COMPOSED_CORE.minPlate || box.d < COMPOSED_CORE.minPlate) return null;
   if (plates.some(p => Math.abs(p.x - box.x) + Math.abs(p.z - box.z) + Math.abs(p.w - box.w) + Math.abs(p.d - box.d) > .01)) return null;
-  // every floor's plate must be the rectangle itself, not a notched or rounded outline
+  // every floor's plate is the rectangle itself or one whose corners are cut back a little
+  // (chamfered or rounded); a notched, stepped or courtyard plate keeps the corridor planner
   const area = (pts: Point[]) => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]!; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
-  if (blueprint.floors.some(f => Math.abs(area(constructionPlate(f, frame, shellWallDepth(blueprint.facade))) - box.w * box.d) > .05)) return null;
+  if (blueprint.floors.some(f => {
+    const plate = constructionPlate(f, frame, shellWallDepth(blueprint.facade));
+    return area(plate) < box.w * box.d * COMPOSED_CORE.minFill || !cornersOnly(plate, box);
+  })) return null;
   // kind B stands its stair against the other wall, so its plans read mirrored
   return { kind, box, mirror: kind === 'B' };
+}
+
+/** Whether every vertex off the bounding rectangle's corners lies within a cut corner's reach of
+ *  one, and every side of the rectangle is met along most of its length. */
+function cornersOnly(plate: readonly Point[], box: { x: number; z: number; w: number; d: number }): boolean {
+  const corners: Point[] = [[box.x, box.z], [box.x + box.w, box.z], [box.x + box.w, box.z + box.d], [box.x, box.z + box.d]];
+  return plate.every(p => corners.some(c => Math.abs(p[0] - c[0]) <= COMPOSED_CORE.maxCorner + .01 && Math.abs(p[1] - c[1]) <= COMPOSED_CORE.maxCorner + .01)
+    || Math.abs(p[0] - box.x) < .01 || Math.abs(p[0] - box.x - box.w) < .01 || Math.abs(p[1] - box.z) < .01 || Math.abs(p[1] - box.z - box.d) < .01);
 }
 
 /** The frame a composed building plans in: the main entrance's facade edge. */
