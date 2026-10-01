@@ -2,7 +2,7 @@ import type { PlanRoom } from '../plan-types.js';
 import type { Composer, PlanRect, Side } from './composer.js';
 import type { Composed, CoreBox } from './kind-a.js';
 import { conversation } from './kind-a.js';
-import { art, dining, plant } from './kits.js';
+import { art, dining, mechanical, plant, storage } from './kits.js';
 
 /** Kind R, the rich office building, and the office floors of every composed kind. The floor
  *  is one open office around the core; only toilets and the service room are closed, meeting
@@ -95,12 +95,12 @@ export function groundR(c: Composer, core: CoreBox, plate: readonly [number, num
   const [l0, , l1, lv1] = core.lifts;
   const sw = core.stair[2];
   const mech = c.room('mechanical', 'mechanical_room', [[0, 0, 7, core.stair[1]]], { style: 'r1' });
-  const storage = c.room('stores', 'storage', [[7, 0, 11.5, 4.3]], { style: 'r1' });
+  const stores = c.room('stores', 'storage', [[7, 0, 11.5, 4.3]], { style: 'r1' });
   const toilets = c.room('toilets', 'toilets', [[W - 7, 0, W, 4.6]], { style: 'r1', authored: false });
   const meeting = c.room('meeting', 'meeting', [[W - 9.5, D - 9, W, D]], { style: 'r1' });
   const hall = c.remainder('lobby', 'elevator_lobby', plate, core.cut, { style: 'r1' });
   c.door(mech, hall, [(sw + 7) / 2, core.stair[1]], 1.2);
-  c.door(storage, hall, [9.25, 4.3], 1.2);
+  c.door(stores, hall, [9.25, 4.3], 1.2);
   c.door(toilets, hall, [W - 5.5, 4.6], 1.0);
   c.door(meeting, hall, [W - 9.5, D - 4.5], 1.6);
   // reception facing the entrance, set back on its axis
@@ -120,12 +120,8 @@ export function groundR(c: Composer, core: CoreBox, plate: readonly [number, num
   c.piece(meeting, { kind: 'meeting_table', at: [mu, mv], size: [2.8, 1.2, .75], facing: 'left' });
   for (const t of [-1, 0, 1]) for (const s of [-1, 1]) c.piece(meeting, { kind: 'chair', at: [mu + s * .95, mv + t * .85], size: [.5, .5, .9], facing: s < 0 ? 'right' : 'left' });
   // services
-  c.piece(mech, { kind: 'shelf', at: [6.73, 1.15], size: [1.8, .5, 2.2], facing: 'left', fit: 'fit-open-switchboard' });
-  c.piece(mech, { kind: 'room_divider', at: [6.73, 3.3], size: [2.4, .5, 2.0], facing: 'left', fit: 'fit-industrial-ventilation-bank' });
-  c.piece(mech, { kind: 'gym_machine', at: [2.6, 1.7], size: [2.8, 1.25, 2.25], facing: 'front', fit: 'fit-open-pump-skid' });
-  c.piece(storage, { kind: 'shelf', at: [9.25, .3], size: [1.8, .5, 2.0], facing: 'front', fit: 'fit-industrial-storage-rack' });
-  c.piece(storage, { kind: 'shelf', at: [11.23, 2.4], size: [1.8, .5, 2.0], facing: 'left', fit: 'fit-industrial-storage-rack' });
-  c.piece(storage, { kind: 'crate', at: [7.5, 2.0], size: [.62, .62, .55], facing: 'right', fit: 'fit-industrial-transit-case' });
+  mechanical(c, mech, [0, 0, 7, core.stair[1]], 'back');
+  storage(c, stores, [7, 0, 11.5, 4.3], 'back');
   return { rooms: c.rooms, rearLanding: true };
 }
 

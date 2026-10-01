@@ -161,3 +161,42 @@ export function plant(c: Composer, room: PlanRoom, at: readonly [number, number]
 export function art(c: Composer, room: PlanRoom, at: readonly [number, number], wall: Side, width = 1.4): void {
   c.piece(room, { kind: 'wall_art', at, size: [width, .06, .9], facing: opposite(wall), elevation: 1.3 });
 }
+
+/** A plant room fitted round its walls, its door in the wall opposite `back`: the switchboard
+ *  and the drive bank along the back wall, the air handling on one side wall, the pump skid in
+ *  the middle where the room is deep enough, a tool counter with the status screen and a parts
+ *  shelf over it on the other side wall, transit cases by it. */
+export function mechanical(c: Composer, room: PlanRoom, zone: PlanRect, back: Side): void {
+  const f = new Frame(zone, back);
+  const lo = f.along0 + .15, hi = f.along1 - .15;
+  c.piece(room, { kind: 'shelf', at: f.at(lo + .9, .27), size: [1.8, .5, 2.2], facing: opposite(back), fit: 'fit-open-switchboard' });
+  if (hi - lo >= 5.2) c.piece(room, { kind: 'ornament_wall', at: f.at(lo + 1.95 + 1.5, .27), size: [3.0, .5, 2.0], facing: opposite(back), fit: 'fit-industrial-drive-bank' });
+  // the side walls: air handling at the low end, the tool counter at the high end
+  const side = (end: 'low' | 'high', d: number, len: number, off = .27) => {
+    const a = end === 'low' ? f.along0 + off : f.along1 - off;
+    return { at: f.at(a, d), facing: end === 'low' ? f.highSide : f.lowSide, len };
+  };
+  if (f.depth >= 3.6) {
+    const air = side('low', Math.min(f.depth - 1.4, 1.0 + 1.25), 2.4);
+    c.piece(room, { kind: 'room_divider', at: air.at, size: [2.4, .5, 2.0], facing: air.facing, fit: 'fit-industrial-ventilation-bank' });
+    const bench = side('high', 1.0 + 1.0, 2.0, .37);
+    c.piece(room, { kind: 'counter', at: bench.at, size: [2.0, .7, .9], facing: bench.facing, fit: 'fit-industrial-tool-counter' });
+    c.piece(room, { kind: 'display_screen', at: side('high', 2.0, 1.2, .05).at, size: [1.2, .08, .7], facing: bench.facing, fit: 'wall-screen-industrial-status', elevation: 1.45 });
+  }
+  if (f.depth >= 4.2 && f.length >= 6.5) c.piece(room, { kind: 'gym_machine', at: f.at(f.mid + .4, Math.min(f.depth - 1.6, 2.2)), size: [2.8, 1.25, 2.25], facing: opposite(back), fit: 'fit-open-pump-skid' });
+  for (const k of [0, 1]) c.piece(room, { kind: 'crate', at: f.at(hi - .4 - k * .7, f.depth - .5), size: [.62, .62, .55], facing: back, fit: 'fit-industrial-transit-case' });
+}
+
+/** A store fitted round its walls, its door in the wall opposite `back`: the long labelled
+ *  rack on the back wall, steel racks on the side walls, lockers by the door, cases. */
+export function storage(c: Composer, room: PlanRoom, zone: PlanRect, back: Side): void {
+  const f = new Frame(zone, back);
+  if (f.length >= 5.0) c.piece(room, { kind: 'shelf', at: f.at(f.mid, .47), size: [4.6, .9, 2.5], facing: opposite(back), fit: 'fit-open-store-rack' });
+  else c.piece(room, { kind: 'shelf', at: f.at(f.mid, .27), size: [1.8, .5, 2.0], facing: opposite(back), fit: 'fit-industrial-storage-rack' });
+  if (f.depth >= 3.2) {
+    c.piece(room, { kind: 'shelf', at: f.at(f.along0 + .27, 2.0), size: [1.8, .5, 2.0], facing: f.highSide, fit: 'fit-industrial-storage-rack' });
+    c.piece(room, { kind: 'wardrobe', at: f.at(f.along1 - .35, 1.7), size: [1.6, .65, 2.0], facing: f.lowSide, fit: 'fit-industrial-lockers' });
+  }
+  for (const [a, d] of [[f.mid - .4, 1.6], [f.mid + .35, 1.6], [f.mid - .05, 2.3]] as const)
+    if (d < f.depth - 1.0) c.piece(room, { kind: 'crate', at: f.at(a, d), size: [.62, .62, .55], facing: back, fit: 'fit-industrial-transit-case' });
+}

@@ -3,7 +3,7 @@ import type { PlanRoom } from '../plan-types.js';
 import type { UvRect } from '../uv.js';
 import type { Composer, PlanRect, Side } from './composer.js';
 import { COMPOSED_CORE } from './core.js';
-import { art, bathroom, bedroom, dining, kitchen, lounge, plant, study } from './kits.js';
+import { art, bathroom, bedroom, dining, kitchen, lounge, mechanical, opposite, plant, storage, study } from './kits.js';
 
 /** Kind A, the high-tech tower, composed floor by floor in plan terms (u from the user's left
  *  wall, v from the back wall; see composer.ts). The ground floor is the user's plan; the
@@ -27,7 +27,7 @@ export function coreBox(c: Composer, cut: UvRect[]): CoreBox {
 /** The look a composed home floor wears: its furniture family and the styles of its private
  *  and public rooms. Kind A by default; kinds B and C dress the same plans their own way. */
 export interface HomeLook { look: 'a' | 'b' | 'c' | 'r'; home: StyleId; bath: StyleId; common: StyleId }
-export const LOOK_A: HomeLook = { look: 'a', home: 'e1', bath: 'e1', common: 'e2' };
+export const LOOK_A: HomeLook = { look: 'a', home: 'e1', bath: 'e1', common: 'e1' };
 export const LOOK_R: HomeLook = { look: 'r', home: 'r1', bath: 'r1', common: 'r1' };
 let L: HomeLook = LOOK_A;
 /** Sets the look the next composition wears (one floor is composed at a time). */
@@ -51,7 +51,7 @@ export function groundA(c: Composer, core: CoreBox, plate: readonly [number, num
   const [, , liftR] = core.lifts;
   const xm = 8 * s, xs = xm + 6 * s, xg = xs + 6 * s, xt = W - 8;
   const mech = c.room('mechanical', 'mechanical_room', [[0, 0, xm, core.stair[1]]], { style: 'e2' });
-  const storage = c.room('stores', 'storage', [[xm, 0, xs, 4.3]], { style: 'e2' });
+  const stores = c.room('stores', 'storage', [[xm, 0, xs, 4.3]], { style: 'e2' });
   const meeting = c.room('meeting', 'meeting', [[xs, 0, xg, 4.5]], { style: 'e1' });
   const toilets = c.room('toilets', 'toilets', [[xg, 0, xt, 4.5]], { style: 'e1', authored: false });
   const small = c.room('small-lounge', 'lounge', [[0, D - 12, 6, D]], { style: 'e1' });
@@ -59,7 +59,7 @@ export function groundA(c: Composer, core: CoreBox, plate: readonly [number, num
   const hall = c.remainder('lobby', 'elevator_lobby', plate, core.cut, { style: 'e1' });
 
   c.door(mech, hall, [(core.stair[2] + xm) / 2, core.stair[1]], 1.2);
-  c.door(storage, hall, [(xm + xs) / 2, 4.3], 1.2);
+  c.door(stores, hall, [(xm + xs) / 2, 4.3], 1.2);
   c.door(meeting, hall, [(xs + xg) / 2, 4.5], 1.6);
   c.door(toilets, hall, [xg + 1.2, 4.5], 1.0);
   c.door(small, hall, [6, D - 6], 2.4);
@@ -88,9 +88,14 @@ export function groundA(c: Composer, core: CoreBox, plate: readonly [number, num
   const dv = D - 12.6;
   c.piece(hall, { kind: 'reception_desk', at: [10.85, dv], size: [6.1, 2.0, 1.12], facing: 'front', fit: 'fit-open-concierge' });
   for (const du of [-1.6, 1.6]) c.piece(hall, { kind: 'office_chair', at: [10.85 + du, dv - 1.5], size: [.65, .65, 1.1], facing: 'front' });
-  // planting either side of the entrance axis, benches along the lounge glass
-  plant(c, hall, [7.4, D - 1.2], true);
-  plant(c, hall, [18.6, D - 1.2], true);
+  // bamboo enclosures either side of the arrival (E2), benches along the lounge glass
+  c.piece(hall, { kind: 'plant', at: [8.0, D - 3.2], size: [2.7, 1.1, 3.0], facing: 'right', fit: 'asm-e1-bamboo' });
+  c.piece(hall, { kind: 'plant', at: [18.0, D - 3.2], size: [2.7, 1.1, 3.0], facing: 'left', fit: 'asm-e1-bamboo' });
+  plant(c, hall, [7.4, D - .8], true);
+  plant(c, hall, [18.6, D - .8], true);
+  // pictures on the lift core's columns, either side of the landing
+  art(c, hall, [core.lifts[0] + .9, core.lifts[3] + .05], 'back', 1.2);
+  art(c, hall, [core.lifts[2] - .9, core.lifts[3] + .05], 'back', 1.2);
   c.piece(hall, { kind: 'bench', at: [6.35, D - 9.5], size: [1.8, .45, .45], facing: 'right' });
   c.piece(hall, { kind: 'bench', at: [W - 14.35, D - 9.5], size: [1.8, .45, .45], facing: 'left' });
   // a seating bay between the stair and the lift core, art on the stair wall
@@ -120,19 +125,9 @@ export function groundA(c: Composer, core: CoreBox, plate: readonly [number, num
   }
   c.piece(meeting, { kind: 'display_screen', at: [xs + .06, 2.1], size: [1.6, .08, .9], facing: 'right', elevation: 1.2 });
 
-  // mechanical room: switchboard and air handling on the party wall, pump skid in the middle,
-  // drive bank on the far wall, transit cases
-  c.piece(mech, { kind: 'shelf', at: [xm - .27, 1.15], size: [1.8, .5, 2.2], facing: 'left', fit: 'fit-open-switchboard' });
-  c.piece(mech, { kind: 'room_divider', at: [xm - .27, 3.3], size: [2.4, .5, 2.0], facing: 'left', fit: 'fit-industrial-ventilation-bank' });
-  c.piece(mech, { kind: 'gym_machine', at: [3.4, 1.7], size: [2.8, 1.25, 2.25], facing: 'front', fit: 'fit-open-pump-skid' });
-  c.piece(mech, { kind: 'crate', at: [.6, 3.9], size: [.62, .62, .55], facing: 'right', fit: 'fit-industrial-transit-case' });
-  c.piece(mech, { kind: 'crate', at: [1.35, 3.9], size: [.62, .62, .55], facing: 'right', fit: 'fit-industrial-transit-case' });
-
-  // storage: a long rack on the back wall, steel racks on the side wall, cases
-  c.piece(storage, { kind: 'shelf', at: [(xm + xs) / 2, .47], size: [4.6, .9, 2.5], facing: 'front', fit: 'fit-open-store-rack' });
-  c.piece(storage, { kind: 'shelf', at: [xs - .27, 2.4], size: [1.8, .5, 2.0], facing: 'left', fit: 'fit-industrial-storage-rack' });
-  c.piece(storage, { kind: 'crate', at: [xm + .5, 2.2], size: [.62, .62, .55], facing: 'right', fit: 'fit-industrial-transit-case' });
-  c.piece(storage, { kind: 'crate', at: [xm + .5, 2.9], size: [.62, .62, .55], facing: 'right', fit: 'fit-industrial-transit-case' });
+  // the plant room and the stores, fitted round their walls
+  mechanical(c, mech, [0, 0, xm, core.stair[1]], 'back');
+  storage(c, stores, [xm, 0, xs, 4.3], 'back');
   void toilets;
   return { rooms: c.rooms, rearLanding: true };
 }
@@ -187,12 +182,40 @@ function lofts(c: Composer, core: CoreBox, list: Loft[]): PlanRoom {
     }
     c.door(room, gallery, loft.entrance, 1.6);
     loft.furnish(c, room);
+    // the arrival: a bench under a picture on the entrance wall beside the door, a plant
+    const wall = entryWall(loft);
+    const along = wall === 'back' || wall === 'front';
+    for (const side of [1, -1]) {
+      const [eu, ev] = loft.entrance;
+      const a = (along ? eu : ev) + side * 2.0, d = .3;
+      const at: [number, number] = along ? [a, wall === 'back' ? ev + d : ev - d] : [wall === 'left' ? eu + d : eu - d, a];
+      const before = room.authored!.length;
+      c.piece(room, { kind: 'bench', at, size: [1.4, .45, .45], facing: opposite(wall) });
+      art(c, room, along ? [a, wall === 'back' ? ev + .05 : ev - .05] : [wall === 'left' ? eu + .05 : eu - .05, a], wall, 1.2);
+      if (room.authored!.length > before) break;
+    }
   }
   plant(c, gallery, [core.stair[2] + .6, lv1 + .6], true);
   plant(c, gallery, [l1 - .6, g1 - .6], true);
   c.piece(gallery, { kind: 'bench', at: [(core.lifts[0] + l1) / 2, g1 - .35], size: [2.4, .5, .45], facing: 'back' });
   art(c, gallery, [core.stair[2] / 2, g1 - .05], 'front', 1.6);
+  // the floor's bamboo enclosure between the stair and the lifts (E2), pictures on the columns
+  if (L.look === 'a') c.piece(gallery, { kind: 'plant', at: [(core.stair[2] + core.lifts[0]) / 2, lv1 + 1.2], size: [2.7, 1.1, 3.0], facing: 'front', fit: 'asm-e1-bamboo' });
+  art(c, gallery, [core.lifts[0] + .9, lv1 + .05], 'back', 1.2);
+  art(c, gallery, [l1 - .9, lv1 + .05], 'back', 1.2);
   return gallery;
+}
+
+/** The side of its room the loft's entrance wall is: the gallery lies across it. */
+function entryWall(loft: Loft): Side {
+  const [eu, ev] = loft.entrance;
+  for (const [u0, v0, u1, v1] of loft.rects) {
+    if (Math.abs(ev - v0) < .01 && eu > u0 && eu < u1) return 'back';
+    if (Math.abs(ev - v1) < .01 && eu > u0 && eu < u1) return 'front';
+    if (Math.abs(eu - u0) < .01 && ev > v0 && ev < v1) return 'left';
+    if (Math.abs(eu - u1) < .01 && ev > v0 && ev < v1) return 'right';
+  }
+  return 'back';
 }
 
 /** A front-band loft from u0 to u1 between the gallery line and the facade: its bath in one
@@ -229,6 +252,10 @@ function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number,
         dining(k, r, [du - 1.6, kv0 + 1.0, du + 1.6, kv0 + 5.0], 'v', 6);
       }
       plant(k, r, [party === 'left' ? u1 - .6 : u0 + .6, g1 + (bathOnParty ? .7 : bd + .7)], true);
+      // a study on the outer facade between the arrival and the lounge, looking out
+      const outer: Side = party === 'left' ? 'right' : 'left';
+      const sv0 = bathOnParty ? g1 + 1.6 : g1 + bd + .4, sv1 = Math.min(D - 7.0, sv0 + 5.2);
+      if (sv1 - sv0 >= 3.6) study(k, r, outer === 'left' ? [u0, sv0, u0 + 3.0, sv1] : [u1 - 3.0, sv0, u1, sv1], outer, L.look);
     },
   };
 }

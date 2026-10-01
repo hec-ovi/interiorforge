@@ -35,7 +35,7 @@ function seedOffset(seed: string): number {
 export function composedTurns(request: InteriorRequest, kind: FloorKind): number {
   if (!composedPlate(request.blueprint, request.building)) return 1;
   const plate = composedPlate(request.blueprint, request.building)!;
-  return kind === 'apartment' || kind === 'residence_studio' ? (plate.kind === 'C' ? 2 : 3) : kind === 'office' || kind === 'corpo_office' ? OFFICE_TYPES.length : 1;
+  return kind === 'apartment' || kind === 'residence_studio' ? (plate.kind === 'C' || plate.kind === 'B' ? 2 : 3) : kind === 'office' || kind === 'corpo_office' ? OFFICE_TYPES.length : 1;
 }
 
 /** A whole floor composed from its kind's plan, or null where the generic planner keeps it. */
@@ -61,6 +61,7 @@ export function planComposedFloor(request: InteriorRequest, floor: BlueprintFloo
     : composed.kind === 'R'
     ? (kind === 'lobby' ? groundR(c, box, plate as [number, number][], entrance)
       : officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!))
+    : composed.kind === 'B' ? (floor.index === top || floor.index % 2 === 0 ? crownA(c, box) : typicalA(c, box, 2))
     : kind === 'lobby' ? groundA(c, box, plate as [number, number][])
     : office ? officeR(c, box, plate as [number, number][], OFFICE_TYPES[(floor.index + seedOffset(String(request.seed))) % OFFICE_TYPES.length]!)
     : floor.index === top ? crownA(c, box)
