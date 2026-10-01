@@ -9,7 +9,16 @@ one core, UV room data, navigation grids and
 [circulation](schema/circulation.schema.json). The core considers every floor;
 selected floors alone receive room and content plans. Placements selects three.
 
-`coreFeasibility(blueprint, buildingType)` shares the placement recipe with `planCore`,
+A kind building on one rectangular plate (or one whose corners are cut back a little) at
+least 26 m on each side, whose floors are all lobby, homes or offices, is composed
+([composed/](composed/)): `composedCore` stands its
+stair against a side wall and its lift core of two through-car shafts between two columns
+in the middle, and `planComposedFloor` plans each lobby, home and office floor from its
+kind's plans in plan terms (metres from the user's left wall and the back wall), the open
+floor being what the other rooms and the core leave. Pieces stand where the plan puts them
+(`authoredOnly`), less any that would stand in a doorway, a landing or on another piece.
+
+`coreFeasibility(blueprint, buildingType, tier?)` shares the placement recipe with `planCore`,
 including its lift demand, so the published stair is the one a building of that type is
 furnished around. It returns
 [fit results](schema/core-feasibility.schema.json). Success includes the exact stair

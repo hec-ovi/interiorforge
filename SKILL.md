@@ -3,7 +3,7 @@ name: urbe-interior
 description: Generate shared Interior modules and reusable placement layouts from an assembled Exterior blueprint.
 ---
 
-# Interior 0.39.0
+# Interior 0.40.0
 
 Use this box to publish the room module kit once, then placement JSON per building.
 Run commands from Interior. The consumer supplies an assembled Exterior blueprint.

@@ -1,4 +1,4 @@
-# Interior 0.39.0
+# Interior 0.40.0
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
@@ -102,6 +102,58 @@ every home it can into a two-storey dwelling, as an `apartment-1702` pair does, 
 that converts none keeps its two storeys on the shared middle layout and records
 `{kind: 'living', requested: [15, 10], fitted: null}` in the upper floor's program.
 Explicit single-storey assignments keep every floor single.
+
+### Composed floors
+
+A kind building whose floors share one rectangular plate at least 26 m on each side (its corners
+may be cut back up to 3.2 m, a room standing in one trimmed by it), whose
+blueprint kinds are its lobby and its homes (`A`, `B`, `C`: residential) or offices (`R`), is
+planned floor by floor from its kind's plans ([composed/](src/layout/composed/)) instead of the
+corridor planner and the space templates. Plans are written as a person reads a plan walking in
+from the main entrance (metres from the left wall and from the back wall) and fit any such plate.
+The core is one stair, 4.5 by 10 m, against a side wall (the left, kind `B` the right) opening on
+its front face, and a lift core in the middle of the plate, 4.5 m deep: a 1.8 m column, two
+standard 3.5 m deep shafts 3.9 and 3.5 m wide whose landings stand in half-metre niches between
+the columns, a 1.8 m column. Every floor, the crown and the roof housing stand on it, and
+`coreFeasibility(blueprint, type, tier)` publishes it to Exterior when the blueprint names its
+architecture (a housing over a stair against the facade stands flush with it). The cars are
+through cars (`lift-car-through`): they open to the front on every floor and to the back
+(`lift-rear-doors`, `lift-car-rear-doors`, `lift-car-rear-head`) on floors whose plan keeps the
+back of the core public; elsewhere the niche behind the shaft is sealed and the shaft's back
+lined solid. A building composes only when every floor's program is a lobby, homes or offices;
+`templateSwitch` (no templates, no composed floors) and `composedSwitch` (templates only) keep
+the corridor planner.
+
+Only toilets, stores, plant rooms, bathrooms and an office floor's service room are closed;
+meeting rooms and lounges are glass with an open doorway; everything else is open floor. The
+rooms of a floor and its core tile the plate, the open floor being what the other rooms leave.
+- Kind `A` ground: the lobby hall with the café bar (kitchen wall, counter, eight stools, café
+  tables) in the back corner and a loft office below it, the closed back row (plant, stores,
+  toilets) with the glass meeting room, a 6 m and a 14 m glass lounge flush with the side walls
+  and the facade, the front desk facing the entrance. Home floors: a gallery in front of the
+  stair and lifts from which three to five loft homes open, each one open room round a closed
+  bathroom with a built-in kitchen wall, island, dining, lounge, bed behind a glass bamboo
+  screen, a reading corner and wardrobes; three arrangements turn with the floor and the
+  building's seed. Crown: two penthouses round a sunken great-room lounge.
+- Kind `B` wears the same home plans in its own look on its own ground (a low lounge, a window
+  lounge, a raised bar, a dining table behind a lit planter, a salon behind glass); its homes
+  stay whole on their floors (no derived duplex). Kind `C`: an entry hall with caretaker, mail
+  bank, vending, kiosk and canteen counter, on a deep plate a public street front (a noodle bar
+  and a launderette) before studio homes off the hall; home floors packed as a poor block's,
+  back homes off the gallery, and on a deep plate windowless studios between the gallery and a
+  corridor joined to it by a passage, compact homes on the facade beyond it.
+- Kind `R` and office floors: the lobby with reception, security desk, waiting lounges, a long
+  shared table, the café bar and a boardroom for ten; office floors turn through four plan
+  types chosen per floor from the building's seed: an open loft floor of desk pods, a studio
+  round a glass meeting cluster, an executive floor with its boardroom and two corner suites,
+  a co-working floor round a big café. Nothing but the core meets a window wall: glass rooms
+  stand as islands in the open floor.
+Composed rooms publish `role` and their pieces `fit`; a piece that would stand in a doorway, a
+lift landing or the stair's mouth, or on another piece, and a hung piece over a doorway, are
+left out. A room may hold a level zone (the crown's sunken lounge, kind `B`'s raised bar), and a
+piece standing in one publishes the zone's `delta` as its `elevation` (negative in a pit, down
+to -0.6). A floor that is not a
+composed program, or a plate that is not one rectangle, keeps the corridor planner.
 
 ### Space templates
 
@@ -225,7 +277,8 @@ authored physical sizes. Family furniture publishes its own dimensions and diffu
 positions. Material UVs use the selected variant's physical repeat when present, then the
 entry's repeat; material maps stay shared outside the GLBs.
 
-Lift cars, the car's own front (`lift-car-doors`, `lift-car-head`), moving landing leaves,
+Lift cars (`lift-car`, or `lift-car-through` with a back pair of its own on a composed core),
+the car's own front (`lift-car-doors`, `lift-car-head`), moving landing leaves,
 stationary landing members and full-height shaft walls are separate modules. A lift shaft is
 3.5 m square and holds a 3.3 m car, about 3.07 m clear inside, with a 1.58 m clear doorway.
 The Engine owns cab movement and floor selection and reads the car's controls from
