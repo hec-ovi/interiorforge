@@ -74,6 +74,9 @@ export function groundC(c: Composer, core: CoreBox, plate: readonly [number, num
   // ground-floor homes either side of the entry hall, entered from the hall's band in front of
   // the core, the entry hall running from the street door to the lifts between them
   const g1 = core.lifts[3] + 4.0, a = Math.max(0, entrance - 6.0), b = Math.min(W, entrance + 6.0);
+  // on a deep plate the homes are studios off the hall and the street front is public: a
+  // noodle bar on one side of the entrance, the launderette on the other
+  const street = D - g1 >= 15, hv1 = street ? g1 + 9.0 : D;
   const homes: { room: PlanRoom; wet: PlanRoom; rect: PlanRect; wetRect: PlanRect; wetLeft: boolean }[] = [];
   const side = (u0: number, u1: number, from: number) => {
     const n = Math.max(1, Math.round((u1 - u0) / 6.5));
@@ -83,8 +86,8 @@ export function groundC(c: Composer, core: CoreBox, plate: readonly [number, num
       const wetLeft = (i + from) % 2 === 0, wetRect: PlanRect = wetLeft ? [h0, g1, h0 + 2.4, g1 + 2.8] : [h1 - 2.4, g1, h1, g1 + 2.8];
       const unit = `f${c.floorIndex}-home-${k}`;
       const wet = c.room(`wet-${k}`, 'bathroom', [wetRect], { style: 'c7', unit, authored: false });
-      const room = c.room(`home-${k}`, 'studio_main', [[h0, g1, h1, D]], { style: 'c7', unit, cut: [c.rect(wetRect)] });
-      homes.push({ room, wet, rect: [h0, g1, h1, D], wetRect, wetLeft });
+      const room = c.room(`home-${k}`, 'studio_main', [[h0, g1, h1, hv1]], { style: 'c7', unit, cut: [c.rect(wetRect)] });
+      homes.push({ room, wet, rect: [h0, g1, h1, hv1], wetRect, wetLeft });
     }
   };
   side(0, a, 1);
@@ -94,7 +97,8 @@ export function groundC(c: Composer, core: CoreBox, plate: readonly [number, num
     const [h0, , h1] = h.rect;
     c.door(h.wet, h.room, [h.wetLeft ? h0 + 2.4 : h1 - 2.4, g1 + 1.4], .8);
     c.door(h.room, hall, [h.wetLeft ? (h0 + 2.4 + h1) / 2 : (h0 + h1 - 2.4) / 2, g1], 1.0);
-    compactHome(c, h.room, [h0, g1 + 3.0, h1, D], 'front', h.wetLeft ? 'high' : 'low');
+    if (street) studioHome(c, h.room, [h0, g1, h1, hv1], h.wetLeft, 2.8);
+    else compactHome(c, h.room, [h0, g1 + 3.0, h1, D], 'front', h.wetLeft ? 'high' : 'low');
   }
   c.door(toilets, hall, [(sw + 7) / 2, core.stair[1]], 1.0);
   c.door(machine, hall, [10, 4.6], 1.2);
@@ -116,13 +120,38 @@ export function groundC(c: Composer, core: CoreBox, plate: readonly [number, num
   }
   c.piece(hall, { kind: 'bench', at: [l1 + 3.0, lv1 + 2.6], size: [2.2, .5, .45], facing: 'front' });
   c.piece(hall, { kind: 'shelf', at: [sw + .3, 12.0], size: [1.6, .45, 1.8], facing: 'right', fit: 'fit-damaged-community-shelf' });
-  // a notice board on the stair wall, the laundry under it: washers in a row, a folding table
+  // a notice board on the stair wall; the laundry under it, or on a deep plate at the street
   art(c, hall, [sw + .05, core.stair[1] + 2.5], 'left', 1.6);
-  for (let i = 0; i < 4; i++) c.piece(hall, { kind: 'fridge', at: [sw + .4, 8.2 + i * .75], size: [.7, .7, .9], facing: 'right' });
-  c.piece(hall, { kind: 'dining_table', at: [sw + 2.2, 9.3], size: [1.6, .8, .9], facing: 'left' });
-  // waiting benches along the entry hall's sides, bins by the kiosk
-  c.piece(hall, { kind: 'bench', at: [a + .35, D - 6.0], size: [2.0, .45, .45], facing: 'right' });
-  c.piece(hall, { kind: 'bench', at: [b - .35, D - 6.0], size: [2.0, .45, .45], facing: 'left' });
+  if (street) {
+    // the noodle bar on the street left of the entrance: the cook's counter on the side wall, a
+    // bar with stools before it, tables for two by the window
+    if (a >= 7) {
+      kitchen(c, hall, [0, hv1 + .6, 5.0, D - .6], 'left', 'c', { island: true });
+      for (const t of [0, 1]) {
+        const tu = 5.8 + t * 2.0, tv = D - 1.2;
+        if (tu + .9 < a - .4) {
+          c.piece(hall, { kind: 'dining_table', at: [tu, tv], size: [.8, .8, .75], facing: 'front' });
+          for (const s of [-1, 1]) c.piece(hall, { kind: 'chair', at: [tu + s * .62, tv], size: [.45, .45, .88], facing: s < 0 ? 'right' : 'left' });
+        }
+      }
+    }
+    // the launderette on the street right of it: washers along the side wall, a folding table, a bench
+    if (W - b >= 6) {
+      const n = Math.min(8, Math.floor((D - hv1 - 1.2) / .75));
+      for (let i = 0; i < n; i++) c.piece(hall, { kind: 'fridge', at: [W - .4, hv1 + .9 + i * .75], size: [.7, .7, .9], facing: 'left' });
+      c.piece(hall, { kind: 'dining_table', at: [W - 2.6, (hv1 + D) / 2], size: [.8, 1.8, .9], facing: 'left' });
+      c.piece(hall, { kind: 'bench', at: [b + .35, (hv1 + D) / 2], size: [2.0, .45, .45], facing: 'right' });
+      c.piece(hall, { kind: 'display_rack', at: [W - 4.2, D - .5], size: [1.0, .8, 2.0], facing: 'back', fit: 'fit-c1-vending' });
+    }
+  } else {
+    for (let i = 0; i < 4; i++) c.piece(hall, { kind: 'fridge', at: [sw + .4, 8.2 + i * .75], size: [.7, .7, .9], facing: 'right' });
+    c.piece(hall, { kind: 'dining_table', at: [sw + 2.2, 9.3], size: [1.6, .8, .9], facing: 'left' });
+  }
+  // waiting benches along the entry hall's sides
+  if (!street) {
+    c.piece(hall, { kind: 'bench', at: [a + .35, D - 6.0], size: [2.0, .45, .45], facing: 'right' });
+    c.piece(hall, { kind: 'bench', at: [b - .35, D - 6.0], size: [2.0, .45, .45], facing: 'left' });
+  }
   plant(c, hall, [a + .7, D - .7]); plant(c, hall, [b - .7, D - .7]);
   // machine room and stores
   mechanical(c, machine, [7, 0, 13, 4.6], 'back');
@@ -219,7 +248,7 @@ export function typicalC(c: Composer, core: CoreBox, variant: number): Composed 
 /** A windowless studio between the gallery and the corridor, laid from its door: the wet cell
  *  in one corner by the door, the kitchenette on the other wall beside the door, a table for
  *  two, the bed along the far wall with its bedside table, a wardrobe and a screen. */
-function studioHome(c: Composer, room: PlanRoom, rect: PlanRect, wetLeft: boolean): void {
+function studioHome(c: Composer, room: PlanRoom, rect: PlanRect, wetLeft: boolean, wetDepth = 2.6): void {
   const [u0, v0, u1, v1] = rect;
   const kitWall: 'left' | 'right' = wetLeft ? 'right' : 'left', ku = kitWall === 'right' ? u1 : u0, inK = kitWall === 'right' ? -1 : 1;
   const wu = wetLeft ? u0 : u1, inW = wetLeft ? 1 : -1, toKit = kitWall === 'right' ? 'right' : 'left', toWet = wetLeft ? 'left' : 'right';
@@ -229,7 +258,7 @@ function studioHome(c: Composer, room: PlanRoom, rect: PlanRect, wetLeft: boolea
   // the bed along the far wall, its head on the wet cell's side, a bedside table and a shelf
   c.piece(room, { kind: 'bed_double', at: [wu + inW * 1.15, v1 - .9], size: [1.6, 2.1, .5], facing: toKit });
   c.piece(room, { kind: 'low_table', at: [wu + inW * .3, v1 - 2.0], size: [.45, .45, .5], facing: toKit });
-  c.piece(room, { kind: 'shelf', at: [wu + inW * .25, v0 + 3.15], size: [1.0, .4, 1.8], facing: toKit });
+  c.piece(room, { kind: 'shelf', at: [wu + inW * .25, v0 + wetDepth + .55], size: [1.0, .4, 1.8], facing: toKit });
   // a table for two in the middle, a screen on the far wall
   const mu = (u0 + u1) / 2;
   c.piece(room, { kind: 'dining_table', at: [mu, v0 + 3.6], size: [.8, .8, .75], facing: 'front' });
@@ -267,6 +296,6 @@ function compactHome(c: Composer, room: PlanRoom, zone: PlanRect, window: 'back'
   c.piece(room, { kind: 'dining_table', at: [tu, at(k0 - .9)], size: [.8, .8, .75], facing: 'front' });
   for (const t of [-1, 1]) c.piece(room, { kind: 'chair', at: [tu + t * .62, at(k0 - .9)], size: [.45, .45, .88], facing: t < 0 ? 'right' : 'left' });
   c.piece(room, { kind: 'wardrobe', at: [bedWall === 'left' ? u0 + .3 : u1 - .3, at(depth - 1.4)], size: [1.6, .6, 2.0], facing: facing(bedWall) });
-  c.piece(room, { kind: 'shelf', at: [bedWall === 'left' ? u0 + .25 : u1 - .25, at(mid + 1.6)], size: [.8, .4, 1.8], facing: facing(bedWall) });
+  if (mid + 2.0 <= depth - 2.2) c.piece(room, { kind: 'shelf', at: [bedWall === 'left' ? u0 + .25 : u1 - .25, at(mid + 1.6)], size: [.8, .4, 1.8], facing: facing(bedWall) });
   void inward; void bathroom;
 }
