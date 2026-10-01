@@ -4,6 +4,7 @@ import type { FloorPlacement, GeneratedInterior } from '../src/placements/types.
 import { moduleRecipes } from '../src/modules/recipes.js';
 import { loadTheme } from '../src/materials/load.js';
 import { TEMPLATES } from '../src/layout/templates/registry.js';
+import { composedSwitch } from '../src/layout/composed/core.js';
 import { CEILINGS, FLOORS, GLAZING, PANELS, PORTALS, STYLES } from '../src/styles/reference/registry.js';
 import { CHEST, PLANT, TOWER } from '../src/styles/ref-r/furniture.js';
 import { kind } from '../src/styles/ref-r/index.js';
@@ -115,13 +116,15 @@ describe('a kind R office building', () => {
     const built = new Map<string, { result: GeneratedInterior; blueprint: Blueprint }>();
     beforeAll(async () => {
         const { planAssembly } = await import(new URL('../../exterior/src/index.ts', import.meta.url).href);
-        for (const { lot, deg } of cases) {
+        // the R1 suite is fitted by its template, not a composed office floor
+        composedSwitch.enabled = false;
+        try { for (const { lot, deg } of cases) {
             const plan = planAssembly({ buildingId: 'r1', family: 'mirror-frame', seed: 'interior-proof', lot: { width: lot[0], depth: lot[1] },
                 floors: 4, floorHeight: 3.6 });
             const blueprint = rotateBlueprint(plan.blueprint, deg);
             const request: InteriorRequest = { seed: 'interior-proof', building: { id: 'r1', type: 'offices', tier: 'rich' }, blueprint, materialTheme: 'cyberpunk' };
             built.set(`${lot.join('x')}@${deg}`, { result: await generate(request, { models: new Set() }), blueprint });
-        }
+        } } finally { composedSwitch.enabled = true; }
     }, 240000);
 
     for (const { lot, deg } of cases) it(`fits the executive suite on the ${lot.join(' x ')} lot at ${deg} degrees`, () => {

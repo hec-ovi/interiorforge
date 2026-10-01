@@ -149,7 +149,12 @@ export function walls(
     const publicKinds = new Set<RoomKind>(['reception', 'lounge', 'corridor', 'elevator_lobby', 'concourse', 'dining_area', 'bar', 'living', 'studio_main']);
     // A doorway in a glass partition keeps the glass's own slim casing: an arched portal there
     // stood wider than its frame and left the glass short of it on both sides.
-    const glassDoor = (peers: Run[]) => peers.some(r => GLAZED_ROOMS.has(r.kind)) && peers.some(r => GLAZED_ONTO.has(r.kind));
+    const glassDoor = (peers: Run[]) => peers.some(run => {
+        const finish = finishOf(run.room, run.kind), glass = finish.glazing ? GLAZING.get(finish.glazing) : undefined;
+        const legacy = finish.family === 'luxury' || finish.family === 'corporate' || !!finish.frame;
+        return peers.some(other => other !== run && (glass ? glass.rooms.includes(run.kind) && glass.onto.includes(other.kind)
+            : legacy && GLAZED_ROOMS.has(run.kind) && GLAZED_ONTO.has(other.kind)));
+    });
     const portal = (l: Line, h: WallHole): boolean => {
         if (l.boundary || h.y0 !== 0 || h.width < 1.2 || h.y1 < 1.9
             || height < h.y1 + PUBLIC_PORTAL.radius + PUBLIC_PORTAL.band + .01) return false;

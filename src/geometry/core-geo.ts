@@ -7,7 +7,8 @@ export function elevatorDoorHole(core: CorePlan, elevatorIndex: number, elevatio
     const rect = core.elevators[elevatorIndex]!.rect;
     return {
         axis: "H",
-        c: rear ? rect.v + rect.lv : rect.v,
+        // a composed core's shafts stand in niches behind its columns' face; a generic core's on it
+        c: core.openPlan ? (rear ? rect.v + rect.lv : rect.v) : core.vFace,
         hole: { at: rect.u + rect.lu / 2, width: LIFT_CAR.doorWidth * (rect.lu - 0.2) / LIFT_CAR.width, y0: elevation, y1: elevation + DOOR_H },
     };
 }

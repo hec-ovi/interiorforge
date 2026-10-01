@@ -53,7 +53,7 @@ export function stairEntryUv(core: CorePlan, stair: "a" | "b"): Point {
 /** Frame-space elevator wait point in front of a shaft. */
 export function elevatorWaitUv(core: CorePlan, elevatorIndex: number): Point {
   const rect = core.elevators[elevatorIndex]!.rect;
-  return [rect.u + rect.lu / 2, rect.v - 0.8];
+  return core.openPlan ? [rect.u + rect.lu / 2, rect.v - 0.8] : [rect.u + ELEVATOR.shaft / 2, core.vFace - 0.8];
 }
 
 /** Shared inputs behind planCore and coreFeasibility: same frame, same candidate bands. */
@@ -640,7 +640,9 @@ export function stairAccess(
     // End-facing public stair exposes both lanes; a row stair opens its full landing.
     const span = core.mode === "compact" ? shaft.lu - 0.1 : landing;
     const at = core.mode === "compact" ? shaft.u + shaft.lu / 2 : shaft.u + shaft.lu - 0.05 - landing / 2;
-    return { entry: [at, shaft.v - 0.6], axis: "H", c: shaft.v, at, width: span - 0.16 };
+    // a composed core's stair opens on its own front face; a generic core's on the core block's
+    const face = core.openPlan ? shaft.v : core.vFace;
+    return { entry: [at, face - 0.6], axis: "H", c: face, at, width: span - 0.16 };
   }
   // inline stair B: door on the face looking down the corridor
   const at = shaft.v + shaft.lv / 2;
