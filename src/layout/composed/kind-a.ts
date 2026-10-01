@@ -238,13 +238,13 @@ function lofts(c: Composer, core: CoreBox, list: Loft[], galleryEnd = core.lifts
   // (between the back loft's doorway, mid-alcove, and the first lift's landing; a long gallery's
   // islands stand in its place)
   const doorEdge = (core.stair[2] + core.lifts[0]) / 2 + .7, liftKeep = core.lifts[0] + COMPOSED_CORE.lifts.column - .3;
-  if (L.look === 'a' && liftKeep - doorEdge >= 2.9 && galleryEnd <= 24) c.piece(gallery, { kind: 'plant', at: [(doorEdge + liftKeep) / 2, lv1 + .7], size: [2.7, 1.1, 3.0], facing: 'front', fit: 'asm-e1-bamboo' });
+  if (L.look === 'a' && liftKeep - doorEdge >= 2.9 && galleryEnd <= GALLERY_RUN + .5) c.piece(gallery, { kind: 'plant', at: [(doorEdge + liftKeep) / 2, lv1 + .7], size: [2.7, 1.1, 3.0], facing: 'front', fit: 'asm-e1-bamboo' });
   art(c, gallery, [core.lifts[0] + .9, lv1 + .05], 'back', 1.2);
   art(c, gallery, [l1 - .9, lv1 + .05], 'back', 1.2);
-  // A gallery longer than a plate's usual one (a wide plate's) is broken by planter islands on
-  // its middle line, benches either side, never in front of the lifts, so no straight run along
-  // it is over 20 m; its far end is a seat by the window.
-  if (galleryEnd > 24) {
+  // A gallery longer than a straight run (any plate's, 22.6 m on the standard one) is broken by
+  // planter islands on its middle line, benches either side, never in front of the lifts, so no
+  // straight run along it is over 20 m; a wide plate's far end is a seat by the window.
+  if (galleryEnd > GALLERY_RUN + .5) {
     const column = COMPOSED_CORE.lifts.column, mv = (lv1 + g1) / 2;
     const keepFrom = core.lifts[0] + column - .3, keepTo = l1 - column + .3;
     for (const u of galleryIslands(galleryEnd, keepFrom, keepTo)) {
@@ -253,7 +253,7 @@ function lofts(c: Composer, core: CoreBox, list: Loft[], galleryEnd = core.lifts
         for (const side of [-1, 1]) c.piece(gallery, { kind: 'bench', at: [u, mv + side * .9], size: [1.6, .45, .45], facing: side < 0 ? 'back' : 'front' });
       });
     }
-    reading(c, gallery, [galleryEnd - 2.6, lv1 + .3, galleryEnd, g1 - .3], 'right', L.look);
+    if (galleryEnd > 24) reading(c, gallery, [galleryEnd - 2.6, lv1 + .3, galleryEnd, g1 - .3], 'right', L.look);
   }
   return gallery;
 }

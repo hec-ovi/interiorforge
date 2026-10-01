@@ -146,8 +146,8 @@ describe('composed kind C block', () => {
 });
 
 describe('composed galleries', () => {
-    it('breaks a gallery longer than 24 m with islands, so no straight run is over 20 m and none stands before the lifts', () => {
-        for (const [end, keepFrom, keepTo] of [[42, 16.95, 25.25], [46, 18.95, 26.95], [56, 23.95, 31.95], [30, 9.95, 18.25]] as const) {
+    it('breaks a gallery longer than 20 m with islands, so no straight run is over 20 m and none stands before the lifts', () => {
+        for (const [end, keepFrom, keepTo] of [[42, 16.95, 25.25], [46, 18.95, 26.95], [56, 23.95, 31.95], [30, 9.95, 18.25], [22.45, 12.95, 20.95]] as const) {
             const islands = galleryIslands(end, keepFrom, keepTo);
             const stops = [0, ...islands.flatMap(u => [u - ISLAND_HALF, u + ISLAND_HALF]), end];
             for (let i = 0; i + 1 < stops.length; i += 2) expect(stops[i + 1]! - stops[i]!).toBeLessThanOrEqual(GALLERY_RUN + .5);
