@@ -209,6 +209,13 @@ function lofts(c: Composer, core: CoreBox, list: Loft[], galleryEnd = core.lifts
   plant(c, gallery, [l1 - .6, g1 - .6], true);
   c.piece(gallery, { kind: 'bench', at: [(core.lifts[0] + l1) / 2, g1 - .35], size: [2.4, .5, .45], facing: 'back' });
   art(c, gallery, [core.stair[2] / 2, g1 - .05], 'front', 1.6);
+  // pictures between the doors on the gallery's front wall
+  const fronts = made.map(m => m.loft).filter(l => Math.abs(l.entrance[1] - g1) < .01).map(l => l.entrance[0]).sort((x, y) => x - y);
+  const stops = [core.stair[2] / 2, ...fronts, galleryEnd - 1];
+  for (let i = 0; i + 1 < stops.length; i++) {
+    const gap = stops[i + 1]! - stops[i]!;
+    if (gap >= 5) art(c, gallery, [(stops[i]! + stops[i + 1]!) / 2, g1 - .05], 'front', 1.4);
+  }
   // the floor's bamboo enclosure between the stair and the lifts (E2), pictures on the columns
   if (L.look === 'a') c.piece(gallery, { kind: 'plant', at: [(core.stair[2] + core.lifts[0]) / 2, lv1 + 1.2], size: [2.7, 1.1, 3.0], facing: 'front', fit: 'asm-e1-bamboo' });
   art(c, gallery, [core.lifts[0] + .9, lv1 + .05], 'back', 1.2);
