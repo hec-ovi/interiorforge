@@ -102,6 +102,61 @@ describe('level zones', () => {
         expect(length(split)).toBeCloseTo(length(whole));
     });
 
+    it('insets stone only in the authored B3 bar while preserving its wood rim, lower lounge and walked extent', () => {
+        const frame = makeFrame(0), builder = new PlacementBuilder(), unchanged = new PlacementBuilder();
+        const bar = zone({ u: 8, v: 4, lu: 4, lv: 4 }, .45, 'step');
+        const lounge = zone({ u: 0, v: 0, lu: 4, lv: 3 }, -.3, 'step');
+        const room = surface([lounge, bar]);
+        placeLevels(unchanged, 'b3', room, ROOM, frame);
+        placeLevels(builder, 'b3', { ...room, template: 'b3-apartment/living' }, ROOM, frame);
+        const wood = levelIds('b3').platform, stone = levelIds('ref').platform;
+        const top = levelPlan(bar, rings).slabs.find(s => s.module === 'platform')!;
+        const pieces = builder.placements.filter(p => p.module === wood || p.module === stone);
+        expect(pieces.filter(p => p.module === stone)).toHaveLength(1);
+        expect(pieces.filter(p => p.module === wood)).toHaveLength(4);
+        const rectangles = pieces.map(p => ({ u: p.position[0] - p.scale[0] * .25, v: p.position[2] - p.scale[2] * .25,
+            lu: p.scale[0] * .5, lv: p.scale[2] * .5 }));
+        expect(rectangles.reduce((area, r) => area + r.lu * r.lv, 0)).toBeCloseTo(top.rect.lu * top.rect.lv);
+        for (const [i, r] of rectangles.entries()) {
+            expect(r.u).toBeGreaterThanOrEqual(top.rect.u - 1e-6);
+            expect(r.v).toBeGreaterThanOrEqual(top.rect.v - 1e-6);
+            expect(r.u + r.lu).toBeLessThanOrEqual(top.rect.u + top.rect.lu + 1e-6);
+            expect(r.v + r.lv).toBeLessThanOrEqual(top.rect.v + top.rect.lv + 1e-6);
+            for (const other of rectangles.slice(i + 1)) {
+                const overlap = Math.max(0, Math.min(r.u + r.lu, other.u + other.lu) - Math.max(r.u, other.u))
+                    * Math.max(0, Math.min(r.v + r.lv, other.v + other.lv) - Math.max(r.v, other.v));
+                expect(overlap).toBeLessThan(1e-8);
+            }
+        }
+        for (const p of pieces) {
+            expect(p.position[1]).toBe(top.bottom);
+            expect(p.position[1] + p.scale[1] * .5).toBeCloseTo(top.top);
+        }
+        const inset = pieces.find(p => p.module === stone)!;
+        expect(inset.scale[0] * .5).toBeCloseTo(top.rect.lu - .36);
+        expect(inset.scale[2] * .5).toBeCloseTo(top.rect.lv - .36);
+        expect(inset.uvRepeat).toEqual([inset.scale[0], inset.scale[2]]);
+        const otherPieces = (b: PlacementBuilder) => b.placements.filter(p => p.module !== wood && p.module !== stone)
+            .map(({ id: _id, ...p }) => p);
+        expect(otherPieces(builder)).toEqual(otherPieces(unchanged));
+        expect(walkingSlabs(builder, frame).some(r => r.u < 10 && r.u + r.lu > 10 && r.v < 6 && r.v + r.lv > 6)).toBe(true);
+        expect(unchanged.placements.some(p => p.module === stone)).toBe(false);
+    });
+
+    it('keeps one physical bar rim when a room clips the stone inset into multiple rectangles', () => {
+        const frame = makeFrame(0), whole = new PlacementBuilder(), split = new PlacementBuilder();
+        const bar = zone({ u: 8, v: 4, lu: 4, lv: 4 }, .45, 'step');
+        const room = { ...surface([bar]), template: 'b3-apartment/living' };
+        placeLevels(whole, 'b3', room, ROOM, frame);
+        for (const rect of [{ u: 0, v: 0, lu: 10, lv: 8 }, { u: 10, v: 0, lu: 2, lv: 8 }])
+            placeLevels(split, 'b3', room, rect, frame);
+        for (const module of [levelIds('b3').platform, levelIds('ref').platform]) {
+            const area = (b: PlacementBuilder) => b.placements.filter(p => p.module === module)
+                .reduce((sum, p) => sum + p.scale[0] * p.scale[2] * .25, 0);
+            expect(area(split)).toBeCloseTo(area(whole));
+        }
+    });
+
     it('closes raised zones to the nav grid, keeps door approaches and lifts furniture onto them', () => {
         const room = { id: 'r', kind: 'living' as const, rect: ROOM, polygon: rings[0]!, levels: [zone({ u: 8, v: 4, lu: 4, lv: 4 }, .45, 'step')],
             doors: [{ id: 'd', to: 'c', edge: 'v0' as const, at: 2, width: 1.6, leaves: 2 as const }] };

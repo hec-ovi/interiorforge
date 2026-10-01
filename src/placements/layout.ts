@@ -103,6 +103,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
         const style = published.get(room.id)?.style ?? styled.style;
         return [room.id, {
             id: room.id, kind: room.kind, ...(style ? { style } : {}), polygon, ...(room.holes ? { holes: room.holes } : {}),
+            ...(styled.template ? { template: styled.template } : {}),
             bounds: { u: b.x, v: b.z, lu: b.w, lv: b.d }, gridOrigin: grid, ceilingY, soffitY: bp.height, elevation: floor.elevation,
             ...(styled.levels?.length ? { levels: styled.levels, doorways: doorwaysOf(room, uv.rooms) } : {}), ...(drop > 0 ? { ceilingDrop: drop } : {}),
         }];
@@ -147,7 +148,7 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     }
     for (const carpet of uv.carpets) surface(builder,
         loftRooms.has(carpet.room) && kinds.get(carpet.room) === 'living' ? LOFT1702_FINISH.rug
-            : family === 'luxury' ? luxuryRugForRoom(kinds.get(carpet.room) ?? common.kind) : 'floor-carpet',
+            : family === 'luxury' ? luxuryRugForRoom(kinds.get(carpet.room) ?? common.kind, styleOfRoom(carpet.room)?.id) : 'floor-carpet',
         carpet.room, carpet.rect, 0, core.frame);
 
     // Every fixture the floor plan lit stands before the walls add their own lines.

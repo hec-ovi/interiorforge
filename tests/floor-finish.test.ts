@@ -3,6 +3,7 @@ import type { InteriorRequest, RoomKind } from '../src/core/types.js';
 import { architectureFinish, INTERIOR_RECIPES } from '../src/architecture/recipes.js';
 import { makePlacementFixture } from '../src/blueprint/placement-fixture.js';
 import { roomFinish } from '../src/placements/finish.js';
+import { luxuryRugForRoom } from '../src/styles/luxury/rugs.js';
 
 function requestFor(architecture: string): InteriorRequest {
     const request = makePlacementFixture({ width: 24, depth: 40, floors: 3, type: 'residential', tier: 'rich', seed: 11 });
@@ -10,6 +11,15 @@ function requestFor(architecture: string): InteriorRequest {
 }
 
 describe('room floor selection', () => {
+    it('selects the existing ivory rug for E1 private rooms without changing other styles', () => {
+        for (const room of ['living', 'bedroom', 'studio_main'] as const) {
+            expect(luxuryRugForRoom(room, 'e1')).toBe('floor-rug-biotechnica');
+            expect(luxuryRugForRoom(room, 'b3')).toBe('floor-rug-corpo');
+            expect(luxuryRugForRoom(room)).toBe('floor-rug-corpo');
+        }
+        expect(luxuryRugForRoom('reception', 'e2')).toBe('floor-rug-biotechnica');
+    });
+
     it('keeps domestic, wet, work and service floor roles through every exterior palette', () => {
         const rooms: RoomKind[] = ['living', 'bedroom', 'kitchen', 'bathroom', 'meeting', 'storage'];
         const expected = ['floor-slab-luxury-polished', 'floor-slab-plank', 'floor-slab-stone',

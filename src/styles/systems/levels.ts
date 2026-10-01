@@ -57,6 +57,9 @@ export interface LevelProfile {
     guard: { glass: string; cap: string };
     /** a lit strip in each nosing instead of plain metal, with a cove record */
     lit?: { color?: [number, number, number]; kelvin: number; lumensPerMetre: number };
+    /** An inset on a selected raised platform; the existing top surrounds it.
+     *  Its module has the same half-metre cube bounds as a platform. */
+    platformInset?: { module: string; border: number; applies(room: SurfaceRoom, zone: LevelZone): boolean };
 }
 
 /** Level looks by style id, registered when a kind builds its level recipes. */
@@ -333,18 +336,33 @@ function clipEdge(e: LevelEdge, r: UvRect): LevelEdge | undefined {
 export function placeLevels(builder: PlacementBuilder, sid: string, room: SurfaceRoom, rect: UvRect, frame: Frame): LightFixture[] {
     const lights: LightFixture[] = [];
     const look = PROFILES.has(sid) ? sid : SHARED_LEVEL_LOOK;
-    const ids = levelIds(look), lit = PROFILES.get(look)?.lit, rings = [room.polygon, ...(room.holes ?? [])];
+    const profile = PROFILES.get(look), ids = levelIds(look), lit = profile?.lit, rings = [room.polygon, ...(room.holes ?? [])];
     const yaw = -frame.angleDeg * Math.PI / 180;
     for (const zone of active(room.levels ?? [])) {
         const plan = levelPlan(zone, rings, room.doorways ?? []);
         for (const slab of plan.slabs) {
-            const part = clipRect(slab.rect, rect);
-            if (!part) continue;
-            const [x, z] = uvToWorld([part.u + part.lu / 2, part.v + part.lv / 2], frame);
-            // The tray is authored hanging under y = 0 (its top at -0.9 of its scale): it
-            // stands at y = 0 stretched to its depth; every other slab stands on its bottom.
-            if (slab.module === 'sunken') builder.module(ids.sunken, room.id, [x, 0, z], [part.lu / CELL, -slab.top / .9, part.lv / CELL], yaw);
-            else builder.module(ids[slab.module], room.id, [x, slab.bottom, z], [part.lu / CELL, (slab.top - slab.bottom) / CELL, part.lv / CELL], yaw);
+            const insetSpec = slab.module === 'platform' && zone.delta > 0 && profile?.platformInset?.applies(room, zone)
+                ? profile.platformInset : undefined;
+            const inner = insetSpec ? inset(slab.rect, { u0: insetSpec.border, u1: insetSpec.border, v0: insetSpec.border, v1: insetSpec.border }) : undefined;
+            // Split before clipping to the room's rectangles: internal fragment edges
+            // never introduce another rim, and the original solid's extent is preserved.
+            const parts = inner && inner.lu > .05 && inner.lv > .05
+                ? [...subtractAll(slab.rect, [inner]).map(rect => ({ rect, module: ids.platform })), { rect: inner, module: insetSpec!.module }]
+                : [{ rect: slab.rect, module: ids[slab.module] }];
+            for (const piece of parts) {
+                const part = clipRect(piece.rect, rect);
+                if (!part) continue;
+                const [x, z] = uvToWorld([part.u + part.lu / 2, part.v + part.lv / 2], frame);
+                // The tray hangs under y = 0; all other parts stand on the same
+                // bottom/top as the unsplit slab, with no overlaid floor face.
+                if (slab.module === 'sunken') builder.module(piece.module, room.id, [x, 0, z], [part.lu / CELL, -slab.top / .9, part.lv / CELL], yaw);
+                else {
+                    const placed = builder.module(piece.module, room.id, [x, slab.bottom, z], [part.lu / CELL, (slab.top - slab.bottom) / CELL, part.lv / CELL], yaw);
+                    // Only the inset's horizontal face is exposed; its side faces
+                    // sit inside the rim. Repeat along floor depth, not riser height.
+                    if (piece.module === insetSpec?.module) placed.uvRepeat = [placed.scale[0], placed.scale[2]];
+                }
+            }
         }
         for (const edge of plan.nosings) {
             const e = clipEdge(edge, rect);

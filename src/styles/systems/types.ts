@@ -300,6 +300,8 @@ export interface SurfaceRoom {
     id: string;
     kind: RoomKind;
     style?: StyleId;
+    /** template/room identity for explicitly authored floor zones */
+    template?: string;
     /** uv polygon of the whole room */
     polygon: Point[];
     holes?: Point[][];

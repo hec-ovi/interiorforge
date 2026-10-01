@@ -60,6 +60,12 @@ export const B3_LEVEL: LevelProfile = {
     top: B_LOOK.walnut, riser: B_LOOK.smoked, nosing: B_LOOK.gold,
     guard: { glass: B_LOOK.glass, cap: B_LOOK.gold },
     lit: { kelvin: B_WARM, lumensPerMetre: 18 },
+    platformInset: {
+        // The shared stone platform has identical bounds; its sides are hidden
+        // inside the continuous wood rim. No extra kit geometry is needed.
+        module: 'floor-slab-ref-platform', border: .18,
+        applies: (room, zone) => room.template === 'b3-apartment/living' && zone.edge === 'step' && zone.delta > 0,
+    },
 };
 
 const BED: ReadonlySet<RoomKind> = new Set(['bedroom', 'storage']);

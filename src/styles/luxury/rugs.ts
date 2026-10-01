@@ -1,4 +1,4 @@
-import type { RoomKind } from '../../core/types.js';
+import type { RoomKind, StyleId } from '../../core/types.js';
 import type { RecipeSet } from '../../modules/recipes.js';
 
 /** Biotechnica 63052/63516 has quiet light woven seating rugs. Corpo's private
@@ -9,6 +9,7 @@ export const luxuryRugRecipes: RecipeSet = add => {
   add('floor-rug-corpo', k => k.cbox('cyberpunk/corpo-plaza-rug/rich#charcoal', [0, 0, 0], [.5, .009, .5]));
 };
 
-export function luxuryRugForRoom(kind?: RoomKind): string {
+export function luxuryRugForRoom(kind?: RoomKind, style?: StyleId): string {
+  if (style === 'e1') return 'floor-rug-biotechnica';
   return kind === 'living' || kind === 'bedroom' || kind === 'studio_main' ? 'floor-rug-corpo' : 'floor-rug-biotechnica';
 }
