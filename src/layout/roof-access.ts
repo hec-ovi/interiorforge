@@ -58,9 +58,16 @@ export function planRoofAccess(request: InteriorRequest, core: CorePlan): RoofAc
   const shaftAt = alongU ? (side < 0 ? shaft.u + WALL / 2 : shaft.u + shaft.lu - WALL / 2)
     : (side < 0 ? shaft.v + WALL / 2 : shaft.v + shaft.lv - WALL / 2);
   const low = Math.min(doorAt, shaftAt), high = Math.max(doorAt, shaftAt);
+  // Across the door the platform spans the housing inside its walls, but never past the shaft
+  // where the housing stands flush over a stair against the facade: beyond the shaft is the
+  // shell's own wall.
+  const across = alongU ? [Math.max(centerV - bulkhead.depth / 2 + WALL, core.openPlan ? shaft.v : -Infinity),
+      Math.min(centerV + bulkhead.depth / 2 - WALL, core.openPlan ? shaft.v + shaft.lv : Infinity)]
+    : [Math.max(centerU - bulkhead.width / 2 + WALL, core.openPlan ? shaft.u : -Infinity),
+      Math.min(centerU + bulkhead.width / 2 - WALL, core.openPlan ? shaft.u + shaft.lu : Infinity)];
   const landingUv: Rect = alongU
-    ? { x: low, z: centerV - bulkhead.depth / 2 + WALL, w: high - low, d: bulkhead.depth - 2 * WALL }
-    : { x: centerU - bulkhead.width / 2 + WALL, z: low, w: bulkhead.width - 2 * WALL, d: high - low };
+    ? { x: low, z: across[0]!, w: high - low, d: across[1]! - across[0]! }
+    : { x: across[0]!, z: low, w: across[1]! - across[0]!, d: high - low };
   if ((alongU ? landingUv.d : landingUv.w) + 1e-6 < STAIR.landing || high - low < 0.05) {
     throw new InteriorError("E_UNREACHABLE_SPACE", "roof arrival landing does not fit between stair-a and the enclosure door");
   }
