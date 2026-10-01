@@ -66,17 +66,41 @@ export function groundC(c: Composer, core: CoreBox, plate: readonly [number, num
   const toilets = c.room('toilets', 'toilets', [[0, 0, 7, core.stair[1]]], { style: 'c4', authored: false });
   const machine = c.room('machine', 'mechanical_room', [[7, 0, 13, 4.6]], { style: 'c5' });
   const stores = c.room('stores', 'storage', [[13, 0, 18, 4.3]], { style: 'c2' });
+  // ground-floor homes either side of the entry hall, entered from the hall's band in front of
+  // the core, the entry hall running from the street door to the lifts between them
+  const g1 = core.lifts[3] + 4.0, a = Math.max(0, entrance - 6.0), b = Math.min(W, entrance + 6.0);
+  const homes: { room: PlanRoom; wet: PlanRoom; rect: PlanRect; wetRect: PlanRect; wetLeft: boolean }[] = [];
+  const side = (u0: number, u1: number, from: number) => {
+    const n = Math.max(1, Math.round((u1 - u0) / 6.5));
+    if (u1 - u0 < 5) return;
+    for (let i = 0; i < n; i++) {
+      const h0 = u0 + (u1 - u0) * i / n, h1 = u0 + (u1 - u0) * (i + 1) / n, k = homes.length + from;
+      const wetLeft = (i + from) % 2 === 0, wetRect: PlanRect = wetLeft ? [h0, g1, h0 + 2.4, g1 + 2.8] : [h1 - 2.4, g1, h1, g1 + 2.8];
+      const unit = `f${c.floorIndex}-home-${k}`;
+      const wet = c.room(`wet-${k}`, 'bathroom', [wetRect], { style: 'c7', unit, authored: false });
+      const room = c.room(`home-${k}`, 'studio_main', [[h0, g1, h1, D]], { style: 'c7', unit, cut: [c.rect(wetRect)] });
+      homes.push({ room, wet, rect: [h0, g1, h1, D], wetRect, wetLeft });
+    }
+  };
+  side(0, a, 1);
+  side(b, W, 1);
   const hall = c.remainder('lobby', 'elevator_lobby', plate, core.cut, { style: 'c3' });
+  for (const h of homes) {
+    const [h0, , h1] = h.rect;
+    c.door(h.wet, h.room, [h.wetLeft ? h0 + 2.4 : h1 - 2.4, g1 + 1.4], .8);
+    c.door(h.room, hall, [h.wetLeft ? (h0 + 2.4 + h1) / 2 : (h0 + h1 - 2.4) / 2, g1], 1.0);
+    compactHome(c, h.room, [h0, g1 + 3.0, h1, D], 'front', h.wetLeft ? 'high' : 'low');
+  }
   c.door(toilets, hall, [(sw + 7) / 2, core.stair[1]], 1.0);
   c.door(machine, hall, [10, 4.6], 1.2);
   c.door(stores, hall, [15.5, 4.3], 1.0);
   const desk = Math.min(W - 5, Math.max(8, entrance));
-  c.piece(hall, { kind: 'reception_desk', at: [desk, D - 8.4], size: [2.6, .9, 1.1], facing: 'front', fit: 'fit-damaged-caretaker-desk' });
-  c.piece(hall, { kind: 'office_chair', at: [desk, D - 9.4], size: [.62, .62, 1.1], facing: 'front' });
+  c.piece(hall, { kind: 'reception_desk', at: [desk, g1 + 2.0], size: [2.6, .9, 1.1], facing: 'front', fit: 'fit-damaged-caretaker-desk' });
+  c.piece(hall, { kind: 'office_chair', at: [desk, g1 + 1.0], size: [.62, .62, 1.1], facing: 'front' });
   c.piece(hall, { kind: 'shelf', at: [sw + .3, 9.0], size: [2.4, .5, 2.0], facing: 'right', fit: 'fit-damaged-mail-bank' });
-  c.piece(hall, { kind: 'display_rack', at: [W - .5, D - 4.0], size: [1.0, .8, 2.0], facing: 'left', fit: 'fit-c1-vending' });
-  c.piece(hall, { kind: 'display_rack', at: [W - .5, D - 5.4], size: [1.0, .8, 2.0], facing: 'left', fit: 'fit-c1-vending' });
-  c.piece(hall, { kind: 'counter', at: [W - 1.0, D - 9.0], size: [1.6, 1.2, 2.2], facing: 'left', fit: 'fit-c3-kiosk' });
+  c.piece(hall, { kind: 'display_rack', at: [W - .5, core.lifts[1] + .6], size: [1.0, .8, 2.0], facing: 'left', fit: 'fit-c1-vending' });
+  c.piece(hall, { kind: 'display_rack', at: [W - .5, core.lifts[1] + 2.0], size: [1.0, .8, 2.0], facing: 'left', fit: 'fit-c1-vending' });
+  c.piece(hall, { kind: 'counter', at: [W - 1.0, core.lifts[3] + 1.0], size: [1.6, 1.2, 2.2], facing: 'left', fit: 'fit-c3-kiosk' });
   // the canteen in the back-right corner
   c.piece(hall, { kind: 'kitchen_block', at: [W - 4.0, .36], size: [5.0, .7, .95], facing: 'front' });
   c.piece(hall, { kind: 'bar_counter', at: [W - 4.0, 2.6], size: [4.0, .7, 1.05], facing: 'front' });
@@ -88,6 +112,14 @@ export function groundC(c: Composer, core: CoreBox, plate: readonly [number, num
   c.piece(hall, { kind: 'bench', at: [l1 + 3.0, lv1 + 2.6], size: [2.2, .5, .45], facing: 'front' });
   c.piece(hall, { kind: 'shelf', at: [sw + .3, 12.0], size: [1.6, .45, 1.8], facing: 'right', fit: 'fit-damaged-community-shelf' });
   plant(c, hall, [.7, D - .7]);
+  // a notice board on the stair wall, the laundry under it: washers in a row, a folding table
+  art(c, hall, [sw + .05, core.stair[1] + 2.5], 'left', 1.6);
+  for (let i = 0; i < 4; i++) c.piece(hall, { kind: 'fridge', at: [sw + .4, core.stair[1] + 4.6 + i * .75], size: [.7, .7, .9], facing: 'right' });
+  c.piece(hall, { kind: 'dining_table', at: [sw + 2.2, core.stair[1] + 5.7], size: [1.6, .8, .9], facing: 'left' });
+  // waiting benches along the entry hall's sides, bins by the kiosk
+  c.piece(hall, { kind: 'bench', at: [a + .35, D - 6.0], size: [2.0, .45, .45], facing: 'right' });
+  c.piece(hall, { kind: 'bench', at: [b - .35, D - 6.0], size: [2.0, .45, .45], facing: 'left' });
+  plant(c, hall, [a + .7, D - .7]); plant(c, hall, [b - .7, D - .7]);
   // machine room and stores
   mechanical(c, machine, [7, 0, 13, 4.6], 'back');
   storage(c, stores, [13, 0, 18, 4.3], 'back');
