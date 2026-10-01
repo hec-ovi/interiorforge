@@ -147,10 +147,14 @@ export function walls(
 
     const kinds = new Map(owners.map(room => [room.id, room.kind]));
     const publicKinds = new Set<RoomKind>(['reception', 'lounge', 'corridor', 'elevator_lobby', 'concourse', 'dining_area', 'bar', 'living', 'studio_main']);
+    // A doorway in a glass partition keeps the glass's own slim casing: an arched portal there
+    // stood wider than its frame and left the glass short of it on both sides.
+    const glassDoor = (peers: Run[]) => peers.some(r => GLAZED_ROOMS.has(r.kind)) && peers.some(r => GLAZED_ONTO.has(r.kind));
     const portal = (l: Line, h: WallHole): boolean => {
         if (l.boundary || h.y0 !== 0 || h.width < 1.2 || h.y1 < 1.9
             || height < h.y1 + PUBLIC_PORTAL.radius + PUBLIC_PORTAL.band + .01) return false;
         const peers = l.runs.filter(r => r.draw && h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01);
+        if (glassDoor(peers)) return false;
         if (peers.length < 2 || peers.some(r => !publicKinds.has(r.kind) || r.room.startsWith('stair-'))) return false;
         // Main apartment entries retain the moving-door owner's existing casing IDs.
         const units = peers.map(r => uv.rooms.find(room => room.id === r.room)?.unit);
@@ -167,7 +171,7 @@ export function walls(
     const referencePortal = (l: Line, h: WallHole): PortalSpec | undefined => {
         if (l.boundary || h.y0 !== 0) return undefined;
         const peers = l.runs.filter(r => r.draw && h.at - h.width / 2 >= r.a - .01 && h.at + h.width / 2 <= r.b + .01);
-        if (peers.length < 2 || peers.some(r => r.room.startsWith('stair-'))) return undefined;
+        if (peers.length < 2 || peers.some(r => r.room.startsWith('stair-')) || glassDoor(peers)) return undefined;
         const ids = new Set(peers.map(r => finishOf(r.room, r.kind).portal));
         const spec = ids.size === 1 ? PORTALS.get([...ids][0] ?? '') : undefined;
         if (!spec) return undefined;
