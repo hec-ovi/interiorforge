@@ -172,6 +172,10 @@ export function conversation(c: Composer, room: PlanRoom, at: readonly [number, 
 
 // ------------------------------------------------------------------------- typical floors
 
+/** Depth of a home floor's gallery in front of the lift core: a hall wide enough for a seat by
+ *  the wall, not a corridor. */
+const GALLERY = 5.6;
+
 /** One loft apartment: its open loft room, its bathroom, and the furnishing plan. */
 interface Loft {
   id: string;
@@ -186,7 +190,7 @@ interface Loft {
 /** Makes the lofts' rooms, their bathrooms and doors, and the gallery in front of the core. */
 function lofts(c: Composer, core: CoreBox, list: Loft[], galleryEnd = core.lifts[2]): PlanRoom {
   const [, , l1, lv1] = core.lifts;
-  const g1 = lv1 + 4.4;
+  const g1 = lv1 + GALLERY;
   const made = list.map((loft, i) => {
     const unit = `f${c.floorIndex}-home-${i + 1}`;
     const baths = loft.baths.map((b, j) => ({ spec: b, room: c.room(`bath-${i + 1}${'abc'[j]}`, 'bathroom', [b.rect], { style: L.bath, unit }) }));
@@ -221,10 +225,15 @@ function lofts(c: Composer, core: CoreBox, list: Loft[], galleryEnd = core.lifts
   // pictures between the doors on the gallery's front wall
   const fronts = made.map(m => m.loft).filter(l => Math.abs(l.entrance[1] - g1) < .01).map(l => l.entrance[0]).sort((x, y) => x - y);
   const stops = [core.stair[2] / 2, ...fronts, galleryEnd - 1];
+  let seat = -1, widest = 0;
   for (let i = 0; i + 1 < stops.length; i++) {
     const gap = stops[i + 1]! - stops[i]!;
     if (gap >= 5) art(c, gallery, [(stops[i]! + stops[i + 1]!) / 2, g1 - .05], 'front', 1.4);
+    if (gap > widest) { widest = gap; seat = (stops[i]! + stops[i + 1]!) / 2; }
   }
+  // two chairs and a table under the picture in the widest stretch of the front wall, so the
+  // gallery reads as a hall
+  if (widest >= 5.2) reading(c, gallery, [seat - 1.7, g1 - 2.4, seat + 1.7, g1], 'front', L.look);
   // the floor's bamboo enclosure between the stair and the lifts (E2), pictures on the columns
   // (between the back loft's doorway, mid-alcove, and the first lift's landing)
   const doorEdge = (core.stair[2] + core.lifts[0]) / 2 + .7, liftKeep = core.lifts[0] + COMPOSED_CORE.lifts.column - .3;
@@ -251,7 +260,7 @@ function entryWall(loft: Loft): Side {
  *  party wall with its island, dining in the middle, the lounge on the facade, the bed's head
  *  on the party wall below the kitchen. `party` is the side of its party wall. */
 function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number, asked: 'low' | 'high', party: 'left' | 'right', galleryEnd = core.lifts[2]): Loft {
-  const g1 = core.lifts[3] + 4.4, bw = 4.6, bd = 4.4;
+  const g1 = core.lifts[3] + GALLERY, bw = 4.6, bd = 4.4;
   // the bathroom keeps the end that leaves the loft a doorway onto the gallery
   const meets = (at: 'low' | 'high') => Math.min(galleryEnd, at === 'high' ? u1 - bw : u1) - (at === 'low' ? u0 + bw : u0) >= 1.8;
   const bathAt: 'low' | 'high' = meets(asked) ? asked : asked === 'low' ? 'high' : 'low';
@@ -307,7 +316,7 @@ export function typicalA(c: Composer, core: CoreBox, variant: number, flip = fal
   const end = (at: 'low' | 'high'): 'low' | 'high' => flip ? (at === 'low' ? 'high' : 'low') : at;
   const { W, D } = c;
   const [l0, lv0, l1, lv1] = core.lifts;
-  const sw = core.stair[2], g1 = lv1 + 4.4, mid = Math.round(W / 2 * 2) / 2;
+  const sw = core.stair[2], g1 = lv1 + GALLERY, mid = Math.round(W / 2 * 2) / 2;
   const list: Loft[] = [];
   const behindStair = { rect: [0, 0, sw, core.stair[1]] as PlanRect, door: [sw, core.stair[1] / 2] as const, vanity: 'back' as Side };
   if (W >= 38) {
@@ -424,7 +433,7 @@ export function typicalA(c: Composer, core: CoreBox, variant: number, flip = fal
 export function crownA(c: Composer, core: CoreBox): Composed {
   const { W, D } = c;
   const [l0, lv0, l1, lv1] = core.lifts;
-  const sw = core.stair[2], g1 = lv1 + 4.4;
+  const sw = core.stair[2], g1 = lv1 + GALLERY;
   const back: Loft = {
     id: 'penthouse-1', rects: [[sw, 0, W, lv0], [sw, lv0, l0, lv1], [l1, lv0, W, g1]], entrance: [(sw + l0) / 2, lv1],
     baths: [{ rect: [0, 0, sw, core.stair[1]], door: [sw, core.stair[1] / 2], vanity: 'back' },
