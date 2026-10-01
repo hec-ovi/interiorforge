@@ -24,32 +24,33 @@ function leaf(k: Kit, side: -1 | 1, width: number, [y0, y1]: readonly [number, n
  * must remain separate: the consumer splits every triangle of `lift-doors` and
  * `lift-car-doors` into sliding leaves at x = 0. */
 export const liftRecipes: RecipeSet = (add) => {
-  add("lift-car", (k) => {
+  for (const through of [false,true]) add(through ? "lift-car-through" : "lift-car", (k) => {
     // Canonical 2.30 m car. Placement expands it to a generous 3.30 m
     // outside / 3.07 m clear in the standard 3.50 m shaft; front is -Z.
     const c = LIFT_CAR, halfW = c.width / 2, halfD = c.depth / 2;
     k.box(FINISH.liftCar, [-halfW, -c.floor, -halfD], [c.width, c.floor, c.depth], undefined, ["bottom", "north", "south", "east", "west"]);
     k.box(FINISH.stone, [-halfW, -0.02, -halfD], [c.width, 0.02, c.depth], undefined, ["top"]);
     for (const x of [-halfW, halfW - c.wall]) k.box(FINISH.liftCar, [x, 0, -halfD], [c.wall, c.ceiling, c.depth]);
-    k.box(FINISH.liftCar, [-halfW + c.wall, 0, halfD - c.wall], [c.width - 2 * c.wall, c.ceiling, c.wall]);
+    if (!through) k.box(FINISH.liftCar, [-halfW + c.wall, 0, halfD - c.wall], [c.width - 2 * c.wall, c.ceiling, c.wall]);
     // The landing owns its header, so fitting a car into a short storey cannot
     // lower a second car lintel into the walking aperture.
     const cheek = (c.width - 2 * c.wall - c.doorWidth) / 2;
     for (const x of [-halfW + c.wall, c.doorWidth / 2]) k.box(FINISH.liftCar, [x, 0, -halfD], [cheek, c.ceiling, c.wall]);
+    if (through) for (const x of [-halfW + c.wall, c.doorWidth / 2]) k.box(FINISH.liftCar, [x, 0, halfD-c.wall], [cheek, c.ceiling, c.wall]);
     k.box(FINISH.liftCar, [-halfW, c.ceiling, -halfD], [c.width, c.roof, c.depth]);
     // Opaque cabin linings: an environment-map mirror falsely showed outdoor
     // sky inside the sealed shaft. Solid mineral panels read as real walls.
-    for (const x of [-0.70, 0, 0.70]) {
+    if (!through) for (const x of [-0.70, 0, 0.70]) {
       k.cbox(FINISH.ivory, [x, 0.16, 1.055], [0.68, 2.17, 0.025]);
     }
     for (const x of [-1.063, 1.063]) {
       k.cbox(FINISH.ivory, [x, 0.16, 0], [0.014, 2.17, 2.10]);
       k.cbox(FINISH.zinc, [x, 2.33, 0], [0.018, 0.025, 2.10]);
     }
-    k.cbox(FINISH.zinc, [0, 0.02, 1.02], [2.14, 0.13, 0.04]);
+    if (!through) k.cbox(FINISH.zinc, [0, 0.02, 1.02], [2.14, 0.13, 0.04]);
     for (const x of [-1.045, 1.045]) k.cbox(FINISH.zinc, [x, 0.02, 0], [0.04, 0.13, 2.14]);
     // Handrails stop clear of the entrance and do not narrow the turn-in zone.
-    k.rod(FINISH.chrome, [-0.94, 0.95, 0.96], [0.94, 0.95, 0.96], 0.04);
+    if (!through) k.rod(FINISH.chrome, [-0.94, 0.95, 0.96], [0.94, 0.95, 0.96], 0.04);
     for (const x of [-0.97, 0.97]) {
       k.rod(FINISH.chrome, [x, 0.95, -0.55], [x, 0.95, 0.90], 0.04);
     }
@@ -85,11 +86,11 @@ export const liftRecipes: RecipeSet = (add) => {
   // The car's own front rides with it, placed at the car front plane unscaled in depth and
   // height: its leaves close the car whenever it is not standing open at a landing, and the
   // head and sill close the car front above and below them, so nothing of the shaft shows.
-  add("lift-car-doors", (k) => {
+  for (const id of ["lift-car-doors", "lift-car-rear-doors"]) add(id, (k) => {
     const d = LIFT_CAR.door;
     for (const side of [-1, 1] as const) leaf(k, side, d.leaf, [d.bottom, d.height], d.plane);
   });
-  add("lift-car-head", (k) => {
+  for (const id of ["lift-car-head", "lift-car-rear-head"]) add(id, (k) => {
     const c = LIFT_CAR, d = c.door, half = c.doorWidth / 2 + 0.04, reach = c.width / 2;
     k.box(FINISH.liftCar, [-half, d.head, d.plane[0]], [2 * half, c.ceiling - d.head, c.wall - d.plane[0]]);
     k.box(FINISH.zinc, [-c.doorWidth / 2, d.head, c.wall], [c.doorWidth, 0.03, 0.003], undefined, ["north", "east", "west", "top", "bottom"]);
@@ -100,7 +101,7 @@ export const liftRecipes: RecipeSet = (add) => {
     k.box(FINISH.zinc, [-reach, -0.03, groove[1]], [2 * reach, 0.03, -groove[1]]);
     k.box(FINISH.charcoal, [-reach, -0.03, groove[0]], [2 * reach, 0.022, groove[1] - groove[0]], undefined, ["top"]);
   });
-  add("lift-doors", (k) => {
+  for (const id of ["lift-doors", "lift-rear-doors"]) add(id, (k) => {
     // Sheet-metal geometry supplies the split; a texture of a whole elevator must never be
     // repeated on each leaf. The pair meets at x = 0 with no seam and is wider than the
     // doorway, so each leaf closes behind its jamb.
