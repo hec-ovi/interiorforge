@@ -44,7 +44,10 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
             ...(published.assignments ? { assignments: published.assignments.filter(a => a.floor >= 0) } : {}) };
     const floors = request.blueprint.floors;
     // Two floors are ground and crown; the middle layout exists only where a floor repeats it.
-    const { assignments, pairs: duplexPairs } = duplexAssignments(request, resolveAssignments(request));
+    const derived = duplexAssignments(request, resolveAssignments(request));
+    const { assignments } = derived;
+    // a composed building's homes are whole on their floor: it takes no derived duplex pair
+    const duplexPairs = composedTurns(request, 'apartment', assignments) > 1 ? derived.pairs.filter(pair => !pair.optional) : derived.pairs;
     const alone = floors.length === 1;
     const pairedFloors = new Set(duplexPairs.flatMap(pair => [pair.lower, pair.upper]));
     // Reuse only genuinely identical construction plates. Tapered wings, connection

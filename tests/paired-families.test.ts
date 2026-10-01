@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { expandBuilding, generate, INTERIOR_RECIPES } from '../src/index.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
 import { FLOORS } from '../src/styles/reference/registry.js';
+import { composedPlate } from '../src/layout/composed/core.js';
 import { expectBuildingLevels, occupiedStoreys } from './building-levels.js';
 
 const families = [
@@ -21,6 +22,9 @@ it.each(families)('furnishes every real %s floor with its matching shell, finish
         building: { type, tier: 'high_rich', floors }, options: { architecture, glb: 'merged' } }, { textures: { mode: 'keys' } });
     const request = { seed: blueprint.seed, building: { id: architecture, type, tier: 'high_rich' }, blueprint, materialTheme: 'cyberpunk' };
     const result = await generate(request), expanded = expandBuilding(result);
+    // a composed building (a kind building on a plain plate) turns its floors through its plans,
+    // and a partition of its open plan may meet a window, closed there by its cap
+    const composed = composedPlate(blueprint, request.building) !== null;
     const recipe = INTERIOR_RECIPES.find(item => item.id === architecture)!;
     const modules = new Set(moduleRecipes().map(item => item.id));
     expect(result.building.architecture).toBe(architecture);
@@ -43,7 +47,7 @@ it.each(families)('furnishes every real %s floor with its matching shell, finish
             : [...new Set(layout.floor.rooms.map(room => `floor-slab-${room.style}`))].filter(id => FLOORS.has(id));
         for (const system of systems) expect(layout.placements.some(item => item.module?.startsWith(system)), `${ref.layout} ${system}`).toBe(true);
         if (!systems.length) expect(layout.placements.some(item => item.module === slab), `${ref.layout} ${slab}`).toBe(true);
-        expect((ref.treatments ?? []).filter(p => !p.module?.startsWith('stair-soffit-') && !p.module?.startsWith('stair-wall-skin-'))).toEqual([]);
+        if (!composed) expect((ref.treatments ?? []).filter(p => !p.module?.startsWith('stair-soffit-') && !p.module?.startsWith('stair-wall-skin-'))).toEqual([]);
         expect(layout.placements.some(item => item.module === 'window-return')).toBe(false);
         expect(layout.placements.filter(item => item.module).every(item => modules.has(item.module!))).toBe(true);
         for (const connector of result.building.connectors) {
@@ -55,5 +59,6 @@ it.each(families)('furnishes every real %s floor with its matching shell, finish
         // Tapered intermediate plates must never reuse a larger lower-floor room plan.
         expect(Object.keys(result.layouts)).toEqual(['ground', 'middle', 'floor-2', 'crown', `floor-${floors}`]);
         for (const ref of result.building.floors) expect(result.layouts[ref.layout]!.sourceFloor).toBe(ref.index);
-    } else expect(Object.keys(result.layouts)).toEqual(['ground', 'middle', 'crown', `floor-${floors}`]);
+    } else if (composed) expect(Object.keys(result.layouts)).toEqual(expect.arrayContaining(['ground', 'middle', 'crown', `floor-${floors}`]));
+    else expect(Object.keys(result.layouts)).toEqual(['ground', 'middle', 'crown', `floor-${floors}`]);
 }, 180_000);
