@@ -149,7 +149,11 @@ export function officeR(c: Composer, core: CoreBox, plate: readonly [number, num
   } else {
     meetings.push(['booth-1', [W - 5.2, front + 1.0, W - 1.6, front + 4.2], [W - 5.2, front + 2.6], 4]);
   }
-  const exec = type === 'executive' ? c.room('executive', 'executive_office', [[W - 9.6, D - 8.6, W - 1.2, D - 1.2]], { style: 'r1' }) : null;
+  // the executive floor's two suites stand as islands in the front corners
+  const execs = type === 'executive' ? [
+    { room: c.room('executive', 'executive_office', [[W - 9.6, D - 8.6, W - 1.2, D - 1.2]], { style: 'r1' }), u0: W - 9.6, u1: W - 1.2, door: W - 9.6, side: 1 },
+    { room: c.room('executive-2', 'executive_office', [[1.2, D - 8.6, 9.6, D - 1.2]], { style: 'r1' }), u0: 1.2, u1: 9.6, door: 9.6, side: -1 },
+  ] : [];
   const rooms = meetings.map(([id, rect]) => meetingRoom(c, id, rect));
   const floorRoom = c.remainder('office', 'elevator_lobby', plate, type === 'cowork' ? core.cutClosed : core.cut, { style: 'r1' });
   c.door(toilets, floorRoom, [(sw + l0) / 2, lv1], 1.0);
@@ -161,15 +165,16 @@ export function officeR(c: Composer, core: CoreBox, plate: readonly [number, num
     furnishMeeting(c, room, floorRoom, rect, door, seats);
     if (seats >= 6) c.piece(room, { kind: 'display_screen', at: [rect[2] - .06, (rect[1] + rect[3]) / 2], size: [1.6, .08, .9], facing: 'left', elevation: 1.2 });
   }
-  if (exec) {
-    c.door(exec, floorRoom, [W - 9.6, D - 4.9], 1.6);
-    const ex = W - 5.4, ev = D - 4.9;
-    c.piece(exec, { kind: 'desk', at: [ex + 1.6, ev], size: [1.8, .9, .75], facing: 'left', fit: 'fit-corporate-executive-desk' });
-    c.piece(exec, { kind: 'office_chair', at: [ex + 2.6, ev], size: [.65, .65, 1.15], facing: 'left' });
-    for (const s of [-1, 1]) c.piece(exec, { kind: 'chair', at: [ex + .2, ev + s * .7], size: [.6, .6, .9], facing: 'right', fit: 'fit-chair-corpo' });
-    c.piece(exec, { kind: 'bench', at: [ex - 2.2, D - 1.6], size: [1.5, .7, .75], facing: 'back', fit: 'asm-r1-library' });
-    c.piece(exec, { kind: 'shelf', at: [ex - 2.4, D - 8.2], size: [1.35, .5, 1.25], facing: 'front', fit: 'fit-r1-chest' });
-    plant(c, exec, [W - 1.8, D - 7.8]);
+  for (const { room: exec, u0, u1, door, side } of execs) {
+    // the desk at the window end, its back to the corner, facing the doorway on the floor side
+    c.door(exec, floorRoom, [door, D - 4.9], 1.6);
+    const mid = (u0 + u1) / 2, ev = D - 4.9, toDoor: Side = side > 0 ? 'left' : 'right', fromDoor: Side = side > 0 ? 'right' : 'left';
+    c.piece(exec, { kind: 'desk', at: [mid + side * 2.8, ev], size: [1.8, .9, .75], facing: toDoor, fit: 'fit-corporate-executive-desk' });
+    c.piece(exec, { kind: 'office_chair', at: [mid + side * 3.8, ev], size: [.65, .65, 1.15], facing: toDoor });
+    for (const s of [-1, 1]) c.piece(exec, { kind: 'chair', at: [mid + side * 1.4, ev + s * .7], size: [.6, .6, .9], facing: fromDoor, fit: 'fit-chair-corpo' });
+    c.piece(exec, { kind: 'bench', at: [mid - side * 1.0, D - 1.6], size: [1.5, .7, .75], facing: 'back', fit: 'asm-r1-library' });
+    c.piece(exec, { kind: 'shelf', at: [mid - side * 1.2, D - 8.2], size: [1.35, .5, 1.25], facing: 'front', fit: 'fit-r1-chest' });
+    plant(c, exec, [side > 0 ? u1 - .6 : u0 + .6, D - 7.8]);
   }
   // the floor: a band of work in front, a lounge and the café by the core, work along the back
   const pods = (zone: PlanRect, per: 2 | 3 = 2) => deskPods(c, floorRoom, zone, { podDesks: per });
@@ -180,15 +185,21 @@ export function officeR(c: Composer, core: CoreBox, plate: readonly [number, num
   } else if (type === 'studio') {
     pods([1.2, D - 7.0, W - 1.2, D - 1.0], 2);
     pods([sw + 1.0, .8, l1 + 3.6, lv0 - 1.6], 2);
+    // a pod either side of the meeting cluster
+    pods([1.2, front + 1.0, W / 2 - 8.4, D - 8.0], 2);
+    pods([W / 2 + 8.4, front + 1.0, W - 1.2, D - 8.0], 2);
     cafeBar(c, floorRoom, [l1 + 4, lv0 - .4, W - .2, lv1 + .6], 'left', 4, 1);
     windowLounge(c, floorRoom, [W / 2, front + 7.0], 'u', 2.0);
   } else if (type === 'executive') {
     // assistants' desks before the executive suite, a lounge on the front windows, the café by the core
-    pods([1.2, front + 1.0, W - 11.0, front + 6.2], 2);
-    windowLounge(c, floorRoom, [7.0, D - 4.0], 'u', 3.2);
+    // the assistants' desks between the two suites, a lounge on the front windows between
+    // them, a waiting group by the reception, the café by the core
+    pods([10.8, front + 1.0, W - 10.8, D - 1.0], 2);
     windowLounge(c, floorRoom, [sw + 5.2, 3.8], 'u', 3.2);
     cafeBar(c, floorRoom, [l1 + 4, lv0 - .4, W - .2, lv1 + .6], 'left', 4, 0);
-    c.piece(floorRoom, { kind: 'reception_desk', at: [(l0 + l1) / 2, front + 1.6], size: [3.6, 1.0, 1.1], facing: 'back' });
+    c.piece(floorRoom, { kind: 'reception_desk', at: [(l0 + l1) / 2, front + .1], size: [3.6, 1.0, 1.1], facing: 'back' });
+    conversation(c, floorRoom, [W - 5.4, front + 3.2], 'u', 2.4);
+    conversation(c, floorRoom, [5.4, front + 3.2], 'u', 2.4);
   } else {
     // co-working: a big café bar as the heart, communal tables, soft booths on the windows
     cafeBar(c, floorRoom, [l0, 0, l1, lv0], 'front', 9, 3);
