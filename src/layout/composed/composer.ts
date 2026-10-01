@@ -1,9 +1,9 @@
 import type { Point } from '../../core/geom.js';
-import { isCcw, polygonBounds } from '../../core/geom.js';
+import { isCcw, polygonArea, polygonBounds } from '../../core/geom.js';
 import type { FurnitureKind, RoomKind, StyleId } from '../../core/types.js';
 import type { AuthoredPiece, EdgeName, PlanDoor, PlanRoom } from '../plan-types.js';
 import { RoomRegion } from '../room-region.js';
-import { sharedRoomEdges } from '../room-shape.js';
+import { roomCoversRect, sharedRoomEdges } from '../room-shape.js';
 import type { IdGen } from '../rooms.js';
 import type { UvRect } from '../uv.js';
 
@@ -97,7 +97,7 @@ export class Composer {
   /** The open remainder of the plate once every other room and the core are cut out. */
   remainder(id: string, kind: RoomKind, plate: readonly Point[], core: readonly UvRect[], opts: { style?: StyleId; unit?: string } = {}): PlanRoom {
     const taken = this.rooms.flatMap(room => decompose(room));
-    const shapes = new RoomRegion(plate as Point[]).subtract([...core, ...taken]);
+    const shapes = substantial(new RoomRegion(plate as Point[]).subtract([...core, ...taken]));
     if (shapes.length !== 1) throw new Error(`composed floor ${this.floorIndex}: the open floor splits into ${shapes.length}`);
     const shape = shapes[0]!;
     const room: PlanRoom = { id: `f${this.floorIndex}-${id}`, kind, rect: shape.rect, polygon: shape.polygon,
@@ -174,7 +174,7 @@ export class Composer {
       room.authored = (room.authored ?? []).filter(piece => {
         const fp = footprint(piece);
         const hung = (piece.elevation ?? 0) > .5;
-        const why = !coversRect(room, fp) ? 'outside its room'
+        const why = !coversRect(room, fp) || !roomCoversRect(room, fp) ? 'outside its room'
           : !hung && zones.some(z => hits(fp, z)) ? 'in a doorway or landing'
           : hung && (piece.elevation ?? 0) < 2.3 && doorways.some(z => hits(fp, z)) ? 'over a doorway'
           : !hung && kept.some(k => hits(fp, k, -.02)) ? 'on another piece' : null;
@@ -214,11 +214,17 @@ export function unionShape(rects: readonly UvRect[], cut: readonly UvRect[] = []
       missing.push({ u: us[i]!, v: vs[j]!, lu: us[i + 1]! - us[i]!, lv: vs[j + 1]! - vs[j]! });
   }
   const region: Point[] = outline ? [...outline] as Point[] : [[box.u, box.v], [box.u + box.lu, box.v], [box.u + box.lu, box.v + box.lv], [box.u, box.v + box.lv]];
-  const shapes = new RoomRegion(region).subtract([...missing, ...cut]);
+  const shapes = substantial(new RoomRegion(region).subtract([...missing, ...cut]));
   if (shapes.length !== 1) throw new Error(`composed room splits into ${shapes.length} parts`);
   const shape = shapes[0]!;
   const polygon = isCcw(shape.polygon!) ? shape.polygon! : [...shape.polygon!].reverse();
   return { rect: shape.rect, polygon, ...(shape.holes?.length ? { holes: shape.holes } : {}) };
+}
+
+/** The parts of a cut region worth a room: a sliver the plate's rounding leaves along its edge
+ *  (under half a square metre) is no part. */
+function substantial(shapes: ReturnType<RoomRegion['subtract']>): ReturnType<RoomRegion['subtract']> {
+  return shapes.filter(shape => Math.abs(polygonArea(shape.polygon!)) >= .5);
 }
 
 /** A room footprint as rectangles, for cutting it out of the open remainder. */

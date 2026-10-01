@@ -7,7 +7,7 @@ import type { UvRect } from '../uv.js';
 import { Composer } from './composer.js';
 import { worldToUv } from '../uv.js';
 import { templateTrace } from '../templates/fit.js';
-import { composedPlate } from './core.js';
+import { COMPOSED_PROGRAMS, composedPlate } from './core.js';
 import { coreBox, crownA, groundA, LOOK_A, LOOK_R, typicalA, wearing } from './kind-a.js';
 import { groundB, groundC, LOOK_B, LOOK_C, typicalC } from './kind-bc.js';
 import { groundR, OFFICE_TYPES, officeR } from './kind-r.js';
@@ -20,7 +20,7 @@ export interface ComposedFloor {
 }
 
 /** The floor programs a composed building plans itself. */
-const COMPOSED_FLOORS: ReadonlySet<FloorKind> = new Set(['lobby', 'apartment', 'residence_studio', 'office', 'corpo_office']);
+const COMPOSED_FLOORS: ReadonlySet<string> = COMPOSED_PROGRAMS;
 // kind C's ground floor plans as its lobby whatever the blueprint calls it (`entry`)
 
 /** A building's own turn through the office plan types, from its seed. */
@@ -32,7 +32,8 @@ function seedOffset(seed: string): number {
 
 /** How many arrangements a composed building's typical floors turn through (1 when the
  *  building does not compose). */
-export function composedTurns(request: InteriorRequest, kind: FloorKind): number {
+export function composedTurns(request: InteriorRequest, kind: FloorKind, assignments?: readonly { kind: string }[]): number {
+  if (assignments && !assignments.every(a => COMPOSED_PROGRAMS.has(a.kind))) return 1;
   if (!composedPlate(request.blueprint, request.building)) return 1;
   const plate = composedPlate(request.blueprint, request.building)!;
   return kind === 'apartment' || kind === 'residence_studio' ? (plate.kind === 'C' || plate.kind === 'B' ? 2 : 3) : kind === 'office' || kind === 'corpo_office' ? OFFICE_TYPES.length : 1;

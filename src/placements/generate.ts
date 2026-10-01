@@ -57,7 +57,8 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
     for (const [index, floor] of floors.entries()) {
         const program = assignments.find(a => a.floor === floor.index)!.kind;
         // A kind whose floors take their reference homes in turn keeps one layout per turn.
-        const turns = composedTurns(request, program as FloorKind) > 1 ? composedTurns(request, program as FloorKind) : templateTurns(request, program as FloorKind);
+        const composed = composedTurns(request, program as FloorKind, assignments);
+        const turns = composed > 1 ? composed : templateTurns(request, program as FloorKind);
         const plainKey = signature(floor, program) + (turns > 1 ? `:turn:${floor.index % turns}` : '');
         const key = plainKey + (pairedFloors.has(floor.index) ? `:duplex:${floor.index}` : '');
         plainKeys.set(floor.index, plainKey);

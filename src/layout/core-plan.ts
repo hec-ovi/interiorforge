@@ -12,7 +12,7 @@ import { CoreFacadeClearance } from "./core-adjacency.js";
 import { coreComponents, coreSolids, type CoreComponents } from "./core-solids.js";
 import type { Frame, UvRect } from "./uv.js";
 import { coversRect, makeFrame, snap, snapDown, snapUp, uvToWorld, worldToUv } from "./uv.js";
-import { composedCore } from './composed/core.js';
+import { COMPOSED_PROGRAMS, composedCore } from './composed/core.js';
 
 /** standard: elevator core in the shaft row. compact: stairs turn into columns reaching
  *  into the rear strip so near-miss bands keep elevators. walkup: stair-only, capped. */
@@ -593,7 +593,9 @@ function fitCore(env: CoreEnvelope, chosen: Placement, buildingType: string):
 
 /** Places the vertical core once per building; every floor reuses these rects. */
 export function planCore(request: InteriorRequest, assignments: FloorAssignment[], singleStair = false): CorePlan {
-  const open = composedCore(request.blueprint, request.building);
+  // every floor's program must be one a composed plan holds (an explicit plant or venue floor
+  // keeps the building on the corridor planner)
+  const open = assignments.every(a => COMPOSED_PROGRAMS.has(a.kind)) ? composedCore(request.blueprint, request.building) : null;
   if (open) return open;
   const { env, placement } = selectEnvelope(request.blueprint, singleStair);
   const { frame, stairDepth } = env;

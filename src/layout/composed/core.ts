@@ -42,6 +42,9 @@ type CoreBlueprint = InteriorRequest['blueprint'];
  *  templates on a composable plate by switching this off. */
 export const composedSwitch = { enabled: true };
 
+/** The floor programs a composed building plans: lobby, homes, offices. */
+export const COMPOSED_PROGRAMS: ReadonlySet<string> = new Set(['lobby', 'apartment', 'residence_studio', 'office', 'corpo_office']);
+
 /** Which kinds compose their floors. */
 const COMPOSED_KINDS: ReadonlySet<ReferenceKind> = new Set(['A', 'B', 'C', 'R']);
 
