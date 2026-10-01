@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { generate } from '../src/index.js';
 import type { FloorPlacement as FloorLayout, InteriorRequest } from '../src/index.js';
 import { composedCore } from '../src/layout/composed/core.js';
+import { resolveAssignments, validateRequest } from '../src/blueprint/validate.js';
+import { duplexAssignments } from '../src/layout/duplex/assignments.js';
+import { planBuilding } from '../src/layout/index.js';
 import { assembly } from './fixtures.js';
 
 /** Composed floors: a kind building on a plain rectangular plate is planned floor by floor
@@ -119,4 +122,23 @@ describe('composed offices', () => {
         expect(officeLayouts.some(l => l.floor.rooms.some(r => r.kind === 'executive_office'))).toBe(true);
         expect(officeLayouts.some(l => l.floor.furniture.filter(f => f.kind === 'stool').length >= 8)).toBe(true);
     });
+});
+
+describe('composed kind C block', () => {
+    it('packs a home floor as a poor block: back homes, studios between the gallery and a corridor, homes on the facade', () => {
+        const request = validateRequest({ ...base, seed: 'kind-c', building: { ...base.building, type: 'residential', tier: 'poor' },
+            blueprint: onePlate(base.blueprint, 'mirror-frame') });
+        expect(composedCore(request.blueprint, request.building)).not.toBeNull();
+        const { assignments } = duplexAssignments(request, resolveAssignments(request));
+        const floor = planBuilding(request, assignments, new Set([1])).floors.find(f => f.floor === 1)!;
+        const homes = floor.rooms.filter(r => r.kind === 'studio_main');
+        expect(homes.length).toBeGreaterThanOrEqual(14);
+        for (const home of homes) {
+            // small homes, each round its own wet cell
+            expect(roomArea(home as never)).toBeLessThan(110);
+            expect(floor.rooms.some(r => r.kind === 'bathroom' && r.unit === home.unit)).toBe(true);
+        }
+        // one common gallery reaches them all; nothing else on the floor is public
+        expect(floor.rooms.filter(r => r.kind === 'elevator_lobby')).toHaveLength(1);
+    }, 240000);
 });
