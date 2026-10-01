@@ -20,14 +20,15 @@ import { duplexSlices } from './metadata.js';
 import type { DuplexPair } from './assignments.js';
 
 interface Unit { id: string; rooms: PlanRoom[]; rect: UvRect }
-interface UnitFrame { origin: Point; turn: number; width: number; depth: number; corridor: string }
+interface UnitFrame { origin: Point; turn: number; width: number; depth: number; corridor: string; entryAt: number }
 
 /** Replace only real matching private allocations. No common room, public core,
  * or unrelated upper home is removed. A pair with no legal complete candidate keeps
  * its two ordinary apartment storeys and publishes no duplex, so the building never
  * pretends the requested duplex was generated and never loses its floors to it.
  * Returns the pairs that converted no home. */
-export function applyDuplexPairs(plan: BuildingPlan, pairs: readonly DuplexPair[], request: InteriorRequest): DuplexPair[] {
+export function applyDuplexPairs(plan: BuildingPlan, pairs: readonly DuplexPair[], request: InteriorRequest,
+  options: { wallStair?: boolean } = {}): DuplexPair[] {
   const unconverted: DuplexPair[] = [];
   for (const pair of pairs) {
     let converted = 0;
@@ -47,8 +48,10 @@ export function applyDuplexPairs(plan: BuildingPlan, pairs: readonly DuplexPair[
         const pitch = upper.elevation - lower.elevation;
         const risers = Math.ceil(pitch / .18 / 2) * 2;
         const openingDepth = Math.max(4, Math.ceil(((risers / 2 - 1) * .3 + 1.3) * 2) / 2);
-        const section = planDuplexSection({ width: local.width, depth: local.depth, pitch, stairOpeningDepth: openingDepth });
-        const program = planDuplexProgram(section, unit.id);
+        // a composed loft stands its stair against a side wall: the party wall, not the facade
+        const stairWall = options.wallStair ? partySide(local, lowerUv.outline) : undefined;
+        const section = planDuplexSection({ width: local.width, depth: local.depth, pitch, stairOpeningDepth: openingDepth, ...(stairWall ? { stairWall } : {}) });
+        const program = planDuplexProgram(section, unit.id, stairWall ? local.entryAt : undefined);
         const entry = program.lower[0]!.doors.find(door => door.id === `${unit.id}-private-entry`)!;
         entry.to = local.corridor;
         const furniture = furnishDuplexProgram(program, section, `${request.seed}:${unit.id}`);
@@ -106,12 +109,21 @@ function unitFrame(unit: Unit, rooms: PlanRoom[]): UnitFrame | null {
     rooms.some(room => room.id === door.to && !room.unit && ['corridor', 'elevator_lobby', 'concourse'].includes(room.kind)));
   if (!entry) return null;
   const { u, v, lu, lv } = unit.rect, corridor = entry.door.to;
+  // where along its front the unit's own entrance stands, in its frame
+  const [du, dv] = doorUvPoint(entry.door, entry.room);
   switch (entry.door.edge) {
-    case 'v0': return { origin: [u, v], turn: 0, width: lu, depth: lv, corridor };
-    case 'v1': return { origin: [u + lu, v + lv], turn: 180, width: lu, depth: lv, corridor };
-    case 'u0': return { origin: [u, v + lv], turn: -90, width: lv, depth: lu, corridor };
-    case 'u1': return { origin: [u + lu, v], turn: 90, width: lv, depth: lu, corridor };
+    case 'v0': return { origin: [u, v], turn: 0, width: lu, depth: lv, corridor, entryAt: du - u };
+    case 'v1': return { origin: [u + lu, v + lv], turn: 180, width: lu, depth: lv, corridor, entryAt: u + lu - du };
+    case 'u0': return { origin: [u, v + lv], turn: -90, width: lv, depth: lu, corridor, entryAt: v + lv - dv };
+    case 'u1': return { origin: [u + lu, v], turn: 90, width: lv, depth: lu, corridor, entryAt: dv - v };
   }
+}
+
+/** The side wall of a unit (low or high in its own frame) that is a party wall rather than the
+ *  facade: the one whose middle stands further from the floor's outline. */
+function partySide(local: UnitFrame, outline: readonly Point[]): 'low' | 'high' {
+  const at = (u: number) => Math.abs(boundaryDistance(inBuilding([u, local.depth / 2], local), outline as Point[]));
+  return at(.05) >= at(local.width - .05) ? 'low' : 'high';
 }
 
 function inBuilding(point: Point, local: UnitFrame): Point {

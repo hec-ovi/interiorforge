@@ -60,6 +60,17 @@ export function composedTurns(request: InteriorRequest, kind: FloorKind, assignm
   return kind === 'apartment' || kind === 'residence_studio' ? (plate.kind === 'C' || plate.kind === 'B' ? 2 : 3) : kind === 'office' || kind === 'corpo_office' ? OFFICE_TYPES.length : 1;
 }
 
+/** A composed kind B building's two-storey loft (its Apartment 1702): the first two home floors,
+ *  when the building has at least four home floors under its crown, both planned with the
+ *  arrangement whose front loft takes it. */
+export function composedDuplexPair(request: InteriorRequest): { lower: number; upper: number } | null {
+  const plate = composedPlate(request.blueprint, request.building);
+  if (!plate || plate.kind !== 'B') return null;
+  const homes = request.blueprint.floors.map(f => f.index).filter(index => index >= 1).sort((a, b) => a - b);
+  if (homes.length < 5) return null;
+  return { lower: homes[0]!, upper: homes[0]! + 1 };
+}
+
 /** A whole floor composed from its kind's plan, or null where the generic planner keeps it. */
 export function planComposedFloor(request: InteriorRequest, floor: BlueprintFloor, kind: FloorKind, core: CorePlan,
   plate: Point[], ids: IdGen): ComposedFloor | null {
@@ -79,13 +90,15 @@ export function planComposedFloor(request: InteriorRequest, floor: BlueprintFloo
   const office = kind === 'office' || kind === 'corpo_office';
   // each building turns through its arrangements from its own starting point
   const turn = seedOffset(String(request.seed));
+  const pair = composedDuplexPair(request), duplex = pair ? [pair.lower, pair.upper] : [];
   wearing(composed.kind === 'B' ? LOOK_B : composed.kind === 'C' ? LOOK_C : composed.kind === 'R' ? LOOK_R : LOOK_A);
   const result = composed.kind === 'B' && kind === 'lobby' ? groundB(c, box, plate as [number, number][], entrance)
     : composed.kind === 'C' ? (kind === 'lobby' ? groundC(c, box, plate as [number, number][], entrance) : typicalC(c, box, floor.index + turn))
     : composed.kind === 'R'
     ? (kind === 'lobby' ? groundR(c, box, plate as [number, number][], entrance)
       : officeR(c, box, plate as [number, number][], officePlan(String(request.seed), floor.index)))
-    : composed.kind === 'B' ? (floor.index === top || (floor.index + turn) % 2 === 0 ? crownA(c, box) : typicalA(c, box, 2, turn >= 2))
+    : composed.kind === 'B' ? (duplex.includes(floor.index) ? typicalA(c, box, 2, turn >= 2, true)
+      : floor.index === top || (floor.index + turn) % 2 === 0 ? crownA(c, box) : typicalA(c, box, 2, turn >= 2))
     : kind === 'lobby' ? groundA(c, box, plate as [number, number][], entrance)
     : office ? officeR(c, box, plate as [number, number][], officePlan(String(request.seed), floor.index))
     : floor.index === top ? crownA(c, box)

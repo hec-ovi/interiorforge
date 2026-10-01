@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generate } from '../src/index.js';
+import { expandBuilding, generate } from '../src/index.js';
 import type { FloorPlacement as FloorLayout, InteriorRequest } from '../src/index.js';
 import { composedCore } from '../src/layout/composed/core.js';
 import { GALLERY_RUN, ISLAND_HALF, galleryIslands } from '../src/layout/composed/kind-a.js';
@@ -186,4 +186,30 @@ describe('composed office plans across buildings', () => {
         }
         expect(same / levels).toBeLessThan(.15);
     });
+});
+
+describe('composed kind B two-storey loft', () => {
+    it('stands Apartment 1702 on its first two home floors, the stair against its party wall up to a mezzanine over a double-height lounge', async () => {
+        const glass = await assembly('mirror-shutters', { width: 40, depth: 40, floors: 8 });
+        const request: InteriorRequest = { ...glass, seed: 'kind-b', building: { ...glass.building, type: 'residential', tier: 'rich' },
+            blueprint: onePlate(glass.blueprint, 'mirror-shutters') };
+        expect(composedCore(request.blueprint, request.building)).not.toBeNull();
+        const built = await generate(request);
+        const layoutOf = (index: number) => (built.layouts as Record<string, FloorLayout>)[built.building.floors.find(f => f.index === index)!.layout]!;
+        const [lower] = layoutOf(1).floor.duplexes ?? [], [upper] = layoutOf(2).floor.duplexes ?? [];
+        expect(lower?.level).toBe('lower');
+        expect(upper?.level).toBe('upper');
+        expect(lower!.id).toBe(upper!.id);
+        // the stair stands against a side wall of the loft, the lounge open through both storeys
+        expect(['low', 'high']).toContain(lower!.stairWall);
+        const side = (ring: number[][]) => Math.min(...ring.map(p => Math.min(...lower!.footprint.map(q => Math.hypot(p[0]! - q[0]!, p[1]! - q[1]!)))));
+        expect(side(lower!.stairOpening)).toBeLessThan(lower!.depth);
+        expect(lower!.area.loungeVoid).toBeGreaterThanOrEqual(30);
+        // the upper storey is the loft's own: bedroom, bathroom, dressing and study off its gallery
+        const kinds = layoutOf(2).floor.rooms.filter(r => r.unit === upper!.unit).map(r => r.kind);
+        for (const kind of ['bedroom', 'bathroom', 'corridor', 'office_private']) expect(kinds).toContain(kind);
+        // people climb it: the loft's stair joins its two floors in the building's navigation
+        const nav = expandBuilding(built).npc.nav;
+        expect(nav.connectors.some(c => c.id === lower!.id && c.floors.includes(1) && c.floors.includes(2))).toBe(true);
+    }, 300000);
 });

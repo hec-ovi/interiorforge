@@ -568,6 +568,7 @@
         "lowerEntry": { "$ref": "#/$defs/point2" },
         "upperEntry": { "$ref": "#/$defs/point2" },
         "stairOpeningDepth": { "type": "number", "exclusiveMinimum": 0 },
+        "stairWall": { "enum": ["low", "high"], "description": "The private stair stands against the section's low or high side wall (a composed loft's); absent, in the middle of the section." },
         "area": {
           "type": "object", "additionalProperties": false, "required": ["lower", "upper", "loungeVoid", "stairOpening"],
           "properties": {

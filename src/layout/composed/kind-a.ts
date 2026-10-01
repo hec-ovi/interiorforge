@@ -346,7 +346,7 @@ function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number,
  *  opening directly off it, each one open loft room around its closed bathroom. Three
  *  arrangements turn with the floor index: four lofts split evenly, four split off-centre and
  *  mirrored, three lofts with one wide back loft wrapping the core. */
-export function typicalA(c: Composer, core: CoreBox, variant: number, flip = false): Composed {
+export function typicalA(c: Composer, core: CoreBox, variant: number, flip = false, loft = false): Composed {
   // half the buildings stand their front lofts' bathrooms at the other end of their front
   const end = (at: 'low' | 'high'): 'low' | 'high' => flip ? (at === 'low' ? 'high' : 'low') : at;
   const { W, D } = c;
@@ -387,10 +387,16 @@ export function typicalA(c: Composer, core: CoreBox, variant: number, flip = fal
         },
       });
     }
-    const a = Math.round(W * (variant === 1 ? .3 : 1 / 3) * 2) / 2, b = Math.round(W * (variant === 1 ? .65 : 2 / 3) * 2) / 2;
-    list.push(frontLoft(core, D, `loft-${list.length + 1}`, 0, a, end('high'), 'right', W));
-    list.push(frontLoft(core, D, `loft-${list.length + 1}`, a, b, end(variant === 1 ? 'low' : 'high'), 'left', W));
-    list.push(frontLoft(core, D, `loft-${list.length + 1}`, b, W, end('high'), 'left', W));
+    if (loft) {
+      // a floor of the two-storey loft: two front lofts wide enough for its stair and lounge
+      list.push(frontLoft(core, D, `loft-${list.length + 1}`, 0, mid, end('high'), 'right', W));
+      list.push(frontLoft(core, D, `loft-${list.length + 1}`, mid, W, end('high'), 'left', W));
+    } else {
+      const a = Math.round(W * (variant === 1 ? .3 : 1 / 3) * 2) / 2, b = Math.round(W * (variant === 1 ? .65 : 2 / 3) * 2) / 2;
+      list.push(frontLoft(core, D, `loft-${list.length + 1}`, 0, a, end('high'), 'right', W));
+      list.push(frontLoft(core, D, `loft-${list.length + 1}`, a, b, end(variant === 1 ? 'low' : 'high'), 'left', W));
+      list.push(frontLoft(core, D, `loft-${list.length + 1}`, b, W, end('high'), 'left', W));
+    }
     lofts(c, core, list, W);
     return { rooms: c.rooms, rearLanding: false };
   }

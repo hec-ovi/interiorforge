@@ -4,7 +4,7 @@ import { coreFeasibility, planBuilding } from '../layout/index.js';
 import { buildNpcSupport } from '../npc/index.js';
 import { planRoofAccess } from '../layout/roof-access.js';
 import type { BlueprintFloor, InteriorRequest, NpcSupport, Opening } from '../core/types.js';
-import { composedTurns } from '../layout/composed/compose.js';
+import { composedDuplexPair, composedTurns } from '../layout/composed/compose.js';
 import { corePlacement } from '../layout/core-plan.js';
 import { placeLayout } from './layout.js';
 import { windowTreatments } from './treatments.js';
@@ -47,7 +47,10 @@ export async function generate(input: unknown, options: GenerateOptions = {}): P
     const derived = duplexAssignments(request, resolveAssignments(request));
     const { assignments } = derived;
     // a composed building's homes are whole on their floor: it takes no derived duplex pair
-    const duplexPairs = composedTurns(request, 'apartment', assignments) > 1 ? derived.pairs.filter(pair => !pair.optional) : derived.pairs;
+    // and a composed kind B building has its own two-storey loft
+    const composed = composedTurns(request, 'apartment', assignments) > 1, loft = composed ? composedDuplexPair(request) : null;
+    const duplexPairs = composed ? [...derived.pairs.filter(pair => !pair.optional),
+        ...(loft && assignments.every(a => a.floor !== loft.lower && a.floor !== loft.upper || a.kind === 'apartment') ? [loft] : [])] : derived.pairs;
     const alone = floors.length === 1;
     const pairedFloors = new Set(duplexPairs.flatMap(pair => [pair.lower, pair.upper]));
     // Reuse only genuinely identical construction plates. Tapered wings, connection
@@ -212,7 +215,8 @@ function stampPublishedStyles(result: GeneratedInterior, request: InteriorReques
  *  records the loft it could not fit on the upper floor's program and is returned, so its
  *  floors fall back onto the shared middle layout. */
 function applyLoftPairs(plan: BuildingPlan, pairs: readonly DuplexPair[], request: InteriorRequest): DuplexPair[] {
-    const failed = applyDuplexPairs(plan, pairs, request).filter(pair => pair.optional);
+    // a composed loft stands its stair against its party wall
+    const failed = applyDuplexPairs(plan, pairs, request, { wallStair: !!plan.core.openPlan }).filter(pair => pair.optional);
     for (const pair of failed) {
         const uv = plan.uvFloors.get(pair.upper);
         if (uv) (uv.programChanges ??= []).push({ kind: 'living', requested: [15, 10], fitted: null });

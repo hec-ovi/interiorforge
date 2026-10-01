@@ -22,5 +22,8 @@ export interface FloorDuplex {
   lowerEntry: Point;
   upperEntry: Point;
   stairOpeningDepth: number;
+  /** The private stair stands against the section's low or high side wall (a composed loft's);
+   *  absent, in the middle of the section. */
+  stairWall?: 'low' | 'high';
   area: { lower: number; upper: number; loungeVoid: number; stairOpening: number };
 }

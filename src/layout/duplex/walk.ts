@@ -46,7 +46,7 @@ try {
     for (const ref of interior.building.floors) for (const slice of interior.layouts[ref.layout]!.floor.duplexes ?? []) {
         if (slice.level !== 'lower') continue;
         const section = planDuplexSection({ width: slice.width, depth: slice.depth, pitch: slice.pitch,
-            loungeVoidArea: slice.area.loungeVoid, stairOpeningDepth: slice.stairOpeningDepth });
+            loungeVoidArea: slice.area.loungeVoid, stairOpeningDepth: slice.stairOpeningDepth, ...(slice.stairWall ? { stairWall: slice.stairWall } : {}) });
         const frame = new RigidFrame2D(slice.frame.angleDeg, slice.frame.origin);
         const route = section.stair.route.map(([u, y, v]) => { const p = frame.toWorld([u, v]); return new THREE.Vector3(p[0], ref.elevation + y, p[1]); });
         const player = new PlayerBody(physics, route[0]!.clone().add(new THREE.Vector3(0, .025, 0)));

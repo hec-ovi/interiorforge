@@ -16,7 +16,7 @@ export function duplexSlices(section: DuplexSection, unit: string, lowerFloor: n
     loungeVoids: section.loungeVoids.map(rect => uvRectCorners(rect).map(world)),
     stairOpening: uvRectCorners(section.stairOpening).map(world),
     lowerEntry: world(section.stair.lowerEntry), upperEntry: world(section.stair.upperEntry),
-    stairOpeningDepth: section.stairOpening.lv,
+    stairOpeningDepth: section.stairOpening.lv, ...(section.stairWall ? { stairWall: section.stairWall } : {}),
     area: { lower: section.lowerArea, upper: section.upperArea,
       loungeVoid: section.loungeVoids.reduce((sum, rect) => sum + rect.lu * rect.lv, 0),
       stairOpening: section.stairOpening.lu * section.stairOpening.lv } };

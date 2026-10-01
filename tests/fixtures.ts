@@ -1,6 +1,6 @@
 import type { BuildingType, FloorKind, InteriorRequest } from '../src/index.js';
 /** Exterior remains a runtime contract dependency, outside this box's TypeScript build. */
-export async function assembly(family: 'mirror-frame' | 'corporate-sectors' = 'mirror-frame',
+export async function assembly(family: 'mirror-frame' | 'mirror-shutters' | 'corporate-sectors' = 'mirror-frame',
     dimensions?: { width: number; depth: number; floors: number }): Promise<InteriorRequest> {
     const entry = new URL('../../exterior/src/index.ts', import.meta.url).href;
     const { planAssembly } = await import(entry);

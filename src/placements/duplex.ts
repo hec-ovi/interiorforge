@@ -67,7 +67,7 @@ export function duplexPerimeterSegment(segment: RoomSegment, perimeter: UvRect):
 export function duplexGalleryEdges(slice: FloorDuplex, frame: Frame): { a: Point; b: Point; inward: Point }[] {
   if (slice.level !== 'upper') return [];
   const section = planDuplexSection({ width: slice.width, depth: slice.depth, pitch: slice.pitch,
-    loungeVoidArea: slice.area.loungeVoid, stairOpeningDepth: slice.stairOpeningDepth });
+    loungeVoidArea: slice.area.loungeVoid, stairOpeningDepth: slice.stairOpeningDepth, ...(slice.stairWall ? { stairWall: slice.stairWall } : {}) });
   const privateFrame = new RigidFrame2D(slice.frame.angleDeg, slice.frame.origin);
   const delta = makeFrame(slice.frame.angleDeg - frame.angleDeg);
   return exposedEdges([...section.loungeVoids, section.stairOpening], section.width, section.depth).filter(edge => {
@@ -84,7 +84,7 @@ export function duplexGalleryEdges(slice: FloorDuplex, frame: Frame): { a: Point
  * whole-stair bounding box seals the passage and no Engine exception is needed. */
 export function placeDuplexStructure(builder: PlacementBuilder, slice: FloorDuplex, room: string): void {
   const section = planDuplexSection({ width: slice.width, depth: slice.depth, pitch: slice.pitch,
-    loungeVoidArea: slice.area.loungeVoid, stairOpeningDepth: slice.stairOpeningDepth });
+    loungeVoidArea: slice.area.loungeVoid, stairOpeningDepth: slice.stairOpeningDepth, ...(slice.stairWall ? { stairWall: slice.stairWall } : {}) });
   const frame = new RigidFrame2D(slice.frame.angleDeg, slice.frame.origin);
   const rotation = -slice.frame.angleDeg * Math.PI / 180;
   const module = (id: string, at: [number, number, number], scale: [number, number, number], yaw = rotation) => {
