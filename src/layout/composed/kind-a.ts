@@ -449,6 +449,8 @@ export function crownA(c: Composer, core: CoreBox): Composed {
       screen(k, r, [W - 9.0, (g1 + 4.8 + D) / 2 + 1.0], 'v', L.look);
       bedroom(k, r, [0, g1 + 4.8, 5.6, D - 6.8], 'left', L.look, { wardrobe: false });
       screen(k, r, [5.9, (g1 + 4.8 + D - 6.8) / 2], 'v', L.look);
+      // two chairs by the screen, between the second bedroom and the sunken lounge
+      if (W / 2 - 6.4 - 6.6 >= 3.4) reading(k, r, [6.6, g1 + 6.4, W / 2 - 6.6, g1 + 9.4], 'back', L.look);
     },
   };
   lofts(c, core, [back, front]);
