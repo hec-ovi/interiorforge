@@ -42,7 +42,7 @@ it('lays large metric slabs at the true floor with physical joints over continuo
 it('keeps balcony public stone, private timber and wet-room finishes without glowing wall frames', () => {
   const request = makePlacementFixture({width: 40, depth: 40, floors: 3, type: 'residential', tier: 'high_rich'});
   request.blueprint.assembly = {architecture: 'balcony-grid'};
-  for (const [room, floor] of [['reception', 'floor-slab-meridian-stone'], ['bedroom', 'floor-slab-plank'], ['bathroom', 'floor-slab-marble'], ['elevator_lobby', 'floor-slab-meridian-stone'], ['mechanical_room', 'floor-slab-meridian-stone']] as const) {
+  for (const [room, floor] of [['reception', 'floor-slab-meridian-stone'], ['bedroom', 'floor-slab-plank'], ['bathroom', 'floor-slab-marble'], ['elevator_lobby', 'floor-slab-meridian-stone'], ['mechanical_room', 'floor-slab-industrial']] as const) {
     const finish = architectureFinish(request, 'luxury', room, roomFinish('luxury', room, 'apartment'));
     expect(finish.floor).toBe(floor);
     expect(finish.frame).toBeUndefined();

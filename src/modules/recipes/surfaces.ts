@@ -39,6 +39,7 @@ export const surfaceRecipes: RecipeSet = (add) => {
   const slabs = {
     stone: FINISH.stone, obsidian: FINISH.obsidian, marble: FINISH.marble, plank: FINISH.plank,
     capsule: FINISH.capsuleFloor, damaged: FINISH.damagedFloor, steel: FINISH.damagedSteel,
+    'clinic-resilient': FINISH.clinicFloor,
   } as const;
   for (const [name, slot] of Object.entries(slabs)) {
     // the finish wears the walking surface and the screed below carries the edges; the tile

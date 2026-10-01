@@ -15,6 +15,7 @@ export const FINISH = {
   marble: "cyberpunk/tile/rich#slab",
   plank: "cyberpunk/wood/high_rich#2",
   carpet: "cyberpunk/carpet/high_rich#1",
+  clinicFloor: "cyberpunk/clinic-floor/high_rich#studded-resilient",
   fabric: "cyberpunk/fabric/high_rich#flat",
   linen: "cyberpunk/ivory-panel/mid#native",
   ceilingLight: "cyberpunk/interior-luxury-ceiling/rich#field",

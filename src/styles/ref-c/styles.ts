@@ -80,8 +80,14 @@ const c2: StyleSpec = {
 
 const c3: StyleSpec = {
     id: 'c3', kind: 'C', tier: 'poor',
-    finish(room, _floorKind: FloorKind, base) {
+    finish(room, _floorKind: FloorKind, base, context) {
         if (WET.has(room)) return publicFinish(base, 'wall-panel-c4-paint', 'floor-slab-c4');
+        // The later service-circulation reference shares Japantown's ribbed
+        // substrate. Its explicit role must not recolour the motel atrium,
+        // recreation area or an ordinary guest corridor. The current c3-poor
+        // template has only atrium/recreation roles; it does not invent this one.
+        if (room === 'corridor' && context?.role === 'service-corridor')
+            return publicFinish(base, 'wall-field-c2', 'floor-slab-c7');
         return publicFinish(base, 'wall-field-c2');
     },
     lights: { plannedCoves: false, kelvin: 3300 },
@@ -108,7 +114,7 @@ const c6: StyleSpec = {
     id: 'c6', kind: 'C', tier: 'poor',
     finish(room, _floorKind: FloorKind, base) {
         if (WET.has(room)) return { ...base, field: 'wall-field-damaged-wet', floor: 'floor-slab-c4', ceiling: 'ceiling-field-c2', frame: undefined, band: undefined };
-        return { ...base, field: 'wall-field-damaged-lodging', floor: 'floor-slab-c7', ceiling: 'ceiling-field-c2', frame: undefined, band: undefined };
+        return { ...base, field: 'wall-field-damaged-lodging', floor: 'floor-slab-capsule', ceiling: 'ceiling-field-c2', frame: undefined, band: undefined };
     },
     lights: { plannedCoves: false, kelvin: 2700, color: [1, .42, .78] },
     entrance: 'damaged',

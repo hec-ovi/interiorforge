@@ -76,10 +76,10 @@ export function placeLayout(plan: BuildingPlan, bp: BlueprintFloor, request: Int
     };
     const finishOf = (room: string, kind: RoomKind = kinds.get(room) ?? common.kind): RoomFinish => {
         const style = styleOfRoom(room);
-        const base = loft1702Finish(kind, architectureFinish(request, family, kind, roomFinish(family, kind, floor.kind as FloorKind), !!style),
+        const base = loft1702Finish(kind, architectureFinish(request, family, kind, roomFinish(family, kind, floor.kind as FloorKind, request.building.type), !!style),
             { privateRoom: loftRooms.has(room) });
         if (!style) return base;
-        const styled = style.finish(kind, floor.kind as FloorKind, base);
+        const styled = style.finish(kind, floor.kind as FloorKind, base, published.get(room) ?? planned.get(room));
         return { ...styled, style: style.id, spot: style.lights?.spot ?? styled.spot, cove: style.lights?.cove ?? styled.cove };
     };
     const tag = `f${bp.index < 0 ? `m${-bp.index}` : bp.index}`;

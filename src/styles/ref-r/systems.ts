@@ -60,7 +60,7 @@ export const R1_CEILING: typeof CEILING = {
 };
 
 /** Floor: walnut boards 2 × 0.2 m with 2 mm joints, laid from the room's corner. */
-export const R1_FLOOR = floorPreset('R', 'r1', { profile: { tile: R1.walnut } });
+export const R1_FLOOR = floorPreset('R', 'r1', { profile: { tile: R1.floor } });
 
 /** Glazing of the meeting rooms and private offices toward the open office and the public
  *  rooms: black mullions on the metre over a 0.1 m black base, a transom at 2.4 m. The

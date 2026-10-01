@@ -4,6 +4,7 @@ import { capsuleRoomFinish } from '../styles/capsule/finish.js';
 import { damagedRoomFinish } from '../styles/damaged/finish.js';
 import { industrialFinish } from '../styles/industrial/index.js';
 import { corporateRoomFinish, isCorporate } from '../styles/corporate/index.js';
+import { luxuryFloor } from './floor-finish.js';
 
 /** The look a building is furnished in: luxury for rich tiers, capsule for mid, damaged for
  *  poor, industrial for factories and military parcels whatever their tier. */
@@ -46,7 +47,6 @@ const DARK_ROOMS: ReadonlySet<RoomKind> = new Set([
   "reception", "lounge", "bar", "dining_area", "counter_area", "sales_floor", "concourse", "elevator_lobby", "gym_floor", "terrace_open",
 ]);
 const WET_ROOMS: ReadonlySet<RoomKind> = new Set(["bathroom", "toilets", "locker_room"]);
-const TIMBER_FLOORS: ReadonlySet<RoomKind> = new Set(["living", "bedroom", "studio_main"]);
 const SERVICE_ROOMS: ReadonlySet<RoomKind> = new Set(["storage", "mechanical_room", "parking_area"]);
 /** Dark mineral marks the vertical/service core; inhabited fields stay pale and calm. */
 const CORE_FIELDS: ReadonlySet<RoomKind> = new Set(["elevator_lobby", "mechanical_room"]);
@@ -56,7 +56,7 @@ export const GLAZED_ROOMS: ReadonlySet<RoomKind> = new Set(["office_private", "m
 /** Public neighbours sharing those glass partitions; also used by wall-mounted furniture. */
 export const GLAZED_ONTO: ReadonlySet<RoomKind> = new Set(["corridor", "elevator_lobby", "concourse", "office_open", "reception", "lounge"]);
 
-export function roomFinish(family: Family, room: RoomKind, floorKind: FloorKind): RoomFinish {
+export function roomFinish(family: Family, room: RoomKind, floorKind: FloorKind, buildingType?: BuildingType): RoomFinish {
   switch (family) {
     case 'corporate':
       return corporateRoomFinish(room, floorKind);
@@ -70,8 +70,7 @@ export function roomFinish(family: Family, room: RoomKind, floorKind: FloorKind)
       const dark = DARK_ROOMS.has(room) || (room === "corridor" && VENUE_KINDS.has(floorKind));
       const palette = WET_ROOMS.has(room) ? "slate" : dark ? "dark" : "ivory";
       const privateSalon = room === "living" || room === "studio_main";
-      const floor = privateSalon ? "floor-slab-luxury-polished" : palette === "slate" ? "floor-slab-marble"
-        : TIMBER_FLOORS.has(room) ? "floor-slab-plank" : "floor-slab-meridian-stone";
+      const floor = luxuryFloor(room, floorKind, buildingType);
       return {
         family, field: privateSalon ? "wall-field-meridian-walnut" : CORE_FIELDS.has(room) ? "wall-field-meridian-mineral"
           : SERVICE_ROOMS.has(room) || WET_ROOMS.has(room) ? `wall-field-${palette}` : "wall-field-meridian-ivory",

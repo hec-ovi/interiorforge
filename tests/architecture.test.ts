@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { generate, makePlacementFixture, INTERIOR_RECIPES } from '../src/index.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
 
-it('pairs the exterior architecture with its interior recipe, preserves explicit programs and produces different finishes', async () => {
+it('pairs architectural wall finishes while preserving explicit programs and room floor roles', async () => {
     // Architecture recipes dress the luxury family; offices and corpo parcels furnish
     // in the corporate family, so a clinic's office floors carry the pairing.
     const request = makePlacementFixture({ width: 24, depth: 40, floors: 3, type: 'clinic', tier: 'high_rich', seed: 11 });
@@ -14,11 +14,27 @@ it('pairs the exterior architecture with its interior recipe, preserves explicit
         expect(result.building.floors).toHaveLength(3);
         expect(result.layouts.middle!.floor.kind).toBe(request.assignments!.find(a => a.floor === 1)!.kind);
         outputs.push(new Set(result.layouts.middle!.placements.map(p => p.module)));
+        // The office program carries toilets and meeting rooms, not storage.
+        // Check actual room surfaces across its lobby and office layouts so
+        // service coverage follows the room program that really supplies it.
+        const observed = new Set<string>();
+        for (const layout of Object.values(result.layouts)) for (const room of layout.floor.rooms) {
+            if (/^(stair|elev)-/.test(room.id)) continue;
+            const wet = ['bathroom', 'toilets', 'locker_room'].includes(room.kind);
+            const service = ['storage', 'mechanical_room', 'parking_area'].includes(room.kind);
+            const role = wet ? 'wet' : service ? 'service' : 'clinical';
+            const expected = wet ? 'floor-slab-marble' : service ? 'floor-slab-industrial' : 'floor-slab-clinic-resilient';
+            const modules = layout.placements.filter(p => p.room === room.id).map(p => p.module);
+            expect(modules, `${architecture} ${layout.id} ${room.kind}`).toContain(expected);
+            observed.add(role);
+        }
+        expect([...observed].sort(), architecture).toEqual(['clinical', 'service', 'wet']);
     }
-    expect(outputs[0]).toContain('floor-slab-meridian-support');
+    expect(outputs[0]).toContain('floor-slab-clinic-resilient');
     expect(outputs[0]).toContain('wall-field-meridian-ivory');
     expect(outputs[0]).not.toContain('wall-panel-rail-timber');
     expect(outputs[1]).toContain('floor-slab-marble');
+    expect(outputs[1]).toContain('floor-slab-clinic-resilient');
     expect(JSON.stringify(request)).toBe(before);
     expect(new Set(INTERIOR_RECIPES.map(recipe => recipe.id)).size).toBe(INTERIOR_RECIPES.length);
 });

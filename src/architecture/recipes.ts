@@ -44,7 +44,8 @@ export function shellOwnsFacade(request: InteriorRequest, floor: BlueprintFloor)
     ].includes(interiorRecipe(request)?.id ?? '');
 }
 
-/** The family finish in the architecture's palette. A room wearing a registered reference
+/** Walls and ceilings in the architecture's palette; the selected floor keeps its room
+ *  and venue role. A room wearing a registered reference
  *  style keeps the family base untouched: its style finishes it, and the recipe palette must
  *  not overwrite the reference surfaces. */
 export function architectureFinish(request: InteriorRequest, family: Family, room: RoomKind, base: RoomFinish, styled = false): RoomFinish {
@@ -63,7 +64,7 @@ export function architectureFinish(request: InteriorRequest, family: Family, roo
     if (recipe.id === 'balcony-grid') return { ...base, frame: undefined };
     const cool = recipe.frame === 'steel' || recipe.frame === 'graphite';
     return { ...base,
-        ...(!service ? { field: `wall-field-${recipe.field}`, floor: `floor-slab-${recipe.floor}`,
+        ...(!service ? { field: `wall-field-${recipe.field}`,
             ceiling: `ceiling-field-${['dark', 'charcoal', 'graphite'].includes(recipe.field) ? 'dark' : 'light'}` } : {}),
         ...(base.band ? {band: `ceiling-band-${recipe.frame}`} : {}),
         cove: `ceiling-cove-${recipe.frame === 'graphite' ? 'graphite' : cool ? 'steel' : 'timber'}`,

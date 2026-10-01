@@ -13,8 +13,10 @@ export const R1 = {
     black: 'cyberpunk/paired-cladding-metal/mid#obsidian',
     /** dark timber of the library boards */
     darkWood: 'cyberpunk/wood/high_rich#2',
-    /** walnut boards of the floor */
+    /** walnut veneer of the joinery */
     walnut: 'cyberpunk/corpo-plaza-veneer/rich#walnut',
+    /** golden walnut floor grain, distinct from the joinery's metre veneer */
+    floor: 'cyberpunk/r1-floor/rich#walnut',
     /** warm timber of the continuous ceiling */
     ceiling: 'cyberpunk/interior-luxury-timber/rich#field',
     /** figured burl carcass of the drawer chests */

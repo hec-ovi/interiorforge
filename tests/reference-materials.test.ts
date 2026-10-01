@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadTheme } from '../src/materials/load.js';
 import { moduleRecipes } from '../src/modules/recipes.js';
-import type { FloorKind, RoomKind } from '../src/core/types.js';
+import type { FloorKind, RoomKind, StyleId } from '../src/core/types.js';
 import { roomFinish } from '../src/placements/finish.js';
 import { KIND_POLICY } from '../src/styles/reference/kinds.js';
 import { CEILINGS, FLOORS, GLAZING, KINDS, PANELS, PORTALS, STYLES } from '../src/styles/reference/registry.js';
@@ -16,6 +16,45 @@ const ROOMS: RoomKind[] = ['corridor', 'elevator_lobby', 'reception', 'lounge', 
 const FLOOR_KINDS: FloorKind[] = ['lobby', 'apartment', 'hotel_rooms', 'office', 'corpo_office'];
 
 describe('reference materials and module ids', () => {
+    it('uses the dedicated restroom tile and office floor without recolouring shared furniture', () => {
+        expect(recipes.get('floor-slab-c4')!.mesh.materials()).toContain('cyberpunk/c4-tile/poor#terracotta');
+        expect(recipes.get('floor-slab-r1')!.mesh.materials()).toContain('cyberpunk/r1-floor/rich#walnut');
+        expect(recipes.get('floor-slab-c4')!.mesh.materials()).not.toContain('cyberpunk/interior-service-vinyl/poor#ochre');
+        expect(recipes.get('floor-slab-r1')!.mesh.materials()).not.toContain('cyberpunk/corpo-plaza-veneer/rich#walnut');
+        const clinical = recipes.get('floor-slab-clinic-resilient')!.mesh.materials();
+        expect(clinical).toContain('cyberpunk/clinic-floor/high_rich#studded-resilient');
+        const theme = loadTheme('cyberpunk')!.library;
+        for (const slot of clinical) {
+            const [key, variant] = slot.split('#');
+            expect(theme.entry(key!)?.variants.some(v => v.id === variant), slot).toBe(true);
+        }
+    });
+
+    it('keeps the suite stone, apartment wood, bathroom slabs and ribbed home distinct', () => {
+        const floor = (id: StyleId, room: RoomKind) => {
+            const style = STYLES.get(id)!;
+            return style.finish(room, 'apartment', roomFinish(KIND_POLICY[style.kind].family, room, 'apartment')).floor;
+        };
+        expect(floor('b2', 'living')).not.toBe(floor('b3', 'living'));
+        expect(new Set(['living', 'kitchen', 'bathroom'].map(room => floor('e6', room as RoomKind))).size).toBe(3);
+        expect(floor('c6', 'studio_main')).not.toBe(floor('c7', 'living'));
+        expect(recipes.get(floor('b2', 'living'))!.mesh.materials()).toContain('cyberpunk/b2-floor/rich#red-stone');
+        expect(recipes.get(floor('e6', 'bathroom'))!.mesh.materials()).toContain('cyberpunk/e6-floor/high_rich#grey-stone');
+        expect(recipes.get(floor('c7', 'living'))!.mesh.materials()).toContain('cyberpunk/interior-ribbed-floor/poor#quarter-turn');
+        expect(floor('c6', 'studio_main')).toBe('floor-slab-capsule');
+    });
+
+    it('uses ribs only for explicitly identified C3 service circulation', () => {
+        const style = STYLES.get('c3')!;
+        const base = (room: RoomKind) => roomFinish('damaged', room, 'lobby');
+        expect(style.finish('corridor', 'lobby', base('corridor'), { role: 'service-corridor' }).floor).toBe('floor-slab-c7');
+        expect(style.finish('corridor', 'lobby', base('corridor')).floor).toBe('floor-slab-damaged');
+        expect(style.finish('corridor', 'lobby', base('corridor'), { role: 'guest-corridor' }).floor).toBe('floor-slab-damaged');
+        expect(style.finish('reception', 'lobby', base('reception'), { role: 'atrium' }).floor).toBe('floor-slab-damaged');
+        expect(style.finish('lounge', 'lobby', base('lounge'), { role: 'recreation' }).floor).toBe('floor-slab-damaged');
+        expect(style.finish('toilets', 'lobby', base('toilets'), { role: 'service-corridor' }).floor).toBe('floor-slab-c4');
+    });
+
     it('resolves every material slot of every reference module in the cyberpunk theme', () => {
         const theme = loadTheme('cyberpunk')!.library;
         for (const kind of KINDS) {

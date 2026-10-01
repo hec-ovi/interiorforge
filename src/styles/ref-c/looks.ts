@@ -9,6 +9,7 @@ export const C = {
   amber: 'cyberpunk/interior-capsule-enamel/mid#amber',
   petrol: 'cyberpunk/interior-capsule-enamel/mid#petrol',
   hex: 'cyberpunk/interior-capsule-hex/mid#field',
+  ribs: 'cyberpunk/interior-ribbed-floor/poor#quarter-turn',
   // dark ceilings, joints and liners
   black: 'cyberpunk/paired-cladding-metal/mid#obsidian',
   charcoal: 'cyberpunk/corporate-panel/mid#native',
@@ -24,6 +25,7 @@ export const C = {
   zinc: 'cyberpunk/metal/poor#zinc',
   ochre: 'cyberpunk/interior-service-vinyl/poor#ochre',
   umber: 'cyberpunk/interior-service-vinyl/poor#umber',
+  terracotta: 'cyberpunk/c4-tile/poor#terracotta',
   concrete: 'cyberpunk/concrete/mid#plain',
   // wet rooms
   whiteTile: 'cyberpunk/tile/poor#1',

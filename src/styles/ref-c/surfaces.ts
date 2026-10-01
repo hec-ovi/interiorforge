@@ -75,8 +75,8 @@ export const surfaceRecipesC: RecipeSet = add => {
     // publish a module of zero height).
     ceilingC1.recipes((id, draw) => add(id, id !== ceilingC1.system.backing ? draw
         : k => k.cbox(C.black, [0, .034, 0], [.5, .006, .5], undefined, ['bottom', 'north', 'south', 'east', 'west'])));
-    plainSlab('floor-slab-c7', 'cyberpunk/interior-capsule-floor/mid#field')(add);
-    plainSlab('floor-slab-c4', C.ochre)(add);
+    plainSlab('floor-slab-c7', C.ribs)(add);
+  plainSlab('floor-slab-c4', C.terracotta)(add);
     // the public cassette ceiling and the service rooms' teal paint as plain fields, whose
     // maps carry the cassettes and plates at their physical repeat
     add('ceiling-field-c2', k => k.cbox(C.wornCeiling, [0, 0, 0], [.5, .03, .5], undefined, ['bottom', 'north', 'south', 'east', 'west']));

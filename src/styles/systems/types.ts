@@ -64,7 +64,7 @@ export interface StyleSpec {
     tier: Tier;
     /** the room's surfaces: marker ids (`wall-field-<sid>`, `floor-slab-<sid>`,
      *  `ceiling-field-<sid>`) route to the systems, plus casing/portal/glazing ids */
-    finish(room: RoomKind, floorKind: FloorKind, base: RoomFinish): RoomFinish;
+    finish(room: RoomKind, floorKind: FloorKind, base: RoomFinish, context?: Pick<Room, 'role'>): RoomFinish;
     /** a `fit-*` module the piece stands as at its canonical size, or null for the family chain */
     fit?(item: Furniture, room: Room): string | null;
     lights?: { plannedCoves: boolean; kelvin?: number; color?: [number, number, number]; spot?: string; cove?: string };
