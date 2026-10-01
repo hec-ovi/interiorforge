@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { generate } from '../src/index.js';
 import type { FloorPlacement as FloorLayout, InteriorRequest } from '../src/index.js';
 import { composedCore } from '../src/layout/composed/core.js';
+import { GALLERY_RUN, ISLAND_HALF, galleryIslands } from '../src/layout/composed/kind-a.js';
 import { resolveAssignments, validateRequest } from '../src/blueprint/validate.js';
 import { duplexAssignments } from '../src/layout/duplex/assignments.js';
 import { planBuilding } from '../src/layout/index.js';
@@ -140,5 +141,27 @@ describe('composed kind C block', () => {
         }
         // one common gallery reaches them all; nothing else on the floor is public
         expect(floor.rooms.filter(r => r.kind === 'elevator_lobby')).toHaveLength(1);
+    }, 240000);
+});
+
+describe('composed galleries', () => {
+    it('breaks a gallery longer than 24 m with islands, so no straight run is over 20 m and none stands before the lifts', () => {
+        for (const [end, keepFrom, keepTo] of [[42, 16.95, 25.25], [46, 18.95, 26.95], [56, 23.95, 31.95], [30, 9.95, 18.25]] as const) {
+            const islands = galleryIslands(end, keepFrom, keepTo);
+            const stops = [0, ...islands.flatMap(u => [u - ISLAND_HALF, u + ISLAND_HALF]), end];
+            for (let i = 0; i + 1 < stops.length; i += 2) expect(stops[i + 1]! - stops[i]!).toBeLessThanOrEqual(GALLERY_RUN + .5);
+            for (const u of islands) expect(u + ISLAND_HALF <= keepFrom || u - ISLAND_HALF >= keepTo).toBe(true);
+        }
+    });
+
+    it('stands the islands on a wide plate\'s home floor gallery', async () => {
+        const wide = await assembly('mirror-frame', { width: 48, depth: 48, floors: 4 });
+        const request = validateRequest({ ...wide, seed: 'kind-a-wide', building: { ...wide.building, type: 'residential', tier: 'high_rich' },
+            blueprint: onePlate(wide.blueprint, 'mirror-frame') });
+        const { assignments } = duplexAssignments(request, resolveAssignments(request));
+        const floor = planBuilding(request, assignments, new Set([1])).floors.find(f => f.floor === 1)!;
+        const gallery = floor.rooms.find(r => r.id === 'f1-gallery')!;
+        const islands = floor.furniture.filter(f => f.room === gallery.id && f.fit === 'asm-e1-bamboo');
+        expect(islands.length).toBeGreaterThanOrEqual(2);
     }, 240000);
 });
