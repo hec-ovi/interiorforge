@@ -1,4 +1,4 @@
-# Interior 0.40.0
+# Interior 0.40.1
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
@@ -130,14 +130,15 @@ rooms of a floor and its core tile the plate, the open floor being what the othe
 - Kind `A` ground: the lobby hall with the café bar (kitchen wall, counter, eight stools, café
   tables) in the back corner and a loft office below it, the closed back row (plant, stores,
   toilets) with the glass meeting room, a 6 m and a 14 m glass lounge flush with the side walls
-  and the facade, the front desk facing the entrance. Home floors: a gallery in front of the
-  stair and lifts from which three to five loft homes open, each one open room round a closed
+  and the facade, the front desk facing the entrance. Home floors: a gallery 5.6 m deep in
+  front of the stair and lifts from which three to five loft homes open, each one open room round a closed
   bathroom with a built-in kitchen wall, island, dining, lounge, bed behind a glass bamboo
   screen, a reading corner and wardrobes; three arrangements turn with the floor and the
   building's seed. Crown: two penthouses round a sunken great-room lounge.
 - Kind `B` wears the same home plans in its own look on its own ground (a low lounge, a window
-  lounge, a raised bar, a dining table behind a lit planter, a salon behind glass); its homes
-  stay whole on their floors (no derived duplex). Kind `C`: an entry hall with caretaker, mail
+  lounge, a raised bar, a dining table behind a lit planter, a salon behind glass); its lofts'
+  kitchens and bars stand one step up, and its homes stay whole on their floors (no derived
+  duplex). Kind `C`: an entry hall with caretaker, mail
   bank, vending, kiosk and canteen counter, on a deep plate a public street front (a noodle bar
   and a launderette) before studio homes off the hall; home floors packed as a poor block's,
   back homes off the gallery, and on a deep plate windowless studios between the gallery and a
