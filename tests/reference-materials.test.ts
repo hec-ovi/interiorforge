@@ -39,7 +39,8 @@ describe('reference materials and module ids', () => {
         expect(new Set(['living', 'kitchen', 'bathroom'].map(room => floor('e6', room as RoomKind))).size).toBe(3);
         expect(floor('c6', 'studio_main')).not.toBe(floor('c7', 'living'));
         expect(recipes.get(floor('b2', 'living'))!.mesh.materials()).toContain('cyberpunk/b2-floor/rich#red-stone');
-        expect(recipes.get(floor('e6', 'bathroom'))!.mesh.materials()).toContain('cyberpunk/e6-floor/high_rich#grey-stone');
+        // kind A keeps its own pale floors: an E6 bathroom stays on its marble, not the grey stone
+        expect(floor('e6', 'bathroom')).toBe('floor-slab-marble');
         expect(recipes.get(floor('c7', 'living'))!.mesh.materials()).toContain('cyberpunk/interior-ribbed-floor/poor#quarter-turn');
         expect(floor('c6', 'studio_main')).toBe('floor-slab-capsule');
     });

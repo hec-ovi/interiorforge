@@ -36,13 +36,6 @@ export const E6_FLOOR = floorPreset('A', 'e6', {
     profile: { tile: M.mat, support: F.black },
 });
 
-/** Large fine-veined grey bath slabs, separate from the kitchen's mineral floor
- *  and the dwelling's woven mats. Source veins do not create displaced cracks. */
-export const E6_BATH_FLOOR = floorPreset('A', 'e6-bath', {
-    system: { tile: { size: [1.5, 1.5], joint: .0025, block: 'floor-finish-e6-bath-stone', blockTiles: [2, 2], phase: 'room' } },
-    profile: { tile: 'cyberpunk/e6-floor/high_rich#grey-stone' },
-});
-
 const WET: ReadonlySet<RoomKind> = new Set(['bathroom', 'toilets']);
 
 export const E6_STYLE: StyleSpec = {
@@ -50,7 +43,7 @@ export const E6_STYLE: StyleSpec = {
     finish(kind: RoomKind, _floorKind: FloorKind, base: RoomFinish): RoomFinish {
         const { frame: _frame, band: _band, services: _services, ...plain } = base;
         const field = WET.has(kind) ? 'wall-field-sandra-wet' : kind === 'bedroom' ? 'wall-field-sandra-plaster' : E6_PANEL.system.id;
-        const floor = WET.has(kind) ? E6_BATH_FLOOR.system.id : kind === 'kitchen' ? 'floor-slab-stone' : E6_FLOOR.system.id;
+        const floor = WET.has(kind) ? 'floor-slab-marble' : kind === 'kitchen' ? 'floor-slab-stone' : E6_FLOOR.system.id;
         return { ...plain, family: 'luxury', field, floor, ceiling: E6_CEILING.system.id, casing: 'e1' };
     },
     fit(item: Furniture, _room: Room): string | null {
