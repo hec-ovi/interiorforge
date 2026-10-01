@@ -115,10 +115,21 @@ export function groundR(c: Composer, core: CoreBox, plate: readonly [number, num
   windowLounge(c, hall, [W - 14, D - 4.2], 'v', 2.8);
   plant(c, hall, [.6, D - .6], true); plant(c, hall, [W - 10.1, D - .6], true);
   plant(c, hall, [sw + .6, core.stair[3] + .8]); plant(c, hall, [l1 + .7, lv1 + .7]);
-  // meeting room furniture
+  // the security desk on the way from the reception to the lifts, a business lounge of a long
+  // shared table and a waiting group on the right of the hall
+  c.piece(hall, { kind: 'reception_desk', at: [l1 + 3.4, lv1 + 3.4], size: [2.6, .9, 1.1], facing: 'left', fit: 'fit-corporate-security-desk' });
+  if (W - 4.6 >= l1 + 5.0) {
+    dining(c, hall, [W - 4.6, lv1 + 1.2, W - 1.2, Math.min(D - 13.2, lv1 + 7.6)], 'v', 8);
+    conversation(c, hall, [W - 5.4, D - 11.0], 'u', 2.6);
+  }
+  // the meeting room is the boardroom: a long table for ten, a screen over a credenza on its
+  // back wall, plants in its corners
   const mu = W - 4.75, mv = D - 4.5;
-  c.piece(meeting, { kind: 'meeting_table', at: [mu, mv], size: [2.8, 1.2, .75], facing: 'left' });
-  for (const t of [-1, 0, 1]) for (const s of [-1, 1]) c.piece(meeting, { kind: 'chair', at: [mu + s * .95, mv + t * .85], size: [.5, .5, .9], facing: s < 0 ? 'right' : 'left' });
+  c.piece(meeting, { kind: 'meeting_table', at: [mu, mv], size: [4.2, 1.4, .75], facing: 'left' });
+  for (const t of [-2, -1, 0, 1, 2]) for (const s of [-1, 1]) c.piece(meeting, { kind: 'chair', at: [mu + s * 1.05, mv + t * .8], size: [.5, .5, .9], facing: s < 0 ? 'right' : 'left' });
+  c.piece(meeting, { kind: 'display_screen', at: [mu, D - 9 + .06], size: [2.0, .08, 1.1], facing: 'front', elevation: 1.2 });
+  c.piece(meeting, { kind: 'shelf', at: [mu, D - 9 + .25], size: [2.0, .45, .8], facing: 'front', fit: 'fit-r1-chest' });
+  plant(c, meeting, [W - .6, D - 8.4]); plant(c, meeting, [W - .6, D - .6]);
   // services
   mechanical(c, mech, [0, 0, 7, core.stair[1]], 'back');
   storage(c, stores, [7, 0, 11.5, 4.3], 'back');
