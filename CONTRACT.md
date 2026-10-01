@@ -1,4 +1,4 @@
-# Interior 0.42.0
+# Interior 0.43.0
 
 Places shared room modules and catalog furniture in reusable building layouts.
 
@@ -134,8 +134,9 @@ rooms of a floor and its core tile the plate, the open floor being what the othe
   front of the stair and lifts from which three to five loft homes open, each one open room round a closed
   bathroom with a built-in kitchen wall, island, dining, lounge, bed behind a glass bamboo
   screen, a reading corner and wardrobes; three arrangements turn with the floor and the
-  building's seed. A gallery longer than 24 m (a wide plate's) is broken by planter islands on
-  its middle line, never before the lifts, so no straight run along it is over 20 m. Crown: two
+  building's seed. A gallery longer than 20 m (the standard plate's 22.6 m one included) is
+  broken by planter islands on its middle line, never before the lifts, so no straight run
+  along it is over 20 m. Crown: two
   penthouses round a sunken great-room lounge.
 - Kind `B` wears the same home plans in its own look on its own ground (a low lounge, a window
   lounge, a raised bar, a dining table behind a lit planter, a salon behind glass); its lofts'
@@ -497,7 +498,9 @@ loft's slice publishes `stairWall` (`low` or `high`, the side wall of its sectio
 stands against, its party wall): the stair rises against that wall to a mezzanine walkway, the
 double-height lounge spans the back of the home from it, and its rooms are the open living,
 bathroom, kitchen and store below, the bedroom with its bathroom and dressing, a study and the
-walkway above.
+walkway above. Its living is furnished as one plan: a sofa and chairs on the double-height
+windows, a screen on the side wall, dining by the kitchen's doorway, a reading corner under the
+mezzanine, and in a deep loft a second sitting group.
 
 Layout NPC records use `sourceFloor` and local identities. `expandBuilding` applies
 floor identities, opening mappings, elevations and building connectors for Simulation.

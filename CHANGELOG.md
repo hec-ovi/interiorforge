@@ -1,5 +1,7 @@
 # Changelog
 
+0.43.0: the standard plate's 22.6 m home floor gallery is broken by one planter island at its middle, before the lifts; a wall-stair loft's living is furnished as one plan: the lounge on its double-height windows, a screen on the side wall, dining by the kitchen, a reading corner under the mezzanine, and a second sitting group in a deep loft.
+
 0.42.0: floors by kind and room: clinics and hospitals stand on studded resilient flooring, a B2 suite's dry rooms on red stone, kind C homes on ribbed vinyl and their restrooms on terracotta, R1 offices on walnut, with every room keeping its floor role across the exterior's palette; E1 rooms lay ivory rugs and a B3 raised bar stands on a wood rim round a stone inset; kind A keeps its pale floors (E1 stone, E6 marble baths).
 
 0.41.0: a composed kind B building with five or more home floors stands its two-storey loft (Apartment 1702) on its first two: a front loft at least 15 m wide on both, its stair against the party wall rising to a mezzanine over a double-height lounge on the windows, and a duplex section publishes `stairWall`, the wall its stair stands against; a home floor's gallery longer than 24 m is broken by planter islands so no straight run is over 20 m; each office building turns through the office types in an order of its own and furnishes them in one of four variants, so neighbours rarely show the same plan at a level; desk pods stand or fall whole; the review script stands neighbouring buildings of one request (`--neighbours n`).
