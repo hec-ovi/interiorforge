@@ -266,6 +266,8 @@ function frontLoft(core: CoreBox, D: number, id: string, u0: number, u1: number,
       const bathOnParty = (bathAt === 'low') === (party === 'left');
       const kv0 = bathOnParty ? g1 + bd + .3 : g1 + 1.4;
       const kz: PlanRect = party === 'left' ? [u0, kv0, u0 + 5.4, kv0 + 7.0] : [u1 - 5.4, kv0, u1, kv0 + 7.0];
+      // kind B's kitchen and bar stand on a platform one step up (its B3 apartment's raised bar)
+      if (L.look === 'b') k.level(r, kz, .15);
       kitchen(k, r, kz, party, L.look, { island: width >= 13 });
       // the bed's head on the party wall below the kitchen, the lounge on the facade beside it
       const bz: PlanRect = party === 'left' ? [u0, kv0 + 7.2, u0 + 6.6, D - .1] : [u1 - 6.6, kv0 + 7.2, u1, D - .1];
