@@ -18,7 +18,7 @@ import { makeFrame, type UvRect } from '../uv.js';
  *  column 1.8 centred on the plate, v 8.2-12.7. */
 export const COMPOSED_CORE = {
   stair: { width: 4.5, depth: 10, back: 4.6 },
-  lifts: { back: 8.2, depth: 4.5, column: 1.8, widths: [3.9, 3.5] as const },
+  lifts: { back: 8.2, depth: 4.5, column: 1.8, widths: [3.9, 3.5] as const, shaft: 3.5 },
   /** the smallest plate a composed floor plans */
   minPlate: 26,
   /** the share of its bounding rectangle a plate with cut corners must fill */
@@ -118,9 +118,12 @@ export function composedCore(blueprint: CoreBlueprint, building: { type: Buildin
   const span = 2 * L.column + L.widths[0] + L.widths[1];
   const start = r3(box.w / 2 - .05 - span / 2);
   const v0 = L.back, v1 = L.back + L.depth;
+  // the columns run the core's whole depth; the shafts are the standard 3.5 m deep between them,
+  // their landings in a niche half a metre deep at either face
+  const n = (L.depth - L.shaft) / 2;
   const riser = rect(start, v0, start + L.column, v1);
-  const first = rect(start + L.column, v0, start + L.column + L.widths[0], v1);
-  const second = rect(start + L.column + L.widths[0], v0, start + L.column + L.widths[0] + L.widths[1], v1);
+  const first = rect(start + L.column, v0 + n, start + L.column + L.widths[0], v1 - n);
+  const second = rect(start + L.column + L.widths[0], v0 + n, start + L.column + L.widths[0] + L.widths[1], v1 - n);
   const stub = rect(start + span - L.column, v0, start + span, v1);
   const elevators = [first, second].sort((a, b) => a.u - b.u).map((r, i) => ({ id: `elev-${i}`, rect: r }));
   const all = [stairA, riser, stub, ...elevators.map(e => e.rect)];

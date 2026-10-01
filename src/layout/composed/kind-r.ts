@@ -151,7 +151,7 @@ export function officeR(c: Composer, core: CoreBox, plate: readonly [number, num
   }
   const exec = type === 'executive' ? c.room('executive', 'executive_office', [[W - 9.6, D - 8.6, W - 1.2, D - 1.2]], { style: 'r1' }) : null;
   const rooms = meetings.map(([id, rect]) => meetingRoom(c, id, rect));
-  const floorRoom = c.remainder('office', 'elevator_lobby', plate, core.cut, { style: 'r1' });
+  const floorRoom = c.remainder('office', 'elevator_lobby', plate, type === 'cowork' ? core.cutClosed : core.cut, { style: 'r1' });
   c.door(toilets, floorRoom, [(sw + l0) / 2, lv1], 1.0);
   c.door(service, floorRoom, [(l1 + Math.min(W - 5, l1 + 4)) / 2, lv1], 1.0);
   c.piece(service, { kind: 'shelf', at: [l1 + 2, lv0 + .3], size: [1.8, .5, 2.0], facing: 'front', fit: 'fit-industrial-storage-rack' });

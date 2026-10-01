@@ -66,10 +66,11 @@ it.each([0, 37])('publishes actual stair/lift volumes and keeps the roof outdoor
         const roof = result.layouts.crown!.npc.nav.roofAccess!, crown = result.building.floors.find(ref => ref.layout === 'crown')!;
         const outside = new Vector3(roof.entry[0], crown.elevation + roof.elevation + .02, roof.entry[1]);
         expect(inside(outside)).toBeUndefined();
-        expect(checked).toBeGreaterThan(200);
+        // a composed tower climbs one stair (the user's plan keeps a single stair against the wall)
+        expect(checked).toBeGreaterThan(core.stairB ? 200 : 150);
         for (const floor of floors.filter((floor: { floor: number }) => floor.floor < roof.floor)) {
             expect(floorOrphans(floor).rooms.filter((id: string) => id.startsWith('stair-'))).toEqual([]);
-            for (const which of ['a', 'b']) expect(rooms.find((room: { floor: number; roomId: string }) => room.floor === floor.floor && room.roomId === `stair-${which}`)?.flux).toBeGreaterThan(0);
+            for (const which of core.stairB ? ['a', 'b'] : ['a']) expect(rooms.find((room: { floor: number; roomId: string }) => room.floor === floor.floor && room.roomId === `stair-${which}`)?.flux).toBeGreaterThan(0);
         }
         for (const layout of Object.values(result.layouts)) {
             if (layout.floor.kind !== 'roof') for (const room of layout.floor.rooms.filter(room => room.id.startsWith('stair-'))) {
@@ -82,7 +83,8 @@ it.each([0, 37])('publishes actual stair/lift volumes and keeps the roof outdoor
             }
             if (layout.floor.kind === 'roof') expect(layout.floor.rooms.some(room => room.id.startsWith('elev-'))).toBe(false);
             else for (const elevator of core.elevators) {
-                const car = layout.placements.find(placement => placement.connector === elevator.id && placement.module === 'lift-car')!;
+                const car = layout.placements.find(placement => placement.connector === elevator.id
+                    && (placement.module === 'lift-car' || placement.module === 'lift-car-through'))!;
                 const own = layout.floor.lights.filter(light => light.room === elevator.id);
                 expect(own).toHaveLength(1);
                 expect(own[0]!.id).toBe(car.id);

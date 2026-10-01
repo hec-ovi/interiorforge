@@ -13,15 +13,24 @@ export interface CoreBox {
   /** stair, lift core (columns and shafts) in plan terms */
   stair: PlanRect;
   lifts: PlanRect;
-  /** every core rectangle in the frame, cut out of the floor's open rooms */
+  /** the landing niches between the columns at the core's front and back faces, plan terms */
+  frontNiches: PlanRect[];
+  backNiches: PlanRect[];
+  /** every core rectangle in the frame, cut out of the floor's open rooms; `cutClosed` adds the
+   *  back niches, sealed on a floor whose cars open forward only */
   cut: UvRect[];
+  cutClosed: UvRect[];
 }
 
 export function coreBox(c: Composer, cut: UvRect[]): CoreBox {
   const S = COMPOSED_CORE.stair, L = COMPOSED_CORE.lifts;
   const span = 2 * L.column + L.widths[0] + L.widths[1];
   const start = Math.round((c.W / 2 - .05 - span / 2) * 1000) / 1000;
-  return { stair: [0, S.back, S.width, S.back + S.depth], lifts: [start, L.back, start + span, L.back + L.depth], cut };
+  const n = (L.depth - L.shaft) / 2, s0 = start + L.column, s1 = start + span - L.column;
+  const frontNiches: PlanRect[] = [[s0, L.back + L.depth - n, s1, L.back + L.depth]];
+  const backNiches: PlanRect[] = [[s0, L.back, s1, L.back + n]];
+  return { stair: [0, S.back, S.width, S.back + S.depth], lifts: [start, L.back, start + span, L.back + L.depth],
+    frontNiches, backNiches, cut, cutClosed: [...cut, ...backNiches.map(r => c.rect(r))] };
 }
 
 /** The look a composed home floor wears: its furniture family and the styles of its private
@@ -184,7 +193,7 @@ function lofts(c: Composer, core: CoreBox, list: Loft[], galleryEnd = core.lifts
     const room = c.room(loft.id, 'studio_main', loft.rects, { style: L.home, unit, cut: loft.baths.map(b => c.rect(b.rect)) });
     return { loft, baths, room };
   });
-  const gallery = c.room('gallery', 'elevator_lobby', [[0, core.stair[3], core.stair[2], g1], [core.stair[2], lv1, galleryEnd, g1]], { style: L.common });
+  const gallery = c.room('gallery', 'elevator_lobby', [[0, core.stair[3], core.stair[2], g1], [core.stair[2], lv1, galleryEnd, g1], ...core.frontNiches], { style: L.common });
   for (const { loft, baths, room } of made) {
     for (const b of baths) {
       c.door(b.room, room, b.spec.door, .9);

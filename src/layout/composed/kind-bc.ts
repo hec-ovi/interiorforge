@@ -152,7 +152,7 @@ export function typicalC(c: Composer, core: CoreBox, variant: number): Composed 
     const room = c.room(h.id, 'studio_main', h.rects, { style: 'c7', unit: unit(i + 1), cut: [c.rect(h.wet)] });
     return { h, wet, room };
   });
-  const gallery = c.room('gallery', 'elevator_lobby', [[0, core.stair[3], sw, g1], [sw, lv1, W, g1], [l1, lv0, W, lv1]], { style: 'c2' });
+  const gallery = c.room('gallery', 'elevator_lobby', [[0, core.stair[3], sw, g1], [sw, lv1, W, g1], [l1, lv0, W, lv1], ...core.frontNiches], { style: 'c2' });
   for (const { h, wet, room } of made) {
     c.door(wet, room, h.wetDoor, .8);
     c.door(room, gallery, h.entry, 1.0);

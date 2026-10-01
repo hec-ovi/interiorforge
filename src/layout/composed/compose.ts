@@ -80,5 +80,6 @@ export function planComposedFloor(request: InteriorRequest, floor: BlueprintFloo
   }
   const dropped = c.settle(keep);
   if (dropped.length) templateTrace(`composed floor ${floor.index}: ${dropped.join('; ')}`);
-  return { rooms: result.rooms, sealed: [core.stub], rearLanding: result.rearLanding };
+  // a floor whose cars open forward only seals the niche behind each shaft
+  return { rooms: result.rooms, sealed: [core.stub, ...(result.rearLanding ? [] : box.backNiches.map(r => c.rect(r)))], rearLanding: result.rearLanding };
 }

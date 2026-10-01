@@ -157,11 +157,15 @@ export class Composer {
    *  clear as well. */
   settle(keep: readonly UvRect[] = []): string[] {
     const dropped: string[] = [];
-    const zones: UvRect[] = [...keep];
+    const zones: UvRect[] = [...keep], doorways: UvRect[] = [];
     for (const room of this.rooms) for (const door of room.doors) {
       const along = door.edge.startsWith('v'), c = along ? door.position![1] : door.position![0];
       const w = door.width + .3, depth = 1.1;
-      zones.push(along ? { u: door.at - w / 2, v: c - depth, lu: w, lv: 2 * depth } : { u: c - depth, v: door.at - w / 2, lu: 2 * depth, lv: w });
+      const zone = along ? { u: door.at - w / 2, v: c - depth, lu: w, lv: 2 * depth } : { u: c - depth, v: door.at - w / 2, lu: 2 * depth, lv: w };
+      zones.push(zone);
+      // a hung piece clears the door and its casing too: the doorway is open to 2.2 m
+      const cw = door.width + .5;
+      doorways.push(along ? { u: door.at - cw / 2, v: c - .3, lu: cw, lv: .6 } : { u: c - .3, v: door.at - cw / 2, lu: .6, lv: cw });
     }
     const hits = (a: UvRect, b: UvRect, pad = 0) => a.u < b.u + b.lu + pad - EPS && b.u < a.u + a.lu + pad - EPS
       && a.v < b.v + b.lv + pad - EPS && b.v < a.v + a.lv + pad - EPS;
@@ -172,6 +176,7 @@ export class Composer {
         const hung = (piece.elevation ?? 0) > .5;
         const why = !coversRect(room, fp) ? 'outside its room'
           : !hung && zones.some(z => hits(fp, z)) ? 'in a doorway or landing'
+          : hung && (piece.elevation ?? 0) < 2.3 && doorways.some(z => hits(fp, z)) ? 'over a doorway'
           : !hung && kept.some(k => hits(fp, k, -.02)) ? 'on another piece' : null;
         if (why) { dropped.push(`${piece.id} ${piece.kind} ${why}`); return false; }
         if (!hung) kept.push(fp);
